@@ -1,0 +1,155 @@
+import SwiftUI
+import SwiftData
+
+struct ContentView: View {
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @Environment(AppState.self) private var appState
+    @Environment(SyncEngine.self) private var syncEngine
+    @Environment(AdManager.self) private var adManager
+    @Environment(\.modelContext) private var modelContext
+
+    @State private var hasSeededTags = false
+    @State private var showSplash = true
+    @State private var splashOffset: CGSize = .zero
+    @State private var splashScale: CGFloat = 1.0
+    @State private var splashOpacity: Double = 1.0
+
+    var body: some View {
+        ZStack {
+            Group {
+                if !hasCompletedOnboarding {
+                    OnboardingView()
+                } else {
+                    mainApp
+                }
+            }
+
+            if showSplash && hasCompletedOnboarding {
+                splashOverlay
+                    .offset(splashOffset)
+                    .scaleEffect(splashScale)
+                    .opacity(splashOpacity)
+                    .allowsHitTesting(false)
+            }
+        }
+        .preferredColorScheme(.light)
+        .onAppear {
+            seedDefaultTags()
+            adManager.configure(isPro: appState.isPro)
+            dismissSplash()
+        }
+        .onChange(of: appState.subscriptionStatus) { _, _ in
+            adManager.configure(isPro: appState.isPro)
+        }
+    }
+
+    // MARK: - Splash Overlay
+
+    private var splashOverlay: some View {
+        ZStack {
+            Color("LaunchBackground")
+                .ignoresSafeArea()
+            Image("LaunchLogo")
+                .resizable()
+                .scaledToFit()
+                .padding(.horizontal, 80)
+        }
+    }
+
+    private func dismissSplash() {
+        guard showSplash else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            withAnimation(.easeIn(duration: 0.5)) {
+                splashOffset = CGSize(width: -120, height: 300)
+                splashScale = 0.4
+                splashOpacity = 0.0
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                showSplash = false
+            }
+        }
+    }
+
+    // MARK: - Main App
+
+    private var mainApp: some View {
+        @Bindable var appState = appState
+
+        return ZStack {
+            Color.bgPrimary
+                .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                HomeView()
+                if !appState.isPro {
+                    BannerAdView()
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .animation(.easeInOut(duration: 0.3), value: appState.isPro)
+        }
+        .sheet(isPresented: $appState.showingSettings) {
+            SettingsView()
+        }
+        .sheet(isPresented: $appState.showingExport) {
+            ExportView()
+        }
+        .onChange(of: syncEngine.isOnline) { _, online in
+            appState.isOffline = !online
+        }
+    }
+
+    // MARK: - Setup
+
+    private func seedDefaultTags() {
+        guard !hasSeededTags else { return }
+        hasSeededTags = true
+
+        let descriptor = FetchDescriptor<TagModel>()
+        let existingTags = (try? modelContext.fetch(descriptor)) ?? []
+
+        if existingTags.isEmpty {
+            for def in TagModel.defaults {
+                let tag = TagModel(userId: nil, name: def.name, colorId: def.colorId, sortOrder: def.sortOrder)
+                modelContext.insert(tag)
+            }
+            do {
+                try modelContext.save()
+                print("[Tally] Default tags seeded.")
+            } catch {
+                print("[Tally] ERROR seeding tags: \(error)")
+            }
+        } else {
+            migrateDefaultTagColors(existingTags)
+        }
+    }
+
+    private func migrateDefaultTagColors(_ tags: [TagModel]) {
+        let expectedColors = Dictionary(uniqueKeysWithValues: TagModel.defaults.map { ($0.name, $0.colorId) })
+        var changed = false
+
+        for tag in tags {
+            if let expected = expectedColors[tag.name], tag.colorId != expected {
+                tag.colorId = expected
+                changed = true
+            }
+        }
+
+        if changed {
+            do {
+                try modelContext.save()
+                print("[Tally] Migrated default tag colors.")
+            } catch {
+                print("[Tally] ERROR migrating tag colors: \(error)")
+            }
+        }
+    }
+}
+
+#Preview {
+    ContentView()
+        .modelContainer(for: [ExpenseModel.self, TagModel.self], inMemory: true)
+        .environment(AppState())
+        .environment(SyncEngine())
+        .environment(AdManager())
+}
