@@ -83,18 +83,8 @@ struct OnboardingView: View {
             pageIndicator
 
             if currentPage == pages.count - 1 {
-                VStack(spacing: Spacing.sm) {
-                    PrimaryButton(title: "Get started") {
-                        withAnimation { showingCurrencySetup = true }
-                    }
-
-                    Button {
-                        withAnimation { showingCurrencySetup = true }
-                    } label: {
-                        Text("Continue without account")
-                            .font(Fonts.body(15))
-                            .foregroundStyle(Color.textSecondary)
-                    }
+                PrimaryButton(title: "Get started") {
+                    withAnimation { showingCurrencySetup = true }
                 }
             } else {
                 PrimaryButton(title: "Next") {

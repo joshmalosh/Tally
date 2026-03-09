@@ -440,9 +440,13 @@ struct TagPickerSheet: View {
         modelContext.insert(tag)
         do {
             try modelContext.save()
+            #if DEBUG
             print("[Tally] Tag saved: \(tag.name) (id: \(tag.id), parent: \(tag.parentId ?? "none"))")
+            #endif
         } catch {
+            #if DEBUG
             print("[Tally] ERROR saving tag: \(error)")
+            #endif
         }
 
         selectedTagIds.append(tag.id)
@@ -468,9 +472,13 @@ struct TagPickerSheet: View {
         modelContext.insert(group)
         do {
             try modelContext.save()
+            #if DEBUG
             print("[Tally] Group created: \(group.name) (id: \(group.id))")
+            #endif
         } catch {
+            #if DEBUG
             print("[Tally] ERROR creating group: \(error)")
+            #endif
         }
 
         withAnimation(.easeInOut(duration: 0.2)) {

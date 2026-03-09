@@ -48,8 +48,9 @@ enum ExpenseCalculations {
         }
     }
 
-    static func generateCSV(expenses: [Expense], tags: [Tag]) -> String {
-        let header = "date,description,merchant,amount,currency,groups,tags,notes,attachment_filename,source,created_at"
+    /// Generate CSV content. `receiptFilenames` maps expense ID → filename in the receipts folder.
+    static func generateCSV(expenses: [Expense], tags: [Tag], receiptFilenames: [String: String] = [:]) -> String {
+        let header = "date,description,merchant,amount,currency,groups,tags,notes,receipt,created_at"
         let tagMap = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0) })
 
         let dateFormatter = DateFormatter()
@@ -71,6 +72,8 @@ enum ExpenseCalculations {
             }
             let groupField = groupNames.joined(separator: "; ")
 
+            let receiptFile = receiptFilenames[expense.id] ?? ""
+
             let fields = [
                 dateFormatter.string(from: expense.date),
                 csvEscape(expense.description ?? ""),
@@ -80,8 +83,7 @@ enum ExpenseCalculations {
                 csvEscape(groupField),
                 csvEscape(tagNames),
                 csvEscape(expense.notes ?? ""),
-                expense.attachmentKey ?? "",
-                expense.source.rawValue,
+                receiptFile,
                 isoFormatter.string(from: expense.createdAt),
             ]
             return fields.joined(separator: ",")

@@ -27,7 +27,9 @@ struct TallyApp: App {
                 for url in urls {
                     try? FileManager.default.removeItem(at: url)
                 }
+                #if DEBUG
                 print("[Tally] Deleted old database to resolve schema mismatch.")
+                #endif
             }
 
             do {
@@ -43,7 +45,9 @@ struct TallyApp: App {
                 return try ModelContainer(for: schema, configurations: [config])
             } catch {
                 if !deleteFirst {
+                    #if DEBUG
                     print("[Tally] ModelContainer failed: \(error). Recreating store...")
+                    #endif
                     return makeContainer(deleteFirst: true)
                 }
                 fatalError("[Tally] Could not create ModelContainer: \(error)")
@@ -51,7 +55,9 @@ struct TallyApp: App {
         }
 
         self.modelContainer = makeContainer()
+        #if DEBUG
         print("[Tally] ModelContainer created successfully (CloudKit: \(Self.cloudKitEnabled))")
+        #endif
     }
 
     var body: some Scene {

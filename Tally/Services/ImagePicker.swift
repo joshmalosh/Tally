@@ -34,11 +34,12 @@ struct CameraPicker: UIViewControllerRepresentable {
 
 struct PhotosPicker: UIViewControllerRepresentable {
     @Binding var image: UIImage?
+    var onCancel: (() -> Void)?
     @Environment(\.dismiss) private var dismiss
 
     func makeUIViewController(context: Context) -> PHPickerViewController {
         var config = PHPickerConfiguration()
-        config.selectionLimit = 1
+        config.selectionLimit = 0
         config.filter = .images
         let picker = PHPickerViewController(configuration: config)
         picker.delegate = context.coordinator
@@ -57,6 +58,7 @@ struct PhotosPicker: UIViewControllerRepresentable {
         func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
             guard let provider = results.first?.itemProvider,
                   provider.canLoadObject(ofClass: UIImage.self) else {
+                parent.onCancel?()
                 parent.dismiss()
                 return
             }

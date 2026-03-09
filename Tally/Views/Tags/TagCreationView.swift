@@ -195,9 +195,13 @@ struct TagCreationView: View {
             if !isGroupMode { tag.parentId = selectedParentId }
             do {
                 try modelContext.save()
+                #if DEBUG
                 print("[Tally] Tag updated: \(trimmed)")
+                #endif
             } catch {
+                #if DEBUG
                 print("[Tally] ERROR updating tag: \(error)")
+                #endif
             }
             dismiss()
         } else {
@@ -213,9 +217,13 @@ struct TagCreationView: View {
             modelContext.insert(tag)
             do {
                 try modelContext.save()
+                #if DEBUG
                 print("[Tally] Tag created: \(trimmed) (id: \(tag.id), parent: \(tag.parentId ?? "none"))")
+                #endif
             } catch {
+                #if DEBUG
                 print("[Tally] ERROR creating tag: \(error)")
+                #endif
             }
             let savedId = tag.id
             dismiss()

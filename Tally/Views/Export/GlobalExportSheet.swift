@@ -5,8 +5,15 @@ struct GlobalExportSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
     @Environment(\.modelContext) private var modelContext
-    @Query(sort: \ExpenseModel.date, order: .reverse) private var allExpenses: [ExpenseModel]
+    @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil }, sort: \ExpenseModel.date, order: .reverse) private var activeExpenses: [ExpenseModel]
     @Query(sort: \TagModel.sortOrder) private var allTags: [TagModel]
+
+    private static let monthYearFormatter: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "MMM yyyy"; return f
+    }()
+    private static let monthDayFormatter: DateFormatter = {
+        let f = DateFormatter(); f.dateFormat = "MMM d"; return f
+    }()
 
     @State private var periodFilter: PeriodFilter = .allTime
     @State private var isExporting = false
@@ -16,10 +23,6 @@ struct GlobalExportSheet: View {
     @State private var showingProUpsell = false
     @State private var proFeatureName = ""
     @State private var showingTagExportPicker = false
-
-    private var activeExpenses: [ExpenseModel] {
-        allExpenses.filter { $0.deletedAt == nil }
-    }
 
     private var periodExpenses: [ExpenseModel] {
         switch periodFilter {
@@ -46,9 +49,7 @@ struct GlobalExportSheet: View {
         switch periodFilter {
         case .allTime:
             if let earliest = activeExpenses.last?.date {
-                let fmt = DateFormatter()
-                fmt.dateFormat = "MMM yyyy"
-                return "Since \(fmt.string(from: earliest))"
+                return "Since \(Self.monthYearFormatter.string(from: earliest))"
             }
             return "All expenses"
         case .thisYear:
@@ -57,53 +58,56 @@ struct GlobalExportSheet: View {
         case .thisMonth:
             let now = Date()
             let cal = Calendar.current
-            let start = cal.date(from: cal.dateComponents([.year, .month], from: now))!
-            let end = cal.date(byAdding: DateComponents(month: 1, day: -1), to: start)!
-            let fmt = DateFormatter()
-            fmt.dateFormat = "MMM d"
-            return "\(fmt.string(from: start)) – \(fmt.string(from: end))"
+            guard let start = cal.date(from: cal.dateComponents([.year, .month], from: now)),
+                  let end = cal.date(byAdding: DateComponents(month: 1, day: -1), to: start)
+            else { return "This month" }
+            return "\(Self.monthDayFormatter.string(from: start)) – \(Self.monthDayFormatter.string(from: end))"
         }
     }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        summaryHeader
-                            .padding(.bottom, Spacing.lg)
+                if activeExpenses.isEmpty {
+                    emptyState
+                } else {
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            summaryHeader
+                                .padding(.bottom, Spacing.lg)
 
-                        VStack(spacing: Spacing.xs) {
-                            exportOption(
-                                icon: "tablecells",
-                                title: "Export as CSV",
-                                subtitle: "\(expenseCount) expenses \u{2022} \(periodFilter.label)",
-                                proOnly: false
-                            ) {
-                                exportCSV(expenses: periodExpenses)
-                            }
+                            VStack(spacing: Spacing.xs) {
+                                exportOption(
+                                    icon: "tablecells",
+                                    title: "Export as CSV",
+                                    subtitle: "\(expenseCount) expenses \u{2022} \(periodFilter.label)",
+                                    proOnly: false
+                                ) {
+                                    exportCSV(expenses: periodExpenses)
+                                }
 
-                            exportOption(
-                                icon: "doc.richtext",
-                                title: "Export as PDF",
-                                subtitle: "Formatted report with summary",
-                                proOnly: true
-                            ) {
-                                exportPDFSummary()
-                            }
+                                exportOption(
+                                    icon: "doc.richtext",
+                                    title: "Export as PDF",
+                                    subtitle: "Formatted report with summary",
+                                    proOnly: true
+                                ) {
+                                    exportPDFSummary()
+                                }
 
-                            exportOption(
-                                icon: "tag",
-                                title: "Export by tag/group",
-                                subtitle: "Filter by category, then export",
-                                proOnly: true
-                            ) {
-                                showingTagExportPicker = true
+                                exportOption(
+                                    icon: "tag",
+                                    title: "Export by tag/group",
+                                    subtitle: "Filter by category, then export",
+                                    proOnly: true
+                                ) {
+                                    showingTagExportPicker = true
+                                }
                             }
                         }
+                        .padding(.horizontal, Spacing.lg)
+                        .padding(.top, Spacing.md)
                     }
-                    .padding(.horizontal, Spacing.lg)
-                    .padding(.top, Spacing.md)
                 }
             }
             .background(Color.bgPrimary)
@@ -139,6 +143,33 @@ struct GlobalExportSheet: View {
                         .padding(.bottom, Spacing.lg)
                 }
             }
+        }
+    }
+
+    // MARK: - Empty State
+
+    private var emptyState: some View {
+        VStack(spacing: Spacing.lg) {
+            Spacer()
+
+            Image(systemName: "square.and.arrow.up")
+                .font(.system(size: 48))
+                .foregroundStyle(Color.textMuted)
+
+            VStack(spacing: Spacing.sm) {
+                Text("Nothing to export")
+                    .font(Fonts.headline(20))
+                    .foregroundStyle(Color.textPrimary)
+
+                Text("Add your first expense, then come back here to export.")
+                    .font(Fonts.body(15))
+                    .foregroundStyle(Color.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+            }
+            .padding(.horizontal, Spacing.xl)
+
+            Spacer()
         }
     }
 
@@ -278,52 +309,289 @@ struct GlobalExportSheet: View {
 
         isExporting = true
 
-        let domainExpenses: [Expense] = expenses.map { model in
-            Expense(
-                id: model.id,
-                userId: model.userId,
-                amountCents: model.amountCents,
-                currency: model.currency,
-                date: model.date,
-                description: model.expenseDescription,
-                merchant: model.merchant,
-                tagIds: model.resolvedTagIds,
-                notes: model.notes,
-                attachmentKey: model.attachmentKey,
-                source: ExpenseSource(rawValue: model.source) ?? .manual,
-                createdAt: model.createdAt,
-                updatedAt: model.updatedAt,
-                deletedAt: nil
-            )
+        let domainTags: [Tag] = allTags.map {
+            Tag(id: $0.id, userId: $0.userId, name: $0.name, colorId: $0.colorId, icon: $0.icon, sortOrder: $0.sortOrder, parentId: $0.parentId)
         }
+
+        guard let fileURL = ExpenseExportService.buildCSVExport(
+            expenses: expenses,
+            tags: domainTags,
+            filenamePrefix: "tally_expenses"
+        ) else {
+            isExporting = false
+            showToast("Export failed")
+            return
+        }
+
+        appState.recordCSVExport()
+        isExporting = false
+        presentShareSheet(items: [fileURL])
+    }
+
+    private func exportPDFSummary() {
+        guard appState.isPro else {
+            proFeatureName = "PDF export"
+            showingProUpsell = true
+            return
+        }
+        showToast("PDF export coming soon")
+    }
+
+    private func presentShareSheet(items: [Any]) {
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let rootVC = windowScene.windows.first(where: \.isKeyWindow)?.rootViewController else { return }
+
+        var topVC = rootVC
+        while let presented = topVC.presentedViewController {
+            topVC = presented
+        }
+
+        let vc = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        topVC.present(vc, animated: true)
+    }
+
+    // MARK: - Toast
+
+    private func showToast(_ message: String) {
+        toastMessage = message
+        withAnimation(.easeInOut(duration: 0.2)) {
+            showingToast = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                showingToast = false
+            }
+        }
+    }
+
+    private var toastView: some View {
+        Text(toastMessage)
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(.white)
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.smd)
+            .background(Color.textPrimary.opacity(0.85))
+            .clipShape(RoundedRectangle(cornerRadius: Radius.pill))
+    }
+}
+
+// MARK: - Selected Export Sheet
+
+struct SelectedExportSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(AppState.self) private var appState
+    @Query(sort: \TagModel.sortOrder) private var allTags: [TagModel]
+
+    let expenses: [ExpenseModel]
+    var filterLabel: String = "Selected"
+
+    @State private var isExporting = false
+    @State private var showingToast = false
+    @State private var toastMessage = ""
+    @State private var showingExportLimit = false
+    @State private var showingProUpsell = false
+    @State private var proFeatureName = ""
+
+    private var expenseCount: Int { expenses.count }
+
+    private var totalCents: Int {
+        expenses.reduce(0) { $0 + $1.amountCents }
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 0) {
+                        summaryHeader
+                            .padding(.bottom, Spacing.lg)
+
+                        VStack(spacing: Spacing.xs) {
+                            exportOption(
+                                icon: "tablecells",
+                                title: "Export as CSV",
+                                subtitle: "\(expenseCount) expense\(expenseCount == 1 ? "" : "s") \u{2022} \(filterLabel)",
+                                proOnly: false
+                            ) {
+                                exportCSV()
+                            }
+
+                            exportOption(
+                                icon: "doc.richtext",
+                                title: "Export as PDF",
+                                subtitle: "Formatted report with summary",
+                                proOnly: true
+                            ) {
+                                exportPDF()
+                            }
+                        }
+                    }
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.top, Spacing.md)
+                }
+            }
+            .background(Color.bgPrimary)
+            .navigationTitle("Export")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(Color.textSecondary)
+                }
+            }
+            .sheet(isPresented: $showingExportLimit) {
+                ExportLimitSheet()
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showingProUpsell) {
+                ProFeatureSheet(featureName: proFeatureName)
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
+            }
+            .overlay(alignment: .bottom) {
+                if showingToast {
+                    toastView
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .padding(.bottom, Spacing.lg)
+                }
+            }
+        }
+    }
+
+    // MARK: - Summary
+
+    private var summaryHeader: some View {
+        VStack(spacing: Spacing.sm) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Total")
+                        .font(Fonts.caption(12))
+                        .foregroundStyle(Color.textSecondary)
+                    Text(CurrencyFormatter.shared.format(cents: totalCents, currencyCode: appState.defaultCurrency))
+                        .font(Fonts.headline(22))
+                        .foregroundStyle(Color.textPrimary)
+                }
+
+                Spacer()
+
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("Expenses")
+                        .font(Fonts.caption(12))
+                        .foregroundStyle(Color.textSecondary)
+                    Text("\(expenseCount)")
+                        .font(Fonts.headline(22))
+                        .foregroundStyle(Color.textPrimary)
+                }
+            }
+
+            HStack {
+                Text(filterLabel)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color.textBody)
+                    .padding(.horizontal, Spacing.smd)
+                    .padding(.vertical, 6)
+                    .background(Color.chipInactiveBg)
+                    .clipShape(Capsule())
+
+                Spacer()
+            }
+        }
+        .padding(Spacing.md)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.md)
+                .stroke(Color.borderColor, lineWidth: 1)
+        )
+    }
+
+    // MARK: - Option Row
+
+    private func exportOption(
+        icon: String,
+        title: String,
+        subtitle: String,
+        proOnly: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        let locked = proOnly && !appState.isPro
+
+        return Button {
+            if locked {
+                proFeatureName = title
+                showingProUpsell = true
+                return
+            }
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            action()
+        } label: {
+            HStack(spacing: Spacing.smd) {
+                Image(systemName: icon)
+                    .font(.system(size: 18))
+                    .foregroundStyle(locked ? Color.textMuted : Color.brandPrimary)
+                    .frame(width: 24)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(title)
+                            .font(Fonts.body(16))
+                            .foregroundStyle(locked ? Color.textMuted : Color.textPrimary)
+
+                        if locked {
+                            Image(systemName: "lock.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Color.textMuted)
+                        }
+                    }
+                    Text(locked ? "Pro feature" : subtitle)
+                        .font(Fonts.caption(13))
+                        .foregroundStyle(Color.textSecondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color.textMuted)
+            }
+            .padding(.horizontal, Spacing.md)
+            .frame(height: 56)
+        }
+        .buttonStyle(.plain)
+        .opacity(locked ? 0.6 : 1)
+    }
+
+    // MARK: - Export Actions
+
+    private func exportCSV() {
+        guard appState.canExportCSV else {
+            showingExportLimit = true
+            return
+        }
+
+        isExporting = true
 
         let domainTags: [Tag] = allTags.map {
             Tag(id: $0.id, userId: $0.userId, name: $0.name, colorId: $0.colorId, icon: $0.icon, sortOrder: $0.sortOrder, parentId: $0.parentId)
         }
 
-        let csv = ExpenseCalculations.generateCSV(
-            expenses: domainExpenses,
-            tags: domainTags
-        )
-
-        let tempDir = FileManager.default.temporaryDirectory
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
-        let filename = "tally_expenses_\(dateFormatter.string(from: Date())).csv"
-        let fileURL = tempDir.appendingPathComponent(filename)
-
-        do {
-            try csv.write(to: fileURL, atomically: true, encoding: .utf8)
-            appState.recordCSVExport()
-            isExporting = false
-            presentShareSheet(items: [fileURL])
-        } catch {
+        guard let fileURL = ExpenseExportService.buildCSVExport(
+            expenses: expenses,
+            tags: domainTags,
+            filenamePrefix: "tally_selected"
+        ) else {
             isExporting = false
             showToast("Export failed")
+            return
         }
+
+        appState.recordCSVExport()
+        isExporting = false
+        presentShareSheet(items: [fileURL])
     }
 
-    private func exportPDFSummary() {
+    private func exportPDF() {
         guard appState.isPro else {
             proFeatureName = "PDF export"
             showingProUpsell = true
@@ -421,6 +689,30 @@ struct TagExportPickerSheet: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                if standaloneTags.isEmpty && groupTags.isEmpty {
+                    VStack(spacing: Spacing.lg) {
+                        Spacer()
+
+                        Image(systemName: "tag")
+                            .font(.system(size: 48))
+                            .foregroundStyle(Color.textMuted)
+
+                        VStack(spacing: Spacing.sm) {
+                            Text("No tags yet")
+                                .font(Fonts.headline(20))
+                                .foregroundStyle(Color.textPrimary)
+
+                            Text("Create tags in Settings to filter and export expenses by category.")
+                                .font(Fonts.body(15))
+                                .foregroundStyle(Color.textSecondary)
+                                .multilineTextAlignment(.center)
+                                .lineSpacing(4)
+                        }
+                        .padding(.horizontal, Spacing.xl)
+
+                        Spacer()
+                    }
+                } else {
                 ScrollView {
                     VStack(spacing: Spacing.md) {
                         if !standaloneTags.isEmpty {
@@ -510,6 +802,7 @@ struct TagExportPickerSheet: View {
                     .padding(Spacing.md)
                 }
                 .background(Color.bgPrimary)
+                }
             }
             .background(Color.bgPrimary)
             .navigationTitle("Export by tag/group")
@@ -586,50 +879,25 @@ struct TagExportPickerSheet: View {
 
         isExporting = true
 
-        let domainExpenses: [Expense] = matchingExpenses.map { model in
-            Expense(
-                id: model.id,
-                userId: model.userId,
-                amountCents: model.amountCents,
-                currency: model.currency,
-                date: model.date,
-                description: model.expenseDescription,
-                merchant: model.merchant,
-                tagIds: model.resolvedTagIds,
-                notes: model.notes,
-                attachmentKey: model.attachmentKey,
-                source: ExpenseSource(rawValue: model.source) ?? .manual,
-                createdAt: model.createdAt,
-                updatedAt: model.updatedAt,
-                deletedAt: nil
-            )
-        }
-
         let domainTags: [Tag] = tags.map {
             Tag(id: $0.id, userId: $0.userId, name: $0.name, colorId: $0.colorId, icon: $0.icon, sortOrder: $0.sortOrder, parentId: $0.parentId)
         }
 
-        let csv = ExpenseCalculations.generateCSV(
-            expenses: domainExpenses,
-            tags: domainTags
-        )
-
-        let tempDir = FileManager.default.temporaryDirectory
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd"
         let selectedNames = selectedIds.compactMap { id in tags.first { $0.id == id }?.name }
         let tagSuffix = selectedNames.prefix(3).joined(separator: "_").replacingOccurrences(of: " ", with: "-")
-        let filename = "tally_\(tagSuffix)_\(dateFormatter.string(from: Date())).csv"
-        let fileURL = tempDir.appendingPathComponent(filename)
 
-        do {
-            try csv.write(to: fileURL, atomically: true, encoding: .utf8)
-            appState.recordCSVExport()
+        guard let fileURL = ExpenseExportService.buildCSVExport(
+            expenses: matchingExpenses,
+            tags: domainTags,
+            filenamePrefix: "tally_\(tagSuffix)"
+        ) else {
             isExporting = false
-            presentShareSheet(items: [fileURL])
-        } catch {
-            isExporting = false
+            return
         }
+
+        appState.recordCSVExport()
+        isExporting = false
+        presentShareSheet(items: [fileURL])
     }
 
     private func presentShareSheet(items: [Any]) {

@@ -7,8 +7,10 @@ struct SupportedCurrency: Identifiable {
     var id: String { code }
 }
 
-struct CurrencyFormatter {
+final class CurrencyFormatter {
     static let shared = CurrencyFormatter()
+
+    private var formatterCache: [String: NumberFormatter] = [:]
 
     static let commonCurrencyCodes: Set<String> = ["USD", "EUR", "GBP", "AUD", "CAD", "JPY"]
 
@@ -47,7 +49,8 @@ struct CurrencyFormatter {
         "CLP": "es_CL",
     ]
 
-    private func makeFormatter(currencyCode: String) -> NumberFormatter {
+    private func formatter(for currencyCode: String) -> NumberFormatter {
+        if let cached = formatterCache[currencyCode] { return cached }
         let f = NumberFormatter()
         f.numberStyle = .currency
         f.currencyCode = currencyCode
@@ -59,22 +62,23 @@ struct CurrencyFormatter {
         let decimalPlaces = currencyCodesWithNoDecimals.contains(currencyCode) ? 0 : 2
         f.minimumFractionDigits = decimalPlaces
         f.maximumFractionDigits = decimalPlaces
+        formatterCache[currencyCode] = f
         return f
     }
 
     func format(cents: Int, currencyCode: String = "USD") -> String {
-        let formatter = makeFormatter(currencyCode: currencyCode)
+        let fmt = formatter(for: currencyCode)
         let divisor = currencyCodesWithNoDecimals.contains(currencyCode) ? 1.0 : 100.0
         let amount = Double(cents) / divisor
-        return formatter.string(from: NSNumber(value: amount)) ?? "$0.00"
+        return fmt.string(from: NSNumber(value: amount)) ?? "$0.00"
     }
 
     func formatCompact(cents: Int, currencyCode: String = "USD") -> String {
         let divisor = currencyCodesWithNoDecimals.contains(currencyCode) ? 1.0 : 100.0
         let amount = Double(cents) / divisor
 
-        let formatter = makeFormatter(currencyCode: currencyCode)
-        let symbol = formatter.currencySymbol ?? "$"
+        let fmt = formatter(for: currencyCode)
+        let symbol = fmt.currencySymbol ?? "$"
 
         if amount >= 1_000_000 {
             return String(format: "\(symbol)%.1fM", amount / 1_000_000)
@@ -85,8 +89,7 @@ struct CurrencyFormatter {
     }
 
     func symbol(for currencyCode: String) -> String {
-        let formatter = makeFormatter(currencyCode: currencyCode)
-        return formatter.currencySymbol ?? currencyCode
+        formatter(for: currencyCode).currencySymbol ?? currencyCode
     }
 
     func usesDecimals(for currencyCode: String) -> Bool {

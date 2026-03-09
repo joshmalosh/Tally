@@ -299,7 +299,9 @@ final class ExpenseCalculationsTests: XCTestCase {
         XCTAssertTrue(lines[1].contains("Meals"))
         XCTAssertTrue(lines[1].contains("Lunch"))
         XCTAssertTrue(lines[1].contains("Cafe"))
-        XCTAssertTrue(lines[1].contains("manual"))
+        XCTAssertFalse(lines[0].contains("source"))
+        XCTAssertFalse(lines[0].contains("attachment_filename"))
+        XCTAssertTrue(lines[0].contains("receipt"))
     }
 
     func testGenerateCSV_sortsByDateAscending() {
@@ -417,6 +419,42 @@ final class ExpenseCalculationsTests: XCTestCase {
         let csv = ExpenseCalculations.generateCSV(expenses: [expense], tags: tags)
         XCTAssertTrue(csv.contains("Office Renovation; Travel"))
         XCTAssertTrue(csv.contains("Projects"))
+    }
+
+    func testGenerateCSV_receiptFilenameMapping() {
+        let date = TestData.date(year: 2026, month: 2, day: 15)
+        let expense = TestData.expense(
+            id: "exp-1",
+            amountCents: 1500,
+            date: date,
+            description: "Coffee",
+            tagIds: ["tag-1"],
+            attachmentKey: "exp-1.jpg",
+            createdAt: date
+        )
+        let tags = [TestData.tag(id: "tag-1", name: "Meals")]
+        let receiptFilenames = ["exp-1": "receipts/001_coffee.jpg"]
+        let csv = ExpenseCalculations.generateCSV(expenses: [expense], tags: tags, receiptFilenames: receiptFilenames)
+        let lines = csv.components(separatedBy: "\n")
+        XCTAssertTrue(lines[1].contains("receipts/001_coffee.jpg"))
+    }
+
+    func testGenerateCSV_noReceiptMapping_emptyColumn() {
+        let date = TestData.date(year: 2026, month: 2, day: 15)
+        let expense = TestData.expense(
+            id: "exp-1",
+            amountCents: 1500,
+            date: date,
+            description: "Coffee",
+            tagIds: ["tag-1"],
+            createdAt: date
+        )
+        let tags = [TestData.tag(id: "tag-1", name: "Meals")]
+        let csv = ExpenseCalculations.generateCSV(expenses: [expense], tags: tags)
+        let lines = csv.components(separatedBy: "\n")
+        let columns = lines[1].components(separatedBy: ",")
+        let receiptIndex = lines[0].components(separatedBy: ",").firstIndex(of: "receipt")!
+        XCTAssertEqual(columns[receiptIndex], "")
     }
 
     func testGenerateCSV_amountFormatting() {

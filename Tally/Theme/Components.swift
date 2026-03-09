@@ -104,6 +104,7 @@ struct TagPill: View {
     let tagColor: TagColor
     let isActive: Bool
     var isGroup: Bool = false
+    var isExpanded: Bool = false
 
     var body: some View {
         HStack(spacing: 4) {
@@ -113,6 +114,8 @@ struct TagPill: View {
             if isGroup {
                 Image(systemName: "chevron.down")
                     .font(.system(size: 9, weight: .semibold))
+                    .rotationEffect(.degrees(isExpanded ? -180 : 0))
+                    .animation(.easeInOut(duration: 0.2), value: isExpanded)
             }
         }
         .foregroundStyle(isActive ? Color.chipActiveText : Color.chipInactiveText)

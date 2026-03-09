@@ -58,13 +58,13 @@ struct ContentView: View {
 
     private func dismissSplash() {
         guard showSplash else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            withAnimation(.easeIn(duration: 0.5)) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            withAnimation(.easeIn(duration: 0.35)) {
                 splashOffset = CGSize(width: -120, height: 300)
                 splashScale = 0.4
                 splashOpacity = 0.0
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                 showSplash = false
             }
         }
@@ -115,9 +115,13 @@ struct ContentView: View {
             }
             do {
                 try modelContext.save()
+                #if DEBUG
                 print("[Tally] Default tags seeded.")
+                #endif
             } catch {
+                #if DEBUG
                 print("[Tally] ERROR seeding tags: \(error)")
+                #endif
             }
         } else {
             migrateDefaultTagColors(existingTags)
@@ -138,9 +142,13 @@ struct ContentView: View {
         if changed {
             do {
                 try modelContext.save()
+                #if DEBUG
                 print("[Tally] Migrated default tag colors.")
+                #endif
             } catch {
+                #if DEBUG
                 print("[Tally] ERROR migrating tag colors: \(error)")
+                #endif
             }
         }
     }

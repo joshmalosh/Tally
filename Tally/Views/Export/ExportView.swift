@@ -4,16 +4,12 @@ import SwiftData
 struct ExportView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
-    @Query(sort: \ExpenseModel.date) private var allExpenses: [ExpenseModel]
+    @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil }, sort: \ExpenseModel.date) private var activeExpenses: [ExpenseModel]
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
-
-    private var activeExpenses: [ExpenseModel] {
-        allExpenses.filter { $0.deletedAt == nil }
-    }
 
     @State private var startDate: Date = {
         let cal = Calendar.current
-        return cal.date(from: cal.dateComponents([.year, .month], from: Date()))!
+        return cal.date(from: cal.dateComponents([.year, .month], from: Date())) ?? Date()
     }()
     @State private var endDate: Date = Date()
     @State private var selectedFormat: ExportFormat = .csv
@@ -121,7 +117,7 @@ struct ExportView: View {
                 formatOption(
                     format: .pdf,
                     title: "PDF",
-                    subtitle: "Formatted expense report",
+                    subtitle: "Coming soon",
                     proOnly: true
                 )
             }
@@ -211,13 +207,26 @@ struct ExportView: View {
     private var exportButton: some View {
         VStack(spacing: 0) {
             Divider()
-            PrimaryButton(
-                title: isExporting ? "Exporting..." : "Export \(expenseCount) expenses",
-                action: { performExport() },
-                isLoading: isExporting
-            )
-            .disabled(expenseCount == 0 || isExporting)
-            .padding(Spacing.md)
+            if expenseCount == 0 {
+                VStack(spacing: Spacing.sm) {
+                    Text("No expenses in this date range")
+                        .font(Fonts.body(15))
+                        .foregroundStyle(Color.textSecondary)
+                    Text("Adjust the dates above or add an expense first.")
+                        .font(Fonts.caption(13))
+                        .foregroundStyle(Color.textMuted)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(Spacing.lg)
+            } else {
+                PrimaryButton(
+                    title: isExporting ? "Exporting..." : "Export \(expenseCount) expenses",
+                    action: { performExport() },
+                    isLoading: isExporting
+                )
+                .disabled(isExporting)
+                .padding(Spacing.md)
+            }
         }
         .background(Color.bgPrimary)
     }
@@ -246,52 +255,29 @@ struct ExportView: View {
     private func executeCSVExport() {
         isExporting = true
 
-        let domainExpenses: [Expense] = filteredExpenses.map { model in
-            Expense(
-                id: model.id,
-                userId: model.userId,
-                amountCents: model.amountCents,
-                currency: model.currency,
-                date: model.date,
-                description: model.expenseDescription,
-                merchant: model.merchant,
-                tagIds: model.resolvedTagIds,
-                notes: model.notes,
-                attachmentKey: model.attachmentKey,
-                source: ExpenseSource(rawValue: model.source) ?? .manual,
-                createdAt: model.createdAt,
-                updatedAt: model.updatedAt,
-                deletedAt: nil
-            )
-        }
-
         let domainTags: [Tag] = tags.map {
             Tag(id: $0.id, userId: $0.userId, name: $0.name, colorId: $0.colorId, icon: $0.icon, sortOrder: $0.sortOrder, parentId: $0.parentId)
         }
 
-        let csv = ExpenseCalculations.generateCSV(
-            expenses: domainExpenses,
-            tags: domainTags
-        )
-
-        let tempDir = FileManager.default.temporaryDirectory
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
-        let filename = "expenses_\(dateFormatter.string(from: startDate))_to_\(dateFormatter.string(from: endDate)).csv"
-        let fileURL = tempDir.appendingPathComponent(filename)
+        let prefix = "expenses_\(dateFormatter.string(from: startDate))_to_\(dateFormatter.string(from: endDate))"
 
-        do {
-            try csv.write(to: fileURL, atomically: true, encoding: .utf8)
-            appState.recordCSVExport()
+        guard let fileURL = ExpenseExportService.buildCSVExport(
+            expenses: filteredExpenses,
+            tags: domainTags,
+            filenamePrefix: prefix
+        ) else {
             isExporting = false
-            presentShareSheet(items: [fileURL])
-        } catch {
-            isExporting = false
+            return
         }
+
+        appState.recordCSVExport()
+        isExporting = false
+        presentShareSheet(items: [fileURL])
     }
 
     private func executePDFExport() {
-        // TODO: Implement PDF export
         isExporting = false
     }
 

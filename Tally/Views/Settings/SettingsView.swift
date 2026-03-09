@@ -9,7 +9,6 @@ struct SettingsView: View {
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
 
     @State private var showingSubscription = false
-    @State private var showingProFeature = false
     @State private var showingCurrencyPicker = false
     @State private var showingTagCreation = false
     @State private var showingGroupCreation = false
@@ -186,10 +185,6 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("Pro Features") {
-                    ocrRow
-                }
-
                 Section("iCloud") {
                     HStack {
                         Image(systemName: appState.isOffline ? "wifi.slash" : "checkmark.icloud")
@@ -227,7 +222,7 @@ struct SettingsView: View {
                         Text("Version")
                             .foregroundStyle(Color.textPrimary)
                         Spacer()
-                        Text("1.0.0")
+                        Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
                             .foregroundStyle(Color.textMuted)
                     }
 
@@ -288,56 +283,6 @@ struct SettingsView: View {
             }
             .sheet(item: $editingGroup) { group in
                 TagCreationView(editingTag: group, isGroupMode: true)
-            }
-            .sheet(isPresented: $showingProFeature) {
-                ProFeatureSheet(featureName: "Receipt auto-fill (OCR)")
-                    .presentationDetents([.medium])
-                    .presentationDragIndicator(.visible)
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var ocrRow: some View {
-        if appState.isPro {
-            Toggle(isOn: Binding(
-                get: { appState.ocrEnabled },
-                set: { appState.ocrEnabled = $0 }
-            )) {
-                HStack {
-                    Image(systemName: "text.viewfinder")
-                        .font(.system(size: 20))
-                        .foregroundStyle(Color.brandPrimary)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Receipt auto-fill (OCR)")
-                            .foregroundStyle(Color.textPrimary)
-                        Text("Extract amount and merchant from receipts")
-                            .font(Fonts.caption(12))
-                            .foregroundStyle(Color.textSecondary)
-                    }
-                }
-            }
-            .tint(Color.brandPrimary)
-        } else {
-            Button {
-                showingProFeature = true
-            } label: {
-                HStack {
-                    Image(systemName: "text.viewfinder")
-                        .font(.system(size: 20))
-                        .foregroundStyle(Color.textMuted)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Receipt auto-fill (OCR)")
-                            .foregroundStyle(Color.textMuted)
-                        Text("Extract amount and merchant from receipts")
-                            .font(Fonts.caption(12))
-                            .foregroundStyle(Color.textSecondary)
-                    }
-                    Spacer()
-                    Image(systemName: "lock.fill")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.textMuted)
-                }
             }
         }
     }
@@ -412,17 +357,11 @@ struct SettingsView: View {
     }
 
     private func deleteTag(_ tag: TagModel) {
-        if appState.selectedTagFilter == tag.id {
-            appState.selectedTagFilter = nil
-            appState.isGroupFilter = false
-        }
+        appState.removeFilter(id: tag.id)
 
         if tag.isGroup {
             for child in childrenOf(tag) {
-                if appState.selectedTagFilter == child.id {
-                    appState.selectedTagFilter = nil
-                    appState.isGroupFilter = false
-                }
+                appState.removeFilter(id: child.id)
                 child.parentId = nil
             }
         }
@@ -430,7 +369,9 @@ struct SettingsView: View {
         do {
             try modelContext.save()
         } catch {
+            #if DEBUG
             print("[Tally] ERROR deleting tag: \(error)")
+            #endif
         }
     }
 }

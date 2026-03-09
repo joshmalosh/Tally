@@ -3,3 +3,9 @@ DerivedData/
 .build/
 .swiftpm/
 *.xcuserdata
+*.xcuserstate
+build/
+*.code-workspace
+*.ipa
+*.dSYM.zip
+*.dSYM

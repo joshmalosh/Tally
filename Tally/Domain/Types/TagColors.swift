@@ -12,43 +12,43 @@ struct TagColor: Identifiable, Codable, Hashable {
 
 enum TagColors {
     static let palette: [TagColor] = [
-        // Greens (brand family)
+        // Greens
         TagColor(id: "primaryGreen", primary: "346049", tint: "E6EBE9"),
-        TagColor(id: "deepForest",   primary: "2B4E3B", tint: "E5E9E7"),
-        TagColor(id: "moss",         primary: "6F7F5E", tint: "EDEFEB"),
-        TagColor(id: "softSage",     primary: "8FA38A", tint: "F0F4F0"),
+        TagColor(id: "deepForest",   primary: "1B3D2A", tint: "E3E8E5"),
+        TagColor(id: "moss",         primary: "6B8F3E", tint: "EEF3E8"),
+        TagColor(id: "softSage",     primary: "8BBF9E", tint: "F0F7F3"),
 
         // Teals
-        TagColor(id: "teal",         primary: "3F8F8C", tint: "E7F1F1"),
-        TagColor(id: "lightAqua",    primary: "6AA9A6", tint: "EDF5F4"),
-        TagColor(id: "deepTeal",     primary: "2F6F6C", tint: "E6EDED"),
+        TagColor(id: "teal",         primary: "2A8C89", tint: "E5F1F0"),
+        TagColor(id: "lightAqua",    primary: "5CB8B2", tint: "EDF7F6"),
+        TagColor(id: "deepTeal",     primary: "1B6B6B", tint: "E4EDED"),
 
         // Blues
-        TagColor(id: "indigoBlue",   primary: "5B6FA8", tint: "EBEDF4"),
-        TagColor(id: "softBlue",     primary: "7F96C4", tint: "F0F3F8"),
-        TagColor(id: "steelBlue",    primary: "4F6A7F", tint: "E9EDEF"),
-        TagColor(id: "navySlate",    primary: "2E3E52", tint: "E6E9ED"),
+        TagColor(id: "indigoBlue",   primary: "4A5FAF", tint: "EAEDF6"),
+        TagColor(id: "softBlue",     primary: "5B9BD5", tint: "ECF2F9"),
+        TagColor(id: "steelBlue",    primary: "3D6B8F", tint: "E8EDF1"),
+        TagColor(id: "navySlate",    primary: "263855", tint: "E5E8ED"),
 
         // Purples
-        TagColor(id: "mutedPurple",  primary: "7A6F9A", tint: "EFEDF2"),
-        TagColor(id: "softLavender", primary: "9B8FB8", tint: "F2F0F6"),
-        TagColor(id: "deepPlum",     primary: "5C4E73", tint: "ECEBF0"),
+        TagColor(id: "mutedPurple",  primary: "7B5EA7", tint: "EFEDF5"),
+        TagColor(id: "softLavender", primary: "A88FC8", tint: "F3F0F8"),
+        TagColor(id: "deepPlum",     primary: "5A3D73", tint: "EBEBF0"),
 
-        // Warm tones
-        TagColor(id: "terracotta",   primary: "C46A4A", tint: "F7EDE9"),
-        TagColor(id: "softCoral",    primary: "D97973", tint: "FAEEEE"),
-        TagColor(id: "dustyRose",    primary: "E3A09A", tint: "FAF2F1"),
+        // Pinks & warm reds
+        TagColor(id: "terracotta",   primary: "C4604A", tint: "F7ECE9"),
+        TagColor(id: "softCoral",    primary: "E0736B", tint: "FAEEEC"),
+        TagColor(id: "dustyRose",    primary: "C47088", tint: "F7EDF0"),
 
-        // Oranges & ambers
-        TagColor(id: "burntOrange",  primary: "C97A2C", tint: "F8EFE5"),
-        TagColor(id: "warmAmber",    primary: "E3A24A", tint: "FAF2E8"),
-        TagColor(id: "goldenOchre",  primary: "A67C2E", tint: "F4EFE5"),
+        // Oranges & yellows
+        TagColor(id: "burntOrange",  primary: "D4872A", tint: "F9F0E5"),
+        TagColor(id: "warmAmber",    primary: "C4A030", tint: "F7F1E5"),
+        TagColor(id: "goldenOchre",  primary: "8F7A2E", tint: "F1EDE5"),
 
         // Neutrals
-        TagColor(id: "warmGrey",     primary: "8A8F8B", tint: "F0F1F1"),
-        TagColor(id: "coolGrey",     primary: "6F757C", tint: "EDEEEF"),
+        TagColor(id: "warmGrey",     primary: "8F897E", tint: "F1F0EF"),
+        TagColor(id: "coolGrey",     primary: "6B7580", tint: "EDEEEF"),
         TagColor(id: "deepGrey",     primary: "4B4F54", tint: "EAEAEB"),
-        TagColor(id: "taupe",        primary: "9A9187", tint: "F2F1F0"),
+        TagColor(id: "taupe",        primary: "A39080", tint: "F3F1EF"),
     ]
 
     static func forId(_ id: String) -> TagColor {
@@ -57,8 +57,8 @@ enum TagColors {
 
     static let defaultTagColors: [String: String] = [
         "Travel": "softBlue",
-        "Petrol": "primaryGreen",
-        "Meals": "terracotta",
-        "Subscriptions": "softCoral",
+        "Petrol": "moss",
+        "Meals": "burntOrange",
+        "Subscriptions": "mutedPurple",
     ]
 }

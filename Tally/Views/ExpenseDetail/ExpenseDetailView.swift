@@ -4,10 +4,11 @@ import SwiftData
 struct ExpenseDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Environment(AppState.self) private var appState
 
     let expenseId: String
 
-    @Query private var allExpenses: [ExpenseModel]
+    @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil }) private var activeExpenses: [ExpenseModel]
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
 
     @State private var showingDeleteConfirmation = false
@@ -16,7 +17,7 @@ struct ExpenseDetailView: View {
     @State private var showingFullImage = false
 
     private var expense: ExpenseModel? {
-        allExpenses.first { $0.id == expenseId && $0.deletedAt == nil }
+        activeExpenses.first { $0.id == expenseId }
     }
 
     private func tagFor(_ id: String) -> TagModel? {
@@ -41,6 +42,11 @@ struct ExpenseDetailView: View {
                         }
 
                         deleteButton
+
+                        if !appState.isPro {
+                            BannerAdView()
+                                .padding(.top, Spacing.sm)
+                        }
                     }
                     .padding(Spacing.md)
                 }
@@ -215,7 +221,9 @@ struct ExpenseDetailView: View {
         do {
             try modelContext.save()
         } catch {
+            #if DEBUG
             print("[Tally] ERROR deleting expense: \(error)")
+            #endif
         }
         if let key = expense.attachmentKey {
             Task { await AttachmentService.shared.deleteAttachment(key: key) }

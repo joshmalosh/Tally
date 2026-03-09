@@ -9,9 +9,31 @@ final class AppState {
     var showingTagCreation = false
     var selectedExpenseId: String?
 
-    // Filters
-    var selectedTagFilter: String?
-    var isGroupFilter = false
+    // Filters (multi-select, AND logic)
+    var activeFilterIds: Set<String> = []
+    var groupFilterIds: Set<String> = []
+
+    var hasTagFilters: Bool { !activeFilterIds.isEmpty }
+
+    func clearFilters() {
+        activeFilterIds.removeAll()
+        groupFilterIds.removeAll()
+    }
+
+    func toggleFilter(id: String, isGroup: Bool) {
+        if activeFilterIds.contains(id) {
+            activeFilterIds.remove(id)
+            groupFilterIds.remove(id)
+        } else {
+            activeFilterIds.insert(id)
+            if isGroup { groupFilterIds.insert(id) }
+        }
+    }
+
+    func removeFilter(id: String) {
+        activeFilterIds.remove(id)
+        groupFilterIds.remove(id)
+    }
 
     // User
     var subscriptionStatus: SubscriptionStatus = .free

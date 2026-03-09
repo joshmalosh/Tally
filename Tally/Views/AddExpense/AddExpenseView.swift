@@ -7,7 +7,7 @@ struct AddExpenseView: View {
     @Environment(AppState.self) private var appState
     @Environment(AdManager.self) private var adManager
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
-    @Query private var allExpenses: [ExpenseModel]
+    @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil }) private var allExpenses: [ExpenseModel]
 
     var initialMode: AddEntryMode = .manual
     var initialImage: UIImage? = nil
@@ -26,6 +26,7 @@ struct AddExpenseView: View {
     @State private var attachedImage: UIImage?
     @State private var attachedFileURL: URL?
     @State private var attachmentKey: String?
+    @State private var enteredViaPhotoFlow = false
 
     @State private var showingCamera = false
     @State private var showingPhotoPicker = false
@@ -90,7 +91,6 @@ struct AddExpenseView: View {
     private var knownMerchants: [String] {
         let merchants = Set(
             allExpenses
-                .filter { $0.deletedAt == nil }
                 .compactMap { $0.merchant }
                 .filter { !$0.isEmpty }
         )
@@ -120,9 +120,9 @@ struct AddExpenseView: View {
                     if shouldShowBanner {
                         BannerAdView()
                             .transition(.opacity)
+                            .animation(.easeInOut(duration: 0.2), value: shouldShowBanner)
                     }
                 }
-                .animation(.easeInOut(duration: 0.2), value: shouldShowBanner)
             }
             .navigationTitle(isEditing ? "Edit expense" : "Add expense")
             .navigationBarTitleDisplayMode(.inline)
@@ -153,7 +153,13 @@ struct AddExpenseView: View {
                     .ignoresSafeArea()
             }
             .sheet(isPresented: $showingPhotoPicker) {
-                PhotosPicker(image: $attachedImage)
+                PhotosPicker(image: $attachedImage, onCancel: {
+                    if enteredViaPhotoFlow && attachedImage == nil {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            dismiss()
+                        }
+                    }
+                })
             }
             .sheet(isPresented: $showingDocumentPicker) {
                 DocumentPicker(selectedFileURL: $attachedFileURL, selectedImage: $attachedImage)
@@ -175,8 +181,20 @@ struct AddExpenseView: View {
             }
             .onChange(of: attachedImage) { _, newValue in
                 if let image = newValue {
+                    if AttachmentService.exceedsMaxSize(image) {
+                        attachedImage = nil
+                        attachedFileURL = nil
+                        errorMessage = "This image is too large. Maximum size is 20 MB."
+                        showingError = true
+                        return
+                    }
                     source = showingCamera ? .camera : .upload
-                    if appState.isPro && appState.ocrEnabled && !isEditing {
+                    #if DEBUG
+                    let ocrAllowed = appState.ocrEnabled && !isEditing
+                    #else
+                    let ocrAllowed = appState.isPro && appState.ocrEnabled && !isEditing
+                    #endif
+                    if ocrAllowed {
                         runOCR(on: image)
                     }
                 }
@@ -184,6 +202,11 @@ struct AddExpenseView: View {
             .onChange(of: showingCamera) { _, showing in
                 if !showing && !formReady {
                     withAnimation(.easeIn(duration: 0.2)) { formReady = true }
+                }
+                if !showing && attachedImage == nil && enteredViaPhotoFlow {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        if attachedImage == nil { dismiss() }
+                    }
                 }
             }
             .onChange(of: showingPhotoPicker) { _, showing in
@@ -220,30 +243,33 @@ struct AddExpenseView: View {
             VStack(spacing: 0) {
                 if hasAttachment {
                     receiptPreview
-                        .padding(.bottom, 18)
+                        .padding(.bottom, 14)
+                } else if enteredViaPhotoFlow || isEditing {
+                    reattachPlaceholder
+                        .padding(.bottom, 14)
                 }
 
                 amountField
-                    .padding(.bottom, 20)
+                    .padding(.bottom, 14)
 
                 merchantField
-                    .padding(.bottom, 20)
+                    .padding(.bottom, 14)
 
                 dateRow
-                    .padding(.bottom, 20)
+                    .padding(.bottom, 14)
 
                 tagChips
-                    .padding(.bottom, 20)
+                    .padding(.bottom, 14)
 
-                if !hasAttachment {
+                if !hasAttachment && !enteredViaPhotoFlow && !isEditing {
                     addReceiptRow
-                        .padding(.bottom, 20)
+                        .padding(.bottom, 14)
                 }
 
                 notesField
             }
             .padding(.horizontal, Spacing.lg)
-            .padding(.top, hasAttachment ? Spacing.smd : Spacing.md)
+            .padding(.top, hasAttachment ? Spacing.sm : Spacing.smd)
             .padding(.bottom, Spacing.xl)
         }
     }
@@ -312,6 +338,7 @@ struct AddExpenseView: View {
                 attachedFileURL = nil
                 attachmentKey = nil
                 source = .manual
+                enteredViaPhotoFlow = true
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 11, weight: .bold))
@@ -321,6 +348,46 @@ struct AddExpenseView: View {
                     .clipShape(Circle())
             }
             .padding(Spacing.sm)
+        }
+    }
+
+    // MARK: - Reattach Placeholder
+
+    private var reattachPlaceholder: some View {
+        Menu {
+            Button {
+                showingCamera = true
+            } label: {
+                Label("Camera", systemImage: "camera.fill")
+            }
+            Button {
+                showingPhotoPicker = true
+            } label: {
+                Label("Photos", systemImage: "photo")
+            }
+            Button {
+                showingDocumentPicker = true
+            } label: {
+                Label("File", systemImage: "doc.fill")
+            }
+        } label: {
+            VStack(spacing: Spacing.smd) {
+                Image(systemName: "photo.on.rectangle.angled")
+                    .font(.system(size: 28))
+                    .foregroundStyle(Color.textMuted)
+
+                Text("Add receipt or photo")
+                    .font(Fonts.label(14))
+                    .foregroundStyle(Color.brandPrimary)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 120)
+            .background(Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+            .overlay(
+                RoundedRectangle(cornerRadius: Radius.md)
+                    .stroke(Color.borderColor, style: StrokeStyle(lineWidth: 1, dash: [6]))
+            )
         }
     }
 
@@ -354,6 +421,14 @@ struct AddExpenseView: View {
                 .keyboardType(CurrencyFormatter.shared.usesDecimals(for: currency) ? .decimalPad : .numberPad)
                 .textFieldStyle(.plain)
                 .focused($focusedField, equals: .amount)
+                .onChange(of: amountText) { _, newValue in
+                    let filtered = newValue.filter { $0.isNumber || $0 == "." }
+                    let parts = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
+                    let sanitized = parts.count > 1
+                        ? parts[0] + "." + parts.dropFirst().joined()
+                        : filtered
+                    if sanitized != newValue { amountText = String(sanitized) }
+                }
                 .onChange(of: focusedField) { _, newValue in
                     if newValue != .amount { formatAmount() }
                 }
@@ -612,14 +687,17 @@ struct AddExpenseView: View {
         switch initialMode {
         case .camera:
             source = .camera
+            enteredViaPhotoFlow = true
             formReady = false
             showingCamera = true
         case .photoLibrary:
             source = .upload
+            enteredViaPhotoFlow = true
             formReady = false
             showingPhotoPicker = true
         case .uploadFile:
             source = .upload
+            enteredViaPhotoFlow = true
             formReady = false
             showingDocumentPicker = true
         case .manual:
@@ -646,6 +724,9 @@ struct AddExpenseView: View {
                 }
                 if let name = result.merchant, merchant.isEmpty {
                     merchant = name
+                }
+                if let extractedDate = result.date {
+                    date = extractedDate
                 }
                 isRunningOCR = false
             }
@@ -734,9 +815,13 @@ struct AddExpenseView: View {
 
                     do {
                         try modelContext.save()
+                        #if DEBUG
                         print("[Tally] Expense updated: \(expenseId)")
+                        #endif
                     } catch {
+                        #if DEBUG
                         print("[Tally] ERROR updating expense: \(error)")
+                        #endif
                     }
                 } else {
                     let expense = ExpenseModel(
@@ -757,11 +842,15 @@ struct AddExpenseView: View {
                     do {
                         try modelContext.save()
                         appState.totalExpenseCount += 1
+                        #if DEBUG
                         print("[Tally] Expense saved: \(expenseId)")
+                        #endif
                     } catch {
+                        #if DEBUG
                         print("[Tally] ERROR saving expense: \(error)")
+                        #endif
                     }
-                    appState.selectedTagFilter = nil
+                    appState.clearFilters()
                 }
                 isSaving = false
                 dismiss()
