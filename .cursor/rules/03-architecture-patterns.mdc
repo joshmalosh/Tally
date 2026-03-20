@@ -1,0 +1,119 @@
+---
+description: Engineering architecture patterns and conventions derived from production app development. Covers domain-driven design, state management, navigation, and data layer.
+alwaysApply: true
+---
+
+# Architecture & Engineering Patterns
+
+## Layered Architecture
+
+Organize code into clear layers with strict dependency rules:
+
+```
+Domain (pure logic, no I/O)
+  → Services (validation, orchestration, caching)
+    → State (observable app state, derived selectors)
+      → Views / UI (consumes state, dispatches actions)
+```
+
+**Rules:**
+- Domain layer: Pure functions only. No network calls, no persistence, no UI dependencies.
+- Services layer: Coordinates domain logic with I/O. Handles validation before domain calls.
+- State layer: Single source of truth. UI state and data state separated.
+- UI layer: Thin. Reads state, calls services. No business logic in views.
+
+## Domain-Driven Design
+
+### Transactions as source of truth
+When modeling anything with history (portfolios, inventories, ledgers, progress), store **events/transactions** and **derive** current state:
+
+```
+Stored: Transactions (buy, sell, dividend, etc.)
+Derived: Holdings (shares, avgCost, costBasis, realizedPL)
+```
+
+Never store derived data alongside source data. Recompute deterministically.
+
+### Pure domain functions
+- Accept data in, return data out. No side effects.
+- Sort inputs deterministically (by date + id) before processing.
+- Use explicit error types (not generic strings).
+- Round consistently: money to 2 decimals, quantities to 4 decimals.
+
+```typescript
+// Pattern: domain function signature
+export function calculateHoldings(transactions: readonly Transaction[]): Holding[]
+```
+
+### Shared domain across platforms
+If building for multiple platforms (e.g., iOS + backend), implement the same domain logic in both languages with identical behavior. Use the same test cases to verify parity.
+
+## State Management
+
+### Centralized app state
+Use a single observable state object for UI-level state:
+- Current navigation/tab
+- Active modals/sheets
+- Selected items
+- User preferences
+- Feature flags (e.g., `isProSubscriber`)
+
+### Derived state via computed properties
+Never duplicate state. Compute derived values:
+- Holdings from transactions
+- Portfolio value from holdings + prices
+- Empty state flags from data counts
+
+### Environment injection (not prop drilling)
+Inject shared state at the root and consume via environment/context in child views. Avoid passing state through 5+ levels of props.
+
+## Navigation
+
+### Tab + Sheet pattern
+- Primary navigation: Tab bar with 4-5 top-level destinations.
+- Secondary navigation: Sheets/modals for focused flows (transactions, details, settings).
+- Each tab owns its own navigation stack.
+
+### Navigation completeness checklist
+- Every screen has a way to go back or dismiss.
+- Sheet dismissal cleans up related state (selected item, form data).
+- Cross-tab navigation is explicit (set tab + destination).
+- Deep links map to specific tab + screen combinations.
+
+## Data Layer
+
+### Local-first persistence
+- Use platform-native persistence (SwiftData, Room, SQLite).
+- Define schema explicitly upfront.
+- Separate persisted models from domain types (persisted models handle serialization; domain types are clean).
+
+### External data (APIs, market data, etc.)
+- Cache aggressively with TTL.
+- Degrade gracefully: show cached data when network fails.
+- Rate limit requests; chunk large batches.
+- Never block UI on network calls.
+
+### Data flow pattern
+```
+Persistence (SwiftData/SQLite)
+  → Domain types (clean structs)
+    → Domain logic (pure computation)
+      → View models / state (observable)
+        → UI (reactive rendering)
+```
+
+## File Organization
+
+```
+ProjectName/
+├── Domain/          # Types, pure logic, calculations
+├── Services/        # Network, persistence coordination, validation
+├── Models/          # Persisted data models (SwiftData @Model, etc.)
+├── AppState/        # Observable state, navigation state
+├── Theme/           # Design system, reusable components
+├── Views/           # Screens organized by feature
+│   ├── Portfolio/
+│   ├── Explore/
+│   └── ...
+└── Assets/          # Images, fonts, static data
+```

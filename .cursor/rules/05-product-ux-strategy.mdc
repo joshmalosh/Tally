@@ -1,0 +1,108 @@
+---
+description: Product strategy, UX patterns, brand development, and growth thinking. Guides product decisions and user experience design.
+alwaysApply: true
+---
+
+# Product / UX / Brand / Growth Strategy
+
+## Product Thinking
+
+### Every feature needs a "why"
+Before building, articulate: Who is this for? What behavior does it enable? How do we know it worked?
+
+### Mode-specific behavior mapping
+If the app has modes (free/pro, sandbox/real, viewer/editor, etc.), create an explicit mapping:
+
+```
+| Action        | Mode A behavior          | Mode B behavior          |
+|---------------|--------------------------|--------------------------|
+| Primary CTA   | "Buy" (instant action)   | "Add Transaction" (form) |
+| Holdings      | Show Sell button          | Show Add Sell Transaction |
+| Empty state   | Pre-populated content     | Empty + CTA              |
+```
+
+Define EVERY action × mode combination before building. This prevents the most common class of product bugs.
+
+### Feature framing
+- **Educational apps**: Frame features as learning tools, not professional instruments. Use disclaimers.
+- **Financial apps**: "Not financial advice." "Past performance does not predict future results." "Simulated data."
+- **Health apps**: "Not medical advice." "Consult a professional."
+- Match the framing to your regulatory context. Get this right in copy from day one.
+
+## UX Patterns That Work
+
+### Navigation hierarchy
+1. **Primary**: Tab bar (4-5 items max). Users should understand the full app from the tab labels.
+2. **Secondary**: Sheets/modals for focused tasks (forms, details, settings).
+3. **Tertiary**: Navigation pushes within a tab for drill-down.
+
+### Empty states are conversion opportunities
+Every empty screen should:
+1. Explain what will appear here (in 1 sentence).
+2. Show a clear CTA to populate it.
+3. Optionally show an illustration or educational hint.
+
+Never show a blank screen. Never show placeholder data that confuses users.
+
+### Transaction/form flows
+1. **Context first**: Show what the user is acting on (stock ticker, item name, account).
+2. **Tabs for variants**: If a form has modes (Buy/Sell/Dividend), use tabs.
+3. **Live feedback**: Show computed results as the user types (estimated P/L, total cost, etc.).
+4. **Validation inline**: Show errors next to the field, not in alerts.
+5. **Confirm before destructive actions**: Sells, deletes, resets.
+
+### Progressive disclosure
+- Show the essential information first.
+- Offer "Details" or "Learn more" for depth.
+- Calculators and simulators should be discoverable but not mandatory.
+
+## Brand Development
+
+### Brand identity from day one
+Define before writing any UI code:
+1. **Name** — Short, memorable, lowercase-friendly.
+2. **Color palette** — 2-3 brand colors + semantic colors (see design system rule).
+3. **Gradient** — A signature gradient for accent usage.
+4. **Tone** — Professional but approachable? Playful but credible? Pick a lane.
+5. **Typography feel** — Clean and modern? Bold and punchy? Elegant and minimal?
+
+### Brand consistency rules
+- Logo/wordmark appears in the top-left header, sized 36-40px.
+- Brand gradient used sparingly: hero accents, primary CTAs, active tab indicators.
+- Tone is consistent across all copy: buttons, empty states, errors, disclaimers.
+- Never mix brand tones (don't be playful in one place and corporate in another).
+
+### Copy guidelines
+- Write button labels as actions: "Add Transaction", "Start Over", not "Submit", "Reset".
+- Write empty states as invitations: "Your watchlist is empty. Star stocks to track them here."
+- Write disclaimers as honest, brief statements — not legal walls of text.
+- Define key copy strings in the project brief and reuse them consistently.
+
+## Growth Thinking
+
+### Monetization strategy (decide early)
+Common patterns for mobile apps:
+
+| Model | When to use | Implementation |
+|-------|------------|----------------|
+| Freemium + Ads | Broad audience, high engagement | Free with ad gates; Pro removes ads |
+| Subscription | Ongoing value, content/features | Monthly/yearly with trial |
+| One-time purchase | Utility apps, tools | Unlock full version |
+
+**Ad gate pattern** (from TradeMate experience):
+- Gate a specific action (e.g., transactions) behind a rewarded video ad.
+- Cap daily gated actions (e.g., 5/day) to prevent frustration.
+- Pro subscription removes the gate entirely.
+- Track gate state in app state with daily reset logic.
+
+### Retention hooks
+- **Progress tracking**: Show users their journey (lessons completed, portfolio growth, streaks).
+- **Personalization**: Let users customize (currency, display preferences, watchlists).
+- **Education**: Contextual tips and "Learn" hubs increase perceived value.
+- **What-if tools**: Calculators and simulators give users reasons to return.
+
+### Launch checklist thinking
+- App store screenshots that show the core value proposition.
+- Onboarding that gets users to the "aha moment" fast.
+- Analytics on key actions (first transaction, first watchlist add, calculator usage).
+- Feedback mechanism (even a simple "Send Feedback" email link).

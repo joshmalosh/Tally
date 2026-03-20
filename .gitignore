@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+.next/
+out/
+build/
+*.xcodeproj/xcuserdata/
+DerivedData/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# iOS
+*.ipa
+*.dSYM.zip
+*.dSYM
+Pods/
+xcuserdata/
+
+# Testing
+coverage/
+
+# Misc
+*.tsbuildinfo
+next-env.d.ts
+
+# Nested Swift package (track contents, not as submodule)
+Tally/Repo/Tally/.git/
