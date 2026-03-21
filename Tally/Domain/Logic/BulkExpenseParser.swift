@@ -93,7 +93,9 @@ enum BulkExpenseParser {
             let amtStr = String(remaining[amtRange])
             guard let value = parseAmount(amtStr), value > 0 else { return (remaining, nil) }
             var desc = remaining
-            desc.removeSubrange(anyMatch.range)
+            if let fullRange = Range(anyMatch.range, in: remaining) {
+                desc.removeSubrange(fullRange)
+            }
             desc = desc.trimmingCharacters(in: .whitespaces)
             return (desc.isEmpty ? "Expense" : desc, Int(round(value * 100)))
         }
@@ -101,7 +103,9 @@ enum BulkExpenseParser {
         let amtStr = String(remaining[range])
         guard let value = parseAmount(amtStr), value > 0 else { return (remaining, nil) }
         var desc = remaining
-        desc.removeSubrange(match.range)
+        if let fullRange = Range(match.range, in: remaining) {
+            desc.removeSubrange(fullRange)
+        }
         desc = desc.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "-–—:"))
         return (desc.isEmpty ? "Expense" : desc, Int(round(value * 100)))
     }
