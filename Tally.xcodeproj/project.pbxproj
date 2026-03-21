@@ -41,6 +41,8 @@
 		CFA7B0D7E0E131B68534D8CD /* ExportExpenseSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F0868032465E139554DB8D2 /* ExportExpenseSheet.swift */; };
 		D9118E63AC4F413995C5400D /* AttachmentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCB500AF673FBDF6CA909FE4 /* AttachmentService.swift */; };
 		DB1F48D628A150958EA48685 /* AddEntryPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89108F3F19E4B1E39A0F0925 /* AddEntryPicker.swift */; };
+		B1C2D3E4F5A6B7C8D9E0F1A2 /* BulkExpenseParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7B8C9D0E1F2A3B /* BulkExpenseParser.swift */; };
+		C3D4E5F6A7B8C9D0E1F2A3B4 /* AddMultipleExpensesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E5F6A7B8C9D0E1F2A3B4C5 /* AddMultipleExpensesView.swift */; };
 		E62148A42197D4CB99E2BEAA /* TagCreationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A580A9627AF63E6E23124DD /* TagCreationView.swift */; };
 		E97A9C090D7461FB66CF7E61 /* GlobalExportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C469C53D5B07DC050FB92B7 /* GlobalExportSheet.swift */; };
 		ED1621F870C138936917FA95 /* TestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C148F6D20D290FC046500B9 /* TestHelpers.swift */; };
@@ -108,6 +110,8 @@
 		FA760FF7DABACC4706C0F32A /* UploadLimitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadLimitView.swift; sourceTree = "<group>"; };
 		D1E2F3A4B5C6D7E8F9A0B1C2 /* Configuration.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Configuration.storekit; sourceTree = "<group>"; };
 		A2B3C4D5E6F7A8B9C0D1E2F3 /* ReceiptOCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptOCRService.swift; sourceTree = "<group>"; };
+		B2C3D4E5F6A7B8C9D0E1F2A3B /* BulkExpenseParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulkExpenseParser.swift; sourceTree = "<group>"; };
+		D4E5F6A7B8C9D0E1F2A3B4C5 /* AddMultipleExpensesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddMultipleExpensesView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -126,6 +130,7 @@
 			isa = PBXGroup;
 			children = (
 				A564B3BCA71D05E5448E0DD9 /* ExpenseCalculations.swift */,
+				B2C3D4E5F6A7B8C9D0E1F2A3B /* BulkExpenseParser.swift */,
 			);
 			path = Logic;
 			sourceTree = "<group>";
@@ -234,6 +239,14 @@
 			path = AddExpense;
 			sourceTree = "<group>";
 		};
+		E5F6A7B8C9D0E1F2A3B4C5D6 /* AddMultipleExpenses */ = {
+			isa = PBXGroup;
+			children = (
+				D4E5F6A7B8C9D0E1F2A3B4C5 /* AddMultipleExpensesView.swift */,
+			);
+			path = AddMultipleExpenses;
+			sourceTree = "<group>";
+		};
 		C75C7E2A36C05412BA7D5036 /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -281,6 +294,7 @@
 			isa = PBXGroup;
 			children = (
 				BB97ADDE5C9565DEEE0399BD /* AddExpense */,
+				E5F6A7B8C9D0E1F2A3B4C5D6 /* AddMultipleExpenses */,
 				F72DBBE693EB53936B083D2D /* ExpenseDetail */,
 				E4F69CD0974425FA739BD547 /* Export */,
 				DC39752DA1AA31D3495721DE /* Home */,
@@ -426,6 +440,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				68B7C2848372ED2B4E6D8864 /* APIService.swift in Sources */,
+				B1C2D3E4F5A6B7C8D9E0F1A2 /* BulkExpenseParser.swift in Sources */,
+				C3D4E5F6A7B8C9D0E1F2A3B4 /* AddMultipleExpensesView.swift in Sources */,
 				1082EE58C63258DCBD5CE112 /* AdManager.swift in Sources */,
 				DB1F48D628A150958EA48685 /* AddEntryPicker.swift in Sources */,
 				508992FEB05634F72D2539B5 /* AddExpenseView.swift in Sources */,

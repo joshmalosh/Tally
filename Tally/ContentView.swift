@@ -13,6 +13,22 @@ struct ContentView: View {
     @State private var splashOffset: CGSize = .zero
     @State private var splashScale: CGFloat = 1.0
     @State private var splashOpacity: Double = 1.0
+    @State private var splashProgress: CGFloat = 0
+    @State private var currentTaglineIndex = 0
+    @State private var taglineOpacity: Double = 1
+    @State private var taglineTimerTask: Task<Void, Never>?
+
+    private static let splashDuration: TimeInterval = 2.8
+    private static let taglines = [
+        "Decluttering your finances.",
+        "Making expenses boring again.",
+        "No spreadsheets were harmed.",
+        "Just expenses. Nothing else.",
+        "Your accountant will be so proud.",
+        "Getting out of your way.",
+        "Log it. Tag it. Done."
+    ]
+    @State private var shuffledTaglines: [String] = Self.taglines.shuffled()
 
     var body: some View {
         ZStack {
@@ -49,16 +65,78 @@ struct ContentView: View {
         ZStack {
             Color("LaunchBackground")
                 .ignoresSafeArea()
-            Image("LaunchLogo")
-                .resizable()
-                .scaledToFit()
-                .padding(.horizontal, 80)
+            VStack(spacing: 0) {
+                Image("LaunchLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .padding(.horizontal, 80)
+
+                Spacer().frame(height: 48)
+
+                progressBar
+
+                Spacer().frame(height: 16)
+
+                Text(shuffledTaglines.isEmpty ? "" : shuffledTaglines[currentTaglineIndex % shuffledTaglines.count])
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.brandPrimary.opacity(0.7))
+                    .opacity(taglineOpacity)
+            }
+        }
+        .onAppear {
+            startSplashAnimations()
+        }
+    }
+
+    private var progressBar: some View {
+        GeometryReader { geo in
+            let barWidth = geo.size.width - 80
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.brandPrimary.opacity(0.25))
+                    .frame(height: 4)
+                Capsule()
+                    .fill(Color.brandPrimary)
+                    .frame(width: max(0, barWidth * splashProgress), height: 4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .frame(height: 4)
+        .padding(.horizontal, 40)
+    }
+
+    private func startSplashAnimations() {
+        withAnimation(.linear(duration: Self.splashDuration)) {
+            splashProgress = 1
+        }
+        scheduleNextTagline()
+    }
+
+    private func scheduleNextTagline() {
+        taglineTimerTask?.cancel()
+        let interval = Double.random(in: 1.8...3.2)
+        taglineTimerTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(interval))
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.3)) {
+                taglineOpacity = 0
+            }
+            try? await Task.sleep(for: .seconds(0.3))
+            guard !Task.isCancelled else { return }
+            currentTaglineIndex += 1
+            withAnimation(.easeInOut(duration: 0.3)) {
+                taglineOpacity = 1
+            }
+            guard !Task.isCancelled else { return }
+            scheduleNextTagline()
         }
     }
 
     private func dismissSplash() {
         guard showSplash else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        taglineTimerTask?.cancel()
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.splashDuration) {
+            taglineTimerTask?.cancel()
             withAnimation(.easeIn(duration: 0.35)) {
                 splashOffset = CGSize(width: -120, height: 300)
                 splashScale = 0.4

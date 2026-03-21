@@ -9,6 +9,29 @@ struct ReceiptOCRResult {
 
 enum ReceiptOCRService {
 
+    /// Extract full raw text from image for bulk import. Returns concatenated text blocks.
+    static func extractFullText(from image: UIImage) async -> String {
+        let cgImage: CGImage
+        if let cg = image.cgImage {
+            cgImage = cg
+        } else if let ciImage = image.ciImage {
+            let context = CIContext()
+            guard let cg = context.createCGImage(ciImage, from: ciImage.extent) else { return "" }
+            cgImage = cg
+        } else if let data = image.pngData(), let reloaded = UIImage(data: data)?.cgImage {
+            cgImage = reloaded
+        } else {
+            return ""
+        }
+        let observations = await recognizeText(in: cgImage)
+        let blocks = observations
+            .sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
+            .compactMap { obs -> String? in
+                obs.topCandidates(1).first?.string
+            }
+        return blocks.joined(separator: "\n")
+    }
+
     static func extract(from image: UIImage) async -> ReceiptOCRResult {
         let cgImage: CGImage
         if let cg = image.cgImage {

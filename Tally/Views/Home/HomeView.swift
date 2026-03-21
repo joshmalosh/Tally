@@ -174,11 +174,15 @@ struct HomeView: View {
                     selectedEntryMode = mode
                 }
             }
-            .presentationDetents([.height(380)])
+            .presentationDetents([.height(460)])
             .presentationDragIndicator(.hidden)
         }
         .fullScreenCover(item: $selectedEntryMode) { mode in
-            AddExpenseView(initialMode: mode)
+            if mode == .bulkImport {
+                AddMultipleExpensesView()
+            } else {
+                AddExpenseView(initialMode: mode)
+            }
         }
         .sheet(item: $appState.selectedExpenseId) { id in
             ExpenseDetailView(expenseId: id)

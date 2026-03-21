@@ -5,6 +5,7 @@ enum AddEntryMode: Identifiable {
     case photoLibrary
     case uploadFile
     case manual
+    case bulkImport
 
     var id: String {
         switch self {
@@ -12,6 +13,7 @@ enum AddEntryMode: Identifiable {
         case .photoLibrary: "photoLibrary"
         case .uploadFile: "uploadFile"
         case .manual: "manual"
+        case .bulkImport: "bulkImport"
         }
     }
 }
@@ -27,7 +29,7 @@ struct AddEntryPicker: View {
             Text("Add expense")
                 .font(Fonts.headline(18))
                 .foregroundStyle(Color.textPrimary)
-                .padding(.top, Spacing.md)
+                .padding(.top, Spacing.lg)
                 .padding(.bottom, Spacing.lg)
 
             VStack(spacing: Spacing.sm) {
@@ -54,6 +56,12 @@ struct AddEntryPicker: View {
                     title: "Quick add",
                     subtitle: "Log an expense manually",
                     mode: .manual
+                )
+                entryOption(
+                    icon: "list.bullet.rectangle",
+                    title: "Add multiple expenses",
+                    subtitle: "Import from notes or receipt photo",
+                    mode: .bulkImport
                 )
             }
             .padding(.horizontal, Spacing.md)

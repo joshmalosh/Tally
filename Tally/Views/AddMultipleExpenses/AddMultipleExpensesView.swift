@@ -1,0 +1,434 @@
+import SwiftUI
+import SwiftData
+
+struct AddMultipleExpensesView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @Environment(AppState.self) private var appState
+    @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
+
+    @State private var step: Step = .input
+    @State private var showingCamera = false
+    @State private var pastedText = ""
+    @State private var showingPasteEditor = false
+    @State private var isExtractingOCR = false
+    @State private var parsedExpenses: [ParsedExpense] = []
+    @State private var linkedTagIds: [String: String] = [:] // suggestedTagName -> existing tag id
+    @State private var showingTagLinkPickerFor: TagLinkPickerTag?
+    @State private var showingPhotoSourcePicker = false
+    @State private var showingPhotoLibrary = false
+    @State private var photoForOCR: UIImage?
+    @FocusState private var isPasteFieldFocused: Bool
+
+    private var existingTagNames: [String] { tags.map(\.name) }
+
+    private enum Step {
+        case input
+        case review
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if step == .input {
+                    inputStep
+                } else {
+                    reviewStep
+                }
+            }
+            .background(Color.bgPrimary)
+            .navigationTitle(step == .input ? "Add from notes" : "Review expenses")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(Color.textSecondary)
+                }
+            }
+        }
+        .confirmationDialog("Add from photo", isPresented: $showingPhotoSourcePicker) {
+            Button("Take Photo") { showingCamera = true }
+            Button("Choose from Library") { showingPhotoLibrary = true }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Extract expenses from a receipt or notes photo")
+        }
+        .sheet(isPresented: $showingPhotoLibrary) {
+            PhotosPicker(image: $photoForOCR, onCancel: { showingPhotoLibrary = false })
+        }
+        .fullScreenCover(isPresented: $showingCamera) {
+            CameraPicker(image: $photoForOCR)
+                .ignoresSafeArea()
+        }
+        .onChange(of: photoForOCR) { _, new in
+            if let new {
+                showingCamera = false
+                showingPhotoLibrary = false
+                runOCR(on: new)
+                photoForOCR = nil
+            }
+        }
+        .sheet(isPresented: $showingPasteEditor) {
+            pasteTextSheet
+        }
+        .sheet(item: $showingTagLinkPickerFor) { tagTag in
+            TagLinkPickerSheet(
+                tags: tags,
+                onSelect: { tagId in
+                    linkedTagIds[tagTag.id] = tagId
+                    showingTagLinkPickerFor = nil
+                }
+            )
+        }
+    }
+
+    // MARK: - Input Step
+
+    private var inputStep: some View {
+        VStack(spacing: Spacing.lg) {
+            VStack(spacing: Spacing.md) {
+                inputCard(
+                    icon: "camera.fill",
+                    title: "Take or upload a photo",
+                    subtitle: "Extract text from a receipt or notes"
+                ) {
+                    showingPhotoSourcePicker = true
+                }
+
+                inputCard(
+                    icon: "doc.text",
+                    title: "Paste text",
+                    subtitle: "Paste or type your expenses"
+                ) {
+                    showingPasteEditor = true
+                }
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.top, Spacing.xl)
+
+            Spacer()
+        }
+        .overlay {
+            if isExtractingOCR {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                    VStack(spacing: Spacing.md) {
+                        ProgressView()
+                        Text("Extracting text...")
+                            .font(Fonts.caption(14))
+                            .foregroundStyle(.white)
+                    }
+                }
+            }
+        }
+    }
+
+    private func inputCard(icon: String, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: Spacing.md) {
+                Image(systemName: icon)
+                    .font(.system(size: 24))
+                    .foregroundStyle(Color.brandPrimary)
+                    .frame(width: 48, height: 48)
+                    .background(Color.brandTint)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(Fonts.headline(16))
+                        .foregroundStyle(Color.textPrimary)
+                    Text(subtitle)
+                        .font(Fonts.caption(13))
+                        .foregroundStyle(Color.textSecondary)
+                }
+
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.textMuted)
+            }
+            .padding(Spacing.lg)
+            .background(Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var pasteTextSheet: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                TextEditor(text: $pastedText)
+                    .font(Fonts.body(16))
+                    .foregroundStyle(Color.textPrimary)
+                    .scrollContentBackground(.hidden)
+                    .padding(Spacing.md)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.surface)
+                    .focused($isPasteFieldFocused)
+
+                PrimaryButton(title: "Continue") {
+                    proceedWithText(pastedText)
+                    showingPasteEditor = false
+                }
+                .padding(.horizontal, Spacing.lg)
+                .padding(.bottom, Spacing.lg)
+            }
+            .background(Color.bgPrimary)
+            .navigationTitle("Paste text")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { showingPasteEditor = false }
+                        .foregroundStyle(Color.textSecondary)
+                }
+            }
+        }
+    }
+
+    private func runOCR(on image: UIImage) {
+        isExtractingOCR = true
+        Task {
+            let text = await ReceiptOCRService.extractFullText(from: image)
+            await MainActor.run {
+                isExtractingOCR = false
+                if text.isEmpty {
+                    proceedWithText("")
+                } else {
+                    proceedWithText(text)
+                }
+            }
+        }
+    }
+
+    private func proceedWithText(_ text: String) {
+        let parsed = BulkExpenseParser.parse(text)
+        if parsed.isEmpty {
+            dismiss()
+            return
+        }
+        parsedExpenses = parsed
+        step = .review
+    }
+
+    // MARK: - Review Step
+
+    private var reviewStep: some View {
+        VStack(spacing: 0) {
+            List {
+                ForEach(groupedExpenseSections, id: \.tagKey) { section in
+                    Section {
+                        ForEach(section.expenses) { exp in
+                            reviewExpenseRow(exp)
+                        }
+                        .listRowBackground(Color.surface)
+                        .listRowInsets(EdgeInsets(top: 0, leading: Spacing.lg, bottom: 0, trailing: Spacing.lg))
+                        .listRowSeparator(.hidden)
+                    } header: {
+                        sectionHeader(section)
+                    }
+                    .listRowBackground(Color.clear)
+                }
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+
+            PrimaryButton(title: "Import \(parsedExpenses.count) expenses") {
+                performImport()
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.bottom, Spacing.xl)
+        }
+    }
+
+    private var groupedExpenseSections: [(tagKey: String, tagDisplayName: String, isNew: Bool, linkedTagId: String?, expenses: [ParsedExpense])] {
+        let groups = Dictionary(grouping: parsedExpenses) { exp -> String in
+            exp.suggestedTagName ?? "__untagged__"
+        }
+        var result: [(String, String, Bool, String?, [ParsedExpense])] = []
+        let tagNames = groups.keys.filter { $0 != "__untagged__" }.sorted()
+        for name in tagNames {
+            let exps = groups[name] ?? []
+            let linkedId = linkedTagIds[name]
+            let matched = BulkExpenseParser.findMatchingTag(suggested: name, existingTags: existingTagNames)
+            let isNew = linkedId == nil && matched == nil
+            let displayName = linkedId.flatMap { id in tags.first { $0.id == id }?.name } ?? matched ?? name
+            result.append((name, displayName, isNew, linkedId ?? (matched.flatMap { m in tags.first { $0.name == m }?.id }), exps))
+        }
+        if let untagged = groups["__untagged__"], !untagged.isEmpty {
+            result.append(("__untagged__", "Untagged", false, nil, untagged))
+        }
+        return result
+    }
+
+    private func sectionHeader(_ section: (tagKey: String, tagDisplayName: String, isNew: Bool, linkedTagId: String?, expenses: [ParsedExpense])) -> some View {
+        HStack(spacing: Spacing.sm) {
+            Text(section.tagDisplayName)
+                .font(Fonts.headline(14))
+                .foregroundStyle(Color.textPrimary)
+
+            if section.isNew {
+                Text("New")
+                    .font(Fonts.caption(11))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color(hex: "D4872A"))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color(hex: "D4872A").opacity(0.2))
+                    .clipShape(Capsule())
+            }
+
+            Spacer()
+
+            if section.tagKey != "__untagged__" && section.isNew {
+                Button("Link to existing tag") {
+                    showingTagLinkPickerFor = TagLinkPickerTag(section.tagKey)
+                }
+                .font(Fonts.label(13))
+                .foregroundStyle(Color.brandPrimary)
+            }
+        }
+        .padding(.vertical, Spacing.sm)
+        .listRowBackground(Color.clear)
+    }
+
+    private func reviewExpenseRow(_ exp: ParsedExpense) -> some View {
+        HStack {
+            Text(exp.description)
+                .font(Fonts.body(16))
+                .foregroundStyle(Color.textPrimary)
+
+            Spacer()
+
+            TextField("Amount", value: Binding(
+                get: { Double(exp.amountCents) / 100 },
+                set: { newVal in
+                    guard let idx = parsedExpenses.firstIndex(where: { $0.id == exp.id }) else { return }
+                    parsedExpenses[idx].amountCents = max(0, Int(round(newVal * 100)))
+                }
+            ), format: .number.precision(.fractionLength(2)))
+            .keyboardType(.decimalPad)
+            .font(Fonts.mono(16))
+            .foregroundStyle(Color.textPrimary)
+            .multilineTextAlignment(.trailing)
+            .frame(width: 90)
+        }
+        .padding(.vertical, Spacing.sm)
+    }
+
+    private func performImport() {
+        let currency = appState.defaultCurrency
+        let today = Date()
+
+        for section in groupedExpenseSections {
+            var tagId: String?
+            if section.tagKey == "__untagged__" {
+                tagId = nil
+            } else if let linked = section.linkedTagId {
+                tagId = linked
+            } else if let matched = BulkExpenseParser.findMatchingTag(suggested: section.tagKey, existingTags: existingTagNames),
+                      let t = tags.first(where: { $0.name == matched }) {
+                tagId = t.id
+            } else {
+                let count = (try? modelContext.fetchCount(FetchDescriptor<TagModel>())) ?? 0
+                let newTag = TagModel(
+                    userId: nil,
+                    name: section.tagDisplayName,
+                    colorId: TagColors.palette[count % TagColors.palette.count].id,
+                    sortOrder: count
+                )
+                modelContext.insert(newTag)
+                tagId = newTag.id
+            }
+
+            for exp in section.expenses where exp.amountCents > 0 {
+                let model = ExpenseModel(
+                    amountCents: exp.amountCents,
+                    currency: currency,
+                    date: today,
+                    description: exp.description,
+                    tagIds: tagId.map { [$0] } ?? [],
+                    source: "bulk_import"
+                )
+                modelContext.insert(model)
+            }
+        }
+
+        do {
+            try modelContext.save()
+        } catch {
+            #if DEBUG
+            print("[Tally] ERROR saving bulk import: \(error)")
+            #endif
+        }
+
+        dismiss()
+    }
+}
+
+struct TagLinkPickerTag: Identifiable {
+    let id: String
+    init(_ name: String) { id = name }
+}
+
+struct TagLinkPickerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let tags: [TagModel]
+    let onSelect: (String) -> Void
+
+    private var standaloneTags: [TagModel] { tags.filter { $0.parentId == nil && !$0.isGroup } }
+    private var groupTags: [TagModel] { tags.filter { $0.isGroup } }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    ForEach(standaloneTags) { tag in
+                        tagRow(tag)
+                    }
+                    ForEach(groupTags) { group in
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(group.name)
+                                .font(Fonts.caption(13))
+                                .foregroundStyle(Color.textSecondary)
+                            ForEach(tags.filter { $0.parentId == group.id }) { child in
+                                tagRow(child)
+                            }
+                        }
+                    }
+                }
+                .padding(Spacing.lg)
+            }
+            .background(Color.bgPrimary)
+            .navigationTitle("Select tag")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(Color.textSecondary)
+                }
+            }
+        }
+    }
+
+    private func tagRow(_ tag: TagModel) -> some View {
+        Button {
+            onSelect(tag.id)
+            dismiss()
+        } label: {
+            HStack(spacing: Spacing.smd) {
+                Circle()
+                    .fill(tag.tagColor.primaryColor)
+                    .frame(width: 14, height: 14)
+                Text(tag.name)
+                    .font(Fonts.body(16))
+                    .foregroundStyle(Color.textPrimary)
+                Spacer()
+            }
+            .padding(Spacing.md)
+            .background(Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+        }
+        .buttonStyle(.plain)
+    }
+}
