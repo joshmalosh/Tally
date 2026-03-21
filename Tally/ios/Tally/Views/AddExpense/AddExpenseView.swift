@@ -700,7 +700,7 @@ struct AddExpenseView: View {
             enteredViaPhotoFlow = true
             formReady = false
             showingDocumentPicker = true
-        case .manual:
+        case .manual, .bulkImport:
             source = .manual
             focusedField = .amount
         }
