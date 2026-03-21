@@ -1,8 +1,10 @@
 #!/bin/bash
 # Loads sample receipts into the target simulator's photo library — only if they haven't been added yet.
 # Uses a marker file in the simulator's data directory to avoid duplicate imports.
+# Sample receipts live in Tally/Assets.xcassets/Sample_Receipt_*.imageset/
 
-RESOURCES_DIR="$(cd "$(dirname "$0")/../Resources" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+RECEIPTS_DIR="$SCRIPT_DIR/../Tally/Assets.xcassets"
 
 get_device_data_dir() {
     local udid="$1"
@@ -21,7 +23,15 @@ load_if_needed() {
     fi
 
     echo "load_receipts: Adding receipts to $udid"
-    xcrun simctl addmedia "$udid" "$RESOURCES_DIR"/Sample_Receipt_*.jpeg 2>/dev/null
+    receipt_files=()
+    for img in "$RECEIPTS_DIR"/Sample_Receipt_*.imageset/*.jpeg; do
+        [ -f "$img" ] && receipt_files+=("$img")
+    done
+    if [ ${#receipt_files[@]} -gt 0 ]; then
+        xcrun simctl addmedia "$udid" "${receipt_files[@]}" 2>/dev/null || true
+    else
+        echo "load_receipts: No sample receipt images found in $RECEIPTS_DIR"
+    fi
     touch "$marker"
 }
 

@@ -412,6 +412,7 @@
 /* Begin PBXShellScriptBuildPhase section */
 		B0A1D2C3E4F5A6B7C8D9E0F1 /* Load Sample Receipts */ = {
 			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
@@ -422,7 +423,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "\"${SRCROOT}/../scripts/load_receipts.sh\"\n";
+			shellScript = "\"${PROJECT_DIR}/scripts/load_receipts.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
