@@ -18,7 +18,7 @@ struct HomeView: View {
     @State private var showingFilteredExport = false
     @State private var isSelecting = false
     @State private var selectedExpenseIds: Set<String> = []
-    @State private var showingSelectedExport = false
+    @State private var exportWithSelectionItem: ExportWithSelectionItem?
     @State private var expandedGroupId: String?
     @FocusState private var isSearchFocused: Bool
 
@@ -33,6 +33,8 @@ struct HomeView: View {
 
     private var periodExpenses: [ExpenseModel] {
         switch periodFilter {
+        case .selected:
+            return activeExpenses.filter { selectedExpenseIds.contains($0.id) }
         case .allTime:
             return activeExpenses
         case .thisYear:
@@ -85,6 +87,8 @@ struct HomeView: View {
 
     private var periodSubtitle: String {
         switch periodFilter {
+        case .selected:
+            return "Selected"
         case .allTime:
             if let earliest = activeExpenses.last?.date {
                 return "Since \(Self.monthYearFormatter.string(from: earliest))"
@@ -129,11 +133,7 @@ struct HomeView: View {
 
         ZStack(alignment: .bottomTrailing) {
             VStack(spacing: 0) {
-                if isSelecting {
-                    selectionAppBarMinimal
-                } else {
-                    appBar
-                }
+                appBar
 
                 headerSection
                     .allowsHitTesting(!isSelecting)
@@ -156,11 +156,7 @@ struct HomeView: View {
                 }
             }
 
-            if isSelecting {
-                exportFAB
-                    .padding(.trailing, Spacing.md)
-                    .padding(.bottom, showsBannerAd ? (Spacing.xl + 12) : (Spacing.lg + 12))
-            } else {
+            if !isSelecting {
                 FABButton { showingEntryPicker = true }
                     .padding(.trailing, Spacing.md)
                     .padding(.bottom, showsBannerAd ? (Spacing.xl + 12) : (Spacing.lg + 12))
@@ -188,7 +184,7 @@ struct HomeView: View {
             ExpenseDetailView(expenseId: id)
         }
         .sheet(isPresented: $showingGlobalExport) {
-            GlobalExportSheet()
+            GlobalExportSheet(selectedExpenses: nil)
         }
         .sheet(isPresented: $showingFilteredExport) {
             SelectedExportSheet(
@@ -199,10 +195,8 @@ struct HomeView: View {
         .sheet(isPresented: $showingTagCreation) {
             TagCreationView()
         }
-        .sheet(isPresented: $showingSelectedExport) {
-            SelectedExportSheet(
-                expenses: filteredExpenses.filter { selectedExpenseIds.contains($0.id) }
-            )
+        .sheet(item: $exportWithSelectionItem) { item in
+            GlobalExportSheet(selectedExpenses: item.expenses)
         }
     }
 
@@ -259,6 +253,8 @@ struct HomeView: View {
         let count = periodExpenseCount
         let noun = count == 1 ? "expense" : "expenses"
         switch periodFilter {
+        case .selected:
+            return "\(count) selected"
         case .allTime:
             return "\(count) \(noun)"
         case .thisYear:
@@ -685,7 +681,8 @@ struct HomeView: View {
 
         return Button {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            showingSelectedExport = true
+            let selected = filteredExpenses.filter { selectedExpenseIds.contains($0.id) }
+            exportWithSelectionItem = ExportWithSelectionItem(expenses: selected)
         } label: {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: "square.and.arrow.up")
@@ -872,7 +869,10 @@ struct HomeView: View {
     }
 
     private func openExport() {
-        if appState.hasTagFilters {
+        if isSelecting && !selectedExpenseIds.isEmpty {
+            let selected = filteredExpenses.filter { selectedExpenseIds.contains($0.id) }
+            exportWithSelectionItem = ExportWithSelectionItem(expenses: selected)
+        } else if appState.hasTagFilters {
             showingFilteredExport = true
         } else {
             showingGlobalExport = true
@@ -912,15 +912,24 @@ struct HomeView: View {
     }
 }
 
+// MARK: - Export With Selection Item
+
+private struct ExportWithSelectionItem: Identifiable {
+    let id = UUID()
+    let expenses: [ExpenseModel]
+}
+
 // MARK: - Period Filter
 
 enum PeriodFilter {
+    case selected
     case allTime
     case thisYear
     case thisMonth
 
     var label: String {
         switch self {
+        case .selected: "Selected"
         case .allTime: "All Time"
         case .thisYear: "This Year"
         case .thisMonth: "This Month"

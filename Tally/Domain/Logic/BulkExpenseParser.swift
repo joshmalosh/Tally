@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 /// Parsed expense item from bulk import — before tag resolution and SwiftData persistence.
 struct ParsedExpense: Identifiable {
@@ -75,54 +76,38 @@ enum BulkExpenseParser {
     }
 
     private static func extractDescriptionAndAmount(from line: String) -> (description: String, amountCents: Int?) {
-        var remaining = line
+        let stripped = line.trimmingCharacters(in: .whitespaces)
 
-        // Try to find amount at end (common pattern: "Coffee $4.50" or "Coffee 4.50")
-        let amountPattern = #"[\$£€¥]?\s*(\d{1,}[,.]?\d{0,2})\s*$"#
-        guard let regex = try? NSRegularExpression(pattern: amountPattern),
-              let match = regex.firstMatch(in: remaining, range: NSRange(remaining.startIndex..., in: remaining)),
-              let range = Range(match.range(at: 1), in: remaining)
-        else {
-            // Try amount in middle or at start
-            let anyAmount = #"[\$£€¥]?\s*(\d{1,}[,.]?\d{0,2})"#
-            guard let anyRegex = try? NSRegularExpression(pattern: anyAmount),
-                  let anyMatch = anyRegex.firstMatch(in: remaining, range: NSRange(remaining.startIndex..., in: remaining)),
-                  let amtRange = Range(anyMatch.range(at: 1), in: remaining)
-            else { return (remaining, nil) }
+        // Match description and amount — works with or without colon. Finds last numeric token.
+        // Examples: "Mouse/Keyboard 88.99999999" → desc: Mouse/Keyboard, amt: 88.99999999
+        //           "Monitor Arms: 58" → desc: Monitor Arms, amt: 58
+        //           "Green Slip: $577.81" → desc: Green Slip, amt: 577.81
+        let pattern = #"^(.*?)\s*:?\s*\$?([\d,]+\.?\d*)\s*$"#
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let m = regex.firstMatch(in: stripped, range: NSRange(stripped.startIndex..., in: stripped)),
+              m.numberOfRanges >= 3,
+              let descRange = Range(m.range(at: 1), in: stripped),
+              let amtRange = Range(m.range(at: 2), in: stripped)
+        else { return (stripped, nil) }
 
-            let amtStr = String(remaining[amtRange])
-            guard let value = parseAmount(amtStr), value > 0 else { return (remaining, nil) }
-            var desc = remaining
-            if let fullRange = Range(anyMatch.range, in: remaining) {
-                desc.removeSubrange(fullRange)
-            }
-            desc = desc.trimmingCharacters(in: .whitespaces)
-            return (desc.isEmpty ? "Expense" : desc, Int(round(value * 100)))
-        }
+        var amtStr = String(stripped[amtRange]).replacingOccurrences(of: ",", with: "")
+        amtStr = amtStr.replacingOccurrences(of: #"(\.\d{2})\d+"#, with: "$1", options: .regularExpression)
 
-        let amtStr = String(remaining[range])
-        guard let value = parseAmount(amtStr), value > 0 else { return (remaining, nil) }
-        var desc = remaining
-        if let fullRange = Range(match.range, in: remaining) {
-            desc.removeSubrange(fullRange)
-        }
-        desc = desc.trimmingCharacters(in: .whitespaces).trimmingCharacters(in: CharacterSet(charactersIn: "-–—:"))
-        return (desc.isEmpty ? "Expense" : desc, Int(round(value * 100)))
+        guard let value = Double(amtStr), value > 0
+        else { return (stripped, nil) }
+
+        let cents = Int(Darwin.round(value * 100))
+
+        let desc = String(stripped[descRange])
+            .trimmingCharacters(in: .whitespaces)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-–—:"))
+        return (desc.isEmpty ? "Expense" : desc, cents)
     }
 
     private static func parseAmount(_ text: String) -> Double? {
         var s = text
             .replacingOccurrences(of: "[$£€¥\\s]", with: "", options: .regularExpression)
-        if s.contains(",") && s.contains(".") {
-            s = s.replacingOccurrences(of: ",", with: "")
-        } else if s.contains(",") {
-            let parts = s.split(separator: ",")
-            if let last = parts.last, last.count == 2 {
-                s = s.replacingOccurrences(of: ",", with: ".")
-            } else {
-                s = s.replacingOccurrences(of: ",", with: "")
-            }
-        }
+            .replacingOccurrences(of: ",", with: "")
         return Double(s)
     }
 

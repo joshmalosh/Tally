@@ -8,6 +8,9 @@ struct GlobalExportSheet: View {
     @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil }, sort: \ExpenseModel.date, order: .reverse) private var activeExpenses: [ExpenseModel]
     @Query(sort: \TagModel.sortOrder) private var allTags: [TagModel]
 
+    /// When present, shows "Selected" as first option in time range picker and defaults to it.
+    var initialSelection: [ExpenseModel]? = nil
+
     private static let monthYearFormatter: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "MMM yyyy"; return f
     }()
@@ -16,6 +19,12 @@ struct GlobalExportSheet: View {
     }()
 
     @State private var periodFilter: PeriodFilter = .allTime
+
+    private var hasSelection: Bool {
+        guard let sel = initialSelection, !sel.isEmpty else { return false }
+        return true
+    }
+
     @State private var isExporting = false
     @State private var showingToast = false
     @State private var toastMessage = ""
@@ -26,6 +35,8 @@ struct GlobalExportSheet: View {
 
     private var periodExpenses: [ExpenseModel] {
         switch periodFilter {
+        case .selected:
+            return initialSelection ?? []
         case .allTime:
             return activeExpenses
         case .thisYear:
@@ -47,6 +58,9 @@ struct GlobalExportSheet: View {
 
     private var periodSubtitle: String {
         switch periodFilter {
+        case .selected:
+            let n = initialSelection?.count ?? 0
+            return n == 1 ? "1 selected" : "\(n) selected"
         case .allTime:
             if let earliest = activeExpenses.last?.date {
                 return "Since \(Self.monthYearFormatter.string(from: earliest))"
@@ -128,6 +142,9 @@ struct GlobalExportSheet: View {
                 ProFeatureSheet(featureName: proFeatureName)
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
+            }
+            .onAppear {
+                if hasSelection { periodFilter = .selected }
             }
             .sheet(isPresented: $showingTagExportPicker) {
                 TagExportPickerSheet(
@@ -218,18 +235,29 @@ struct GlobalExportSheet: View {
         )
     }
 
+    private func periodLabel(for filter: PeriodFilter) -> String {
+        if filter == .selected && hasSelection {
+            let n = initialSelection?.count ?? 0
+            return "Selected (\(n))"
+        }
+        return filter.label
+    }
+
     private var periodMenu: some View {
         Menu {
-            ForEach([PeriodFilter.allTime, .thisYear, .thisMonth], id: \.label) { filter in
+            let filters: [PeriodFilter] = hasSelection
+                ? [.selected, .allTime, .thisYear, .thisMonth]
+                : [.allTime, .thisYear, .thisMonth]
+            ForEach(filters, id: \.label) { filter in
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) { periodFilter = filter }
                 } label: {
-                    Label(filter.label, systemImage: periodFilter == filter ? "checkmark" : "")
+                    Label(periodLabel(for: filter), systemImage: periodFilter == filter ? "checkmark" : "")
                 }
             }
         } label: {
             HStack(spacing: 5) {
-                Text(periodFilter.label)
+                Text(periodLabel(for: periodFilter))
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Color.textBody)
                 Image(systemName: "chevron.down")

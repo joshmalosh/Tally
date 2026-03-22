@@ -11,10 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changelog system for tracking Tally iOS changes
 
 ### Changed
-- (Nothing yet)
+- Export flow: pass selected expenses via `.sheet(item:)` with `ExportWithSelectionItem` — fixes selection not reaching `GlobalExportSheet`
+- App bar / FAB: always show app bar (with Export icon) during multi-select; add-entry FAB only when not selecting
+- Bulk import: unified regex `^(.*?)\s*:?\s*\$?([\d,]+\.?\d*)\s*$` finds last numeric token on any line (with or without colon)
 
 ### Fixed
-- (Nothing yet)
+- Export sheet showing "All Time" and wrong count when 2 expenses selected — selection now passed reliably
+- Bulk import parsing lines like `Mouse/Keyboard 88.99999999` (no colon) — was splitting on decimal, now extracts description + amount correctly
 
 ### Security
 - (Nothing yet)

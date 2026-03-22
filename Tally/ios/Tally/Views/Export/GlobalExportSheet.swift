@@ -8,6 +8,14 @@ struct GlobalExportSheet: View {
     @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil }, sort: \ExpenseModel.date, order: .reverse) private var activeExpenses: [ExpenseModel]
     @Query(sort: \TagModel.sortOrder) private var allTags: [TagModel]
 
+    /// When non-nil and non-empty, opens in "selected" mode with this set as first/default option.
+    var selectedExpenses: [ExpenseModel]? = nil
+
+    private var hasSelection: Bool {
+        guard let sel = selectedExpenses, !sel.isEmpty else { return false }
+        return true
+    }
+
     private static let monthYearFormatter: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "MMM yyyy"; return f
     }()
@@ -26,6 +34,8 @@ struct GlobalExportSheet: View {
 
     private var periodExpenses: [ExpenseModel] {
         switch periodFilter {
+        case .selected:
+            return selectedExpenses ?? []
         case .allTime:
             return activeExpenses
         case .thisYear:
@@ -47,6 +57,9 @@ struct GlobalExportSheet: View {
 
     private var periodSubtitle: String {
         switch periodFilter {
+        case .selected:
+            let n = selectedExpenses?.count ?? 0
+            return n == 1 ? "1 selected" : "\(n) selected"
         case .allTime:
             if let earliest = activeExpenses.last?.date {
                 return "Since \(Self.monthYearFormatter.string(from: earliest))"
@@ -110,6 +123,9 @@ struct GlobalExportSheet: View {
                     }
                 }
             }
+            .onAppear {
+                if hasSelection { periodFilter = .selected }
+            }
             .background(Color.bgPrimary)
             .navigationTitle("Export")
             .navigationBarTitleDisplayMode(.inline)
@@ -133,7 +149,7 @@ struct GlobalExportSheet: View {
                 TagExportPickerSheet(
                     expenses: periodExpenses,
                     tags: Array(allTags),
-                    periodLabel: periodFilter.label
+                    periodLabel: periodLabel(for: periodFilter)
                 )
             }
             .overlay(alignment: .bottom) {
@@ -218,18 +234,29 @@ struct GlobalExportSheet: View {
         )
     }
 
+    private func periodLabel(for filter: PeriodFilter) -> String {
+        if case .selected = filter, hasSelection {
+            let n = selectedExpenses?.count ?? 0
+            return "Selected (\(n))"
+        }
+        return filter.label
+    }
+
     private var periodMenu: some View {
         Menu {
-            ForEach([PeriodFilter.allTime, .thisYear, .thisMonth], id: \.label) { filter in
+            let filters: [PeriodFilter] = hasSelection
+                ? [.selected, .allTime, .thisYear, .thisMonth]
+                : [.allTime, .thisYear, .thisMonth]
+            ForEach(filters, id: \.label) { filter in
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) { periodFilter = filter }
                 } label: {
-                    Label(filter.label, systemImage: periodFilter == filter ? "checkmark" : "")
+                    Label(periodLabel(for: filter), systemImage: periodFilter == filter ? "checkmark" : "")
                 }
             }
         } label: {
             HStack(spacing: 5) {
-                Text(periodFilter.label)
+                Text(periodLabel(for: periodFilter))
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Color.textBody)
                 Image(systemName: "chevron.down")
