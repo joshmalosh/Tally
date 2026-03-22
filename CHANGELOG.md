@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bulk import: unified regex `^(.*?)\s*:?\s*\$?([\d,]+\.?\d*)\s*$` finds last numeric token on any line (with or without colon)
 
 ### Fixed
-- Export sheet showing "All Time" and wrong count when 2 expenses selected — selection now passed reliably
+- Export sheet showing "All Time" and wrong count when 2 expenses selected — selection now passed reliably (applied `sheet(item:)` fix to main `Tally/Views/Home/HomeView` used by root Xcode project)
 - Bulk import parsing lines like `Mouse/Keyboard 88.99999999` (no colon) — was splitting on decimal, now extracts description + amount correctly
 
 ### Security

@@ -18,8 +18,7 @@ struct HomeView: View {
     @State private var showingFilteredExport = false
     @State private var isSelecting = false
     @State private var selectedExpenseIds: Set<String> = []
-    @State private var showingExportWithSelection = false
-    @State private var exportSelection: [ExpenseModel] = []
+    @State private var exportWithSelectionItem: ExportWithSelectionItem?
     @State private var expandedGroupId: String?
     @State private var expenseToDelete: ExpenseModel?
     @FocusState private var isSearchFocused: Bool
@@ -202,10 +201,8 @@ struct HomeView: View {
         .sheet(isPresented: $showingTagCreation) {
             TagCreationView()
         }
-        .sheet(isPresented: $showingExportWithSelection) {
-            GlobalExportSheet(
-                initialSelection: exportSelection.isEmpty ? nil : exportSelection
-            )
+        .sheet(item: $exportWithSelectionItem) { item in
+            GlobalExportSheet(initialSelection: item.expenses)
         }
         .alert("Delete expense?", isPresented: Binding(
             get: { expenseToDelete != nil },
@@ -747,8 +744,8 @@ struct HomeView: View {
 
         return Button {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            exportSelection = filteredExpenses.filter { selectedExpenseIds.contains($0.id) }
-            showingExportWithSelection = true
+            let selected = filteredExpenses.filter { selectedExpenseIds.contains($0.id) }
+            exportWithSelectionItem = ExportWithSelectionItem(expenses: selected)
         } label: {
             ZStack(alignment: .topTrailing) {
                 Image(systemName: "square.and.arrow.up")
@@ -854,8 +851,8 @@ struct HomeView: View {
 
     private func openExport() {
         if isSelecting && !selectedExpenseIds.isEmpty {
-            exportSelection = filteredExpenses.filter { selectedExpenseIds.contains($0.id) }
-            showingExportWithSelection = true
+            let selected = filteredExpenses.filter { selectedExpenseIds.contains($0.id) }
+            exportWithSelectionItem = ExportWithSelectionItem(expenses: selected)
         } else if appState.hasTagFilters {
             showingFilteredExport = true
         } else {
@@ -894,6 +891,13 @@ struct HomeView: View {
         let vc = UIActivityViewController(activityItems: items, applicationActivities: nil)
         topVC.present(vc, animated: true)
     }
+}
+
+// MARK: - Export With Selection Item
+
+private struct ExportWithSelectionItem: Identifiable {
+    let id = UUID()
+    let expenses: [ExpenseModel]
 }
 
 // MARK: - Period Filter
