@@ -640,7 +640,7 @@ struct AddExpenseView: View {
                 .font(Fonts.body(16))
                 .foregroundStyle(Color.textPrimary)
                 .scrollContentBackground(.hidden)
-                .frame(minHeight: 72)
+                .frame(minHeight: 60)
                 .padding(Spacing.smd)
                 .background(Color.surface)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.sm))

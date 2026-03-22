@@ -9,7 +9,7 @@ final class TagModel {
     var colorId: String = "primaryGreen"
     var icon: String?
     var sortOrder: Int = 0
-    var showOnHome: Bool = true
+    var showOnHome: Bool = false
     var parentId: String?
     var isGroup: Bool = false
 
@@ -20,7 +20,7 @@ final class TagModel {
         colorId: String = "primaryGreen",
         icon: String? = nil,
         sortOrder: Int = 0,
-        showOnHome: Bool = true,
+        showOnHome: Bool = false,
         parentId: String? = nil,
         isGroup: Bool = false
     ) {

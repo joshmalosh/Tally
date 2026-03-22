@@ -19,7 +19,6 @@ struct AddMultipleExpensesView: View {
     @State private var showingTagLinkPickerFor: TagLinkPickerTag?
     @State private var showingPhotoSourcePicker = false
     @State private var showingPhotoLibrary = false
-    @State private var showingFilePicker = false
     @State private var photoForOCR: UIImage?
     @FocusState private var isPasteFieldFocused: Bool
 
@@ -74,14 +73,6 @@ struct AddMultipleExpensesView: View {
         .sheet(isPresented: $showingPasteEditor) {
             pasteTextSheet
         }
-        .sheet(isPresented: $showingFilePicker) {
-            BulkImportFilePicker { url in
-                showingFilePicker = false
-                if let url {
-                    loadFileContents(from: url)
-                }
-            }
-        }
         .sheet(item: $showingTagLinkPickerFor) { tagTag in
             TagLinkPickerSheet(
                 tags: tags,
@@ -120,14 +111,6 @@ struct AddMultipleExpensesView: View {
                     subtitle: "Paste or type your expenses"
                 ) {
                     showingPasteEditor = true
-                }
-
-                inputCard(
-                    icon: "square.and.arrow.up",
-                    title: "Upload file",
-                    subtitle: "CSV, Excel, or text file"
-                ) {
-                    showingFilePicker = true
                 }
             }
             .padding(.horizontal, Spacing.lg)
@@ -168,6 +151,7 @@ struct AddMultipleExpensesView: View {
                     Text(subtitle)
                         .font(Fonts.caption(13))
                         .foregroundStyle(Color.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 Spacer()
@@ -255,63 +239,55 @@ struct AddMultipleExpensesView: View {
 
     private var reviewStep: some View {
         VStack(spacing: 0) {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: Spacing.xl) {
-                    ForEach(groupedExpenseSections, id: \.tagKey) { section in
-                        VStack(alignment: .leading, spacing: Spacing.sm) {
-                            // Section header: tag name + New pill + Link button
-                            HStack(spacing: Spacing.sm) {
-                                Text(section.tagDisplayName)
-                                    .font(Fonts.headline(15))
-                                    .foregroundStyle(Color.textPrimary)
-
-                                if section.isNew {
-                                    Text("New")
-                                        .font(Fonts.caption(11))
-                                        .fontWeight(.semibold)
-                                        .foregroundStyle(Color(hex: "D4872A"))
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .background(Color(hex: "D4872A").opacity(0.2))
-                                        .clipShape(Capsule())
-                                }
-
-                                Spacer()
-
-                                if section.tagKey != "__untagged__" {
-                                    Button("Link to existing tag") {
-                                        showingTagLinkPickerFor = TagLinkPickerTag("group:\(section.tagKey)")
-                                    }
-                                    .font(Fonts.label(13))
-                                    .foregroundStyle(Color.brandPrimary)
+            List {
+                ForEach(groupedExpenseSections, id: \.tagKey) { section in
+                    Section {
+                        ForEach(section.expenses) { exp in
+                            reviewExpenseRow(exp, onTagTap: {
+                                showingTagLinkPickerFor = TagLinkPickerTag("expense:\(exp.id)")
+                            })
+                            .listRowBackground(Color.surface)
+                            .swipeActions(edge: .trailing) {
+                                Button(role: .destructive) {
+                                    removeExpenseFromPending(exp)
+                                } label: {
+                                    Label("Remove", systemImage: "trash")
                                 }
                             }
-                            .padding(.horizontal, Spacing.lg)
-                            .padding(.top, section.tagKey == groupedExpenseSections.first?.tagKey ? 0 : Spacing.md)
-
-                            // Expense rows in a card
-                            VStack(spacing: 0) {
-                                ForEach(section.expenses) { exp in
-                                    reviewExpenseRow(exp, onTagTap: {
-                                        showingTagLinkPickerFor = TagLinkPickerTag("expense:\(exp.id)")
-                                    })
-                                        .padding(.horizontal, Spacing.lg)
-                                    if exp.id != section.expenses.last?.id {
-                                        Divider()
-                                            .background(Color.borderColor)
-                                            .padding(.horizontal, Spacing.lg)
-                                    }
-                                }
-                            }
-                            .background(Color.surface)
-                            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
                         }
-                        .padding(.horizontal, Spacing.lg)
+                    } header: {
+                        HStack(spacing: Spacing.sm) {
+                            Text(section.tagDisplayName)
+                                .font(Fonts.headline(15))
+                                .foregroundStyle(Color.textPrimary)
+
+                            if section.isNew {
+                                Text("New")
+                                    .font(Fonts.caption(11))
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(Color(hex: "D4872A"))
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(Color(hex: "D4872A").opacity(0.2))
+                                    .clipShape(Capsule())
+                            }
+
+                            Spacer()
+
+                            if section.tagKey != "__untagged__" {
+                                Button("Link to existing tag") {
+                                    showingTagLinkPickerFor = TagLinkPickerTag("group:\(section.tagKey)")
+                                }
+                                .font(Fonts.label(13))
+                                .foregroundStyle(Color.brandPrimary)
+                            }
+                        }
+                        .padding(.vertical, Spacing.sm)
                     }
                 }
-                .padding(.vertical, Spacing.lg)
-                .padding(.bottom, Spacing.xl)
             }
+            .listStyle(.insetGrouped)
+            .scrollContentBackground(.hidden)
             .animation(.easeInOut(duration: 0.25), value: parsedExpenses.map { "\($0.id):\($0.suggestedTagName ?? "")" }.joined())
             .background(Color.bgPrimary)
 
@@ -320,6 +296,12 @@ struct AddMultipleExpensesView: View {
             }
             .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.xl)
+        }
+    }
+
+    private func removeExpenseFromPending(_ exp: ParsedExpense) {
+        withAnimation(.easeInOut(duration: 0.25)) {
+            parsedExpenses.removeAll { $0.id == exp.id }
         }
     }
 
@@ -373,7 +355,8 @@ struct AddMultipleExpensesView: View {
                 get: { Double(exp.amountCents) / 100 },
                 set: { newVal in
                     guard let idx = parsedExpenses.firstIndex(where: { $0.id == exp.id }) else { return }
-                    parsedExpenses[idx].amountCents = max(0, Int(round(newVal * 100)))
+                    let roundedToCents = (newVal * 100).rounded() / 100
+                    parsedExpenses[idx].amountCents = max(0, Int(round(roundedToCents * 100)))
                 }
             ), format: .currency(code: appState.defaultCurrency))
             .keyboardType(.decimalPad)

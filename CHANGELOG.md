@@ -12,9 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Single Xcode project**: Removed duplicate `Tally/ios/` project and sources. One project only: `Tally.xcodeproj`; all sources under `Tally/`. See `.cursor/rules/07-project-overrides.mdc`.
+- New tags and groups default to `showOnHome: false` — must be enabled in Settings to appear as filter pills
+- Settings Home Screen Tags: sort tags and groups A–Z (case-insensitive), single list
+- Add expense Notes field: reduced default min height to ~3 lines (60pt)
 - Export flow: pass selected expenses via `.sheet(item:)` with `ExportWithSelectionItem` — fixes selection not reaching `GlobalExportSheet`
 - App bar / FAB: always show app bar (with Export icon) during multi-select; add-entry FAB only when not selecting
 - Bulk import: unified regex `^(.*?)\s*:?\s*\$?([\d,]+\.?\d*)\s*$` finds last numeric token on any line (with or without colon)
+
+### Removed
+- Upload file option from Add from notes screen (Add expense → Add multiple expenses) — now only Take/upload photo and Paste text
 
 ### Fixed
 - Export sheet showing "All Time" and wrong count when 2 expenses selected — selection now passed reliably (applied `sheet(item:)` fix to main `Tally/Views/Home/HomeView` used by root Xcode project)

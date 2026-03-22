@@ -18,6 +18,7 @@ struct SettingsView: View {
 
     private var topLevelTags: [TagModel] {
         tags.filter { $0.parentId == nil }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     private func childrenOf(_ group: TagModel) -> [TagModel] {
