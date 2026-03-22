@@ -44,6 +44,9 @@ struct AddExpenseView: View {
     @State private var recurringFrequency = "monthly"
     @State private var showingRecurringEditActionSheet = false
     @State private var pendingRecurringEditChoice: RecurringEditChoice?
+    @State private var showingMonthlyLimitSheet = false
+    @State private var showingProBenefitsCard = false
+    @State private var showingGoProFromOcrBanner = false
 
     @FocusState private var focusedField: Field?
 
@@ -86,6 +89,10 @@ struct AddExpenseView: View {
 
     private var hasAttachment: Bool {
         attachedImage != nil || attachedFileURL != nil
+    }
+
+    private var shouldShowOcrUpsellBanner: Bool {
+        !appState.isPro && attachedImage != nil
     }
 
     private var shouldShowBanner: Bool {
@@ -198,6 +205,19 @@ struct AddExpenseView: View {
                     FullImageView(image: image)
                 }
             }
+            .sheet(isPresented: $showingMonthlyLimitSheet) {
+                MonthlyLimitSheet()
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showingProBenefitsCard, onDismiss: { dismiss() }) {
+                ProBenefitsCard()
+                    .presentationDetents([.height(320)])
+                    .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showingGoProFromOcrBanner) {
+                SubscriptionView()
+            }
             .onChange(of: attachedImage) { _, newValue in
                 if let image = newValue {
                     if AttachmentService.exceedsMaxSize(image) {
@@ -246,6 +266,13 @@ struct AddExpenseView: View {
                 }
             }
             .onAppear { applyInitialState() }
+            .onChange(of: editingExpense?.id, initial: true) { _, _ in
+                if let expense = editingExpense {
+                    isRecurring = expense.isRecurring
+                    let validFreqs = ["weekly", "monthly", "yearly"]
+                    recurringFrequency = validFreqs.contains(expense.recurringFrequency) ? expense.recurringFrequency : "monthly"
+                }
+            }
             .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
                 isKeyboardVisible = true
             }
@@ -265,6 +292,11 @@ struct AddExpenseView: View {
                         .padding(.bottom, 14)
                 } else if enteredViaPhotoFlow || isEditing {
                     reattachPlaceholder
+                        .padding(.bottom, 14)
+                }
+
+                if shouldShowOcrUpsellBanner {
+                    ocrUpsellBanner
                         .padding(.bottom, 14)
                 }
 
@@ -294,6 +326,27 @@ struct AddExpenseView: View {
             .padding(.top, hasAttachment ? Spacing.sm : Spacing.smd)
             .padding(.bottom, Spacing.xl)
         }
+    }
+
+    // MARK: - OCR Upsell Banner
+
+    private var ocrUpsellBanner: some View {
+        Button {
+            showingGoProFromOcrBanner = true
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+                Text("Upgrade to Pro to auto-fill this receipt ")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+                + Text("Upgrade")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color.brandPrimary)
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Receipt Preview (Compact)
@@ -815,11 +868,27 @@ struct AddExpenseView: View {
         }
     }
 
+    private func expenseCountInMonth(of d: Date) -> Int {
+        let cal = Calendar.current
+        let (y, m) = (cal.component(.year, from: d), cal.component(.month, from: d))
+        return allExpenses.filter {
+            cal.component(.year, from: $0.date) == y && cal.component(.month, from: $0.date) == m
+        }.count
+    }
+
     private func saveExpense(recurringEditChoice: RecurringEditChoice?) {
         guard let amountCents = parsedAmountCents else {
             errorMessage = "Please enter a valid amount."
             showingError = true
             return
+        }
+
+        if !isEditing && !appState.isPro {
+            let countInMonth = expenseCountInMonth(of: date)
+            if countInMonth >= 15 {
+                showingMonthlyLimitSheet = true
+                return
+            }
         }
 
         isSaving = true
@@ -911,6 +980,7 @@ struct AddExpenseView: View {
                         #endif
                     }
                 } else {
+                    let countBeforeInsert = expenseCountInMonth(of: date)
                     let expense = ExpenseModel(
                         id: expenseId,
                         userId: "",
@@ -943,6 +1013,17 @@ struct AddExpenseView: View {
                         #endif
                     }
                     appState.clearFilters()
+
+                    if !appState.isPro {
+                        let newCount = countBeforeInsert + 1
+                        let triggerCounts = [3, 6, 9]
+                        if triggerCounts.contains(newCount) && appState.proPromptShownThisMonth < 3 {
+                            appState.recordProPromptShown()
+                            showingProBenefitsCard = true
+                            isSaving = false
+                            return
+                        }
+                    }
                 }
                 isSaving = false
                 dismiss()
