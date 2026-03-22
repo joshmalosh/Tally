@@ -152,6 +152,11 @@ struct HomeView: View {
                         .transition(.move(edge: .bottom))
                 }
             }
+            .onChange(of: selectedExpenseIds.count) { _, count in
+                if isSelecting && count == 0 {
+                    exitSelectionMode()
+                }
+            }
 
             if !isSelecting {
                 FABButton { showingEntryPicker = true }
@@ -685,59 +690,40 @@ struct HomeView: View {
     // MARK: - Selection Bottom Toolbar
 
     private var selectionBottomToolbar: some View {
-        HStack(spacing: Spacing.lg) {
+        HStack(spacing: 0) {
             Button {
                 exitSelectionMode()
             } label: {
                 Text("Cancel")
-                    .font(Fonts.body(15))
+                    .font(Fonts.body(16))
                     .foregroundStyle(Color.textSecondary)
+                    .frame(minWidth: 70, alignment: .leading)
             }
+            .buttonStyle(.plain)
 
-            Spacer()
+            Spacer(minLength: Spacing.md)
 
             Text("\(selectedExpenseIds.count) selected")
-                .font(Fonts.caption(14))
+                .font(Fonts.caption(15))
                 .foregroundStyle(Color.textPrimary)
+                .lineLimit(1)
 
-            Spacer()
-
-            if showSelectAll {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        if allAreSelected {
-                            selectedExpenseIds.removeAll()
-                        } else {
-                            selectedExpenseIds = Set(filteredExpenses.map(\.id))
-                        }
-                    }
-                } label: {
-                    Text(allAreSelected ? "Deselect All" : "Select All")
-                        .font(Fonts.caption(13))
-                        .foregroundStyle(Color.textSecondary)
-                }
-            }
-
-            Button {
-                showingSelectedExport = true
-            } label: {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 18))
-                    .foregroundStyle(Color.textSecondary)
-            }
+            Spacer(minLength: Spacing.md)
 
             Button {
                 deleteSelectedExpenses()
             } label: {
                 Text("Delete")
-                    .font(Fonts.body(15))
+                    .font(Fonts.body(16))
                     .fontWeight(.medium)
                     .foregroundStyle(Color.danger)
+                    .frame(minWidth: 70, alignment: .trailing)
             }
+            .buttonStyle(.plain)
             .disabled(selectedExpenseIds.isEmpty)
         }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, Spacing.md)
+        .padding(.horizontal, Spacing.xl)
+        .padding(.vertical, Spacing.lg)
         .background(Color.surface)
         .overlay(alignment: .top) {
             Rectangle()
@@ -794,16 +780,6 @@ struct HomeView: View {
         }
         .disabled(!hasSelection)
         .animation(.easeInOut(duration: 0.2), value: count)
-    }
-
-    // MARK: - Selection Mode Helpers
-
-    private var showSelectAll: Bool {
-        filteredExpenses.count > 1
-    }
-
-    private var allAreSelected: Bool {
-        !filteredExpenses.isEmpty && selectedExpenseIds.count == filteredExpenses.count
     }
 
     // MARK: - Selection Mode

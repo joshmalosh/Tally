@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct ContentView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
@@ -82,6 +83,7 @@ struct ContentView: View {
                     .foregroundStyle(Color.brandPrimary.opacity(0.7))
                     .opacity(taglineOpacity)
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .onAppear {
             startSplashAnimations()
@@ -89,19 +91,17 @@ struct ContentView: View {
     }
 
     private var progressBar: some View {
-        GeometryReader { geo in
-            let barWidth = geo.size.width - 80
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(Color.brandPrimary.opacity(0.25))
-                    .frame(height: 4)
-                Capsule()
-                    .fill(Color.brandPrimary)
-                    .frame(width: max(0, barWidth * splashProgress), height: 4)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
+        let barWidth = max(0, UIScreen.main.bounds.width - 80)
+        return ZStack(alignment: .leading) {
+            Capsule()
+                .fill(Color.brandPrimary.opacity(0.25))
+                .frame(height: 4)
+            Capsule()
+                .fill(Color.brandPrimary)
+                .frame(width: max(0, barWidth * splashProgress), height: 4)
         }
         .frame(height: 4)
+        .frame(maxWidth: .infinity)
         .padding(.horizontal, 40)
     }
 
