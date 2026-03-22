@@ -12,7 +12,7 @@ struct TagPickerSheet: View {
     @State private var isCreating = false
     @State private var isCreatingGroup = false
     @State private var newName = ""
-    @State private var newColorId = TagColors.palette[0].id
+    @State private var newColorId = TagColors.defaultNewTagColorId
     @State private var newParentId: String?
     @State private var expandedGroups: Set<String> = []
     @State private var showingGroupPickerSheet = false
@@ -419,7 +419,7 @@ struct TagPickerSheet: View {
 
     private func resetCreationState(parentId: String?) {
         newName = ""
-        newColorId = parentId.flatMap { pid in groupTags.first { $0.id == pid }?.colorId } ?? TagColors.palette[0].id
+        newColorId = parentId.flatMap { pid in groupTags.first { $0.id == pid }?.colorId } ?? TagColors.defaultNewTagColorId
         newParentId = parentId
     }
 

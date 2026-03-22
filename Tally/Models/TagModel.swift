@@ -6,7 +6,7 @@ final class TagModel {
     var id: String = UUID().uuidString
     var userId: String?
     var name: String = ""
-    var colorId: String = "primaryGreen"
+    var colorId: String = TagColors.defaultNewTagColorId
     var icon: String?
     var sortOrder: Int = 0
     var showOnHome: Bool = false
@@ -17,7 +17,7 @@ final class TagModel {
         id: String = UUID().uuidString,
         userId: String? = nil,
         name: String = "",
-        colorId: String = "primaryGreen",
+        colorId: String = TagColors.defaultNewTagColorId,
         icon: String? = nil,
         sortOrder: Int = 0,
         showOnHome: Bool = false,
@@ -42,9 +42,9 @@ final class TagModel {
     var isChild: Bool { parentId != nil }
 
     static let defaults: [(name: String, colorId: String, sortOrder: Int)] = [
-        ("Travel", "softBlue", 0),
-        ("Petrol", "primaryGreen", 1),
-        ("Meals", "terracotta", 2),
-        ("Subscriptions", "softCoral", 3),
+        ("Travel", "v7", 0),
+        ("Petrol", "v2", 1),
+        ("Meals", "v17", 2),
+        ("Subscriptions", "v13", 3),
     ]
 }

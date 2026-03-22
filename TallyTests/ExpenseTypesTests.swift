@@ -89,23 +89,23 @@ final class ExpenseTypesTests: XCTestCase {
 
     // MARK: - TagColors
 
-    func testTagColors_paletteHas12Colors() {
-        XCTAssertEqual(TagColors.palette.count, 12)
+    func testTagColors_paletteHas30Colors() {
+        XCTAssertEqual(TagColors.palette.count, 30)
     }
 
     func testTagColors_forId_returnsCorrectColor() {
-        let teal = TagColors.forId("teal")
-        XCTAssertEqual(teal.primary, "0D9488")
+        let mint = TagColors.forId("v2")
+        XCTAssertEqual(mint.primary, "3D9E6A")
     }
 
-    func testTagColors_forId_fallsBackToFirst() {
+    func testTagColors_forId_fallsBackToMint() {
         let fallback = TagColors.forId("nonexistent")
-        XCTAssertEqual(fallback.id, "teal")
+        XCTAssertEqual(fallback.id, "v2")
     }
 
     func testTagColors_defaultTagColors_hasFourEntries() {
         XCTAssertEqual(TagColors.defaultTagColors.count, 4)
-        XCTAssertEqual(TagColors.defaultTagColors["Travel"], "slate")
-        XCTAssertEqual(TagColors.defaultTagColors["Subscriptions"], "pink")
+        XCTAssertEqual(TagColors.defaultTagColors["Travel"], "v7")
+        XCTAssertEqual(TagColors.defaultTagColors["Subscriptions"], "v13")
     }
 }

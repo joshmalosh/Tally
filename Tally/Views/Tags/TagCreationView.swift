@@ -8,7 +8,7 @@ struct TagCreationView: View {
     @Query(sort: \TagModel.sortOrder) private var allTags: [TagModel]
 
     @State private var name = ""
-    @State private var selectedColorId = TagColors.palette[0].id
+    @State private var selectedColorId = TagColors.defaultNewTagColorId
     @State private var selectedParentId: String?
     @State private var showingGroupPicker = false
     @State private var showingNewGroup = false
