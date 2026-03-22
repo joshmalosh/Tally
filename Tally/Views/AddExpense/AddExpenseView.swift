@@ -301,37 +301,43 @@ struct AddExpenseView: View {
     private var receiptPreview: some View {
         ZStack(alignment: .topTrailing) {
             if let image = attachedImage {
-                ZStack(alignment: .bottom) {
+                // Fixed 200pt container — no intrinsic sizing, prevents constraint conflicts
+                ZStack {
+                    Color.clear
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 200)
                     Button { showingFullImage = true } label: {
                         Image(uiImage: image)
                             .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 200)
-                            .clipped()
-                            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                            .scaledToFit()
+                            .frame(maxWidth: .infinity, maxHeight: 200)
                     }
                     .buttonStyle(.plain)
 
                     if isRunningOCR {
-                        HStack(spacing: 6) {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                                .scaleEffect(0.7)
-                            Text("Reading receipt...")
-                                .font(Fonts.caption(12))
-                                .foregroundStyle(.white)
+                        VStack {
+                            Spacer()
+                            HStack(spacing: 6) {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .scaleEffect(0.7)
+                                Text("Reading receipt...")
+                                    .font(Fonts.caption(12))
+                                    .foregroundStyle(.white)
+                            }
+                            .padding(.horizontal, Spacing.smd)
+                            .padding(.vertical, 5)
+                            .background(Color.black.opacity(0.6))
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+                            .padding(.bottom, Spacing.sm)
+                            .transition(.opacity)
                         }
-                        .padding(.horizontal, Spacing.smd)
-                        .padding(.vertical, 5)
-                        .background(Color.black.opacity(0.6))
-                        .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
-                        .padding(.bottom, Spacing.sm)
-                        .transition(.opacity)
                     }
                 }
-                .frame(height: 200)
                 .frame(maxWidth: .infinity)
+                .frame(height: 200)
+                .clipped()
+                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
             } else if let url = attachedFileURL {
                 HStack(spacing: Spacing.md) {
                     Image(systemName: "doc.fill")

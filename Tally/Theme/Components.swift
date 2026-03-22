@@ -196,10 +196,17 @@ struct ExpenseCard: View {
                 }
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(displayTitle)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Color.textPrimary)
-                        .lineLimit(1)
+                    HStack(spacing: 5) {
+                        Text(displayTitle)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Color.textPrimary)
+                            .lineLimit(1)
+                        if showRecurringIcon {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(Color(hex: "346049"))
+                        }
+                    }
 
                     HStack(spacing: 6) {
                         Circle()
@@ -215,16 +222,9 @@ struct ExpenseCard: View {
                 Spacer(minLength: Spacing.sm)
 
                 VStack(alignment: .trailing, spacing: 2) {
-                    HStack(spacing: 4) {
-                        if showRecurringIcon {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(Color.textMuted.opacity(0.8))
-                        }
-                        Text(CurrencyFormatter.shared.format(cents: amountCents, currencyCode: currency))
-                            .font(Fonts.mono(15))
-                            .foregroundStyle(Color.textPrimary)
-                    }
+                    Text(CurrencyFormatter.shared.format(cents: amountCents, currencyCode: currency))
+                        .font(Fonts.mono(15))
+                        .foregroundStyle(Color.textPrimary)
                     Text(Self.dateFormatter.string(from: date))
                         .font(Fonts.caption(11))
                         .foregroundStyle(Color.textMuted)

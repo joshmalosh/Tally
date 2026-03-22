@@ -146,6 +146,10 @@ struct ExpenseDetailView: View {
         VStack(spacing: 0) {
             detailRow(label: "Date", value: formatDate(expense.date))
             Divider().padding(.leading, Spacing.md)
+            if expense.isRecurring {
+                detailRow(label: "Recurring", value: formatRecurringFrequency(expense.recurringFrequency))
+                Divider().padding(.leading, Spacing.md)
+            }
             if let desc = expense.expenseDescription, !desc.isEmpty {
                 detailRow(label: "Description", value: desc)
                 Divider().padding(.leading, Spacing.md)
@@ -246,6 +250,14 @@ struct ExpenseDetailView: View {
         }
 
         attachmentImage = nil
+    }
+
+    private func formatRecurringFrequency(_ frequency: String) -> String {
+        switch frequency {
+        case "weekly": return "Weekly"
+        case "yearly": return "Yearly"
+        default: return "Monthly"
+        }
     }
 
     private func formatDate(_ date: Date) -> String {
