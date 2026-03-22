@@ -80,7 +80,7 @@ struct SettingsView: View {
                             appState.recurringNotificationEnabled = newValue
                             if newValue {
                                 Task {
-                                    _ = await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+                                    _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
                                 }
                             }
                         }
