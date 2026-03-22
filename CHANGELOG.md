@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Changelog system for tracking Tally iOS changes
 
 ### Changed
+- **Single Xcode project**: Removed duplicate `Tally/ios/` project and sources. One project only: `Tally.xcodeproj`; all sources under `Tally/`. See `.cursor/rules/07-project-overrides.mdc`.
 - Export flow: pass selected expenses via `.sheet(item:)` with `ExportWithSelectionItem` — fixes selection not reaching `GlobalExportSheet`
 - App bar / FAB: always show app bar (with Export icon) during multi-select; add-entry FAB only when not selecting
 - Bulk import: unified regex `^(.*?)\s*:?\s*\$?([\d,]+\.?\d*)\s*$` finds last numeric token on any line (with or without colon)

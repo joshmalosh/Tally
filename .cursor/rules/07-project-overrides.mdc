@@ -60,3 +60,8 @@ Each override follows this format:
 **Default:** Brand gradient used for hero accents, primary CTAs, active states.
 **Override:** No gradients. No drop shadows. No glossy effects. Flat, solid colors only. Green is used sparingly as a highlight — primary actions, icons, active states only. Never for large backgrounds.
 **Rationale:** The brand direction explicitly calls for flat, engineered aesthetic. No decorative UI. Gradients, shadows, and gloss conflict with the disciplined, minimal identity.
+
+### Project structure — Single Xcode project
+**Default:** Multiple Xcode projects or platform-specific source trees.
+**Override:** One Xcode project only: `Tally/IOS/Tally.xcodeproj`. All source files live under `Tally/IOS/Tally/` (Views, Domain, Models, Services, etc.). No duplicate `ios/` folder, no second project. Git operations run from `Tally/IOS/` and push to the Tally repo.
+**Rationale:** Duplicate projects and parallel source trees caused bugs (fixes applied to wrong files) and maintenance burden. One project, one source tree.
