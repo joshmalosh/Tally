@@ -607,7 +607,8 @@ struct HomeView: View {
                         currency: expense.currency,
                         date: expense.date,
                         tagName: displayTagName(for: expense),
-                        tagColor: tag?.tagColor ?? TagColors.forId("warmGrey")
+                        tagColor: tag?.tagColor ?? TagColors.forId("warmGrey"),
+                        showRecurringIcon: expense.recurrenceTemplateId != nil
                     )
                 }
                 .contentShape(Rectangle())

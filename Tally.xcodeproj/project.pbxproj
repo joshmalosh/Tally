@@ -33,6 +33,8 @@
 		93293ED9425338E08C4FFE9E /* ExpenseExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65CC7BBBCB475E2A14A52332 /* ExpenseExportService.swift */; };
 		97D3C8979D3C0A75D88D603A /* SyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 939C697035562CAAE48774F8 /* SyncEngine.swift */; };
 		B3C4D5E6F7A8B9C0D1E2F3A4 /* ReceiptOCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2B3C4D5E6F7A8B9C0D1E2F3 /* ReceiptOCRService.swift */; };
+		A1B2C3D4E5F6789012345678 /* RecurringExpenseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6789012345679 /* RecurringExpenseService.swift */; };
+		B2C3D4E5F6789012345678902 /* RecurringNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6789012345678901 /* RecurringNotificationService.swift */; };
 		9BDC7CB24BE5FAF687FD2A72 /* TagColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 154DC6BAE1EEB5F2B8A95FBB /* TagColors.swift */; };
 		9C4EA2BB4743FB5C5ED3DEF7 /* TagModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25B338B02BFED8F0EDE29E3B /* TagModel.swift */; };
 		AD0E32D865CD5781D3BE7E29 /* TagPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E6C66AC70ED7811D106770C /* TagPickerSheet.swift */; };
@@ -112,6 +114,8 @@
 		FA760FF7DABACC4706C0F32A /* UploadLimitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadLimitView.swift; sourceTree = "<group>"; };
 		D1E2F3A4B5C6D7E8F9A0B1C2 /* Configuration.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = Configuration.storekit; sourceTree = "<group>"; };
 		A2B3C4D5E6F7A8B9C0D1E2F3 /* ReceiptOCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptOCRService.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6789012345679 /* RecurringExpenseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecurringExpenseService.swift; sourceTree = "<group>"; };
+		B2C3D4E5F6789012345678901 /* RecurringNotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecurringNotificationService.swift; sourceTree = "<group>"; };
 		B2C3D4E5F6A7B8C9D0E1F2A3B /* BulkExpenseParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulkExpenseParser.swift; sourceTree = "<group>"; };
 		D4E5F6A7B8C9D0E1F2A3B4C5 /* AddMultipleExpensesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddMultipleExpensesView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -288,6 +292,8 @@
 				65CC7BBBCB475E2A14A52332 /* ExpenseExportService.swift */,
 				F9AB2A709AB5FC124DE83CDB /* ImagePicker.swift */,
 				A2B3C4D5E6F7A8B9C0D1E2F3 /* ReceiptOCRService.swift */,
+				A1B2C3D4E5F6789012345679 /* RecurringExpenseService.swift */,
+				B2C3D4E5F6789012345678901 /* RecurringNotificationService.swift */,
 				939C697035562CAAE48774F8 /* SyncEngine.swift */,
 			);
 			path = Services;
@@ -473,6 +479,8 @@
 				FF6C3E328548A7270D83C745 /* SettingsView.swift in Sources */,
 				7F8B2FFD0AD8A575BDCB2CBC /* SubscriptionView.swift in Sources */,
 				B3C4D5E6F7A8B9C0D1E2F3A4 /* ReceiptOCRService.swift in Sources */,
+				A1B2C3D4E5F6789012345678 /* RecurringExpenseService.swift in Sources */,
+				B2C3D4E5F6789012345678902 /* RecurringNotificationService.swift in Sources */,
 				97D3C8979D3C0A75D88D603A /* SyncEngine.swift in Sources */,
 				9BDC7CB24BE5FAF687FD2A72 /* TagColors.swift in Sources */,
 				E62148A42197D4CB99E2BEAA /* TagCreationView.swift in Sources */,

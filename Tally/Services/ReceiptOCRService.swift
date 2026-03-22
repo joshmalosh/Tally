@@ -5,6 +5,7 @@ struct ReceiptOCRResult {
     var amount: Double?
     var merchant: String?
     var date: Date?
+    var notes: String?
 }
 
 enum ReceiptOCRService {
@@ -63,8 +64,9 @@ enum ReceiptOCRService {
         let amount = extractAmount(from: blocks)
         let merchant = extractMerchant(from: blocks)
         let date = extractDate(from: blocks)
+        let notes = extractNotes(from: blocks, merchant: merchant)
 
-        return ReceiptOCRResult(amount: amount, merchant: merchant, date: date)
+        return ReceiptOCRResult(amount: amount, merchant: merchant, date: date, notes: notes)
     }
 
     // MARK: - Vision
@@ -286,6 +288,17 @@ enum ReceiptOCRService {
 
     // MARK: - Merchant Extraction
 
+    private static let merchantNoiseWords: Set<String> = [
+        "tax invoice", "receipt", "invoice", "order", "duplicate",
+        "gst", "abn", "total", "subtotal", "change", "cash", "card",
+        "visa", "mastercard", "eftpos", "amex", "date", "time", "thank",
+        "welcome", "www.", "http", ".com", "phone", "tel:", "fax", "email",
+        "address", "qty", "price", "ticket", "terminal", "pos ", "take away",
+        "takeout", "dine in", "table", "server", "user:", "auth:", "sale approved",
+        "contactless", "chip", "pin", "entry method", "approved",
+        "***", "---", "===", "item"
+    ]
+
     private static let merchantSkipPatterns = [
         "receipt", "duplicate", "invoice", "tax", "gst", "abn", "total", "subtotal",
         "change", "cash", "card", "visa", "mastercard", "eftpos", "amex",
@@ -426,13 +439,27 @@ enum ReceiptOCRService {
 
     // MARK: - Merchant Extraction
 
+    /// First prominent non-numeric, non-address text block at top of receipt.
+    /// Strips noise: TAX INVOICE, RECEIPT, ORDER, etc.
     private static func extractMerchant(from blocks: [TextBlock]) -> String? {
         let topBlocks = blocks
             .sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
-            .prefix(8)
+            .prefix(10)
 
         for block in topBlocks {
-            let text = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            var text = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            // Strip common noise words (whole-word or phrase)
+            for noise in merchantNoiseWords {
+                let pattern = "\\b" + NSRegularExpression.escapedPattern(for: noise) + "\\b"
+                if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+                    let range = NSRange(text.startIndex..., in: text)
+                    text = regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
+                }
+            }
+            text = text
+                .replacingOccurrences(of: "^[*\\-=\\s,#]+|[*\\-=\\s,#]+$", with: "", options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
 
             if text.count < 2 || text.count > 50 { continue }
 
@@ -446,16 +473,74 @@ enum ReceiptOCRService {
             let specialCount = text.filter { !$0.isLetter && !$0.isWhitespace && $0 != "-" && $0 != "'" && $0 != "&" }.count
             if text.count > 0 && Double(specialCount) / Double(text.count) > 0.3 { continue }
 
-            let cleaned = text
-                .replacingOccurrences(of: "^[*\\-=\\s]+|[*\\-=\\s]+$", with: "", options: .regularExpression)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if block.confidence < 0.7 { continue }
 
-            if cleaned.count < 2 { continue }
-
-            return cleaned
+            return text
         }
 
         return nil
+    }
+
+    // MARK: - Notes Extraction (Pro only)
+
+    private static let noteDescriptorKeywords = [
+        "takeout", "take away", "take-away", "online order", "dine in", "dine-in",
+        "delivery", "pickup", "pick up", "drive thru", "drive-through",
+        "to go", "to-go", "counter"
+    ]
+
+    /// Assemble short note (max 60 chars) from merchant + descriptors. High confidence only.
+    private static func extractNotes(from blocks: [TextBlock], merchant: String?) -> String? {
+        guard let merchant, !merchant.isEmpty else { return nil }
+
+        var descriptor: String?
+        let topBlocks = blocks
+            .sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
+            .prefix(12)
+
+        for block in topBlocks {
+            guard block.confidence >= 0.75 else { continue }
+            let lower = block.text.lowercased()
+            for kw in noteDescriptorKeywords {
+                if lower.contains(kw) {
+                    let cleaned = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if cleaned.count <= 25 && !cleaned.isEmpty {
+                        descriptor = cleaned.prefix(1).uppercased() + cleaned.dropFirst().lowercased()
+                        break
+                    }
+                }
+            }
+            if descriptor != nil { break }
+        }
+
+        // Also check for "TABLE 4", "ORDER #123" style
+        if descriptor == nil {
+            let tablePattern = try? NSRegularExpression(pattern: #"table\s*#?\s*\d+"#, options: .caseInsensitive)
+            let orderPattern = try? NSRegularExpression(pattern: #"order\s*#?\s*\d*"#, options: .caseInsensitive)
+            for block in topBlocks {
+                guard block.confidence >= 0.75 else { continue }
+                let text = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let t = tablePattern?.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+                   let r = Range(t.range, in: text) {
+                    descriptor = String(text[r]).prefix(1).uppercased() + String(text[r]).dropFirst().lowercased()
+                    break
+                }
+                if let o = orderPattern?.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+                   let r = Range(o.range, in: text) {
+                    descriptor = String(text[r]).prefix(1).uppercased() + String(text[r]).dropFirst().lowercased()
+                    break
+                }
+            }
+        }
+
+        let merchantPart = String(merchant.prefix(40)).trimmingCharacters(in: .whitespaces)
+        let note: String
+        if let d = descriptor, !d.isEmpty {
+            note = "\(d) — \(merchantPart)"
+        } else {
+            return nil  // Only populate if we have a descriptor (high confidence)
+        }
+        return note.count <= 60 ? note : String(note.prefix(57)) + "..."
     }
 }
 

@@ -40,8 +40,16 @@ struct AddExpenseView: View {
     @State private var formReady = true
     @State private var isKeyboardVisible = false
     @State private var isRunningOCR = false
+    @State private var isRecurring = false
+    @State private var recurringFrequency = "monthly"
+    @State private var showingRecurringEditActionSheet = false
+    @State private var pendingRecurringEditChoice: RecurringEditChoice?
 
     @FocusState private var focusedField: Field?
+
+    private enum RecurringEditChoice {
+        case futureOnly, allEntries
+    }
 
     private var isEditing: Bool { editingExpense != nil }
 
@@ -134,7 +142,11 @@ struct AddExpenseView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(action: {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        saveExpense()
+                        if isEditing, let exp = editingExpense, exp.isRecurring {
+                            showingRecurringEditActionSheet = true
+                        } else {
+                            saveExpense(recurringEditChoice: nil)
+                        }
                     }) {
                         Text("Save")
                             .fontWeight(.semibold)
@@ -142,6 +154,13 @@ struct AddExpenseView: View {
                     .buttonStyle(SaveButtonStyle(isEnabled: canSave))
                     .disabled(!canSave)
                 }
+            }
+            .confirmationDialog("Apply this change to future expenses only, or update all past entries too?", isPresented: $showingRecurringEditActionSheet, titleVisibility: .visible) {
+                Button("Future only") { saveExpense(recurringEditChoice: .futureOnly) }
+                Button("All entries") { saveExpense(recurringEditChoice: .allEntries) }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Choose how to apply your edits to this recurring expense.")
             }
             .alert("Error", isPresented: $showingError) {
                 Button("OK") {}
@@ -258,6 +277,9 @@ struct AddExpenseView: View {
                 dateRow
                     .padding(.bottom, 14)
 
+                recurringSection
+                    .padding(.bottom, 14)
+
                 tagChips
                     .padding(.bottom, 14)
 
@@ -284,8 +306,9 @@ struct AddExpenseView: View {
                         Image(uiImage: image)
                             .resizable()
                             .aspectRatio(contentMode: .fit)
-                            .frame(maxHeight: 160)
                             .frame(maxWidth: .infinity)
+                            .frame(height: 200)
+                            .clipped()
                             .clipShape(RoundedRectangle(cornerRadius: Radius.md))
                     }
                     .buttonStyle(.plain)
@@ -307,6 +330,8 @@ struct AddExpenseView: View {
                         .transition(.opacity)
                     }
                 }
+                .frame(height: 200)
+                .frame(maxWidth: .infinity)
             } else if let url = attachedFileURL {
                 HStack(spacing: Spacing.md) {
                     Image(systemName: "doc.fill")
@@ -562,6 +587,35 @@ struct AddExpenseView: View {
         }
     }
 
+    // MARK: - Recurring
+
+    private var recurringSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            Toggle("Recurring", isOn: $isRecurring)
+                .tint(Color.brandPrimary)
+            if isRecurring {
+                Picker("Frequency", selection: $recurringFrequency) {
+                    Text("Weekly").tag("weekly")
+                    Text("Monthly").tag("monthly")
+                    Text("Yearly").tag("yearly")
+                }
+                .pickerStyle(.segmented)
+            }
+        }
+    }
+
+    private func nextDueDate(from base: Date, frequency: String) -> Date {
+        let cal = Calendar.current
+        switch frequency {
+        case "weekly":
+            return cal.date(byAdding: .weekOfYear, value: 1, to: base) ?? base
+        case "yearly":
+            return cal.date(byAdding: .year, value: 1, to: base) ?? base
+        default:
+            return cal.date(byAdding: .month, value: 1, to: base) ?? base
+        }
+    }
+
     // MARK: - Tags
 
     private var tagChips: some View {
@@ -669,6 +723,8 @@ struct AddExpenseView: View {
             selectedTagIds = expense.resolvedTagIds
             source = ExpenseSource(rawValue: expense.source) ?? .manual
             attachmentKey = expense.attachmentKey
+            isRecurring = expense.isRecurring
+            recurringFrequency = expense.recurringFrequency
 
             if let key = expense.attachmentKey {
                 Task {
@@ -728,6 +784,9 @@ struct AddExpenseView: View {
                 if let extractedDate = result.date {
                     date = extractedDate
                 }
+                if let ocrNotes = result.notes, notes.isEmpty {
+                    notes = ocrNotes
+                }
                 isRunningOCR = false
             }
         }
@@ -750,7 +809,7 @@ struct AddExpenseView: View {
         }
     }
 
-    private func saveExpense() {
+    private func saveExpense(recurringEditChoice: RecurringEditChoice?) {
         guard let amountCents = parsedAmountCents else {
             errorMessage = "Please enter a valid amount."
             showingError = true
@@ -811,7 +870,29 @@ struct AddExpenseView: View {
                     existing.notes = notes.isEmpty ? nil : notes
                     existing.attachmentKey = savedKey
                     existing.attachmentData = rawAttachmentData
+                    existing.isRecurring = isRecurring
+                    existing.recurringFrequency = recurringFrequency
+                    if isRecurring {
+                        existing.nextDueDate = self.nextDueDate(from: date, frequency: recurringFrequency)
+                    } else {
+                        existing.nextDueDate = nil
+                    }
                     existing.updatedAt = Date()
+
+                    // "All entries" — update all logged instances from this template
+                    if recurringEditChoice == .allEntries && existing.isRecurring {
+                        let templateId = existing.id
+                        for exp in allExpenses where exp.recurrenceTemplateId == templateId {
+                            exp.amountCents = amountCents
+                            exp.currency = currency
+                            exp.expenseDescription = descriptionText.isEmpty ? nil : descriptionText
+                            exp.merchant = merchant.isEmpty ? nil : merchant
+                            exp.tagIds = selectedTagIds
+                            exp.tagId = selectedTagIds.first ?? ""
+                            exp.notes = notes.isEmpty ? nil : notes
+                            exp.updatedAt = Date()
+                        }
+                    }
 
                     do {
                         try modelContext.save()
@@ -838,6 +919,11 @@ struct AddExpenseView: View {
                         attachmentData: rawAttachmentData,
                         source: source.rawValue
                     )
+                    expense.isRecurring = isRecurring
+                    expense.recurringFrequency = recurringFrequency
+                    if isRecurring {
+                        expense.nextDueDate = nextDueDate(from: date, frequency: recurringFrequency)
+                    }
                     modelContext.insert(expense)
                     do {
                         try modelContext.save()

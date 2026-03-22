@@ -21,6 +21,12 @@ final class ExpenseModel {
     var deletedAt: Date?
     var syncedAt: Date?
 
+    var isRecurring: Bool = false
+    var recurringFrequency: String = "monthly"  // weekly, monthly, yearly
+    var nextDueDate: Date?
+    /// If set, this expense was auto-logged from a recurring template (for icon display + "update all")
+    var recurrenceTemplateId: String?
+
     /// Resolved tag IDs — reads from tagIds, falling back to legacy tagId for unmigrated data.
     var resolvedTagIds: [String] {
         if !tagIds.isEmpty { return tagIds }

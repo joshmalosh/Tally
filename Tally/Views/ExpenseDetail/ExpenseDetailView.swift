@@ -63,11 +63,11 @@ struct ExpenseDetailView: View {
                             .foregroundStyle(Color.brandPrimary)
                     }
                 }
-                .alert("Delete expense?", isPresented: $showingDeleteConfirmation) {
+                .alert(expense.isRecurring ? "Stop \(expense.merchant ?? "recurring") recurring?" : "Delete expense?", isPresented: $showingDeleteConfirmation) {
                     Button("Cancel", role: .cancel) {}
-                    Button("Delete", role: .destructive) { deleteExpense(expense) }
+                    Button(expense.isRecurring ? "Stop Recurring" : "Delete", role: .destructive) { deleteExpense(expense) }
                 } message: {
-                    Text("This action cannot be undone.")
+                    Text(expense.isRecurring ? "Past entries will be kept." : "This action cannot be undone.")
                 }
                 .sheet(isPresented: $showingEdit) {
                     AddExpenseView(editingExpense: expense)

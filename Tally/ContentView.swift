@@ -11,15 +11,13 @@ struct ContentView: View {
 
     @State private var hasSeededTags = false
     @State private var showSplash = true
-    @State private var splashOffset: CGSize = .zero
-    @State private var splashScale: CGFloat = 1.0
     @State private var splashOpacity: Double = 1.0
     @State private var splashProgress: CGFloat = 0
     @State private var currentTaglineIndex = 0
     @State private var taglineOpacity: Double = 1
     @State private var taglineTimerTask: Task<Void, Never>?
 
-    private static let splashDuration: TimeInterval = 2.8
+    private static let splashDuration: TimeInterval = 2.5
     private static let taglines = [
         "Decluttering your finances.",
         "Making expenses boring again.",
@@ -41,10 +39,8 @@ struct ContentView: View {
                 }
             }
 
-            if showSplash && hasCompletedOnboarding {
+            if showSplash {
                 splashOverlay
-                    .offset(splashOffset)
-                    .scaleEffect(splashScale)
                     .opacity(splashOpacity)
                     .allowsHitTesting(false)
             }
@@ -54,6 +50,12 @@ struct ContentView: View {
             seedDefaultTags()
             adManager.configure(isPro: appState.isPro)
             dismissSplash()
+            Task {
+                let summary = await RecurringExpenseService.processOverdueRecurring(modelContext: modelContext)
+                if !summary.expenseIds.isEmpty && appState.recurringNotificationEnabled {
+                    await RecurringNotificationService.scheduleIfNeeded(summary: summary)
+                }
+            }
         }
         .onChange(of: appState.subscriptionStatus) { _, _ in
             adManager.configure(isPro: appState.isPro)
@@ -67,12 +69,14 @@ struct ContentView: View {
             Color("LaunchBackground")
                 .ignoresSafeArea()
             VStack(spacing: 0) {
+                Spacer(minLength: 0)
+
                 Image("LaunchLogo")
                     .resizable()
                     .scaledToFit()
                     .padding(.horizontal, 80)
 
-                Spacer().frame(height: 48)
+                Spacer(minLength: 0)
 
                 progressBar
 
@@ -137,9 +141,7 @@ struct ContentView: View {
         taglineTimerTask?.cancel()
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.splashDuration) {
             taglineTimerTask?.cancel()
-            withAnimation(.easeIn(duration: 0.35)) {
-                splashOffset = CGSize(width: -120, height: 300)
-                splashScale = 0.4
+            withAnimation(.easeOut(duration: 0.35)) {
                 splashOpacity = 0.0
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {

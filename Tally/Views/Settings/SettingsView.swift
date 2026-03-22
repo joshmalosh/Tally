@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UserNotifications
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -70,6 +71,25 @@ struct SettingsView: View {
                             }
                         }
                     }
+                }
+
+                Section {
+                    Toggle("Recurring expense alerts", isOn: Binding(
+                        get: { appState.recurringNotificationEnabled },
+                        set: { newValue in
+                            appState.recurringNotificationEnabled = newValue
+                            if newValue {
+                                Task {
+                                    _ = await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+                                }
+                            }
+                        }
+                    ))
+                    .tint(Color.brandPrimary)
+                } header: {
+                    Text("Notifications")
+                } footer: {
+                    Text("Get notified at 10am when recurring expenses are auto-logged.")
                 }
 
                 Section("Preferences") {

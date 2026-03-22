@@ -159,6 +159,7 @@ struct ExpenseCard: View {
     let date: Date
     let tagName: String
     let tagColor: TagColor
+    var showRecurringIcon: Bool = false
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -214,10 +215,16 @@ struct ExpenseCard: View {
                 Spacer(minLength: Spacing.sm)
 
                 VStack(alignment: .trailing, spacing: 2) {
-                    Text(CurrencyFormatter.shared.format(cents: amountCents, currencyCode: currency))
-                        .font(Fonts.mono(15))
-                        .foregroundStyle(Color.textPrimary)
-
+                    HStack(spacing: 4) {
+                        if showRecurringIcon {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(Color.textMuted.opacity(0.8))
+                        }
+                        Text(CurrencyFormatter.shared.format(cents: amountCents, currencyCode: currency))
+                            .font(Fonts.mono(15))
+                            .foregroundStyle(Color.textPrimary)
+                    }
                     Text(Self.dateFormatter.string(from: date))
                         .font(Fonts.caption(11))
                         .foregroundStyle(Color.textMuted)

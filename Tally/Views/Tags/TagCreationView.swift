@@ -6,8 +6,10 @@ struct TagCreationView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppState.self) private var appState
     @Query(sort: \TagModel.sortOrder) private var allTags: [TagModel]
+    @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil }) private var allExpenses: [ExpenseModel]
 
     @State private var name = ""
+    @State private var showingDeleteConfirmation = false
     @State private var selectedColorId = TagColors.defaultNewTagColorId
     @State private var selectedParentId: String?
     @State private var showingGroupPicker = false
@@ -31,6 +33,7 @@ struct TagCreationView: View {
             nameField
             if !isGroupMode { groupPicker }
             colorGrid
+            if isEditing && !isGroupMode { deleteTagButton }
             Spacer()
         }
         .padding(.horizontal, Spacing.lg)
@@ -59,6 +62,12 @@ struct TagCreationView: View {
             } else {
                 selectedParentId = initialParentId
             }
+        }
+        .alert("Delete \(editingTag?.name ?? "tag")?", isPresented: $showingDeleteConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) { performDeleteTag() }
+        } message: {
+            Text("This will remove the tag from all expenses. This cannot be undone.")
         }
     }
 
@@ -166,6 +175,42 @@ struct TagCreationView: View {
                     selectedParentId = newGroupId
                 }
             }
+        }
+    }
+
+    private var deleteTagButton: some View {
+        VStack(spacing: Spacing.sm) {
+            Divider()
+                .padding(.vertical, Spacing.smd)
+            Button(role: .destructive) { showingDeleteConfirmation = true } label: {
+                Text("Delete tag")
+                    .font(Fonts.body(16))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Spacing.md)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func performDeleteTag() {
+        guard let tag = editingTag else { return }
+        appState.removeFilter(id: tag.id)
+        for expense in allExpenses {
+            if expense.resolvedTagIds.contains(tag.id) {
+                expense.tagIds = expense.tagIds.filter { $0 != tag.id }
+                if expense.tagId == tag.id {
+                    expense.tagId = expense.tagIds.first ?? ""
+                }
+            }
+        }
+        modelContext.delete(tag)
+        do {
+            try modelContext.save()
+            dismiss()
+        } catch {
+            #if DEBUG
+            print("[Tally] ERROR deleting tag: \(error)")
+            #endif
         }
     }
 
