@@ -19,6 +19,7 @@
 		508992FEB05634F72D2539B5 /* AddExpenseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC95D4C0DD04387ED1975A4C /* AddExpenseView.swift */; };
 		52910AB1BC5CB254670B23FB /* ExpenseCalculations.swift in Sources */ = {isa = PBXBuildFile; fileRef = A564B3BCA71D05E5448E0DD9 /* ExpenseCalculations.swift */; };
 		52A07130A77697CCBC2AF143 /* AuthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE37FAFCDDCB5A001586FDB2 /* AuthView.swift */; };
+		A1B2C3D4E5F6A7B8C9D0E1F2 /* GroupDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F3 /* GroupDetailView.swift */; };
 		593777D5398DD1A2163D8C6B /* CurrencyFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B23719619830D783B4A5D67 /* CurrencyFormatter.swift */; };
 		5A69146139E526666C5D9D7A /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19DCF3F03F14D6ABF5FE82D0 /* AppState.swift */; };
 		676E578C3319877F4C45D34D /* UploadLimitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA760FF7DABACC4706C0F32A /* UploadLimitView.swift */; };
@@ -65,6 +66,7 @@
 
 /* Begin PBXFileReference section */
 		0438430608549D75B2F651AE /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E1F3 /* GroupDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupDetailView.swift; sourceTree = "<group>"; };
 		0A5005165D2B9CF521F2AE1C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		0E91360750E6493DD7621468 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		0F0868032465E139554DB8D2 /* ExportExpenseSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportExpenseSheet.swift; sourceTree = "<group>"; };
@@ -214,6 +216,7 @@
 			isa = PBXGroup;
 			children = (
 				AE37FAFCDDCB5A001586FDB2 /* AuthView.swift */,
+				A1B2C3D4E5F6A7B8C9D0E1F3 /* GroupDetailView.swift */,
 				0438430608549D75B2F651AE /* SettingsView.swift */,
 				BF2E9A9CCBD037A89B382C47 /* SubscriptionView.swift */,
 			);
@@ -466,6 +469,7 @@
 				917D462F542D8E7FAA3F9473 /* HomeView.swift in Sources */,
 				BA0D71051486DDABBAB9A118 /* ImagePicker.swift in Sources */,
 				29BB7E25372852B4C86200FB /* OnboardingView.swift in Sources */,
+				A1B2C3D4E5F6A7B8C9D0E1F2 /* GroupDetailView.swift in Sources */,
 				FF6C3E328548A7270D83C745 /* SettingsView.swift in Sources */,
 				7F8B2FFD0AD8A575BDCB2CBC /* SubscriptionView.swift in Sources */,
 				B3C4D5E6F7A8B9C0D1E2F3A4 /* ReceiptOCRService.swift in Sources */,

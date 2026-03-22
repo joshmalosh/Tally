@@ -13,11 +13,16 @@ struct SettingsView: View {
     @State private var showingTagCreation = false
     @State private var showingGroupCreation = false
     @State private var editingTag: TagModel?
-    @State private var editingGroup: TagModel?
-    @State private var expandedGroups: Set<String> = []
 
-    private var topLevelTags: [TagModel] {
-        tags.filter { $0.parentId == nil }
+    /// All tags (standalone + group children), sorted A–Z
+    private var allTagsSorted: [TagModel] {
+        tags.filter { !$0.isGroup }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// Groups only, sorted A–Z
+    private var groupsSorted: [TagModel] {
+        tags.filter { $0.isGroup }
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
@@ -87,63 +92,35 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    ForEach(topLevelTags) { tag in
-                        Toggle(isOn: Binding(
-                            get: { tag.showOnHome },
-                            set: { tag.showOnHome = $0 }
-                        )) {
-                            HStack(spacing: Spacing.smd) {
-                                if tag.isGroup {
-                                    Image(systemName: "folder.fill")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(tag.tagColor.primaryColor)
-                                } else {
+                    ForEach(allTagsSorted) { tag in
+                        HStack(spacing: Spacing.smd) {
+                            Button {
+                                editingTag = tag
+                            } label: {
+                                HStack(spacing: Spacing.smd) {
                                     Circle()
                                         .fill(tag.tagColor.primaryColor)
                                         .frame(width: 12, height: 12)
+                                    Text(tag.name)
+                                        .foregroundStyle(Color.textPrimary)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(Color.textMuted)
                                 }
-                                Text(tag.name)
-                                    .foregroundStyle(Color.textPrimary)
                             }
+                            .buttonStyle(.plain)
+                            Toggle("", isOn: Binding(
+                                get: { tag.showOnHome },
+                                set: { tag.showOnHome = $0 }
+                            ))
+                            .labelsHidden()
+                            .tint(Color.brandPrimary)
                         }
-                        .tint(Color.brandPrimary)
-                    }
-                } header: {
-                    Text("Home Screen Tags")
-                } footer: {
-                    Text("Choose which tags and groups appear as filters on the home screen.")
-                }
-
-                Section("Tags & Groups") {
-                    ForEach(topLevelTags) { tag in
-                        if tag.isGroup {
-                            groupRow(tag)
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    Button(role: .destructive) { deleteTag(tag) } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-                                    Button { editingGroup = tag } label: {
-                                        Label("Edit", systemImage: "pencil")
-                                    }
-                                    .tint(Color.brandPrimary)
-                                }
-                            if expandedGroups.contains(tag.id) {
-                                ForEach(childrenOf(tag)) { child in
-                                    childTagRow(child)
-                                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                            Button(role: .destructive) { deleteTag(child) } label: {
-                                                Label("Delete", systemImage: "trash")
-                                            }
-                                        }
-                                }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) { deleteTag(tag) } label: {
+                                Label("Delete", systemImage: "trash")
                             }
-                        } else {
-                            tagRow(tag)
-                                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                    Button(role: .destructive) { deleteTag(tag) } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-                                }
                         }
                     }
 
@@ -156,6 +133,31 @@ struct SettingsView: View {
                                 .foregroundStyle(Color.brandPrimary)
                             Text("Add tag")
                                 .foregroundStyle(Color.brandPrimary)
+                        }
+                    }
+                } header: {
+                    Text("Tags")
+                } footer: {
+                    Text("Choose which tags appear as filters on the home screen.")
+                }
+
+                Section("Groups") {
+                    ForEach(groupsSorted) { group in
+                        NavigationLink {
+                            GroupDetailView(group: group)
+                        } label: {
+                            HStack(spacing: Spacing.smd) {
+                                Image(systemName: "folder.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(group.tagColor.primaryColor)
+                                Text(group.name)
+                                    .foregroundStyle(Color.textPrimary)
+                            }
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) { deleteTag(group) } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
                         }
                     }
 
@@ -281,78 +283,6 @@ struct SettingsView: View {
             }
             .sheet(item: $editingTag) { tag in
                 TagCreationView(editingTag: tag)
-            }
-            .sheet(item: $editingGroup) { group in
-                TagCreationView(editingTag: group, isGroupMode: true)
-            }
-        }
-    }
-
-    private func groupRow(_ group: TagModel) -> some View {
-        let isExpanded = expandedGroups.contains(group.id)
-
-        return Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                if isExpanded {
-                    expandedGroups.remove(group.id)
-                } else {
-                    expandedGroups.insert(group.id)
-                }
-            }
-        } label: {
-            HStack(spacing: Spacing.smd) {
-                Image(systemName: "folder.fill")
-                    .font(.system(size: 12))
-                    .foregroundStyle(group.tagColor.primaryColor)
-                Text(group.name)
-                    .font(Fonts.label(15))
-                    .foregroundStyle(Color.textPrimary)
-                Spacer()
-                Text("\(childrenOf(group).count)")
-                    .font(Fonts.caption(13))
-                    .foregroundStyle(Color.textMuted)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.textMuted)
-                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
-                    .animation(.easeInOut(duration: 0.2), value: isExpanded)
-            }
-        }
-    }
-
-    private func childTagRow(_ tag: TagModel) -> some View {
-        Button {
-            editingTag = tag
-        } label: {
-            HStack(spacing: Spacing.smd) {
-                Circle()
-                    .fill(tag.tagColor.primaryColor)
-                    .frame(width: 10, height: 10)
-                Text(tag.name)
-                    .foregroundStyle(Color.textPrimary)
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.textMuted)
-            }
-            .padding(.leading, Spacing.lg)
-        }
-    }
-
-    private func tagRow(_ tag: TagModel) -> some View {
-        Button {
-            editingTag = tag
-        } label: {
-            HStack(spacing: Spacing.smd) {
-                Circle()
-                    .fill(tag.tagColor.primaryColor)
-                    .frame(width: 12, height: 12)
-                Text(tag.name)
-                    .foregroundStyle(Color.textPrimary)
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.textMuted)
             }
         }
     }
