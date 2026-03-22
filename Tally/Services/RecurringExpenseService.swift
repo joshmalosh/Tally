@@ -21,7 +21,9 @@ enum RecurringExpenseService {
             predicate: #Predicate<ExpenseModel> { $0.isRecurring == true }
         )
 
-        guard let all = try? modelContext.fetch(descriptor) else { return ([], []) }
+        guard let all = try? modelContext.fetch(descriptor) else {
+            return LoggedSummary(expenseIds: [], templateIds: [], forNotification: [])
+        }
         let templates = all.filter { $0.deletedAt == nil && $0.nextDueDate != nil }
 
         for template in templates {
