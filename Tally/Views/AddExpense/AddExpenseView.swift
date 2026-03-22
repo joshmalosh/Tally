@@ -166,7 +166,7 @@ struct AddExpenseView: View {
             }
             .sheet(isPresented: $showingTagPicker) {
                 TagPickerSheet(selectedTagIds: $selectedTagIds)
-                    .presentationDetents([.medium, .large])
+                    .presentationDetents([.large])
                     .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $showingCurrencyPicker) {

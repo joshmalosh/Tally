@@ -16,6 +16,7 @@ struct TagCreationView: View {
     var editingTag: TagModel? = nil
     var initialParentId: String? = nil
     var isGroupMode: Bool = false
+    var embeddedInNavigation: Bool = false  // when true, no NavigationStack, Back shows automatically
     var onSave: ((String) -> Void)? = nil
 
     private var isEditing: Bool { editingTag != nil }
@@ -25,38 +26,48 @@ struct TagCreationView: View {
         allTags.filter { $0.isGroup && $0.id != editingTag?.id }
     }
 
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: Spacing.lg) {
-                nameField
-                if !isGroupMode { groupPicker }
-                colorGrid
-                Spacer()
-            }
-            .padding(.horizontal, Spacing.lg)
-            .padding(.top, Spacing.md)
-            .background(Color.bgPrimary)
-            .navigationTitle(navigationTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
+    private var formContent: some View {
+        VStack(spacing: Spacing.lg) {
+            nameField
+            if !isGroupMode { groupPicker }
+            colorGrid
+            Spacer()
+        }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.top, embeddedInNavigation ? Spacing.xl : Spacing.md)
+        .background(Color.bgPrimary)
+        .navigationTitle(navigationTitle)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if !embeddedInNavigation {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                         .foregroundStyle(Color.textSecondary)
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }
-                        .foregroundStyle(canSave ? Color.brandPrimary : Color.textMuted)
-                        .disabled(!canSave)
-                }
             }
-            .onAppear {
-                if let tag = editingTag {
-                    name = tag.name
-                    selectedColorId = tag.colorId
-                    selectedParentId = tag.parentId
-                } else {
-                    selectedParentId = initialParentId
-                }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Save") { save() }
+                    .foregroundStyle(canSave ? Color.brandPrimary : Color.textMuted)
+                    .disabled(!canSave)
+            }
+        }
+        .onAppear {
+            if let tag = editingTag {
+                name = tag.name
+                selectedColorId = tag.colorId
+                selectedParentId = tag.parentId
+            } else {
+                selectedParentId = initialParentId
+            }
+        }
+    }
+
+    var body: some View {
+        if embeddedInNavigation {
+            formContent
+        } else {
+            NavigationStack {
+                formContent
             }
         }
     }

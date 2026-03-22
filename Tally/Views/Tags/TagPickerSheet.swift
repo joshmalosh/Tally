@@ -9,18 +9,7 @@ struct TagPickerSheet: View {
 
     @Binding var selectedTagIds: [String]
 
-    @State private var isCreating = false
-    @State private var isCreatingGroup = false
-    @State private var newName = ""
-    @State private var newColorId = TagColors.defaultNewTagColorId
-    @State private var newParentId: String?
     @State private var expandedGroups: Set<String> = []
-    @State private var showingGroupPickerSheet = false
-    @State private var showingNewGroupFromPicker = false
-
-    private var canSaveNew: Bool {
-        !newName.trimmingCharacters(in: .whitespaces).isEmpty
-    }
 
     private var standaloneTags: [TagModel] {
         tags.filter { $0.parentId == nil && !$0.isGroup }
@@ -48,57 +37,22 @@ struct TagPickerSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                if isCreating || isCreatingGroup {
-                    creationForm
-                } else {
-                    tagList
-                }
-            }
-            .background(Color.bgPrimary)
-            .navigationTitle(navigationTitle)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(isCreating || isCreatingGroup ? "Back" : "Cancel") {
-                        if isCreating || isCreatingGroup {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                isCreating = false
-                                isCreatingGroup = false
-                            }
-                        } else {
-                            dismiss()
-                        }
+            tagList
+                .background(Color.bgPrimary)
+                .navigationTitle(selectedTagIds.isEmpty ? "Select Tags" : "\(selectedTagIds.count) tag\(selectedTagIds.count == 1 ? "" : "s") selected")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }
+                            .foregroundStyle(Color.textSecondary)
                     }
-                    .foregroundStyle(Color.textSecondary)
-                }
-
-                if isCreating || isCreatingGroup {
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Save") {
-                            if isCreatingGroup { saveNewGroup() }
-                            else { saveNewTag() }
-                        }
-                        .foregroundStyle(canSaveNew ? Color.brandPrimary : Color.textMuted)
-                        .disabled(!canSaveNew)
-                    }
-                } else {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Done") { dismiss() }
                             .fontWeight(.semibold)
                             .foregroundStyle(Color.brandPrimary)
                     }
                 }
-            }
         }
-    }
-
-    private var navigationTitle: String {
-        if isCreatingGroup { return "New Group" }
-        if isCreating { return "New Tag" }
-        let count = selectedTagIds.count
-        if count == 0 { return "Select Tags" }
-        return "\(count) tag\(count == 1 ? "" : "s") selected"
     }
 
     // MARK: - Tag List
@@ -107,10 +61,12 @@ struct TagPickerSheet: View {
         ScrollView {
             VStack(spacing: 0) {
                 HStack(spacing: Spacing.sm) {
-                    Button {
-                        resetCreationState(parentId: nil)
-                        withAnimation(.easeInOut(duration: 0.2)) { isCreating = true }
-                    } label: {
+                    NavigationLink(destination: TagCreationView(
+                        initialParentId: nil,
+                        embeddedInNavigation: true
+                    ) { newId in
+                        selectedTagIds = selectedTagIds + [newId]
+                    }) {
                         HStack(spacing: 6) {
                             Image(systemName: "plus")
                                 .font(.system(size: 12, weight: .semibold))
@@ -125,10 +81,11 @@ struct TagPickerSheet: View {
                     }
                     .buttonStyle(.plain)
 
-                    Button {
-                        resetCreationState(parentId: nil)
-                        withAnimation(.easeInOut(duration: 0.2)) { isCreatingGroup = true }
-                    } label: {
+                    NavigationLink(destination: TagCreationView(
+                        initialParentId: nil,
+                        isGroupMode: true,
+                        embeddedInNavigation: true
+                    )) {
                         HStack(spacing: 6) {
                             Image(systemName: "folder.badge.plus")
                                 .font(.system(size: 12, weight: .semibold))
@@ -224,10 +181,12 @@ struct TagPickerSheet: View {
                         tagRow(child, indented: true)
                     }
 
-                    Button {
-                        resetCreationState(parentId: group.id)
-                        withAnimation(.easeInOut(duration: 0.2)) { isCreating = true }
-                    } label: {
+                    NavigationLink(destination: TagCreationView(
+                        initialParentId: group.id,
+                        embeddedInNavigation: true
+                    ) { newId in
+                        selectedTagIds = selectedTagIds + [newId]
+                    }) {
                         HStack(spacing: Spacing.smd) {
                             Image(systemName: "plus")
                                 .font(.system(size: 11, weight: .medium))
@@ -285,204 +244,4 @@ struct TagPickerSheet: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Creation Form
-
-    private var creationForm: some View {
-        VStack(spacing: Spacing.lg) {
-            VStack(alignment: .leading, spacing: Spacing.sm) {
-                Text(isCreatingGroup ? "Group name" : "Tag name")
-                    .font(Fonts.caption(13))
-                    .foregroundStyle(Color.textSecondary)
-
-                HStack(spacing: Spacing.smd) {
-                    Circle()
-                        .fill(TagColors.forId(newColorId).primaryColor)
-                        .frame(width: 14, height: 14)
-
-                    TextField(
-                        isCreatingGroup ? "e.g. Projects" : "e.g. Office supplies",
-                        text: $newName
-                    )
-                    .font(Fonts.body(16))
-                    .foregroundStyle(Color.textPrimary)
-                    .textFieldStyle(.plain)
-                }
-                .padding(.horizontal, Spacing.md)
-                .frame(height: 48)
-                .background(Color.surface)
-                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Radius.md)
-                        .stroke(Color.borderColor, lineWidth: 1)
-                )
-            }
-
-            if isCreating && !isCreatingGroup {
-                groupPicker
-            }
-
-            colorPicker
-
-            Spacer()
-        }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.top, Spacing.md)
-    }
-
-    private var groupPicker: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("Group (optional)")
-                .font(Fonts.caption(13))
-                .foregroundStyle(Color.textSecondary)
-
-            Button { showingGroupPickerSheet = true } label: {
-                HStack {
-                    if let parentId = newParentId, let group = groupTags.first(where: { $0.id == parentId }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "folder.fill")
-                                .font(.system(size: 12))
-                                .foregroundStyle(group.tagColor.primaryColor)
-                            Text(group.name)
-                                .font(Fonts.body(15))
-                                .foregroundStyle(Color.textPrimary)
-                        }
-                    } else {
-                        Text("None")
-                            .font(Fonts.body(15))
-                            .foregroundStyle(Color.textMuted)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color.textMuted)
-                }
-                .padding(.horizontal, Spacing.md)
-                .frame(height: 48)
-                .background(Color.surface)
-                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Radius.md)
-                        .stroke(Color.borderColor, lineWidth: 1)
-                )
-            }
-            .buttonStyle(.plain)
-            .sheet(isPresented: $showingGroupPickerSheet) {
-                GroupPickerSheet(
-                    groups: groupTags,
-                    selectedGroupId: $newParentId,
-                    onCreateGroup: {
-                        showingGroupPickerSheet = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            showingNewGroupFromPicker = true
-                        }
-                    }
-                )
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
-            }
-            .sheet(isPresented: $showingNewGroupFromPicker) {
-                TagCreationView(isGroupMode: true) { newGroupId in
-                    newParentId = newGroupId
-                }
-            }
-        }
-    }
-
-    private var colorPicker: some View {
-        VStack(alignment: .leading, spacing: Spacing.smd) {
-            Text("Color")
-                .font(Fonts.caption(13))
-                .foregroundStyle(Color.textSecondary)
-
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Spacing.smd), count: 6), spacing: Spacing.smd) {
-                ForEach(TagColors.palette) { color in
-                    Button { newColorId = color.id } label: {
-                        ZStack {
-                            Circle()
-                                .fill(color.primaryColor)
-                                .frame(width: 40, height: 40)
-
-                            if newColorId == color.id {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundStyle(.white)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-    }
-
-    // MARK: - State Management
-
-    private func resetCreationState(parentId: String?) {
-        newName = ""
-        newColorId = parentId.flatMap { pid in groupTags.first { $0.id == pid }?.colorId } ?? TagColors.defaultNewTagColorId
-        newParentId = parentId
-    }
-
-    // MARK: - Save
-
-    private func saveNewTag() {
-        let trimmed = newName.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-
-        let count = (try? modelContext.fetchCount(FetchDescriptor<TagModel>())) ?? 0
-        let tag = TagModel(
-            userId: nil,
-            name: trimmed,
-            colorId: newColorId,
-            sortOrder: count,
-            parentId: newParentId
-        )
-        modelContext.insert(tag)
-        do {
-            try modelContext.save()
-            #if DEBUG
-            print("[Tally] Tag saved: \(tag.name) (id: \(tag.id), parent: \(tag.parentId ?? "none"))")
-            #endif
-        } catch {
-            #if DEBUG
-            print("[Tally] ERROR saving tag: \(error)")
-            #endif
-        }
-
-        selectedTagIds.append(tag.id)
-
-        withAnimation(.easeInOut(duration: 0.2)) {
-            isCreating = false
-        }
-    }
-
-    private func saveNewGroup() {
-        let trimmed = newName.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-
-        let count = (try? modelContext.fetchCount(FetchDescriptor<TagModel>())) ?? 0
-        let group = TagModel(
-            userId: nil,
-            name: trimmed,
-            colorId: newColorId,
-            sortOrder: count,
-            parentId: nil,
-            isGroup: true
-        )
-        modelContext.insert(group)
-        do {
-            try modelContext.save()
-            #if DEBUG
-            print("[Tally] Group created: \(group.name) (id: \(group.id))")
-            #endif
-        } catch {
-            #if DEBUG
-            print("[Tally] ERROR creating group: \(error)")
-            #endif
-        }
-
-        withAnimation(.easeInOut(duration: 0.2)) {
-            isCreatingGroup = false
-        }
-    }
 }
