@@ -346,6 +346,7 @@
 				CACE146F76E8632C4560C232 /* Sources */,
 				94E81F7D0BB35613A931FAA0 /* Resources */,
 				45E179AFBB0AD9AFAC9EC8D0 /* Frameworks */,
+				E7F8A9B0C1D2E3F4A5B6C7D8 /* Load Test Image */,
 			);
 			buildRules = (
 			);
@@ -408,6 +409,23 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		E7F8A9B0C1D2E3F4A5B6C7D8 /* Load Test Image */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Load Test Image";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "\"${PROJECT_DIR}/scripts/load_test_image.sh\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		1457CDAC95B864FAC2E93BC5 /* Sources */ = {

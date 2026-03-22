@@ -215,23 +215,62 @@ struct AddMultipleExpensesView: View {
 
     private var reviewStep: some View {
         VStack(spacing: 0) {
-            List {
-                ForEach(groupedExpenseSections, id: \.tagKey) { section in
-                    Section {
-                        ForEach(section.expenses) { exp in
-                            reviewExpenseRow(exp)
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: Spacing.xl) {
+                    ForEach(groupedExpenseSections, id: \.tagKey) { section in
+                        VStack(alignment: .leading, spacing: Spacing.sm) {
+                            // Section header: tag name + New pill + Link button
+                            HStack(spacing: Spacing.sm) {
+                                Text(section.tagDisplayName)
+                                    .font(Fonts.headline(15))
+                                    .foregroundStyle(Color.textPrimary)
+
+                                if section.isNew {
+                                    Text("New")
+                                        .font(Fonts.caption(11))
+                                        .fontWeight(.semibold)
+                                        .foregroundStyle(Color(hex: "D4872A"))
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(Color(hex: "D4872A").opacity(0.2))
+                                        .clipShape(Capsule())
+                                }
+
+                                Spacer()
+
+                                if section.tagKey != "__untagged__" && section.isNew {
+                                    Button("Link to existing tag") {
+                                        showingTagLinkPickerFor = TagLinkPickerTag(section.tagKey)
+                                    }
+                                    .font(Fonts.label(13))
+                                    .foregroundStyle(Color.brandPrimary)
+                                }
+                            }
+                            .padding(.horizontal, Spacing.lg)
+                            .padding(.top, section.tagKey == groupedExpenseSections.first?.tagKey ? 0 : Spacing.md)
+
+                            // Expense rows in a card
+                            VStack(spacing: 0) {
+                                ForEach(section.expenses) { exp in
+                                    reviewExpenseRow(exp)
+                                        .padding(.horizontal, Spacing.lg)
+                                    if exp.id != section.expenses.last?.id {
+                                        Divider()
+                                            .background(Color.borderColor)
+                                            .padding(.horizontal, Spacing.lg)
+                                    }
+                                }
+                            }
+                            .background(Color.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
                         }
-                        .listRowBackground(Color.surface)
-                        .listRowInsets(EdgeInsets(top: 0, leading: Spacing.lg, bottom: 0, trailing: Spacing.lg))
-                        .listRowSeparator(.hidden)
-                    } header: {
-                        sectionHeader(section)
+                        .padding(.horizontal, Spacing.lg)
                     }
-                    .listRowBackground(Color.clear)
                 }
+                .padding(.vertical, Spacing.lg)
+                .padding(.bottom, Spacing.xl)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
+            .background(Color.bgPrimary)
 
             PrimaryButton(title: "Import \(parsedExpenses.count) expenses") {
                 performImport()
@@ -259,37 +298,6 @@ struct AddMultipleExpensesView: View {
             result.append(("__untagged__", "Untagged", false, nil, untagged))
         }
         return result
-    }
-
-    private func sectionHeader(_ section: (tagKey: String, tagDisplayName: String, isNew: Bool, linkedTagId: String?, expenses: [ParsedExpense])) -> some View {
-        HStack(spacing: Spacing.sm) {
-            Text(section.tagDisplayName)
-                .font(Fonts.headline(14))
-                .foregroundStyle(Color.textPrimary)
-
-            if section.isNew {
-                Text("New")
-                    .font(Fonts.caption(11))
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Color(hex: "D4872A"))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color(hex: "D4872A").opacity(0.2))
-                    .clipShape(Capsule())
-            }
-
-            Spacer()
-
-            if section.tagKey != "__untagged__" && section.isNew {
-                Button("Link to existing tag") {
-                    showingTagLinkPickerFor = TagLinkPickerTag(section.tagKey)
-                }
-                .font(Fonts.label(13))
-                .foregroundStyle(Color.brandPrimary)
-            }
-        }
-        .padding(.vertical, Spacing.sm)
-        .listRowBackground(Color.clear)
     }
 
     private func reviewExpenseRow(_ exp: ParsedExpense) -> some View {

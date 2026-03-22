@@ -17,58 +17,40 @@ struct ParsedExpense: Identifiable {
 
 enum BulkExpenseParser {
     /// Parse raw text into expenses.
-    /// - Indented lines under a heading → heading becomes suggested tag, lines are expenses.
-    /// - Top-level items with no parent → no suggested tag.
+    /// - Headings: lines ending with ":" or with no parseable amount become suggested tags for following expenses.
+    /// - Lines with amounts are expenses and inherit the most recent heading as suggested tag.
     /// - Amounts with or without $ valid — strip symbol, parse decimal.
-    /// - Items with no parseable amount are skipped.
+    /// - Items with no parseable amount are skipped (unless they're headings).
     static func parse(_ rawText: String) -> [ParsedExpense] {
-        let rawLines = rawText.components(separatedBy: .newlines)
-        let lines = rawLines.map { $0.trimmingCharacters(in: .whitespaces) }
+        let lines = rawText.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
 
         var result: [ParsedExpense] = []
         var currentTag: String?
-        var i = 0
 
-        while i < lines.count {
-            let stripped = lines[i]
-            if stripped.isEmpty { i += 1; continue }
-            let isIndented = rawLines[i].hasPrefix("  ") || rawLines[i].hasPrefix("\t") || rawLines[i].hasPrefix(" ")
+        for stripped in lines {
+            if stripped.isEmpty { continue }
 
-            // Check if this line looks like a heading (no amount, possibly followed by indented items)
             let (desc, amount) = extractDescriptionAndAmount(from: stripped)
 
-            if amount == nil {
-                // No amount — could be a heading
+            if let amt = amount, amt > 0 {
+                // Has amount → expense row; use current heading as suggested tag
+                result.append(ParsedExpense(
+                    description: desc.isEmpty ? "Expense" : desc,
+                    amountCents: amt,
+                    suggestedTagName: currentTag
+                ))
+            } else {
+                // No amount → heading (colon at end OR absence of amount)
                 if !desc.isEmpty {
-                    // Peek ahead: are the next lines indented?
-                    var hasIndented = false
-                    if i + 1 < rawLines.count {
-                        let next = rawLines[i + 1]
-                        hasIndented = next.hasPrefix("  ") || next.hasPrefix("\t") || next.hasPrefix(" ")
-                    }
-                    if hasIndented && !isIndented {
-                        currentTag = desc
-                        i += 1
-                        continue
+                    let headingName = stripped.hasSuffix(":")
+                        ? String(stripped.dropLast()).trimmingCharacters(in: .whitespaces)
+                        : desc
+                    if !headingName.isEmpty {
+                        currentTag = headingName
                     }
                 }
-                i += 1
-                continue
             }
-
-            if let amt = amount, amt > 0 {
-                let tag = isIndented ? currentTag : nil
-                result.append(ParsedExpense(
-                    description: desc,
-                    amountCents: amt,
-                    suggestedTagName: tag
-                ))
-                if !isIndented { currentTag = nil }
-            } else if !isIndented {
-                currentTag = nil
-            }
-
-            i += 1
         }
 
         return result
