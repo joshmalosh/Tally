@@ -75,7 +75,7 @@ struct AddMultipleExpensesView: View {
             TagLinkPickerSheet(
                 tags: tags,
                 onSelect: { tagId in
-                    linkedTagIds[tagTag.id] = tagId
+                    handleTagPickerSelection(contextId: tagTag.id, tagId: tagId)
                     showingTagLinkPickerFor = nil
                 }
             )
@@ -240,7 +240,7 @@ struct AddMultipleExpensesView: View {
 
                                 if section.tagKey != "__untagged__" && section.isNew {
                                     Button("Link to existing tag") {
-                                        showingTagLinkPickerFor = TagLinkPickerTag(section.tagKey)
+                                        showingTagLinkPickerFor = TagLinkPickerTag("group:\(section.tagKey)")
                                     }
                                     .font(Fonts.label(13))
                                     .foregroundStyle(Color.brandPrimary)
@@ -252,7 +252,9 @@ struct AddMultipleExpensesView: View {
                             // Expense rows in a card
                             VStack(spacing: 0) {
                                 ForEach(section.expenses) { exp in
-                                    reviewExpenseRow(exp)
+                                    reviewExpenseRow(exp, showTagButton: section.tagKey == "__untagged__", onTagTap: {
+                                        showingTagLinkPickerFor = TagLinkPickerTag("expense:\(exp.id)")
+                                    })
                                         .padding(.horizontal, Spacing.lg)
                                     if exp.id != section.expenses.last?.id {
                                         Divider()
@@ -270,6 +272,7 @@ struct AddMultipleExpensesView: View {
                 .padding(.vertical, Spacing.lg)
                 .padding(.bottom, Spacing.xl)
             }
+            .animation(.easeInOut(duration: 0.25), value: parsedExpenses.map { "\($0.id):\($0.suggestedTagName ?? "")" }.joined())
             .background(Color.bgPrimary)
 
             PrimaryButton(title: "Import \(parsedExpenses.count) expenses") {
@@ -300,8 +303,26 @@ struct AddMultipleExpensesView: View {
         return result
     }
 
-    private func reviewExpenseRow(_ exp: ParsedExpense) -> some View {
-        HStack {
+    private func handleTagPickerSelection(contextId: String, tagId: String) {
+        let tagName: String? = tags.first(where: { $0.id == tagId })?.name
+            ?? (try? modelContext.fetch(FetchDescriptor<TagModel>(predicate: #Predicate { $0.id == tagId })).first)?.name
+        guard let tagName else { return }
+
+        if contextId.hasPrefix("group:") {
+            let tagKey = String(contextId.dropFirst(6))
+            linkedTagIds[tagKey] = tagId
+        } else if contextId.hasPrefix("expense:") {
+            let expenseId = String(contextId.dropFirst(8))
+            guard let idx = parsedExpenses.firstIndex(where: { $0.id == expenseId }) else { return }
+            withAnimation(.easeInOut(duration: 0.25)) {
+                parsedExpenses[idx].suggestedTagName = tagName
+                linkedTagIds[tagName] = tagId
+            }
+        }
+    }
+
+    private func reviewExpenseRow(_ exp: ParsedExpense, showTagButton: Bool = false, onTagTap: (() -> Void)? = nil) -> some View {
+        HStack(spacing: Spacing.sm) {
             Text(exp.description)
                 .font(Fonts.body(16))
                 .foregroundStyle(Color.textPrimary)
@@ -320,6 +341,15 @@ struct AddMultipleExpensesView: View {
             .foregroundStyle(Color.textPrimary)
             .multilineTextAlignment(.trailing)
             .frame(width: 90)
+
+            if showTagButton, let onTagTap {
+                Button(action: onTagTap) {
+                    Image(systemName: "tag")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Color.textMuted)
+                }
+                .buttonStyle(.plain)
+            }
         }
         .padding(.vertical, Spacing.sm)
     }
@@ -376,13 +406,15 @@ struct AddMultipleExpensesView: View {
 
 struct TagLinkPickerTag: Identifiable {
     let id: String
-    init(_ name: String) { id = name }
+    init(_ id: String) { self.id = id }
 }
 
 struct TagLinkPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     let tags: [TagModel]
     let onSelect: (String) -> Void
+
+    @State private var showingTagCreation = false
 
     private var standaloneTags: [TagModel] { tags.filter { $0.parentId == nil && !$0.isGroup } }
     private var groupTags: [TagModel] { tags.filter { $0.isGroup } }
@@ -391,6 +423,27 @@ struct TagLinkPickerSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.sm) {
+                    Button {
+                        showingTagCreation = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 12, weight: .semibold))
+                            Text("Create new tag")
+                                .font(Fonts.label(14))
+                        }
+                        .foregroundStyle(Color.brandPrimary)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 36)
+                        .background(Color.brandTint)
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+                    }
+                    .buttonStyle(.plain)
+
+                    Divider()
+                        .background(Color.borderColor.opacity(0.6))
+                        .padding(.vertical, Spacing.sm)
+
                     ForEach(standaloneTags) { tag in
                         tagRow(tag)
                     }
@@ -414,6 +467,13 @@ struct TagLinkPickerSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                         .foregroundStyle(Color.textSecondary)
+                }
+            }
+            .sheet(isPresented: $showingTagCreation) {
+                TagCreationView { newTagId in
+                    showingTagCreation = false
+                    onSelect(newTagId)
+                    dismiss()
                 }
             }
         }
