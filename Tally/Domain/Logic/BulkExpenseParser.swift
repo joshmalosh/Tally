@@ -17,38 +17,56 @@ struct ParsedExpense: Identifiable {
 
 enum BulkExpenseParser {
     /// Parse raw text into expenses.
-    /// - Headings: lines ending with ":" or with no parseable amount become suggested tags for following expenses.
-    /// - Lines with amounts are expenses and inherit the most recent heading as suggested tag.
-    /// - Amounts with or without $ valid — strip symbol, parse decimal.
-    /// - Items with no parseable amount are skipped (unless they're headings).
+    /// - Headings: lines ending with ":" or with no parseable amount become suggested tags.
+    /// - Tag context applies only to lines that are clearly children: indented, dash-prefixed, or immediately following a heading.
+    /// - Blank line or new heading resets tag context. Top-level lines (no indent, no dash, not immediately after heading) → Untagged.
     static func parse(_ rawText: String) -> [ParsedExpense] {
-        let lines = rawText.components(separatedBy: .newlines)
-            .map { $0.trimmingCharacters(in: .whitespaces) }
+        let rawLines = rawText.components(separatedBy: .newlines)
 
         var result: [ParsedExpense] = []
         var currentTag: String?
+        var previousWasHeading = false
 
-        for stripped in lines {
-            if stripped.isEmpty { continue }
+        for i in rawLines.indices {
+            let raw = rawLines[i]
+            let stripped = raw.trimmingCharacters(in: .whitespaces)
+
+            if stripped.isEmpty {
+                currentTag = nil
+                previousWasHeading = false
+                continue
+            }
+
+            let isIndented = raw.hasPrefix("  ") || raw.hasPrefix("\t") || (raw.hasPrefix(" ") && !raw.trimmingCharacters(in: .whitespaces).isEmpty)
+            let hasDashPrefix = stripped.hasPrefix("-") || stripped.hasPrefix("–") || stripped.hasPrefix("—")
+            let isChildOfHeading = isIndented || hasDashPrefix
 
             let (desc, amount) = extractDescriptionAndAmount(from: stripped)
 
             if let amt = amount, amt > 0 {
-                // Has amount → expense row; use current heading as suggested tag
+                let suggestedTag: String?
+                if isChildOfHeading || previousWasHeading {
+                    suggestedTag = currentTag
+                } else {
+                    suggestedTag = nil
+                }
+                previousWasHeading = false
                 result.append(ParsedExpense(
                     description: desc.isEmpty ? "Expense" : desc,
                     amountCents: amt,
-                    suggestedTagName: currentTag
+                    suggestedTagName: suggestedTag
                 ))
             } else {
-                // No amount → heading (colon at end OR absence of amount)
                 if !desc.isEmpty {
                     let headingName = stripped.hasSuffix(":")
                         ? String(stripped.dropLast()).trimmingCharacters(in: .whitespaces)
                         : desc
                     if !headingName.isEmpty {
                         currentTag = headingName
+                        previousWasHeading = true
                     }
+                } else {
+                    previousWasHeading = false
                 }
             }
         }

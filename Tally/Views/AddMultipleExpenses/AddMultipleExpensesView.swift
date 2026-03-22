@@ -74,6 +74,7 @@ struct AddMultipleExpensesView: View {
         .sheet(item: $showingTagLinkPickerFor) { tagTag in
             TagLinkPickerSheet(
                 tags: tags,
+                allowsCreateNew: false,
                 onSelect: { tagId in
                     handleTagPickerSelection(contextId: tagTag.id, tagId: tagId)
                     showingTagLinkPickerFor = nil
@@ -90,7 +91,7 @@ struct AddMultipleExpensesView: View {
                 inputCard(
                     icon: "camera.fill",
                     title: "Take or upload a photo",
-                    subtitle: "Extract text from a receipt or notes"
+                    subtitle: "Upload a photo, screenshot, or paste your notes. We'll handle the rest."
                 ) {
                     showingPhotoSourcePicker = true
                 }
@@ -238,7 +239,7 @@ struct AddMultipleExpensesView: View {
 
                                 Spacer()
 
-                                if section.tagKey != "__untagged__" && section.isNew {
+                                if section.tagKey != "__untagged__" {
                                     Button("Link to existing tag") {
                                         showingTagLinkPickerFor = TagLinkPickerTag("group:\(section.tagKey)")
                                     }
@@ -252,7 +253,7 @@ struct AddMultipleExpensesView: View {
                             // Expense rows in a card
                             VStack(spacing: 0) {
                                 ForEach(section.expenses) { exp in
-                                    reviewExpenseRow(exp, showTagButton: section.tagKey == "__untagged__", onTagTap: {
+                                    reviewExpenseRow(exp, onTagTap: {
                                         showingTagLinkPickerFor = TagLinkPickerTag("expense:\(exp.id)")
                                     })
                                         .padding(.horizontal, Spacing.lg)
@@ -321,7 +322,7 @@ struct AddMultipleExpensesView: View {
         }
     }
 
-    private func reviewExpenseRow(_ exp: ParsedExpense, showTagButton: Bool = false, onTagTap: (() -> Void)? = nil) -> some View {
+    private func reviewExpenseRow(_ exp: ParsedExpense, onTagTap: @escaping () -> Void) -> some View {
         HStack(spacing: Spacing.sm) {
             Text(exp.description)
                 .font(Fonts.body(16))
@@ -335,21 +336,19 @@ struct AddMultipleExpensesView: View {
                     guard let idx = parsedExpenses.firstIndex(where: { $0.id == exp.id }) else { return }
                     parsedExpenses[idx].amountCents = max(0, Int(round(newVal * 100)))
                 }
-            ), format: .number.precision(.fractionLength(2)))
+            ), format: .currency(code: appState.defaultCurrency))
             .keyboardType(.decimalPad)
             .font(Fonts.mono(16))
             .foregroundStyle(Color.textPrimary)
             .multilineTextAlignment(.trailing)
-            .frame(width: 90)
+            .frame(width: 100)
 
-            if showTagButton, let onTagTap {
-                Button(action: onTagTap) {
-                    Image(systemName: "tag")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Color.textMuted)
-                }
-                .buttonStyle(.plain)
+            Button(action: onTagTap) {
+                Image(systemName: "tag")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.textMuted)
             }
+            .buttonStyle(.plain)
         }
         .padding(.vertical, Spacing.sm)
     }
@@ -412,6 +411,7 @@ struct TagLinkPickerTag: Identifiable {
 struct TagLinkPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     let tags: [TagModel]
+    var allowsCreateNew: Bool = true
     let onSelect: (String) -> Void
 
     @State private var showingTagCreation = false
@@ -423,26 +423,28 @@ struct TagLinkPickerSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.sm) {
-                    Button {
-                        showingTagCreation = true
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 12, weight: .semibold))
-                            Text("Create new tag")
-                                .font(Fonts.label(14))
+                    if allowsCreateNew {
+                        Button {
+                            showingTagCreation = true
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "plus")
+                                    .font(.system(size: 12, weight: .semibold))
+                                Text("Create new tag")
+                                    .font(Fonts.label(14))
+                            }
+                            .foregroundStyle(Color.brandPrimary)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 36)
+                            .background(Color.brandTint)
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
                         }
-                        .foregroundStyle(Color.brandPrimary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 36)
-                        .background(Color.brandTint)
-                        .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
-                    }
-                    .buttonStyle(.plain)
+                        .buttonStyle(.plain)
 
-                    Divider()
-                        .background(Color.borderColor.opacity(0.6))
-                        .padding(.vertical, Spacing.sm)
+                        Divider()
+                            .background(Color.borderColor.opacity(0.6))
+                            .padding(.vertical, Spacing.sm)
+                    }
 
                     ForEach(standaloneTags) { tag in
                         tagRow(tag)
