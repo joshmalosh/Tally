@@ -1,5 +1,7 @@
 import SwiftUI
 import SwiftData
+import UniformTypeIdentifiers
+import UIKit
 
 struct AddMultipleExpensesView: View {
     @Environment(\.dismiss) private var dismiss
@@ -17,6 +19,7 @@ struct AddMultipleExpensesView: View {
     @State private var showingTagLinkPickerFor: TagLinkPickerTag?
     @State private var showingPhotoSourcePicker = false
     @State private var showingPhotoLibrary = false
+    @State private var showingFilePicker = false
     @State private var photoForOCR: UIImage?
     @FocusState private var isPasteFieldFocused: Bool
 
@@ -71,10 +74,18 @@ struct AddMultipleExpensesView: View {
         .sheet(isPresented: $showingPasteEditor) {
             pasteTextSheet
         }
+        .sheet(isPresented: $showingFilePicker) {
+            BulkImportFilePicker { url in
+                showingFilePicker = false
+                if let url {
+                    loadFileContents(from: url)
+                }
+            }
+        }
         .sheet(item: $showingTagLinkPickerFor) { tagTag in
             TagLinkPickerSheet(
                 tags: tags,
-                allowsCreateNew: false,
+                allowsCreateNew: true,
                 onSelect: { tagId in
                     handleTagPickerSelection(contextId: tagTag.id, tagId: tagId)
                     showingTagLinkPickerFor = nil
@@ -87,11 +98,18 @@ struct AddMultipleExpensesView: View {
 
     private var inputStep: some View {
         VStack(spacing: Spacing.lg) {
+            Text("Have a list of expenses somewhere else already? Upload or type them, we'll handle the rest.")
+                .font(Fonts.caption(14))
+                .foregroundStyle(Color.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, Spacing.lg)
+                .padding(.top, Spacing.lg)
+
             VStack(spacing: Spacing.md) {
                 inputCard(
                     icon: "camera.fill",
                     title: "Take or upload a photo",
-                    subtitle: "Upload a photo, screenshot, or paste your notes. We'll handle the rest."
+                    subtitle: "Upload a photo or screenshot of your notes"
                 ) {
                     showingPhotoSourcePicker = true
                 }
@@ -103,9 +121,17 @@ struct AddMultipleExpensesView: View {
                 ) {
                     showingPasteEditor = true
                 }
+
+                inputCard(
+                    icon: "square.and.arrow.up",
+                    title: "Upload file",
+                    subtitle: "CSV, Excel, or text file"
+                ) {
+                    showingFilePicker = true
+                }
             }
             .padding(.horizontal, Spacing.lg)
-            .padding(.top, Spacing.xl)
+            .padding(.top, Spacing.md)
 
             Spacer()
         }
@@ -200,6 +226,19 @@ struct AddMultipleExpensesView: View {
                 }
             }
         }
+    }
+
+    private func loadFileContents(from url: URL) {
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+
+        guard let data = try? Data(contentsOf: url),
+              let text = String(data: data, encoding: .utf8)
+              ?? String(data: data, encoding: .utf16)
+              ?? String(data: data, encoding: .ascii) else {
+            return
+        }
+        proceedWithText(text)
     }
 
     private func proceedWithText(_ text: String) {
@@ -400,6 +439,47 @@ struct AddMultipleExpensesView: View {
         }
 
         dismiss()
+    }
+}
+
+// MARK: - Bulk Import File Picker
+
+struct BulkImportFilePicker: UIViewControllerRepresentable {
+    @Environment(\.dismiss) private var dismiss
+    let onPick: (URL?) -> Void
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let types: [UTType] = [
+            .spreadsheet,
+            .commaSeparatedText,
+            .plainText,
+            UTType(filenameExtension: "xlsx") ?? .spreadsheet,
+            UTType(filenameExtension: "xls") ?? .spreadsheet
+        ]
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: types, asCopy: true)
+        picker.delegate = context.coordinator
+        picker.allowsMultipleSelection = false
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let parent: BulkImportFilePicker
+
+        init(_ parent: BulkImportFilePicker) { self.parent = parent }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            parent.onPick(urls.first)
+            parent.dismiss()
+        }
+
+        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            parent.onPick(nil)
+            parent.dismiss()
+        }
     }
 }
 

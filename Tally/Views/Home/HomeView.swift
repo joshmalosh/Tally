@@ -20,6 +20,7 @@ struct HomeView: View {
     @State private var selectedExpenseIds: Set<String> = []
     @State private var showingSelectedExport = false
     @State private var expandedGroupId: String?
+    @State private var expenseToDelete: ExpenseModel?
     @FocusState private var isSearchFocused: Bool
 
     private var showsBannerAd: Bool { !appState.isPro }
@@ -129,11 +130,7 @@ struct HomeView: View {
 
         ZStack(alignment: .bottomTrailing) {
             VStack(spacing: 0) {
-                if isSelecting {
-                    selectionAppBarMinimal
-                } else {
-                    appBar
-                }
+                appBar
 
                 headerSection
                     .allowsHitTesting(!isSelecting)
@@ -142,11 +139,6 @@ struct HomeView: View {
                 tagRow
                     .padding(.top, Spacing.smd)
 
-                if isSelecting {
-                    selectionActionBar
-                        .padding(.top, Spacing.sm)
-                }
-
                 divider
 
                 if filteredExpenses.isEmpty && !isSelecting {
@@ -154,13 +146,14 @@ struct HomeView: View {
                 } else {
                     expenseList
                 }
+
+                if isSelecting && !selectedExpenseIds.isEmpty {
+                    selectionBottomToolbar
+                        .transition(.move(edge: .bottom))
+                }
             }
 
-            if isSelecting {
-                exportFAB
-                    .padding(.trailing, Spacing.md)
-                    .padding(.bottom, showsBannerAd ? (Spacing.xl + 12) : (Spacing.lg + 12))
-            } else {
+            if !isSelecting {
                 FABButton { showingEntryPicker = true }
                     .padding(.trailing, Spacing.md)
                     .padding(.bottom, showsBannerAd ? (Spacing.xl + 12) : (Spacing.lg + 12))
@@ -203,6 +196,18 @@ struct HomeView: View {
             SelectedExportSheet(
                 expenses: filteredExpenses.filter { selectedExpenseIds.contains($0.id) }
             )
+        }
+        .alert("Delete expense?", isPresented: Binding(
+            get: { expenseToDelete != nil },
+            set: { if !$0 { expenseToDelete = nil } }
+        )) {
+            Button("Cancel", role: .cancel) { expenseToDelete = nil }
+            Button("Delete", role: .destructive) {
+                if let exp = expenseToDelete { deleteExpense(exp) }
+                expenseToDelete = nil
+            }
+        } message: {
+            Text("This cannot be undone.")
         }
     }
 
@@ -616,7 +621,7 @@ struct HomeView: View {
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     if !isSelecting {
                         Button(role: .destructive) {
-                            deleteExpense(expense)
+                            expenseToDelete = expense
                         } label: {
                             Label("Delete", systemImage: "trash")
                         }
@@ -677,6 +682,70 @@ struct HomeView: View {
         }
     }
 
+    // MARK: - Selection Bottom Toolbar
+
+    private var selectionBottomToolbar: some View {
+        HStack(spacing: Spacing.lg) {
+            Button {
+                exitSelectionMode()
+            } label: {
+                Text("Cancel")
+                    .font(Fonts.body(15))
+                    .foregroundStyle(Color.textSecondary)
+            }
+
+            Spacer()
+
+            Text("\(selectedExpenseIds.count) selected")
+                .font(Fonts.caption(14))
+                .foregroundStyle(Color.textPrimary)
+
+            Spacer()
+
+            if showSelectAll {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        if allAreSelected {
+                            selectedExpenseIds.removeAll()
+                        } else {
+                            selectedExpenseIds = Set(filteredExpenses.map(\.id))
+                        }
+                    }
+                } label: {
+                    Text(allAreSelected ? "Deselect All" : "Select All")
+                        .font(Fonts.caption(13))
+                        .foregroundStyle(Color.textSecondary)
+                }
+            }
+
+            Button {
+                showingSelectedExport = true
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 18))
+                    .foregroundStyle(Color.textSecondary)
+            }
+
+            Button {
+                deleteSelectedExpenses()
+            } label: {
+                Text("Delete")
+                    .font(Fonts.body(15))
+                    .fontWeight(.medium)
+                    .foregroundStyle(Color.danger)
+            }
+            .disabled(selectedExpenseIds.isEmpty)
+        }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.vertical, Spacing.md)
+        .background(Color.surface)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Color.borderColor.opacity(0.6))
+                .frame(height: 1)
+        }
+    }
+
     // MARK: - Export FAB
 
     private var exportFAB: some View {
@@ -727,25 +796,7 @@ struct HomeView: View {
         .animation(.easeInOut(duration: 0.2), value: count)
     }
 
-    // MARK: - Selection App Bar (minimal — logo only, no icons)
-
-    private var selectionAppBarMinimal: some View {
-        HStack {
-            Image("TallyLogo")
-                .renderingMode(.original)
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(height: 28)
-                .opacity(0.3)
-
-            Spacer()
-        }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.top, Spacing.sm)
-        .padding(.bottom, Spacing.sm)
-    }
-
-    // MARK: - Selection Action Bar
+    // MARK: - Selection Mode Helpers
 
     private var showSelectAll: Bool {
         filteredExpenses.count > 1
@@ -753,60 +804,6 @@ struct HomeView: View {
 
     private var allAreSelected: Bool {
         !filteredExpenses.isEmpty && selectedExpenseIds.count == filteredExpenses.count
-    }
-
-    private var selectionActionBar: some View {
-        HStack {
-            Button {
-                exitSelectionMode()
-            } label: {
-                Text("Cancel")
-                    .font(Fonts.body(14))
-                    .foregroundStyle(Color.textMuted)
-            }
-
-            Spacer()
-
-            if showSelectAll {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        if allAreSelected {
-                            selectedExpenseIds.removeAll()
-                        } else {
-                            selectedExpenseIds = Set(filteredExpenses.map(\.id))
-                        }
-                    }
-                } label: {
-                    Text(allAreSelected ? "Deselect All" : "Select All")
-                        .font(Fonts.caption(12))
-                        .foregroundStyle(Color.textMuted)
-                }
-            }
-
-            Spacer()
-
-            Button {
-                deleteSelectedExpenses()
-            } label: {
-                Image(systemName: "trash")
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(selectedExpenseIds.isEmpty ? Color.textMuted : Color.danger)
-            }
-            .disabled(selectedExpenseIds.isEmpty)
-        }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.vertical, Spacing.sm)
-        .background(Color.brandPrimary.opacity(0.04))
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(Color.brandPrimary.opacity(0.08))
-                .frame(height: 1)
-        }
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color.brandPrimary.opacity(0.08))
-                .frame(height: 1)
-        }
     }
 
     // MARK: - Selection Mode
