@@ -10,7 +10,8 @@ enum RecurringExpenseService {
         let forNotification: [(amountCents: Int, currency: String, merchant: String?)]
     }
 
-    /// Returns summary of logged expenses for notification scheduling.
+    /// Returns summary of logged expenses for notification scheduling. Must run on main actor.
+    @MainActor
     static func processOverdueRecurring(modelContext: ModelContext) async -> LoggedSummary {
         var loggedIds: [String] = []
         var templateIds: [String] = []
@@ -40,7 +41,7 @@ enum RecurringExpenseService {
                     date: dueDate,
                     description: template.expenseDescription,
                     merchant: template.merchant,
-                    tagIds: template.tagIds,
+                    tagIds: template.tagIds ?? [],
                     notes: template.notes,
                     source: "recurring"
                 )

@@ -15,7 +15,7 @@ struct ExportView: View {
     @State private var selectedFormat: ExportFormat = .csv
     @State private var isExporting = false
     @State private var showingProUpsell = false
-    @State private var showingExportLimit = false
+    @State private var proFeatureName = "Export"
 
     private var filteredExpenses: [ExpenseModel] {
         activeExpenses.filter { $0.date >= startDate && $0.date <= endDate }
@@ -51,13 +51,8 @@ struct ExportView: View {
                         .foregroundStyle(Color.textSecondary)
                 }
             }
-            .sheet(isPresented: $showingExportLimit) {
-                ExportLimitSheet()
-                    .presentationDetents([.medium])
-                    .presentationDragIndicator(.visible)
-            }
             .sheet(isPresented: $showingProUpsell) {
-                ProFeatureSheet(featureName: "PDF export")
+                ProFeatureSheet(featureName: proFeatureName)
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
             }
@@ -112,7 +107,7 @@ struct ExportView: View {
                     format: .csv,
                     title: "CSV",
                     subtitle: "Spreadsheet-compatible data file",
-                    proOnly: false
+                    proOnly: true
                 )
                 formatOption(
                     format: .pdf,
@@ -130,6 +125,7 @@ struct ExportView: View {
     private func formatOption(format: ExportFormat, title: String, subtitle: String, proOnly: Bool) -> some View {
         Button {
             if proOnly && !appState.isPro {
+                proFeatureName = format == .csv ? "CSV export" : "PDF export"
                 showingProUpsell = true
             } else {
                 selectedFormat = format
@@ -238,8 +234,8 @@ struct ExportView: View {
 
         switch selectedFormat {
         case .csv:
-            if !appState.canExportCSV {
-                showingExportLimit = true
+            guard appState.isPro else {
+                showingProUpsell = true
                 return
             }
             executeCSVExport()
@@ -348,6 +344,119 @@ struct ExportLimitSheet: View {
         .background(Color.bgPrimary)
         .sheet(isPresented: $showingSubscription) {
             SubscriptionView()
+        }
+    }
+}
+
+// MARK: - Monthly Limit Sheet (expense cap)
+
+struct MonthlyLimitSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var showingSubscription = false
+
+    var body: some View {
+        VStack(spacing: Spacing.lg) {
+            Spacer()
+
+            Image(systemName: "chart.bar.doc.horizontal")
+                .font(.system(size: 48))
+                .foregroundStyle(Color.textMuted)
+
+            VStack(spacing: Spacing.sm) {
+                Text("You've hit your monthly limit")
+                    .font(Fonts.headline(20))
+                    .foregroundStyle(Color.textPrimary)
+                    .multilineTextAlignment(.center)
+
+                Text("Free accounts can log up to 15 expenses per month. Upgrade to Pro for unlimited tracking.")
+                    .font(Fonts.body(15))
+                    .foregroundStyle(Color.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+            }
+            .padding(.horizontal, Spacing.lg)
+
+            Spacer()
+
+            VStack(spacing: Spacing.smd) {
+                PrimaryButton(title: "Upgrade to Pro") {
+                    showingSubscription = true
+                }
+
+                Button {
+                    dismiss()
+                } label: {
+                    Text("Not now")
+                        .font(Fonts.body(15))
+                        .foregroundStyle(Color.textSecondary)
+                }
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.bottom, Spacing.xl)
+        }
+        .background(Color.bgPrimary)
+        .sheet(isPresented: $showingSubscription) {
+            SubscriptionView()
+        }
+    }
+}
+
+// MARK: - Pro Benefits Card (every 3rd expense upsell)
+
+struct ProBenefitsCard: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var showingSubscription = false
+
+    var body: some View {
+        VStack(spacing: Spacing.lg) {
+            VStack(spacing: Spacing.sm) {
+                Text("Get more from Tally")
+                    .font(Fonts.headline(20))
+                    .foregroundStyle(Color.textPrimary)
+                    .multilineTextAlignment(.center)
+
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    benefitRow(icon: "infinity", text: "Unlimited expenses per month")
+                    benefitRow(icon: "doc.text.viewfinder", text: "Full OCR auto-fill on receipts")
+                    benefitRow(icon: "square.and.arrow.up", text: "Unlimited exports")
+                    benefitRow(icon: "nosign", text: "No ads")
+                }
+                .padding(.horizontal, Spacing.sm)
+            }
+            .padding(.horizontal, Spacing.lg)
+
+            VStack(spacing: Spacing.smd) {
+                PrimaryButton(title: "Upgrade to Pro") {
+                    showingSubscription = true
+                }
+
+                Button {
+                    dismiss()
+                } label: {
+                    Text("Not now")
+                        .font(Fonts.body(15))
+                        .foregroundStyle(Color.textSecondary)
+                }
+            }
+            .padding(.horizontal, Spacing.lg)
+        }
+        .padding(.vertical, Spacing.xl)
+        .background(Color.bgPrimary)
+        .sheet(isPresented: $showingSubscription) {
+            SubscriptionView()
+        }
+    }
+
+    private func benefitRow(icon: String, text: String) -> some View {
+        HStack(spacing: Spacing.smd) {
+            Image(systemName: icon)
+                .font(.system(size: 16))
+                .foregroundStyle(Color.brandPrimary)
+                .frame(width: 24, alignment: .center)
+            Text(text)
+                .font(Fonts.body(15))
+                .foregroundStyle(Color.textPrimary)
+            Spacer()
         }
     }
 }

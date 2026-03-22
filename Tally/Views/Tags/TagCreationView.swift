@@ -197,9 +197,9 @@ struct TagCreationView: View {
         appState.removeFilter(id: tag.id)
         for expense in allExpenses {
             if expense.resolvedTagIds.contains(tag.id) {
-                expense.tagIds = expense.tagIds.filter { $0 != tag.id }
+                expense.tagIds = (expense.tagIds ?? []).filter { $0 != tag.id }
                 if expense.tagId == tag.id {
-                    expense.tagId = expense.tagIds.first ?? ""
+                    expense.tagId = (expense.tagIds ?? []).first ?? ""
                 }
             }
         }

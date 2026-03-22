@@ -49,7 +49,7 @@ final class AppState {
         return storedMonth == currentMonthKey ? stored : 0
     }
 
-    var canExportCSV: Bool { isPro || csvExportsThisMonth < 1 }
+    var canExportCSV: Bool { isPro }
 
     func recordCSVExport() {
         let month = currentMonthKey
@@ -67,6 +67,29 @@ final class AppState {
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM"
         return fmt.string(from: Date())
+    }
+
+    // Pro benefits prompt (every 3rd expense, max 3/month)
+    private static let proPromptShownCountKey = "proPromptShownCount"
+    private static let proPromptShownMonthKey = "proPromptShownMonth"
+
+    var proPromptShownThisMonth: Int {
+        let storedMonth = UserDefaults.standard.string(forKey: Self.proPromptShownMonthKey) ?? ""
+        return storedMonth == currentMonthKey
+            ? UserDefaults.standard.integer(forKey: Self.proPromptShownCountKey)
+            : 0
+    }
+
+    func recordProPromptShown() {
+        let month = currentMonthKey
+        let storedMonth = UserDefaults.standard.string(forKey: Self.proPromptShownMonthKey) ?? ""
+        if storedMonth != month {
+            UserDefaults.standard.set(month, forKey: Self.proPromptShownMonthKey)
+            UserDefaults.standard.set(1, forKey: Self.proPromptShownCountKey)
+        } else {
+            let count = UserDefaults.standard.integer(forKey: Self.proPromptShownCountKey)
+            UserDefaults.standard.set(count + 1, forKey: Self.proPromptShownCountKey)
+        }
     }
 
     // Preferences

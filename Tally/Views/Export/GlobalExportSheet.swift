@@ -28,7 +28,6 @@ struct GlobalExportSheet: View {
     @State private var isExporting = false
     @State private var showingToast = false
     @State private var toastMessage = ""
-    @State private var showingExportLimit = false
     @State private var showingProUpsell = false
     @State private var proFeatureName = ""
     @State private var showingTagExportPicker = false
@@ -95,7 +94,7 @@ struct GlobalExportSheet: View {
                                     icon: "tablecells",
                                     title: "Export as CSV",
                                     subtitle: "\(expenseCount) expenses \u{2022} \(periodFilter.label)",
-                                    proOnly: false
+                                    proOnly: true
                                 ) {
                                     exportCSV(expenses: periodExpenses)
                                 }
@@ -132,11 +131,6 @@ struct GlobalExportSheet: View {
                     Button("Cancel") { dismiss() }
                         .foregroundStyle(Color.textSecondary)
                 }
-            }
-            .sheet(isPresented: $showingExportLimit) {
-                ExportLimitSheet()
-                    .presentationDetents([.medium])
-                    .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $showingProUpsell) {
                 ProFeatureSheet(featureName: proFeatureName)
@@ -330,8 +324,9 @@ struct GlobalExportSheet: View {
     // MARK: - Export Actions
 
     private func exportCSV(expenses: [ExpenseModel]) {
-        guard appState.canExportCSV else {
-            showingExportLimit = true
+        guard appState.isPro else {
+            proFeatureName = "CSV export"
+            showingProUpsell = true
             return
         }
 
@@ -416,7 +411,6 @@ struct SelectedExportSheet: View {
     @State private var isExporting = false
     @State private var showingToast = false
     @State private var toastMessage = ""
-    @State private var showingExportLimit = false
     @State private var showingProUpsell = false
     @State private var proFeatureName = ""
 
@@ -439,7 +433,7 @@ struct SelectedExportSheet: View {
                                 icon: "tablecells",
                                 title: "Export as CSV",
                                 subtitle: "\(expenseCount) expense\(expenseCount == 1 ? "" : "s") \u{2022} \(filterLabel)",
-                                proOnly: false
+                                proOnly: true
                             ) {
                                 exportCSV()
                             }
@@ -466,11 +460,6 @@ struct SelectedExportSheet: View {
                     Button("Cancel") { dismiss() }
                         .foregroundStyle(Color.textSecondary)
                 }
-            }
-            .sheet(isPresented: $showingExportLimit) {
-                ExportLimitSheet()
-                    .presentationDetents([.medium])
-                    .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $showingProUpsell) {
                 ProFeatureSheet(featureName: proFeatureName)
@@ -593,8 +582,9 @@ struct SelectedExportSheet: View {
     // MARK: - Export Actions
 
     private func exportCSV() {
-        guard appState.canExportCSV else {
-            showingExportLimit = true
+        guard appState.isPro else {
+            proFeatureName = "CSV export"
+            showingProUpsell = true
             return
         }
 

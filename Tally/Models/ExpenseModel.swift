@@ -11,7 +11,7 @@ final class ExpenseModel {
     var expenseDescription: String?
     var merchant: String?
     var tagId: String = ""
-    var tagIds: [String] = []
+    var tagIds: [String]? = []
     var notes: String?
     var attachmentKey: String?
     @Attribute(.externalStorage) var attachmentData: Data?
@@ -29,7 +29,8 @@ final class ExpenseModel {
 
     /// Resolved tag IDs — reads from tagIds, falling back to legacy tagId for unmigrated data.
     var resolvedTagIds: [String] {
-        if !tagIds.isEmpty { return tagIds }
+        let ids = tagIds ?? []
+        if !ids.isEmpty { return ids }
         if !tagId.isEmpty { return [tagId] }
         return []
     }

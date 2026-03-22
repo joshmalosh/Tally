@@ -8,6 +8,7 @@ struct AddMultipleExpensesView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppState.self) private var appState
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
+    @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil }) private var allExpenses: [ExpenseModel]
 
     @State private var step: Step = .input
     @State private var showingCamera = false
@@ -18,6 +19,7 @@ struct AddMultipleExpensesView: View {
     @State private var linkedTagIds: [String: String] = [:] // suggestedTagName -> existing tag id
     @State private var showingTagLinkPickerFor: TagLinkPickerTag?
     @State private var showingPhotoSourcePicker = false
+    @State private var showingMonthlyLimitSheet = false
     @State private var showingPhotoLibrary = false
     @State private var photoForOCR: UIImage?
     @FocusState private var isPasteFieldFocused: Bool
@@ -72,6 +74,11 @@ struct AddMultipleExpensesView: View {
         }
         .sheet(isPresented: $showingPasteEditor) {
             pasteTextSheet
+        }
+        .sheet(isPresented: $showingMonthlyLimitSheet) {
+            MonthlyLimitSheet()
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
         }
         .sheet(item: $showingTagLinkPickerFor) { tagTag in
             TagLinkPickerSheet(
@@ -375,9 +382,26 @@ struct AddMultipleExpensesView: View {
         .padding(.vertical, Spacing.sm)
     }
 
+    private func expenseCountInMonth(of d: Date) -> Int {
+        let cal = Calendar.current
+        let (y, m) = (cal.component(.year, from: d), cal.component(.month, from: d))
+        return allExpenses.filter {
+            cal.component(.year, from: $0.date) == y && cal.component(.month, from: $0.date) == m
+        }.count
+    }
+
     private func performImport() {
         let currency = appState.defaultCurrency
         let today = Date()
+
+        if !appState.isPro {
+            let existingCount = expenseCountInMonth(of: today)
+            let toAdd = groupedExpenseSections.flatMap(\.expenses).filter { $0.amountCents > 0 }.count
+            if existingCount + toAdd > 15 {
+                showingMonthlyLimitSheet = true
+                return
+            }
+        }
 
         for section in groupedExpenseSections {
             var tagId: String?

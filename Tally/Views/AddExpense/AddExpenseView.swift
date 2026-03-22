@@ -895,7 +895,7 @@ struct AddExpenseView: View {
         let expenseId = editingExpense?.id ?? UUID().uuidString
         let attachmentChanged = isEditing && attachmentKey != editingExpense?.attachmentKey
 
-        Task {
+        Task { @MainActor in
             var savedKey: String? = isEditing ? editingExpense?.attachmentKey : nil
             var rawAttachmentData: Data? = isEditing ? editingExpense?.attachmentData : nil
 
