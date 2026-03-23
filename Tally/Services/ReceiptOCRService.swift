@@ -289,25 +289,31 @@ enum ReceiptOCRService {
     // MARK: - Merchant Extraction
 
     private static let merchantNoiseWords: Set<String> = [
-        "tax invoice", "receipt", "invoice", "order", "duplicate",
-        "gst", "abn", "total", "subtotal", "change", "cash", "card",
-        "visa", "mastercard", "eftpos", "amex", "date", "time", "thank",
-        "welcome", "www.", "http", ".com", "phone", "tel:", "fax", "email",
-        "address", "qty", "price", "ticket", "terminal", "pos ", "take away",
-        "takeout", "dine in", "table", "server", "user:", "auth:", "sale approved",
+        "tax invoice", "receipt", "invoice", "duplicate receipt", "duplicate",
+        "customer copy", "vat receipt", "vat receipt summary",
+        "gst", "abn", "total", "subtotal", "change due", "cash", "card",
+        "visa", "mastercard", "eftpos", "amex", "date", "time",
+        "www.", "http", ".com", ".com.au", "phone", "tel:", "fax", "email",
+        "address", "qty", "price", "ticket", "terminal", "pos ",
+        "server", "user:", "auth:", "sale approved",
         "contactless", "chip", "pin", "entry method", "approved",
-        "***", "---", "===", "item"
+        "***", "---", "===", "item", "no split bills",
+        "low prices", "every day", "change due"
     ]
 
     private static let merchantSkipPatterns = [
-        "receipt", "duplicate", "invoice", "tax", "gst", "abn", "total", "subtotal",
-        "change", "cash", "card", "visa", "mastercard", "eftpos", "amex",
-        "date", "time", "thank", "welcome", "www.", "http", ".com",
-        "phone", "tel:", "fax", "email", "address", "qty", "price",
-        "ticket", "terminal", "pos ", "take away", "takeout", "dine in",
-        "order", "table", "server", "user:", "auth:", "sale approved",
+        "receipt", "duplicate", "invoice", "tax", "gst", "abn",
+        "total", "subtotal", "cash", "card", "visa", "mastercard", "eftpos", "amex",
+        "www.", "http", ".com", "@", "phone", "tel:", "fax", "email",
+        "qty", "price", "ticket", "terminal", "pos ",
+        "server", "user:", "auth:", "sale approved",
         "contactless", "chip", "pin", "entry method", "approved",
-        "***", "---", "===", "item"
+        "***", "---", "===", "item",
+        "thank you", "thank", "welcome", "favourite", "favorite",
+        "allergen", "visit us", "our food", "guarantee", "ingredients",
+        "low prices", "every day", "split bill", "proprietor",
+        "email me", "dining experience", "survey", "feedback",
+        "give us", "id #", "change due", "no split"
     ]
 
     // MARK: - Date Extraction
@@ -441,25 +447,14 @@ enum ReceiptOCRService {
 
     /// First prominent non-numeric, non-address text block at top of receipt.
     /// Strips noise: TAX INVOICE, RECEIPT, ORDER, etc.
+    /// Optionally concatenates one following line (e.g. "BOSTON" + "STEAK HOUSE" = "Boston Steak House").
     private static func extractMerchant(from blocks: [TextBlock]) -> String? {
-        let topBlocks = blocks
+        let topBlocks = Array(blocks
             .sorted { $0.boundingBox.origin.y < $1.boundingBox.origin.y }
-            .prefix(10)
+            .prefix(10))
 
-        for block in topBlocks {
-            var text = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
-
-            // Strip common noise words (whole-word or phrase)
-            for noise in merchantNoiseWords {
-                let pattern = "\\b" + NSRegularExpression.escapedPattern(for: noise) + "\\b"
-                if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
-                    let range = NSRange(text.startIndex..., in: text)
-                    text = regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
-                }
-            }
-            text = text
-                .replacingOccurrences(of: "^[*\\-=\\s,#]+|[*\\-=\\s,#]+$", with: "", options: .regularExpression)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
+        for (index, block) in topBlocks.enumerated() {
+            var text = processBlockForMerchant(block.text)
 
             if text.count < 2 || text.count > 50 { continue }
 
@@ -475,18 +470,51 @@ enum ReceiptOCRService {
 
             if block.confidence < 0.7 { continue }
 
-            return text
+            // Check next block for concatenation (one additional line max)
+            var result = text
+            if index + 1 < topBlocks.count {
+                let nextBlock = topBlocks[index + 1]
+                var nextText = processBlockForMerchant(nextBlock.text)
+                if nextText.count >= 2 && nextText.count <= 20 &&
+                   nextText.filter(\.isNumber).count == 0 {
+                    let nextLower = nextText.lowercased()
+                    let nextSkippable = merchantSkipPatterns.contains { nextLower.contains($0) }
+                    let nextDigitRatio = Double(nextText.filter(\.isNumber).count) / Double(max(1, nextText.count))
+                    let nextSpecialCount = nextText.filter { !$0.isLetter && !$0.isWhitespace && $0 != "-" && $0 != "'" && $0 != "&" }.count
+                    let nextSpecialRatio = Double(nextSpecialCount) / Double(max(1, nextText.count))
+                    if !nextSkippable && nextDigitRatio < 0.4 && nextSpecialRatio < 0.3 && nextBlock.confidence >= 0.7 {
+                        result = "\(text) \(nextText)"
+                    }
+                }
+            }
+            return result.split(separator: " ").map { $0.prefix(1).uppercased() + $0.dropFirst().lowercased() }.joined(separator: " ")
         }
 
         return nil
     }
 
+    private static func processBlockForMerchant(_ raw: String) -> String {
+        var text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        for noise in merchantNoiseWords {
+            let pattern = "\\b" + NSRegularExpression.escapedPattern(for: noise) + "\\b"
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+                let range = NSRange(text.startIndex..., in: text)
+                text = regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
+            }
+        }
+        return text
+            .replacingOccurrences(of: "^[*\\-=\\s,#]+|[*\\-=\\s,#]+$", with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     // MARK: - Notes Extraction (Pro only)
 
     private static let noteDescriptorKeywords = [
-        "takeout", "take away", "take-away", "online order", "dine in", "dine-in",
+        "takeout", "take out", "take away", "take-away",
+        "online order", "dine in", "dine-in", "dining in",
         "delivery", "pickup", "pick up", "drive thru", "drive-through",
-        "to go", "to-go", "counter"
+        "to go", "to-go", "counter", "sit in", "eat in",
+        "in store", "instore", "interior", "mesa"
     ]
 
     /// Assemble short note (max 60 chars) from merchant + descriptors. High confidence only.
@@ -513,10 +541,11 @@ enum ReceiptOCRService {
             if descriptor != nil { break }
         }
 
-        // Also check for "TABLE 4", "ORDER #123" style
+        // Also check for "TABLE 4", "ORDER #123", "Mesa: 004" style
         if descriptor == nil {
             let tablePattern = try? NSRegularExpression(pattern: #"table\s*#?\s*\d+"#, options: .caseInsensitive)
             let orderPattern = try? NSRegularExpression(pattern: #"order\s*#?\s*\d*"#, options: .caseInsensitive)
+            let mesaPattern = try? NSRegularExpression(pattern: #"mesa\s*[:#]?\s*\d+"#, options: .caseInsensitive)
             for block in topBlocks {
                 guard block.confidence >= 0.75 else { continue }
                 let text = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -528,6 +557,10 @@ enum ReceiptOCRService {
                 if let o = orderPattern?.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
                    let r = Range(o.range, in: text) {
                     descriptor = String(text[r]).prefix(1).uppercased() + String(text[r]).dropFirst().lowercased()
+                    break
+                }
+                if mesaPattern?.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil {
+                    descriptor = "Dine in"
                     break
                 }
             }
