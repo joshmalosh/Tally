@@ -7,4 +7,7 @@ enum RevenueCatConfig {
 
     /// Pro entitlement identifier. Must match exactly what is configured in the RevenueCat dashboard.
     static let proEntitlementId = "A Simple Life - Tally Pro"
+
+    /// Offering identifier. Must match exactly what is configured in the RevenueCat dashboard.
+    static let offeringIdentifier = "Tally Pro"
 }

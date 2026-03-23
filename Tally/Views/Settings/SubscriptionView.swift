@@ -140,7 +140,7 @@ struct SubscriptionView: View {
         errorMessage = nil
         do {
             let offerings = try await Purchases.shared.offerings()
-            let availablePackages = offerings.current?.availablePackages ?? []
+            let availablePackages = offerings[RevenueCatConfig.offeringIdentifier]?.availablePackages ?? []
             let monthlyFirst = availablePackages.sorted { p1, p2 in
                 if p1.packageType == .monthly { return true }
                 if p2.packageType == .monthly { return false }
