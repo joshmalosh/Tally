@@ -443,7 +443,7 @@ enum ReceiptOCRService {
     /// Strips noise: TAX INVOICE, RECEIPT, ORDER, etc.
     private static func extractMerchant(from blocks: [TextBlock]) -> String? {
         let topBlocks = blocks
-            .sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
+            .sorted { $0.boundingBox.origin.y < $1.boundingBox.origin.y }
             .prefix(10)
 
         for block in topBlocks {
@@ -495,7 +495,7 @@ enum ReceiptOCRService {
 
         var descriptor: String?
         let topBlocks = blocks
-            .sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
+            .sorted { $0.boundingBox.origin.y < $1.boundingBox.origin.y }
             .prefix(12)
 
         for block in topBlocks {
