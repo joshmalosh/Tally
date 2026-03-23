@@ -188,6 +188,10 @@ struct ExpenseCard: View {
                             .aspectRatio(contentMode: .fill)
                             .frame(width: 36, height: 36)
                             .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+                    } else if showRecurringIcon {
+                        Image(systemName: "arrow.clockwise.circle.fill")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color(hex: "346049"))
                     } else {
                         Image(systemName: "receipt")
                             .font(.system(size: 15))

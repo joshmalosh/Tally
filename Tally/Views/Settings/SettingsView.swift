@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UserNotifications
+import RevenueCatUI
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -10,6 +11,7 @@ struct SettingsView: View {
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
 
     @State private var showingSubscription = false
+    @State private var showingCustomerCenter = false
     @State private var showingCurrencyPicker = false
     @State private var showingTagCreation = false
     @State private var showingGroupCreation = false
@@ -47,6 +49,22 @@ struct SettingsView: View {
                                 .font(Fonts.caption(13))
                                 .fontWeight(.medium)
                                 .foregroundStyle(Color.success)
+                        }
+
+                        Button {
+                            showingCustomerCenter = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "gearshape.circle")
+                                    .font(.system(size: 20))
+                                    .foregroundStyle(Color.brandPrimary)
+                                Text("Manage subscription")
+                                    .foregroundStyle(Color.textPrimary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(Color.textMuted)
+                            }
                         }
                     } else {
                         Button {
@@ -294,6 +312,10 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showingSubscription) {
                 SubscriptionView()
+            }
+            .presentCustomerCenter(isPresented: $showingCustomerCenter) {
+                showingCustomerCenter = false
+                Task { await SubscriptionService.refreshProStatus(appState: appState) }
             }
             .sheet(isPresented: $showingTagCreation) {
                 TagCreationView()

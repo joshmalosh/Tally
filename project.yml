@@ -24,7 +24,7 @@ targets:
           - "**/.gitkeep"
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.tally.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.asimplelife.tally
         INFOPLIST_FILE: Tally/Info.plist
         SWIFT_EMIT_LOC_STRINGS: "YES"
         CODE_SIGN_STYLE: Automatic
@@ -49,7 +49,7 @@ targets:
       #   com.apple.developer.applesignin:
       #     - Default
       #   com.apple.developer.icloud-container-identifiers:
-      #     - iCloud.com.tally.app
+      #     - iCloud.com.asimplelife.tally
       #   com.apple.developer.icloud-services:
       #     - CloudKit
     dependencies:
@@ -65,7 +65,7 @@ targets:
           - "**/.gitkeep"
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.tally.app.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.asimplelife.tally.tests
         GENERATE_INFOPLIST_FILE: "YES"
     dependencies:
       - target: Tally

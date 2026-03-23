@@ -11,7 +11,8 @@ enum ExpenseExportService {
     static func buildCSVExport(
         expenses: [ExpenseModel],
         tags: [Tag],
-        filenamePrefix: String
+        filenamePrefix: String,
+        template: ExportTemplate = .simple
     ) -> URL? {
         let fm = FileManager.default
         let dateFormatter = DateFormatter()
@@ -61,7 +62,8 @@ enum ExpenseExportService {
         let csv = ExpenseCalculations.generateCSV(
             expenses: domainExpenses,
             tags: tags,
-            receiptFilenames: receiptFilenames
+            receiptFilenames: receiptFilenames,
+            template: template
         )
 
         if receiptSources.isEmpty {

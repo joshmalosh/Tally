@@ -39,27 +39,27 @@ final class AppState {
     var subscriptionStatus: SubscriptionStatus = .free
     var isOffline = false
 
-    // Export tracking (free tier — 1 CSV/month)
-    private static let csvExportCountKey = "csvExportCount"
-    private static let csvExportMonthKey = "csvExportMonth"
+    // Export tracking (free tier — 1 export/month, any format)
+    private static let exportCountKey = "exportCount"
+    private static let exportMonthKey = "exportMonth"
 
-    var csvExportsThisMonth: Int {
-        let stored = UserDefaults.standard.integer(forKey: Self.csvExportCountKey)
-        let storedMonth = UserDefaults.standard.string(forKey: Self.csvExportMonthKey) ?? ""
+    var exportsThisMonth: Int {
+        let stored = UserDefaults.standard.integer(forKey: Self.exportCountKey)
+        let storedMonth = UserDefaults.standard.string(forKey: Self.exportMonthKey) ?? ""
         return storedMonth == currentMonthKey ? stored : 0
     }
 
-    var canExportCSV: Bool { isPro }
+    var canExport: Bool { isPro || exportsThisMonth < 1 }
 
-    func recordCSVExport() {
+    func recordExport() {
         let month = currentMonthKey
-        let storedMonth = UserDefaults.standard.string(forKey: Self.csvExportMonthKey) ?? ""
+        let storedMonth = UserDefaults.standard.string(forKey: Self.exportMonthKey) ?? ""
         if storedMonth != month {
-            UserDefaults.standard.set(month, forKey: Self.csvExportMonthKey)
-            UserDefaults.standard.set(1, forKey: Self.csvExportCountKey)
+            UserDefaults.standard.set(month, forKey: Self.exportMonthKey)
+            UserDefaults.standard.set(1, forKey: Self.exportCountKey)
         } else {
-            let count = UserDefaults.standard.integer(forKey: Self.csvExportCountKey)
-            UserDefaults.standard.set(count + 1, forKey: Self.csvExportCountKey)
+            let count = UserDefaults.standard.integer(forKey: Self.exportCountKey)
+            UserDefaults.standard.set(count + 1, forKey: Self.exportCountKey)
         }
     }
 

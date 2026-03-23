@@ -50,6 +50,7 @@ struct ContentView: View {
             seedDefaultTags()
             adManager.configure(isPro: appState.isPro)
             dismissSplash()
+            Task { await SubscriptionService.refreshProStatus(appState: appState) }
             Task { @MainActor in
                 let summary = await RecurringExpenseService.processOverdueRecurring(modelContext: modelContext)
                 if !summary.expenseIds.isEmpty && appState.recurringNotificationEnabled {

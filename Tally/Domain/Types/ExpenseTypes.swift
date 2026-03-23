@@ -33,6 +33,27 @@ struct Tag: Identifiable, Codable {
     var parentId: String?
 }
 
+enum ExportTemplate: String, CaseIterable {
+    case simple
+    case accountant
+    case reimbursement
+
+    var label: String {
+        switch self {
+        case .simple: return "Simple"
+        case .accountant: return "Accountant"
+        case .reimbursement: return "Reimbursement"
+        }
+    }
+
+    var isProOnly: Bool {
+        switch self {
+        case .simple: return false
+        case .accountant, .reimbursement: return true
+        }
+    }
+}
+
 struct MonthlyTotal {
     let month: Date
     let totalCents: Int

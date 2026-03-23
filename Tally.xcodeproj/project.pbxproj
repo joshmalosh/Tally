@@ -22,16 +22,20 @@
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* GroupDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F3 /* GroupDetailView.swift */; };
 		593777D5398DD1A2163D8C6B /* CurrencyFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B23719619830D783B4A5D67 /* CurrencyFormatter.swift */; };
 		5A69146139E526666C5D9D7A /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19DCF3F03F14D6ABF5FE82D0 /* AppState.swift */; };
+		RC4E8F9012345678ABC0DEF5 /* RevenueCatConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = RC4E8F9012345678ABC0DEF4 /* RevenueCatConfig.swift */; };
 		676E578C3319877F4C45D34D /* UploadLimitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA760FF7DABACC4706C0F32A /* UploadLimitView.swift */; };
 		68B7C2848372ED2B4E6D8864 /* APIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF8ADCE89F2C2027BC34AC3D /* APIService.swift */; };
 		6E6E89F7E052EAF1FE08322F /* ExpenseTypesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE580A1A003072AD757B48A2 /* ExpenseTypesTests.swift */; };
 		7B5BBDDCD13BA9F47FA80BC2 /* ExportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA158A21249AC0F22E9E802E /* ExportView.swift */; };
 		7EE695B64A5CC257108CDFF2 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = BFF08990EEDB2C3914850C17 /* GoogleMobileAds */; };
+		RC4E8F9012345678ABC0DEF3 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = RC4E8F9012345678ABC0DEF2 /* RevenueCat */; };
+		RC4E8F9012345678ABC0DEF7 /* RevenueCatUI in Frameworks */ = {isa = PBXBuildFile; productRef = RC4E8F9012345678ABC0DEF6 /* RevenueCatUI */; };
 		7F8B2FFD0AD8A575BDCB2CBC /* SubscriptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF2E9A9CCBD037A89B382C47 /* SubscriptionView.swift */; };
 		82AC84BF50866B4FB8446F6D /* ExpenseDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B9419A97620F3D6F9E5C932 /* ExpenseDetailView.swift */; };
 		917D462F542D8E7FAA3F9473 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6342E892EBE5BEB778A07EE4 /* HomeView.swift */; };
 		93293ED9425338E08C4FFE9E /* ExpenseExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65CC7BBBCB475E2A14A52332 /* ExpenseExportService.swift */; };
 		97D3C8979D3C0A75D88D603A /* SyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 939C697035562CAAE48774F8 /* SyncEngine.swift */; };
+		RC4E8F9012345678ABC0DEF9 /* SubscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = RC4E8F9012345678ABC0DEF8 /* SubscriptionService.swift */; };
 		B3C4D5E6F7A8B9C0D1E2F3A4 /* ReceiptOCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2B3C4D5E6F7A8B9C0D1E2F3 /* ReceiptOCRService.swift */; };
 		A1B2C3D4E5F6789012345678 /* RecurringExpenseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6789012345679 /* RecurringExpenseService.swift */; };
 		B2C3D4E5F6789012345678902 /* RecurringNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6789012345678901 /* RecurringNotificationService.swift */; };
@@ -75,6 +79,7 @@
 		10266D569ECBE8A79CC58494 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		154DC6BAE1EEB5F2B8A95FBB /* TagColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagColors.swift; sourceTree = "<group>"; };
 		19DCF3F03F14D6ABF5FE82D0 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
+		RC4E8F9012345678ABC0DEF4 /* RevenueCatConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RevenueCatConfig.swift; sourceTree = "<group>"; };
 		1A88FA9B2D102A4E24B128E8 /* CurrencyPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrencyPickerSheet.swift; sourceTree = "<group>"; };
 		1F1D4831700CF9A67212BE00 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		1FBCC93C895D5DAAF35E7E33 /* Tally.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Tally.entitlements; sourceTree = "<group>"; };
@@ -98,6 +103,7 @@
 		7F575993EA15D30937E5B831 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		89108F3F19E4B1E39A0F0925 /* AddEntryPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddEntryPicker.swift; sourceTree = "<group>"; };
 		939C697035562CAAE48774F8 /* SyncEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncEngine.swift; sourceTree = "<group>"; };
+		RC4E8F9012345678ABC0DEF8 /* SubscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionService.swift; sourceTree = "<group>"; };
 		952D829F4BE8048607324226 /* TallyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TallyApp.swift; sourceTree = "<group>"; };
 		9A580A9627AF63E6E23124DD /* TagCreationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagCreationView.swift; sourceTree = "<group>"; };
 		A564B3BCA71D05E5448E0DD9 /* ExpenseCalculations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpenseCalculations.swift; sourceTree = "<group>"; };
@@ -126,6 +132,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				7EE695B64A5CC257108CDFF2 /* GoogleMobileAds in Frameworks */,
+				RC4E8F9012345678ABC0DEF3 /* RevenueCat in Frameworks */,
+				RC4E8F9012345678ABC0DEF7 /* RevenueCatUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -212,6 +220,7 @@
 			isa = PBXGroup;
 			children = (
 				19DCF3F03F14D6ABF5FE82D0 /* AppState.swift */,
+				RC4E8F9012345678ABC0DEF4 /* RevenueCatConfig.swift */,
 			);
 			path = AppState;
 			sourceTree = "<group>";
@@ -295,6 +304,7 @@
 				A1B2C3D4E5F6789012345679 /* RecurringExpenseService.swift */,
 				B2C3D4E5F6789012345678901 /* RecurringNotificationService.swift */,
 				939C697035562CAAE48774F8 /* SyncEngine.swift */,
+				RC4E8F9012345678ABC0DEF8 /* SubscriptionService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -377,6 +387,8 @@
 			name = Tally;
 			packageProductDependencies = (
 				BFF08990EEDB2C3914850C17 /* GoogleMobileAds */,
+				RC4E8F9012345678ABC0DEF2 /* RevenueCat */,
+				RC4E8F9012345678ABC0DEF6 /* RevenueCatUI */,
 			);
 			productName = Tally;
 			productReference = 4DCF1A5BC6FA366C4B658D35 /* Tally.app */;
@@ -409,6 +421,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				72E3C4328D31ED22AADFBCF2 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */,
+				RC4E8F9012345678ABC0DEF1 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */,
 			);
 			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
@@ -455,6 +468,7 @@
 				508992FEB05634F72D2539B5 /* AddExpenseView.swift in Sources */,
 				C7B0A146A50B69C007E4EE0A /* AppDelegate.swift in Sources */,
 				5A69146139E526666C5D9D7A /* AppState.swift in Sources */,
+				RC4E8F9012345678ABC0DEF5 /* RevenueCatConfig.swift in Sources */,
 				D9118E63AC4F413995C5400D /* AttachmentService.swift in Sources */,
 				52A07130A77697CCBC2AF143 /* AuthView.swift in Sources */,
 				220EC38D189CAA7BFA39CA94 /* Components.swift in Sources */,
@@ -482,6 +496,7 @@
 				A1B2C3D4E5F6789012345678 /* RecurringExpenseService.swift in Sources */,
 				B2C3D4E5F6789012345678902 /* RecurringNotificationService.swift in Sources */,
 				97D3C8979D3C0A75D88D603A /* SyncEngine.swift in Sources */,
+				RC4E8F9012345678ABC0DEF9 /* SubscriptionService.swift in Sources */,
 				9BDC7CB24BE5FAF687FD2A72 /* TagColors.swift in Sources */,
 				E62148A42197D4CB99E2BEAA /* TagCreationView.swift in Sources */,
 				9C4EA2BB4743FB5C5ED3DEF7 /* TagModel.swift in Sources */,
@@ -581,7 +596,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.tally.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.asimplelife.tally;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -660,7 +675,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.tally.app;
+				PRODUCT_BUNDLE_IDENTIFIER = com.asimplelife.tally;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -677,7 +692,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.tally.app.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.asimplelife.tally.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Tally.app/Tally";
@@ -694,7 +709,7 @@
 					"@executable_path/Frameworks",
 					"@loader_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.tally.app.tests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.asimplelife.tally.tests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Tally.app/Tally";
@@ -742,6 +757,14 @@
 				minimumVersion = 11.0.0;
 			};
 		};
+		RC4E8F9012345678ABC0DEF1 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/RevenueCat/purchases-ios-spm.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 5.0.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -749,6 +772,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 72E3C4328D31ED22AADFBCF2 /* XCRemoteSwiftPackageReference "swift-package-manager-google-mobile-ads" */;
 			productName = GoogleMobileAds;
+		};
+		RC4E8F9012345678ABC0DEF2 /* RevenueCat */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = RC4E8F9012345678ABC0DEF1 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = RevenueCat;
+		};
+		RC4E8F9012345678ABC0DEF6 /* RevenueCatUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = RC4E8F9012345678ABC0DEF1 /* XCRemoteSwiftPackageReference "purchases-ios-spm" */;
+			productName = RevenueCatUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import RevenueCat
 
 @main
 struct TallyApp: App {
@@ -37,7 +38,7 @@ struct TallyApp: App {
                 if Self.cloudKitEnabled {
                     config = ModelConfiguration(
                         schema: schema,
-                        cloudKitDatabase: .private("iCloud.com.tally.app")
+                        cloudKitDatabase: .private("iCloud.com.asimplelife.tally")
                     )
                 } else {
                     config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
@@ -55,8 +56,18 @@ struct TallyApp: App {
         }
 
         self.modelContainer = makeContainer()
+        configureRevenueCat()
         #if DEBUG
         print("[Tally] ModelContainer created successfully (CloudKit: \(Self.cloudKitEnabled))")
+        #endif
+    }
+
+    private func configureRevenueCat() {
+        Purchases.configure(withAPIKey: RevenueCatConfig.revenueCatAPIKey)
+        #if DEBUG
+        Purchases.logLevel = .debug
+        #else
+        Purchases.logLevel = .error
         #endif
     }
 

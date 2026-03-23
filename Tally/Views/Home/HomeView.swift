@@ -16,6 +16,7 @@ struct HomeView: View {
     @State private var showingTagCreation = false
     @State private var showingGlobalExport = false
     @State private var showingFilteredExport = false
+    @State private var showingExportLimit = false
     @State private var isSelecting = false
     @State private var selectedExpenseIds: Set<String> = []
     @State private var exportWithSelectionItem: ExportWithSelectionItem?
@@ -191,6 +192,11 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showingGlobalExport) {
             GlobalExportSheet()
+        }
+        .sheet(isPresented: $showingExportLimit) {
+            ExportLimitSheet()
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showingFilteredExport) {
             SelectedExportSheet(
@@ -863,7 +869,10 @@ struct HomeView: View {
 
     private func exportExpensesAsCSV(_ expenses: [ExpenseModel]) {
         guard !expenses.isEmpty else { return }
-        guard appState.canExportCSV else { return }
+        guard appState.canExport else {
+            showingExportLimit = true
+            return
+        }
 
         let domainTags: [Tag] = tags.map {
             Tag(id: $0.id, userId: $0.userId, name: $0.name, colorId: $0.colorId, icon: $0.icon, sortOrder: $0.sortOrder, parentId: $0.parentId)
@@ -872,10 +881,11 @@ struct HomeView: View {
         guard let fileURL = ExpenseExportService.buildCSVExport(
             expenses: expenses,
             tags: domainTags,
-            filenamePrefix: "tally_expenses"
+            filenamePrefix: "tally_expenses",
+            template: .simple
         ) else { return }
 
-        appState.recordCSVExport()
+        appState.recordExport()
         presentShareSheet(items: [fileURL])
         if isSelecting { exitSelectionMode() }
     }
