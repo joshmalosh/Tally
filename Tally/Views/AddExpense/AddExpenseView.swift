@@ -326,6 +326,7 @@ struct AddExpenseView: View {
             .padding(.top, hasAttachment ? Spacing.sm : Spacing.smd)
             .padding(.bottom, Spacing.xl)
         }
+        .ignoresSafeArea(.keyboard)
     }
 
     // MARK: - OCR Upsell Banner
@@ -354,18 +355,16 @@ struct AddExpenseView: View {
     private var receiptPreview: some View {
         ZStack(alignment: .topTrailing) {
             if let image = attachedImage {
-                // Fixed 200pt container — no intrinsic sizing, prevents constraint conflicts
                 ZStack {
-                    Color.clear
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 200)
                     Button { showingFullImage = true } label: {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFit()
-                            .frame(maxWidth: .infinity, maxHeight: 200)
+                            .frame(maxWidth: .infinity, height: 200)
+                            .clipped()
                     }
                     .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, height: 200)
 
                     if isRunningOCR {
                         VStack {
