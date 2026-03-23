@@ -360,11 +360,13 @@ struct AddExpenseView: View {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFit()
-                            .frame(maxWidth: .infinity, height: 200)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 200)
                             .clipped()
                     }
                     .buttonStyle(.plain)
-                    .frame(maxWidth: .infinity, height: 200)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 200)
 
                     if isRunningOCR {
                         VStack {
