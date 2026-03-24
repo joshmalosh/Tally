@@ -14,9 +14,10 @@ struct HomeView: View {
     @State private var thumbnailCache: [String: UIImage] = [:]
     @State private var periodFilter: PeriodFilter = .allTime
     @State private var showingTagCreation = false
+    @State private var showingGroupCreation = false
+    @State private var showingAddTagOrGroupPicker = false
     @State private var showingGlobalExport = false
     @State private var showingFilteredExport = false
-    @State private var showingExportLimit = false
     @State private var isSelecting = false
     @State private var selectedExpenseIds: Set<String> = []
     @State private var exportWithSelectionItem: ExportWithSelectionItem?
@@ -165,8 +166,8 @@ struct HomeView: View {
 
             if !isSelecting {
                 FABButton { showingEntryPicker = true }
-                    .padding(.trailing, Spacing.md)
-                    .padding(.bottom, showsBannerAd ? (Spacing.xl + 12) : (Spacing.lg + 12))
+                    .padding(.trailing, Spacing.lg)
+                    .padding(.bottom, showsBannerAd ? (Spacing.xl + 4) : (Spacing.lg + 4))
                     .animation(.easeInOut(duration: 0.3), value: showsBannerAd)
             }
         }
@@ -193,11 +194,6 @@ struct HomeView: View {
         .sheet(isPresented: $showingGlobalExport) {
             GlobalExportSheet()
         }
-        .sheet(isPresented: $showingExportLimit) {
-            ExportLimitSheet()
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
-        }
         .sheet(isPresented: $showingFilteredExport) {
             SelectedExportSheet(
                 expenses: filteredExpenses,
@@ -206,6 +202,72 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showingTagCreation) {
             TagCreationView()
+        }
+        .sheet(isPresented: $showingGroupCreation) {
+            TagCreationView(isGroupMode: true)
+        }
+        .sheet(isPresented: $showingAddTagOrGroupPicker) {
+            VStack(spacing: 0) {
+                VStack(spacing: 0) {
+                    Button {
+                        showingAddTagOrGroupPicker = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            showingTagCreation = true
+                        }
+                    } label: {
+                        HStack(spacing: Spacing.md) {
+                            Image(systemName: "tag.fill")
+                                .font(.system(size: 20))
+                                .foregroundStyle(Color.brandPrimary)
+                                .frame(width: 28)
+                            Text("New tag")
+                                .font(Fonts.body(16))
+                                .foregroundStyle(Color.textPrimary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Color.textMuted)
+                        }
+                        .padding(.horizontal, Spacing.lg)
+                        .frame(height: 52)
+                    }
+                    .buttonStyle(.plain)
+
+                    Divider().padding(.leading, Spacing.lg + 28 + Spacing.md)
+
+                    Button {
+                        showingAddTagOrGroupPicker = false
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            showingGroupCreation = true
+                        }
+                    } label: {
+                        HStack(spacing: Spacing.md) {
+                            Image(systemName: "folder.fill")
+                                .font(.system(size: 20))
+                                .foregroundStyle(Color.brandPrimary)
+                                .frame(width: 28)
+                            Text("New group")
+                                .font(Fonts.body(16))
+                                .foregroundStyle(Color.textPrimary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Color.textMuted)
+                        }
+                        .padding(.horizontal, Spacing.lg)
+                        .frame(height: 52)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .background(Color.surface)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
+                Spacer()
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.top, Spacing.lg)
+            .background(Color.bgPrimary)
+            .presentationDetents([.height(200)])
+            .presentationDragIndicator(.visible)
         }
         .sheet(item: $exportWithSelectionItem) { item in
             GlobalExportSheet(initialSelection: item.expenses)
@@ -233,7 +295,7 @@ struct HomeView: View {
                     .renderingMode(.original)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(height: 28)
+                    .frame(height: 34)
 
                 if !syncEngine.isOnline {
                     Image(systemName: "icloud.slash")
@@ -479,7 +541,7 @@ struct HomeView: View {
                         }
                     }
 
-                    Button { showingTagCreation = true } label: {
+                    Button { showingAddTagOrGroupPicker = true } label: {
                         AddTagPill()
                     }
                     .buttonStyle(.plain)
@@ -567,24 +629,27 @@ struct HomeView: View {
     }
 
     private var emptyState: some View {
-        VStack {
-            Spacer()
-            if hasActiveFilters {
-                EmptyStateView(
-                    icon: "magnifyingglass",
-                    title: "No matching expenses",
-                    message: "Try adjusting your search or filters."
-                )
-                .padding(.horizontal, Spacing.xl)
-            } else {
-                EmptyStateView(
-                    icon: "receipt",
-                    title: "No expenses yet",
-                    message: "Tap + to add your first expense\nand get started."
-                )
-                .padding(.horizontal, Spacing.xl)
+        ScrollView {
+            VStack {
+                Spacer(minLength: UIScreen.main.bounds.height * 0.25)
+                if hasActiveFilters {
+                    EmptyStateView(
+                        icon: "magnifyingglass",
+                        title: "No matching expenses",
+                        message: "Try adjusting your search or filters."
+                    )
+                    .padding(.horizontal, Spacing.xl)
+                } else {
+                    EmptyStateView(
+                        icon: "receipt",
+                        title: "No expenses yet",
+                        message: "Tap + to add your first expense\nand get started."
+                    )
+                    .padding(.horizontal, Spacing.xl)
+                }
+                Spacer(minLength: UIScreen.main.bounds.height * 0.25)
             }
-            Spacer()
+            .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -627,7 +692,7 @@ struct HomeView: View {
                         appState.selectedExpenseId = expense.id
                     }
                 }
-                .onLongPressGesture(minimumDuration: 0.5) {
+                .onLongPressGesture(minimumDuration: 0.3) {
                     if !isSelecting {
                         enterSelectionMode(preselecting: expense.id)
                     }
@@ -797,7 +862,7 @@ struct HomeView: View {
     // MARK: - Selection Mode
 
     private func enterSelectionMode(preselecting id: String? = nil) {
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
         withAnimation(.easeInOut(duration: 0.25)) {
             isSelecting = true
             selectedExpenseIds.removeAll()
@@ -869,10 +934,7 @@ struct HomeView: View {
 
     private func exportExpensesAsCSV(_ expenses: [ExpenseModel]) {
         guard !expenses.isEmpty else { return }
-        guard appState.canExport else {
-            showingExportLimit = true
-            return
-        }
+        guard appState.canExportCSV else { return }
 
         let domainTags: [Tag] = tags.map {
             Tag(id: $0.id, userId: $0.userId, name: $0.name, colorId: $0.colorId, icon: $0.icon, sortOrder: $0.sortOrder, parentId: $0.parentId)
@@ -881,11 +943,10 @@ struct HomeView: View {
         guard let fileURL = ExpenseExportService.buildCSVExport(
             expenses: expenses,
             tags: domainTags,
-            filenamePrefix: "tally_expenses",
-            template: .simple
+            filenamePrefix: "tally_expenses"
         ) else { return }
 
-        appState.recordExport()
+        appState.recordCSVExport()
         presentShareSheet(items: [fileURL])
         if isSelecting { exitSelectionMode() }
     }

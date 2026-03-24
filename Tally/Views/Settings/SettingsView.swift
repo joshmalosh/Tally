@@ -1,7 +1,6 @@
 import SwiftUI
 import SwiftData
 import UserNotifications
-import RevenueCatUI
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -11,11 +10,18 @@ struct SettingsView: View {
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
 
     @State private var showingSubscription = false
-    @State private var showingCustomerCenter = false
     @State private var showingCurrencyPicker = false
     @State private var showingTagCreation = false
     @State private var showingGroupCreation = false
     @State private var editingTag: TagModel?
+    @State private var notificationTime: Date = {
+        let stored = UserDefaults.standard.double(forKey: "recurringNotificationTime")
+        if stored > 0 { return Date(timeIntervalSince1970: stored) }
+        var components = DateComponents()
+        components.hour = 10
+        components.minute = 0
+        return Calendar.current.date(from: components) ?? Date()
+    }()
 
     /// All tags (standalone + group children), sorted A–Z
     private var allTagsSorted: [TagModel] {
@@ -50,22 +56,6 @@ struct SettingsView: View {
                                 .fontWeight(.medium)
                                 .foregroundStyle(Color.success)
                         }
-
-                        Button {
-                            showingCustomerCenter = true
-                        } label: {
-                            HStack {
-                                Image(systemName: "gearshape.circle")
-                                    .font(.system(size: 20))
-                                    .foregroundStyle(Color.brandPrimary)
-                                Text("Manage subscription")
-                                    .foregroundStyle(Color.textPrimary)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(Color.textMuted)
-                            }
-                        }
                     } else {
                         Button {
                             showingSubscription = true
@@ -87,44 +77,6 @@ struct SettingsView: View {
                                     .fontWeight(.medium)
                                     .foregroundStyle(Color.textSecondary)
                             }
-                        }
-                    }
-                }
-
-                Section {
-                    Toggle("Recurring expense alerts", isOn: Binding(
-                        get: { appState.recurringNotificationEnabled },
-                        set: { newValue in
-                            appState.recurringNotificationEnabled = newValue
-                            if newValue {
-                                Task {
-                                    _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
-                                }
-                            }
-                        }
-                    ))
-                    .tint(Color.brandPrimary)
-                } header: {
-                    Text("Notifications")
-                } footer: {
-                    Text("Get notified at 10am when recurring expenses are auto-logged.")
-                }
-
-                Section("Preferences") {
-                    Button { showingCurrencyPicker = true } label: {
-                        HStack {
-                            Image(systemName: "coloncurrencysign.circle")
-                                .font(.system(size: 20))
-                                .foregroundStyle(Color.brandPrimary)
-                            Text("Default currency")
-                                .foregroundStyle(Color.textPrimary)
-                            Spacer()
-                            Text("\(CurrencyFormatter.shared.symbol(for: appState.defaultCurrency)) \(appState.defaultCurrency)")
-                                .font(Fonts.caption(14))
-                                .foregroundStyle(Color.textSecondary)
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Color.textMuted)
                         }
                     }
                 }
@@ -208,6 +160,58 @@ struct SettingsView: View {
                                 .foregroundStyle(Color.brandPrimary)
                             Text("Add group")
                                 .foregroundStyle(Color.brandPrimary)
+                        }
+                    }
+                }
+
+                Section {
+                    Toggle("Recurring expense alerts", isOn: Binding(
+                        get: { appState.recurringNotificationEnabled },
+                        set: { newValue in
+                            appState.recurringNotificationEnabled = newValue
+                            if newValue {
+                                Task {
+                                    _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+                                }
+                            }
+                        }
+                    ))
+                    .tint(Color.brandPrimary)
+
+                    if appState.recurringNotificationEnabled {
+                        DatePicker(
+                            "Notify at",
+                            selection: $notificationTime,
+                            displayedComponents: .hourAndMinute
+                        )
+                        .tint(Color.brandPrimary)
+                        .onChange(of: notificationTime) { _, newTime in
+                            UserDefaults.standard.set(newTime.timeIntervalSince1970, forKey: "recurringNotificationTime")
+                        }
+                    }
+                } header: {
+                    Text("Notifications")
+                } footer: {
+                    Text(appState.recurringNotificationEnabled
+                        ? "You'll be notified when recurring expenses are auto-logged."
+                        : "Enable to get notified when recurring expenses are auto-logged.")
+                }
+
+                Section("Preferences") {
+                    Button { showingCurrencyPicker = true } label: {
+                        HStack {
+                            Image(systemName: "coloncurrencysign.circle")
+                                .font(.system(size: 20))
+                                .foregroundStyle(Color.brandPrimary)
+                            Text("Default currency")
+                                .foregroundStyle(Color.textPrimary)
+                            Spacer()
+                            Text("\(CurrencyFormatter.shared.symbol(for: appState.defaultCurrency)) \(appState.defaultCurrency)")
+                                .font(Fonts.caption(14))
+                                .foregroundStyle(Color.textSecondary)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color.textMuted)
                         }
                     }
                 }
@@ -312,10 +316,6 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showingSubscription) {
                 SubscriptionView()
-            }
-            .presentCustomerCenter(isPresented: $showingCustomerCenter) {
-                showingCustomerCenter = false
-                Task { await SubscriptionService.refreshProStatus(appState: appState) }
             }
             .sheet(isPresented: $showingTagCreation) {
                 TagCreationView()

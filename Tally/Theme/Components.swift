@@ -135,7 +135,7 @@ struct AddTagPill: View {
         HStack(spacing: 4) {
             Image(systemName: "plus")
                 .font(.system(size: 12, weight: .semibold))
-            Text("Add Tag")
+            Text("Add Tag/Group")
                 .font(.system(size: 14, weight: .medium))
         }
         .foregroundStyle(Color.textSecondary)
@@ -256,7 +256,7 @@ struct FABButton: View {
         ZStack {
             Circle()
                 .stroke(Color.actionGreen, lineWidth: 2)
-                .frame(width: 52, height: 52)
+                .frame(width: 68, height: 68)
                 .scaleEffect(pulseScale)
                 .opacity(pulseOpacity)
 
@@ -283,9 +283,9 @@ struct FABButton: View {
                 action()
             } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: 22, weight: .medium))
+                    .font(.system(size: 29, weight: .medium))
                     .foregroundStyle(.white)
-                    .frame(width: 52, height: 52)
+                    .frame(width: 68, height: 68)
             }
             .buttonStyle(FABButtonStyle())
             .scaleEffect(didTap ? 0.88 : 1.0)

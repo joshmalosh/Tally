@@ -31,8 +31,6 @@ struct GlobalExportSheet: View {
     @State private var showingProUpsell = false
     @State private var proFeatureName = ""
     @State private var showingTagExportPicker = false
-    @State private var showingExportLimit = false
-    @State private var selectedTemplate: ExportTemplate = .simple
 
     private var periodExpenses: [ExpenseModel] {
         switch periodFilter {
@@ -91,15 +89,12 @@ struct GlobalExportSheet: View {
                             summaryHeader
                                 .padding(.bottom, Spacing.lg)
 
-                            templateSection
-                                .padding(.bottom, Spacing.lg)
-
                             VStack(spacing: Spacing.xs) {
                                 exportOption(
                                     icon: "tablecells",
                                     title: "Export as CSV",
                                     subtitle: "\(expenseCount) expenses \u{2022} \(periodFilter.label)",
-                                    proOnly: false
+                                    proOnly: true
                                 ) {
                                     exportCSV(expenses: periodExpenses)
                                 }
@@ -108,7 +103,7 @@ struct GlobalExportSheet: View {
                                     icon: "doc.richtext",
                                     title: "Export as PDF",
                                     subtitle: "Formatted report with summary",
-                                    proOnly: false
+                                    proOnly: true
                                 ) {
                                     exportPDFSummary()
                                 }
@@ -117,7 +112,7 @@ struct GlobalExportSheet: View {
                                     icon: "tag",
                                     title: "Export by tag/group",
                                     subtitle: "Filter by category, then export",
-                                    proOnly: false
+                                    proOnly: true
                                 ) {
                                     showingTagExportPicker = true
                                 }
@@ -142,11 +137,6 @@ struct GlobalExportSheet: View {
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
             }
-            .sheet(isPresented: $showingExportLimit) {
-                ExportLimitSheet()
-                    .presentationDetents([.medium])
-                    .presentationDragIndicator(.visible)
-            }
             .onAppear {
                 if hasSelection { periodFilter = .selected }
             }
@@ -154,9 +144,7 @@ struct GlobalExportSheet: View {
                 TagExportPickerSheet(
                     expenses: periodExpenses,
                     tags: Array(allTags),
-                    periodLabel: periodFilter.label,
-                    selectedTemplate: selectedTemplate,
-                    showingExportLimit: $showingExportLimit
+                    periodLabel: periodFilter.label
                 )
             }
             .overlay(alignment: .bottom) {
@@ -249,79 +237,6 @@ struct GlobalExportSheet: View {
         return filter.label
     }
 
-    // MARK: - Template Section
-
-    private var templateSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("Template")
-                .font(Fonts.headline(16))
-                .foregroundStyle(Color.textPrimary)
-
-            VStack(spacing: Spacing.xs) {
-                ForEach(ExportTemplate.allCases, id: \.rawValue) { template in
-                    templateOption(template)
-                }
-            }
-        }
-        .padding(Spacing.md)
-        .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-        .overlay(
-            RoundedRectangle(cornerRadius: Radius.md)
-                .stroke(Color.borderColor, lineWidth: 1)
-        )
-    }
-
-    private func templateOption(_ template: ExportTemplate) -> some View {
-        let locked = template.isProOnly && !appState.isPro
-
-        return Button {
-            if locked {
-                proFeatureName = "\(template.label) template"
-                showingProUpsell = true
-                return
-            }
-            withAnimation(.easeInOut(duration: 0.15)) { selectedTemplate = template }
-        } label: {
-            HStack(spacing: Spacing.smd) {
-                Image(systemName: selectedTemplate == template ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20))
-                    .foregroundStyle(locked ? Color.textMuted : (selectedTemplate == template ? Color.brandPrimary : Color.textMuted))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(template.label)
-                            .font(Fonts.body(15))
-                            .foregroundStyle(locked ? Color.textMuted : Color.textPrimary)
-                        if locked {
-                            Image(systemName: "lock.fill")
-                                .font(.system(size: 10))
-                                .foregroundStyle(Color.textMuted)
-                        }
-                    }
-                    Text(templateColumnsLabel(template))
-                        .font(Fonts.caption(12))
-                        .foregroundStyle(Color.textSecondary)
-                }
-
-                Spacer()
-            }
-            .padding(Spacing.smd)
-            .background(selectedTemplate == template && !locked ? Color.brandTint : Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
-        }
-        .buttonStyle(.plain)
-        .opacity(locked ? 0.6 : 1)
-    }
-
-    private func templateColumnsLabel(_ template: ExportTemplate) -> String {
-        switch template {
-        case .simple: return "Date, Merchant, Amount, Tag, Notes"
-        case .accountant: return "Date, Merchant, Amount, Category, Notes, Receipt Attached"
-        case .reimbursement: return "Date, Merchant, Purpose, Amount, Tag, Notes"
-        }
-    }
-
     private var periodMenu: some View {
         Menu {
             let filters: [PeriodFilter] = hasSelection
@@ -409,8 +324,9 @@ struct GlobalExportSheet: View {
     // MARK: - Export Actions
 
     private func exportCSV(expenses: [ExpenseModel]) {
-        guard appState.canExport else {
-            showingExportLimit = true
+        guard appState.isPro else {
+            proFeatureName = "CSV export"
+            showingProUpsell = true
             return
         }
 
@@ -423,25 +339,24 @@ struct GlobalExportSheet: View {
         guard let fileURL = ExpenseExportService.buildCSVExport(
             expenses: expenses,
             tags: domainTags,
-            filenamePrefix: "tally_expenses",
-            template: selectedTemplate
+            filenamePrefix: "tally_expenses"
         ) else {
             isExporting = false
             showToast("Export failed")
             return
         }
 
-        appState.recordExport()
+        appState.recordCSVExport()
         isExporting = false
         presentShareSheet(items: [fileURL])
     }
 
     private func exportPDFSummary() {
-        guard appState.canExport else {
-            showingExportLimit = true
+        guard appState.isPro else {
+            proFeatureName = "PDF export"
+            showingProUpsell = true
             return
         }
-        // PDF export coming soon — does not consume export quota
         showToast("PDF export coming soon")
     }
 
@@ -498,8 +413,6 @@ struct SelectedExportSheet: View {
     @State private var toastMessage = ""
     @State private var showingProUpsell = false
     @State private var proFeatureName = ""
-    @State private var showingExportLimit = false
-    @State private var selectedTemplate: ExportTemplate = .simple
 
     private var expenseCount: Int { expenses.count }
 
@@ -515,15 +428,12 @@ struct SelectedExportSheet: View {
                         summaryHeader
                             .padding(.bottom, Spacing.lg)
 
-                        selectedExportTemplateSection
-                            .padding(.bottom, Spacing.lg)
-
                         VStack(spacing: Spacing.xs) {
                             exportOption(
                                 icon: "tablecells",
                                 title: "Export as CSV",
                                 subtitle: "\(expenseCount) expense\(expenseCount == 1 ? "" : "s") \u{2022} \(filterLabel)",
-                                proOnly: false
+                                proOnly: true
                             ) {
                                 exportCSV()
                             }
@@ -532,7 +442,7 @@ struct SelectedExportSheet: View {
                                 icon: "doc.richtext",
                                 title: "Export as PDF",
                                 subtitle: "Formatted report with summary",
-                                proOnly: false
+                                proOnly: true
                             ) {
                                 exportPDF()
                             }
@@ -556,11 +466,6 @@ struct SelectedExportSheet: View {
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
             }
-            .sheet(isPresented: $showingExportLimit) {
-                ExportLimitSheet()
-                    .presentationDetents([.medium])
-                    .presentationDragIndicator(.visible)
-            }
             .overlay(alignment: .bottom) {
                 if showingToast {
                     toastView
@@ -571,80 +476,7 @@ struct SelectedExportSheet: View {
         }
     }
 
-    // MARK: - Template (SelectedExportSheet)
-
-    private var selectedExportTemplateSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("Template")
-                .font(Fonts.headline(16))
-                .foregroundStyle(Color.textPrimary)
-
-            VStack(spacing: Spacing.xs) {
-                ForEach(ExportTemplate.allCases, id: \.rawValue) { template in
-                    selectedExportTemplateOption(template)
-                }
-            }
-        }
-        .padding(Spacing.md)
-        .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-        .overlay(
-            RoundedRectangle(cornerRadius: Radius.md)
-                .stroke(Color.borderColor, lineWidth: 1)
-        )
-    }
-
-    private func selectedExportTemplateOption(_ template: ExportTemplate) -> some View {
-        let locked = template.isProOnly && !appState.isPro
-
-        return Button {
-            if locked {
-                proFeatureName = "\(template.label) template"
-                showingProUpsell = true
-                return
-            }
-            withAnimation(.easeInOut(duration: 0.15)) { selectedTemplate = template }
-        } label: {
-            HStack(spacing: Spacing.smd) {
-                Image(systemName: selectedTemplate == template ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20))
-                    .foregroundStyle(locked ? Color.textMuted : (selectedTemplate == template ? Color.brandPrimary : Color.textMuted))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(template.label)
-                            .font(Fonts.body(15))
-                            .foregroundStyle(locked ? Color.textMuted : Color.textPrimary)
-                        if locked {
-                            Image(systemName: "lock.fill")
-                                .font(.system(size: 10))
-                                .foregroundStyle(Color.textMuted)
-                        }
-                    }
-                    Text(selectedExportTemplateColumnsLabel(template))
-                        .font(Fonts.caption(12))
-                        .foregroundStyle(Color.textSecondary)
-                }
-
-                Spacer()
-            }
-            .padding(Spacing.smd)
-            .background(selectedTemplate == template && !locked ? Color.brandTint : Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
-        }
-        .buttonStyle(.plain)
-        .opacity(locked ? 0.6 : 1)
-    }
-
-    private func selectedExportTemplateColumnsLabel(_ template: ExportTemplate) -> String {
-        switch template {
-        case .simple: return "Date, Merchant, Amount, Tag, Notes"
-        case .accountant: return "Date, Merchant, Amount, Category, Notes, Receipt Attached"
-        case .reimbursement: return "Date, Merchant, Purpose, Amount, Tag, Notes"
-        }
-    }
-
-    // MARK: - Summary (SelectedExportSheet)
+    // MARK: - Summary
 
     private var summaryHeader: some View {
         VStack(spacing: Spacing.sm) {
@@ -747,11 +579,12 @@ struct SelectedExportSheet: View {
         .opacity(locked ? 0.6 : 1)
     }
 
-    // MARK: - Export Actions (SelectedExportSheet)
+    // MARK: - Export Actions
 
     private func exportCSV() {
-        guard appState.canExport else {
-            showingExportLimit = true
+        guard appState.isPro else {
+            proFeatureName = "CSV export"
+            showingProUpsell = true
             return
         }
 
@@ -764,22 +597,22 @@ struct SelectedExportSheet: View {
         guard let fileURL = ExpenseExportService.buildCSVExport(
             expenses: expenses,
             tags: domainTags,
-            filenamePrefix: "tally_selected",
-            template: selectedTemplate
+            filenamePrefix: "tally_selected"
         ) else {
             isExporting = false
             showToast("Export failed")
             return
         }
 
-        appState.recordExport()
+        appState.recordCSVExport()
         isExporting = false
         presentShareSheet(items: [fileURL])
     }
 
     private func exportPDF() {
-        guard appState.canExport else {
-            showingExportLimit = true
+        guard appState.isPro else {
+            proFeatureName = "PDF export"
+            showingProUpsell = true
             return
         }
         showToast("PDF export coming soon")
@@ -832,8 +665,6 @@ struct TagExportPickerSheet: View {
     let expenses: [ExpenseModel]
     let tags: [TagModel]
     let periodLabel: String
-    var selectedTemplate: ExportTemplate = .simple
-    @Binding var showingExportLimit: Bool
 
     @State private var selectedIds: Set<String> = []
     @State private var isExporting = false
@@ -901,55 +732,102 @@ struct TagExportPickerSheet: View {
                     }
                 } else {
                 ScrollView {
-                    VStack(spacing: Spacing.md) {
+                    VStack(spacing: Spacing.lg) {
                         if !standaloneTags.isEmpty {
-                            VStack(alignment: .leading, spacing: Spacing.sm) {
+                            VStack(alignment: .leading, spacing: Spacing.xs) {
                                 Text("Tags")
                                     .font(Fonts.caption(12))
                                     .foregroundStyle(Color.textSecondary)
                                     .padding(.leading, Spacing.xs)
 
-                                FlowLayout(spacing: Spacing.sm) {
+                                VStack(spacing: 0) {
                                     ForEach(standaloneTags) { tag in
-                                        selectableChip(
-                                            name: tag.name,
-                                            color: tag.tagColor,
-                                            isSelected: selectedIds.contains(tag.id)
-                                        ) {
+                                        let isSelected = selectedIds.contains(tag.id)
+                                        Button {
                                             toggleSelection(tag.id)
+                                        } label: {
+                                            HStack(spacing: Spacing.smd) {
+                                                Circle()
+                                                    .fill(tag.tagColor.primaryColor)
+                                                    .frame(width: 12, height: 12)
+                                                Text(tag.name)
+                                                    .font(Fonts.body(15))
+                                                    .foregroundStyle(Color.textPrimary)
+                                                Spacer()
+                                                if isSelected {
+                                                    Image(systemName: "checkmark")
+                                                        .font(.system(size: 13, weight: .semibold))
+                                                        .foregroundStyle(Color.brandPrimary)
+                                                }
+                                            }
+                                            .padding(.horizontal, Spacing.md)
+                                            .frame(height: 48)
+                                            .background(isSelected ? Color.brandTint : Color.surface)
+                                        }
+                                        .buttonStyle(.plain)
+
+                                        if tag.id != standaloneTags.last?.id {
+                                            Divider().padding(.leading, Spacing.md)
                                         }
                                     }
                                 }
+                                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: Radius.md)
+                                        .stroke(Color.borderColor, lineWidth: 1)
+                                )
                             }
                         }
 
                         if !groupTags.isEmpty {
-                            VStack(alignment: .leading, spacing: Spacing.sm) {
+                            VStack(alignment: .leading, spacing: Spacing.xs) {
                                 Text("Groups")
                                     .font(Fonts.caption(12))
                                     .foregroundStyle(Color.textSecondary)
                                     .padding(.leading, Spacing.xs)
 
-                                FlowLayout(spacing: Spacing.sm) {
+                                VStack(spacing: 0) {
                                     ForEach(groupTags) { group in
-                                        selectableChip(
-                                            name: group.name,
-                                            color: group.tagColor,
-                                            isSelected: selectedIds.contains(group.id),
-                                            isGroup: true
-                                        ) {
+                                        let isSelected = selectedIds.contains(group.id)
+                                        Button {
                                             toggleSelection(group.id)
+                                        } label: {
+                                            HStack(spacing: Spacing.smd) {
+                                                Image(systemName: "folder.fill")
+                                                    .font(.system(size: 13))
+                                                    .foregroundStyle(group.tagColor.primaryColor)
+                                                Text(group.name)
+                                                    .font(Fonts.body(15))
+                                                    .foregroundStyle(Color.textPrimary)
+                                                Spacer()
+                                                if isSelected {
+                                                    Image(systemName: "checkmark")
+                                                        .font(.system(size: 13, weight: .semibold))
+                                                        .foregroundStyle(Color.brandPrimary)
+                                                }
+                                            }
+                                            .padding(.horizontal, Spacing.md)
+                                            .frame(height: 48)
+                                            .background(isSelected ? Color.brandTint : Color.surface)
+                                        }
+                                        .buttonStyle(.plain)
+
+                                        if group.id != groupTags.last?.id {
+                                            Divider().padding(.leading, Spacing.md)
                                         }
                                     }
                                 }
+                                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: Radius.md)
+                                        .stroke(Color.borderColor, lineWidth: 1)
+                                )
                             }
                         }
 
                         if !selectedIds.isEmpty {
                             VStack(spacing: Spacing.sm) {
-                                Divider()
-                                    .foregroundStyle(Color.borderColor)
-
+                                Divider().foregroundStyle(Color.borderColor)
                                 HStack {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("\(matchingExpenses.count) expense\(matchingExpenses.count == 1 ? "" : "s")")
@@ -959,9 +837,7 @@ struct TagExportPickerSheet: View {
                                             .font(Fonts.caption(13))
                                             .foregroundStyle(Color.textSecondary)
                                     }
-
                                     Spacer()
-
                                     Text(periodLabel)
                                         .font(Fonts.caption(12))
                                         .foregroundStyle(Color.textMuted)
@@ -1023,49 +899,9 @@ struct TagExportPickerSheet: View {
         }
     }
 
-    private func selectableChip(
-        name: String,
-        color: TagColor,
-        isSelected: Bool,
-        isGroup: Bool = false,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                if isGroup {
-                    Image(systemName: "folder.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(isSelected ? .white : color.primaryColor)
-                } else {
-                    Circle()
-                        .fill(isSelected ? .white : color.primaryColor)
-                        .frame(width: 8, height: 8)
-                }
-
-                Text(name)
-                    .font(Fonts.label(14))
-                    .foregroundStyle(isSelected ? .white : Color.textPrimary)
-
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.white)
-                }
-            }
-            .padding(.horizontal, Spacing.smd)
-            .padding(.vertical, 7)
-            .background(isSelected ? color.primaryColor : Color.chipInactiveBg)
-            .clipShape(Capsule())
-        }
-        .buttonStyle(.plain)
-    }
-
     private func exportFiltered() {
         guard !matchingExpenses.isEmpty else { return }
-        guard appState.canExport else {
-            showingExportLimit = true
-            return
-        }
+        guard appState.canExportCSV else { return }
 
         isExporting = true
 
@@ -1079,14 +915,13 @@ struct TagExportPickerSheet: View {
         guard let fileURL = ExpenseExportService.buildCSVExport(
             expenses: matchingExpenses,
             tags: domainTags,
-            filenamePrefix: "tally_\(tagSuffix)",
-            template: selectedTemplate
+            filenamePrefix: "tally_\(tagSuffix)"
         ) else {
             isExporting = false
             return
         }
 
-        appState.recordExport()
+        appState.recordCSVExport()
         isExporting = false
         presentShareSheet(items: [fileURL])
     }

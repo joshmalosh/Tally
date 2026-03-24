@@ -55,11 +55,11 @@ struct ExpenseDetailView: View {
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
-                        Button("Done") { dismiss() }
+                        Button("Edit") { showingEdit = true }
                             .foregroundStyle(Color.brandPrimary)
                     }
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Edit") { showingEdit = true }
+                        Button("Done") { dismiss() }
                             .foregroundStyle(Color.brandPrimary)
                     }
                 }

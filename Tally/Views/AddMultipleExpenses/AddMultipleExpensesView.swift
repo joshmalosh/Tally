@@ -327,7 +327,7 @@ struct AddMultipleExpensesView: View {
             result.append((name, displayName, isNew, linkedId ?? (matched.flatMap { m in tags.first { $0.name == m }?.id }), exps))
         }
         if let untagged = groups["__untagged__"], !untagged.isEmpty {
-            result.append(("__untagged__", "Untagged", false, nil, untagged))
+            result.append(("__untagged__", "No tag", false, nil, untagged))
         }
         return result
     }
@@ -373,9 +373,16 @@ struct AddMultipleExpensesView: View {
             .frame(width: 100)
 
             Button(action: onTagTap) {
-                Image(systemName: "tag")
+                Image(systemName: "ellipsis")
                     .font(.system(size: 14))
                     .foregroundStyle(Color.textMuted)
+                    .frame(width: 28, height: 28)
+                    .background(Color.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(Color.borderColor, lineWidth: 1)
+                    )
             }
             .buttonStyle(.plain)
         }
@@ -430,6 +437,7 @@ struct AddMultipleExpensesView: View {
                     currency: currency,
                     date: today,
                     description: exp.description,
+                    notes: exp.description,
                     tagIds: tagId.map { [$0] } ?? [],
                     source: "bulk_import"
                 )
