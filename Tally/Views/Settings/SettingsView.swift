@@ -129,12 +129,10 @@ struct SettingsView: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Tags")
                         Text("Toggle to show or hide on your home screen.")
-                            .font(.system(size: 11))
-                            .foregroundStyle(Color.textMuted)
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color.textSecondary)
                             .textCase(nil)
                     }
-                } footer: {
-                    Text("Choose which tags appear as filters on the home screen.")
                 }
 
                 Section("Groups") {
@@ -218,20 +216,6 @@ struct SettingsView: View {
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(Color.textMuted)
-                        }
-                    }
-                }
-
-                Section("Data") {
-                    Button {
-                        appState.showingExport = true
-                        dismiss()
-                    } label: {
-                        HStack {
-                            Image(systemName: "square.and.arrow.up")
-                                .foregroundStyle(Color.brandPrimary)
-                            Text("Export your expenses")
-                                .foregroundStyle(Color.textPrimary)
                         }
                     }
                 }
