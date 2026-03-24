@@ -228,11 +228,7 @@ struct AddExpenseView: View {
                         return
                     }
                     source = showingCamera ? .camera : .upload
-                    #if DEBUG
                     let ocrAllowed = appState.ocrEnabled && !isEditing
-                    #else
-                    let ocrAllowed = appState.isPro && appState.ocrEnabled && !isEditing
-                    #endif
                     if ocrAllowed {
                         runOCR(on: image)
                     }
@@ -831,6 +827,7 @@ struct AddExpenseView: View {
         Task {
             let result = await ReceiptOCRService.extract(from: image)
             await MainActor.run {
+                // Amount and date: available to all users
                 if let amount = result.amount, amountText.isEmpty || amountText == "0" || amountText == "0.00" {
                     if CurrencyFormatter.shared.usesDecimals(for: currency) {
                         amountText = String(format: "%.2f", amount)
@@ -838,15 +835,20 @@ struct AddExpenseView: View {
                         amountText = String(format: "%.0f", amount)
                     }
                 }
-                if let name = result.merchant, merchant.isEmpty {
-                    merchant = name
-                }
                 if let extractedDate = result.date {
                     date = extractedDate
                 }
-                if let ocrNotes = result.notes, notes.isEmpty {
-                    notes = ocrNotes
+
+                // Merchant and notes: Pro only
+                if appState.isPro {
+                    if let name = result.merchant, merchant.isEmpty {
+                        merchant = name
+                    }
+                    if let ocrNotes = result.notes, notes.isEmpty {
+                        notes = ocrNotes
+                    }
                 }
+
                 isRunningOCR = false
             }
         }
