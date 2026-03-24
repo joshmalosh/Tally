@@ -228,6 +228,11 @@ struct AddExpenseView: View {
                         return
                     }
                     source = showingCamera ? .camera : .upload
+
+                    amountText = ""
+                    merchant = ""
+                    notes = ""
+
                     let ocrAllowed = appState.ocrEnabled && !isEditing
                     if ocrAllowed {
                         runOCR(on: image)

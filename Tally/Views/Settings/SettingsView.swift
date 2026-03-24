@@ -126,7 +126,13 @@ struct SettingsView: View {
                         }
                     }
                 } header: {
-                    Text("Tags")
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Tags")
+                        Text("Toggle to show or hide on your home screen.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.textMuted)
+                            .textCase(nil)
+                    }
                 } footer: {
                     Text("Choose which tags appear as filters on the home screen.")
                 }

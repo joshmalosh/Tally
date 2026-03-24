@@ -106,7 +106,7 @@ struct ExpenseDetailView: View {
                 .foregroundStyle(Color.textPrimary)
 
             if resolvedTags.isEmpty {
-                TagPill(name: "Untagged", tagColor: TagColors.forId("warmGrey"), isActive: true)
+                EmptyView()
             } else {
                 FlowLayout(spacing: 6, rowAlignment: .bottom, centerRows: true) {
                     ForEach(resolvedTags) { tag in

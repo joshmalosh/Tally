@@ -60,6 +60,13 @@ struct TallyApp: App {
         #if DEBUG
         print("[Tally] ModelContainer created successfully (CloudKit: \(Self.cloudKitEnabled))")
         #endif
+
+        let container = modelContainer
+        Task.detached(priority: .userInitiated) {
+            _ = try? await MainActor.run {
+                _ = try? container.mainContext.fetchCount(FetchDescriptor<ExpenseModel>())
+            }
+        }
     }
 
     private func configureRevenueCat() {

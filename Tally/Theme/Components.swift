@@ -209,14 +209,16 @@ struct ExpenseCard: View {
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Color(hex: "1C1C1E"))
                         .lineLimit(1)
-                    HStack(spacing: 5) {
-                        Circle()
-                            .fill(tagColor.primaryColor)
-                            .frame(width: 8, height: 8)
-                        Text(tagName)
-                            .font(.system(size: 13, weight: .regular))
-                            .foregroundStyle(Color(hex: "8F9E94"))
-                            .lineLimit(1)
+                    if !tagName.isEmpty {
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(tagColor.primaryColor)
+                                .frame(width: 8, height: 8)
+                            Text(tagName)
+                                .font(.system(size: 13, weight: .regular))
+                                .foregroundStyle(Color(hex: "8F9E94"))
+                                .lineLimit(1)
+                        }
                     }
                 }
 

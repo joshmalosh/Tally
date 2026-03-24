@@ -24,6 +24,9 @@ struct HomeView: View {
     @State private var expandedGroupId: String?
     @State private var expenseToDelete: ExpenseModel?
     @FocusState private var isSearchFocused: Bool
+    @State private var isHeaderCollapsed = false
+    @State private var scrollIndicatorOffset: CGFloat = 0
+    @State private var scrollIndicatorVisible = false
 
     private var showsBannerAd: Bool { !appState.isPro }
 
@@ -120,7 +123,7 @@ struct HomeView: View {
 
     private func displayTagName(for expense: ExpenseModel) -> String {
         let resolved = tagsFor(expense)
-        guard let first = resolved.first else { return "Untagged" }
+        guard let first = resolved.first else { return "" }
         if resolved.count == 1 {
             if let parentId = first.parentId,
                let group = tags.first(where: { $0.id == parentId }) {
@@ -136,16 +139,25 @@ struct HomeView: View {
 
         ZStack(alignment: .bottomTrailing) {
             VStack(spacing: 0) {
-                appBar
+                VStack(spacing: 0) {
+                    if !isHeaderCollapsed {
+                        appBar
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
 
-                headerSection
-                    .allowsHitTesting(!isSelecting)
+                    headerSection
+                        .allowsHitTesting(!isSelecting)
 
-                searchBar
-                tagRow
-                    .padding(.top, Spacing.smd)
+                    if !isHeaderCollapsed {
+                        searchBar
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
 
-                divider
+                    tagRow
+                        .padding(.top, isHeaderCollapsed ? Spacing.xs : Spacing.smd)
+
+                    divider
+                }
 
                 if filteredExpenses.isEmpty && !isSelecting {
                     emptyState
@@ -315,13 +327,13 @@ struct HomeView: View {
 
                 Button { openExport() } label: {
                     Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.system(size: 22, weight: .medium))
                         .foregroundStyle(Color.textSecondary)
                 }
 
                 Button { appState.showingSettings = true } label: {
                     Image(systemName: "gearshape")
-                        .font(.system(size: 18))
+                        .font(.system(size: 22))
                         .foregroundStyle(Color.textSecondary)
                 }
             }
@@ -657,65 +669,91 @@ struct HomeView: View {
     // MARK: - Expense List
 
     private var expenseList: some View {
-        List {
-            ForEach(filteredExpenses, id: \.id) { expense in
-                let tag = primaryTag(for: expense)
-                let isSelected = selectedExpenseIds.contains(expense.id)
+        ZStack(alignment: .trailing) {
+            List {
+                ForEach(filteredExpenses, id: \.id) { expense in
+                    let tag = primaryTag(for: expense)
+                    let isSelected = selectedExpenseIds.contains(expense.id)
 
-                HStack(spacing: 0) {
-                    if isSelecting {
-                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 24, weight: isSelected ? .regular : .light))
-                            .foregroundStyle(isSelected ? Color.brandPrimary : Color.textSecondary.opacity(0.55))
-                            .frame(width: 44)
-                    }
-
-                    ExpenseCard(
-                        thumbnailImage: thumbnailImage(for: expense),
-                        description: expense.expenseDescription ?? "Expense",
-                        merchant: expense.merchant,
-                        amountCents: expense.amountCents,
-                        currency: expense.currency,
-                        date: expense.date,
-                        tagName: displayTagName(for: expense),
-                        tagColor: tag?.tagColor ?? TagColors.forId("warmGrey"),
-                        showRecurringIcon: expense.recurrenceTemplateId != nil || expense.isRecurring
-                    )
-                }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    if isSelecting {
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            toggleExpenseSelection(expense.id)
+                    HStack(spacing: 0) {
+                        if isSelecting {
+                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 24, weight: isSelected ? .regular : .light))
+                                .foregroundStyle(isSelected ? Color.brandPrimary : Color.textSecondary.opacity(0.55))
+                                .frame(width: 44)
                         }
-                    } else {
-                        appState.selectedExpenseId = expense.id
+
+                        ExpenseCard(
+                            thumbnailImage: thumbnailImage(for: expense),
+                            description: expense.expenseDescription ?? "Expense",
+                            merchant: expense.merchant,
+                            amountCents: expense.amountCents,
+                            currency: expense.currency,
+                            date: expense.date,
+                            tagName: displayTagName(for: expense),
+                            tagColor: tag?.tagColor ?? TagColors.forId("warmGrey"),
+                            showRecurringIcon: expense.recurrenceTemplateId != nil || expense.isRecurring
+                        )
                     }
-                }
-                .onLongPressGesture(minimumDuration: 0.3) {
-                    if !isSelecting {
-                        enterSelectionMode(preselecting: expense.id)
-                    }
-                }
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    if !isSelecting {
-                        Button(role: .destructive) {
-                            expenseToDelete = expense
-                        } label: {
-                            Label("Delete", systemImage: "trash")
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if isSelecting {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                toggleExpenseSelection(expense.id)
+                            }
+                        } else {
+                            appState.selectedExpenseId = expense.id
                         }
                     }
-                }
-                .task {
-                    await loadThumbnail(for: expense)
+                    .onLongPressGesture(minimumDuration: 0.3) {
+                        if !isSelecting {
+                            enterSelectionMode(preselecting: expense.id)
+                        }
+                    }
+                    .listRowInsets(EdgeInsets())
+                    .listRowSeparator(.hidden)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                        if !isSelecting {
+                            Button(role: .destructive) {
+                                expenseToDelete = expense
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
+                        }
+                    }
+                    .task {
+                        await loadThumbnail(for: expense)
+                    }
                 }
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .scrollDismissesKeyboard(.interactively)
+            .onScrollGeometryChange(for: ScrollGeometry.self) { geo in geo } action: { _, geo in
+                let y = geo.contentOffset.y
+                let shouldCollapse = y > 60
+                if shouldCollapse != isHeaderCollapsed {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isHeaderCollapsed = shouldCollapse
+                    }
+                }
+                scrollIndicatorVisible = y > 20
+                let total = max(geo.contentSize.height - geo.containerSize.height, 1)
+                let progress = min(max(y / total, 0), 1)
+                let trackHeight = geo.containerSize.height - 60
+                scrollIndicatorOffset = progress * trackHeight
+            }
+
+            if scrollIndicatorVisible && filteredExpenses.count > 8 {
+                Capsule()
+                    .fill(Color(hex: "DEDAD2"))
+                    .frame(width: 3, height: 36)
+                    .offset(y: scrollIndicatorOffset - (UIScreen.main.bounds.height / 4))
+                    .padding(.trailing, 3)
+                    .animation(.linear(duration: 0.1), value: scrollIndicatorOffset)
+                    .transition(.opacity)
+            }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .scrollDismissesKeyboard(.interactively)
     }
 
     // MARK: - Thumbnails
