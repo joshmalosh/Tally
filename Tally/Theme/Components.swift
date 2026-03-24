@@ -135,7 +135,7 @@ struct AddTagPill: View {
         HStack(spacing: 4) {
             Image(systemName: "plus")
                 .font(.system(size: 12, weight: .semibold))
-            Text("+ New Tag")
+            Text("New Tag")
                 .font(.system(size: 14, weight: .medium))
         }
         .foregroundStyle(Color.textSecondary)
