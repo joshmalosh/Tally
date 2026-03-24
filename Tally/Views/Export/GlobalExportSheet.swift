@@ -346,7 +346,7 @@ struct GlobalExportSheet: View {
             return
         }
 
-        appState.recordCSVExport()
+        appState.recordExport()
         isExporting = false
         presentShareSheet(items: [fileURL])
     }
@@ -604,7 +604,7 @@ struct SelectedExportSheet: View {
             return
         }
 
-        appState.recordCSVExport()
+        appState.recordExport()
         isExporting = false
         presentShareSheet(items: [fileURL])
     }
@@ -901,7 +901,7 @@ struct TagExportPickerSheet: View {
 
     private func exportFiltered() {
         guard !matchingExpenses.isEmpty else { return }
-        guard appState.canExportCSV else { return }
+        guard appState.canExport else { return }
 
         isExporting = true
 
@@ -921,7 +921,7 @@ struct TagExportPickerSheet: View {
             return
         }
 
-        appState.recordCSVExport()
+        appState.recordExport()
         isExporting = false
         presentShareSheet(items: [fileURL])
     }

@@ -934,7 +934,7 @@ struct HomeView: View {
 
     private func exportExpensesAsCSV(_ expenses: [ExpenseModel]) {
         guard !expenses.isEmpty else { return }
-        guard appState.canExportCSV else { return }
+        guard appState.canExport else { return }
 
         let domainTags: [Tag] = tags.map {
             Tag(id: $0.id, userId: $0.userId, name: $0.name, colorId: $0.colorId, icon: $0.icon, sortOrder: $0.sortOrder, parentId: $0.parentId)
@@ -946,7 +946,7 @@ struct HomeView: View {
             filenamePrefix: "tally_expenses"
         ) else { return }
 
-        appState.recordCSVExport()
+        appState.recordExport()
         presentShareSheet(items: [fileURL])
         if isSelecting { exitSelectionMode() }
     }
