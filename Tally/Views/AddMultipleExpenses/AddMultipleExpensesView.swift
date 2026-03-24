@@ -437,8 +437,8 @@ struct AddMultipleExpensesView: View {
                     currency: currency,
                     date: today,
                     description: exp.description,
-                    notes: exp.description,
                     tagIds: tagId.map { [$0] } ?? [],
+                    notes: exp.description,
                     source: "bulk_import"
                 )
                 modelContext.insert(model)
