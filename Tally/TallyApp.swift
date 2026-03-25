@@ -50,9 +50,6 @@ struct TallyApp: App {
                 .task {
                     await SubscriptionService.restoreSubscriptionStatus(appState: appState)
                 }
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-                    Task { await SubscriptionService.restoreSubscriptionStatus(appState: appState) }
-                }
         }
         .modelContainer(modelContainer)
     }
