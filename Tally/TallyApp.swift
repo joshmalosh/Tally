@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 @main
 struct TallyApp: App {
@@ -14,19 +15,35 @@ struct TallyApp: App {
     // entitlements are configured for iCloud + Push Notifications.
     static let cloudKitEnabled = false
 
+    /// Bump when the SwiftData schema changes in dev; wipes the local store once so no migration is required.
+    private static let storeSchemaVersionKey = "tallySwiftDataStoreSchemaVersion"
+    private static let currentStoreSchemaVersion = 2
+
+    private static func deletePersistentStoreFiles() {
+        let urls = [
+            URL.applicationSupportDirectory.appending(path: "default.store"),
+            URL.applicationSupportDirectory.appending(path: "default.store-shm"),
+            URL.applicationSupportDirectory.appending(path: "default.store-wal"),
+        ]
+        for url in urls {
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
+
     init() {
         let schema = Schema([ExpenseModel.self, TagModel.self])
 
+        if UserDefaults.standard.integer(forKey: Self.storeSchemaVersionKey) < Self.currentStoreSchemaVersion {
+            Self.deletePersistentStoreFiles()
+            UserDefaults.standard.set(Self.currentStoreSchemaVersion, forKey: Self.storeSchemaVersionKey)
+            #if DEBUG
+            print("[Tally] SwiftData store recreated for schema version \(Self.currentStoreSchemaVersion).")
+            #endif
+        }
+
         func makeContainer(deleteFirst: Bool = false) -> ModelContainer {
             if deleteFirst {
-                let urls = [
-                    URL.applicationSupportDirectory.appending(path: "default.store"),
-                    URL.applicationSupportDirectory.appending(path: "default.store-shm"),
-                    URL.applicationSupportDirectory.appending(path: "default.store-wal"),
-                ]
-                for url in urls {
-                    try? FileManager.default.removeItem(at: url)
-                }
+                Self.deletePersistentStoreFiles()
                 #if DEBUG
                 print("[Tally] Deleted old database to resolve schema mismatch.")
                 #endif
@@ -66,6 +83,11 @@ struct TallyApp: App {
                 .environment(appState)
                 .environment(syncEngine)
                 .environment(adManager)
+                .simultaneousGesture(
+                    TapGesture().onEnded { _ in
+                        UIApplication.shared.endEditing()
+                    }
+                )
         }
         .modelContainer(modelContainer)
     }

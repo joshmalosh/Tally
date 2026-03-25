@@ -66,6 +66,7 @@ struct CurrencyPickerSheet: View {
                         .foregroundStyle(Color.textSecondary)
                 }
             }
+            .keyboardDoneToolbar()
         }
     }
 

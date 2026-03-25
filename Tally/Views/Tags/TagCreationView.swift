@@ -69,6 +69,7 @@ struct TagCreationView: View {
         } message: {
             Text("This will remove the tag from all expenses. This cannot be undone.")
         }
+        .keyboardDoneToolbar()
     }
 
     var body: some View {
@@ -179,17 +180,20 @@ struct TagCreationView: View {
     }
 
     private var deleteTagButton: some View {
-        VStack(spacing: Spacing.sm) {
-            Divider()
-                .padding(.vertical, Spacing.smd)
-            Button(role: .destructive) { showingDeleteConfirmation = true } label: {
-                Text("Delete tag")
-                    .font(Fonts.body(16))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, Spacing.md)
-            }
-            .buttonStyle(.plain)
+        Button(role: .destructive) {
+            showingDeleteConfirmation = true
+        } label: {
+            Text("Delete tag")
+                .font(Fonts.body(17))
+                .fontWeight(.semibold)
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 17)
+                .background(Color.danger)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
         }
+        .buttonStyle(.plain)
+        .padding(.top, Spacing.lg)
     }
 
     private func performDeleteTag() {

@@ -39,7 +39,9 @@ struct ContentView: View {
                 }
             }
 
-            if showSplash {
+            // Splash only after onboarding: first-run users go straight to onboarding/currency
+            // without a 2.5s full-screen layer that can block or race hit-testing on currency rows.
+            if showSplash && hasCompletedOnboarding {
                 splashOverlay
                     .opacity(splashOpacity)
                     .allowsHitTesting(false)
@@ -49,12 +51,12 @@ struct ContentView: View {
         .onAppear {
             seedDefaultTags()
             adManager.configure(isPro: appState.isPro)
-            dismissSplash()
-            Task { @MainActor in
-                let summary = await RecurringExpenseService.processOverdueRecurring(modelContext: modelContext)
-                if !summary.expenseIds.isEmpty && appState.recurringNotificationEnabled {
-                    await RecurringNotificationService.scheduleIfNeeded(summary: summary)
-                }
+            if !hasCompletedOnboarding {
+                taglineTimerTask?.cancel()
+                showSplash = false
+                splashOpacity = 0
+            } else {
+                dismissSplash()
             }
         }
         .onChange(of: appState.subscriptionStatus) { _, _ in
@@ -159,14 +161,8 @@ struct ContentView: View {
             Color.bgPrimary
                 .ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                HomeView()
-                if !appState.isPro {
-                    BannerAdView()
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-            }
-            .animation(.easeInOut(duration: 0.3), value: appState.isPro)
+            HomeView()
+                .animation(.easeInOut(duration: 0.3), value: appState.isPro)
         }
         .sheet(isPresented: $appState.showingSettings) {
             SettingsView()

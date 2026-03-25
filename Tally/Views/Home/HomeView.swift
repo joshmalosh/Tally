@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct HomeView: View {
     @Environment(AppState.self) private var appState
@@ -14,6 +15,8 @@ struct HomeView: View {
     @State private var thumbnailCache: [String: UIImage] = [:]
     @State private var periodFilter: PeriodFilter = .allTime
     @State private var showingTagCreation = false
+    @State private var showingGroupCreation = false
+    @State private var showingNewTagOrGroupDialog = false
     @State private var showingGlobalExport = false
     @State private var showingFilteredExport = false
     @State private var isSelecting = false
@@ -118,7 +121,7 @@ struct HomeView: View {
 
     private func displayTagName(for expense: ExpenseModel) -> String {
         let resolved = tagsFor(expense)
-        guard let first = resolved.first else { return "Untagged" }
+        guard let first = resolved.first else { return "" }
         if resolved.count == 1 {
             if let parentId = first.parentId,
                let group = tags.first(where: { $0.id == parentId }) {
@@ -132,42 +135,51 @@ struct HomeView: View {
     var body: some View {
         @Bindable var appState = appState
 
-        ZStack(alignment: .bottomTrailing) {
-            VStack(spacing: 0) {
-                appBar
+        NavigationStack {
+            ZStack(alignment: .bottomTrailing) {
+                VStack(spacing: 0) {
+                    appBar
 
-                headerSection
-                    .allowsHitTesting(!isSelecting)
+                    headerSection
+                        .allowsHitTesting(!isSelecting)
 
-                searchBar
-                tagRow
-                    .padding(.top, Spacing.smd)
+                    searchBar
+                    tagRow
+                        .padding(.top, 4)
 
-                divider
+                    divider
 
-                if filteredExpenses.isEmpty && !isSelecting {
-                    emptyState
-                } else {
-                    expenseList
+                    if filteredExpenses.isEmpty && !isSelecting {
+                        emptyState
+                    } else {
+                        expenseList
+                    }
+
+                    if !appState.isPro {
+                        BannerAdView()
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+
+                    if isSelecting && !selectedExpenseIds.isEmpty {
+                        selectionBottomToolbar
+                            .transition(.move(edge: .bottom))
+                    }
+                }
+                .onChange(of: selectedExpenseIds.count) { _, count in
+                    if isSelecting && count == 0 {
+                        exitSelectionMode()
+                    }
                 }
 
-                if isSelecting && !selectedExpenseIds.isEmpty {
-                    selectionBottomToolbar
-                        .transition(.move(edge: .bottom))
+                if !isSelecting {
+                    FABButton { showingEntryPicker = true }
+                        .padding(.trailing, Spacing.xl + 10)
+                        .padding(.bottom, showsBannerAd ? (Spacing.xl + 16) : (Spacing.xl + 10))
+                        .animation(.easeInOut(duration: 0.3), value: showsBannerAd)
                 }
             }
-            .onChange(of: selectedExpenseIds.count) { _, count in
-                if isSelecting && count == 0 {
-                    exitSelectionMode()
-                }
-            }
-
-            if !isSelecting {
-                FABButton { showingEntryPicker = true }
-                    .padding(.trailing, Spacing.md)
-                    .padding(.bottom, showsBannerAd ? (Spacing.xl + 12) : (Spacing.lg + 12))
-                    .animation(.easeInOut(duration: 0.3), value: showsBannerAd)
-            }
+            .toolbar(.hidden, for: .navigationBar)
+            .keyboardDoneToolbar()
         }
         .background(Color.bgPrimary)
         .sheet(isPresented: $showingEntryPicker) {
@@ -201,6 +213,24 @@ struct HomeView: View {
         .sheet(isPresented: $showingTagCreation) {
             TagCreationView()
         }
+        .sheet(isPresented: $showingGroupCreation) {
+            TagCreationView(isGroupMode: true)
+        }
+        .confirmationDialog("New tag or group", isPresented: $showingNewTagOrGroupDialog, titleVisibility: .visible) {
+            Button("New Tag") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    showingTagCreation = true
+                }
+            }
+            Button("New Group") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    showingGroupCreation = true
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Choose what to create.")
+        }
         .sheet(item: $exportWithSelectionItem) { item in
             GlobalExportSheet(initialSelection: item.expenses)
         }
@@ -227,7 +257,7 @@ struct HomeView: View {
                     .renderingMode(.original)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(height: 28)
+                    .frame(height: 34)
 
                 if !syncEngine.isOnline {
                     Image(systemName: "icloud.slash")
@@ -260,7 +290,7 @@ struct HomeView: View {
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.top, Spacing.sm)
-        .padding(.bottom, Spacing.sm)
+        .padding(.bottom, 4)
     }
 
     private var periodExpenseCount: Int {
@@ -326,7 +356,7 @@ struct HomeView: View {
             .opacity(isSelecting ? 0.15 : 1)
         }
         .padding(.horizontal, Spacing.lg)
-        .padding(.top, Spacing.lg)
+        .padding(.top, 6)
         .padding(.bottom, Spacing.smd)
     }
 
@@ -473,7 +503,7 @@ struct HomeView: View {
                         }
                     }
 
-                    Button { showingTagCreation = true } label: {
+                    Button { showingNewTagOrGroupDialog = true } label: {
                         AddTagPill()
                     }
                     .buttonStyle(.plain)
@@ -560,25 +590,39 @@ struct HomeView: View {
         !searchText.isEmpty || appState.hasTagFilters
     }
 
+    /// Keeps empty-state copy above the enlarged FAB and home banner ad.
+    private var emptyStateBottomSafeInset: CGFloat {
+        let fabDiameter: CGFloat = 88
+        let fabBottomPadding = showsBannerAd ? (Spacing.xl + 16) : (Spacing.xl + 10)
+        let bannerHeight: CGFloat = showsBannerAd ? 50 : 0
+        return fabDiameter + fabBottomPadding + bannerHeight + Spacing.md
+    }
+
     private var emptyState: some View {
-        VStack {
-            Spacer()
-            if hasActiveFilters {
-                EmptyStateView(
-                    icon: "magnifyingglass",
-                    title: "No matching expenses",
-                    message: "Try adjusting your search or filters."
-                )
+        ScrollView {
+            VStack {
+                // Shorter top spacer so the block sits higher (clear of FAB overlap).
+                Spacer(minLength: UIScreen.main.bounds.height * 0.14)
+                Group {
+                    if hasActiveFilters {
+                        EmptyStateView(
+                            icon: "magnifyingglass",
+                            title: "No matching expenses",
+                            message: "Try adjusting your search or filters."
+                        )
+                    } else {
+                        EmptyStateView(
+                            icon: "receipt",
+                            title: "No expenses yet",
+                            message: "Tap + to add your first expense\nand get started."
+                        )
+                    }
+                }
                 .padding(.horizontal, Spacing.xl)
-            } else {
-                EmptyStateView(
-                    icon: "receipt",
-                    title: "No expenses yet",
-                    message: "Tap + to add your first expense\nand get started."
-                )
-                .padding(.horizontal, Spacing.xl)
+                .padding(.bottom, emptyStateBottomSafeInset)
+                Spacer(minLength: UIScreen.main.bounds.height * 0.2)
             }
-            Spacer()
+            .frame(maxWidth: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -607,8 +651,7 @@ struct HomeView: View {
                         currency: expense.currency,
                         date: expense.date,
                         tagName: displayTagName(for: expense),
-                        tagColor: tag?.tagColor ?? TagColors.forId("warmGrey"),
-                        showRecurringIcon: expense.recurrenceTemplateId != nil || expense.isRecurring
+                        tagColor: tag?.tagColor ?? TagColors.forId("warmGrey")
                     )
                 }
                 .contentShape(Rectangle())
@@ -621,8 +664,15 @@ struct HomeView: View {
                         appState.selectedExpenseId = expense.id
                     }
                 }
-                .onLongPressGesture(minimumDuration: 0.5) {
+                .onLongPressGesture(minimumDuration: 0.2) {
                     if !isSelecting {
+                        let gen = UIImpactFeedbackGenerator(style: .heavy)
+                        gen.prepare()
+                        if #available(iOS 17.0, *) {
+                            gen.impactOccurred(intensity: 1.0)
+                        } else {
+                            gen.impactOccurred()
+                        }
                         enterSelectionMode(preselecting: expense.id)
                     }
                 }
@@ -645,6 +695,7 @@ struct HomeView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .scrollDismissesKeyboard(.interactively)
+        .contentMargins(.top, 0, for: .scrollContent)
     }
 
     // MARK: - Thumbnails
@@ -791,7 +842,6 @@ struct HomeView: View {
     // MARK: - Selection Mode
 
     private func enterSelectionMode(preselecting id: String? = nil) {
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
         withAnimation(.easeInOut(duration: 0.25)) {
             isSelecting = true
             selectedExpenseIds.removeAll()

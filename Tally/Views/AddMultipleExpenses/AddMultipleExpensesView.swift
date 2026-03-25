@@ -22,9 +22,20 @@ struct AddMultipleExpensesView: View {
     @State private var showingMonthlyLimitSheet = false
     @State private var showingPhotoLibrary = false
     @State private var photoForOCR: UIImage?
+    @State private var bulkEditExpenseId: String?
     @FocusState private var isPasteFieldFocused: Bool
 
     private var existingTagNames: [String] { tags.map(\.name) }
+
+    /// Suggested tag names from this import that are not yet linked or matched to a saved tag.
+    private func unsavedImportTagNames() -> [String] {
+        let names = Set(parsedExpenses.compactMap(\.suggestedTagName))
+        return names.filter { name in
+            if linkedTagIds[name] != nil { return false }
+            if BulkExpenseParser.findMatchingTag(suggested: name, existingTags: existingTagNames) != nil { return false }
+            return true
+        }.sorted()
+    }
 
     private enum Step {
         case input
@@ -44,11 +55,24 @@ struct AddMultipleExpensesView: View {
             .navigationTitle(step == .input ? "Add from notes" : "Review expenses")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                if step == .review {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            goBackFromReview()
+                        } label: {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(Color.textPrimary)
+                        }
+                        .accessibilityLabel("Back")
+                    }
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                         .foregroundStyle(Color.textSecondary)
                 }
             }
+            .keyboardDoneToolbar()
         }
         .confirmationDialog("Add from photo", isPresented: $showingPhotoSourcePicker) {
             Button("Take Photo") { showingCamera = true }
@@ -83,12 +107,39 @@ struct AddMultipleExpensesView: View {
         .sheet(item: $showingTagLinkPickerFor) { tagTag in
             TagLinkPickerSheet(
                 tags: tags,
+                importTagNames: tagTag.id.hasPrefix("group:") ? [] : unsavedImportTagNames(),
                 allowsCreateNew: true,
                 onSelect: { tagId in
                     handleTagPickerSelection(contextId: tagTag.id, tagId: tagId)
                     showingTagLinkPickerFor = nil
                 }
             )
+        }
+        .sheet(isPresented: Binding(
+            get: { bulkEditExpenseId != nil },
+            set: { if !$0 { bulkEditExpenseId = nil } }
+        )) {
+            if let id = bulkEditExpenseId,
+               let exp = parsedExpenses.first(where: { $0.id == id }) {
+                BulkExpenseRowEditSheet(
+                    tags: tags,
+                    importTagNames: unsavedImportTagNames(),
+                    existingTagNames: existingTagNames,
+                    currencyCode: appState.defaultCurrency,
+                    initial: exp,
+                    linkedTagIds: $linkedTagIds,
+                    onSave: { updated in
+                        if let i = parsedExpenses.firstIndex(where: { $0.id == updated.id }) {
+                            parsedExpenses[i] = updated
+                        }
+                        bulkEditExpenseId = nil
+                    },
+                    onCancel: {
+                        bulkEditExpenseId = nil
+                    }
+                )
+                .id(id)
+            }
         }
     }
 
@@ -175,24 +226,47 @@ struct AddMultipleExpensesView: View {
 
     private var pasteTextSheet: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                TextEditor(text: $pastedText)
-                    .font(Fonts.body(16))
-                    .foregroundStyle(Color.textPrimary)
-                    .scrollContentBackground(.hidden)
-                    .padding(Spacing.md)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.surface)
-                    .focused($isPasteFieldFocused)
+            ZStack {
+                Color.bgPrimary.ignoresSafeArea()
 
-                PrimaryButton(title: "Continue") {
-                    proceedWithText(pastedText)
-                    showingPasteEditor = false
+                ScrollView {
+                    ZStack(alignment: .topLeading) {
+                        TextEditor(text: $pastedText)
+                            .font(Fonts.body(16))
+                            .foregroundStyle(Color.textPrimary)
+                            .scrollContentBackground(.hidden)
+                            .focused($isPasteFieldFocused)
+                            .frame(minHeight: 280)
+                            .padding(Spacing.md)
+                            .background(Color.surface)
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+
+                        if pastedText.isEmpty {
+                            Text("Paste or type your expenses here — we'll sort and tag them for you.")
+                                .foregroundStyle(Color(hex: "C4BFB9"))
+                                .font(.system(size: 16))
+                                .padding(.horizontal, 5 + Spacing.md)
+                                .padding(.vertical, 8 + Spacing.md)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.top, Spacing.md)
+                    .padding(.bottom, 100)
                 }
-                .padding(.horizontal, Spacing.lg)
-                .padding(.bottom, Spacing.lg)
+
+                VStack {
+                    Spacer(minLength: 0)
+                    PrimaryButton(title: "Continue") {
+                        proceedWithText(pastedText)
+                        showingPasteEditor = false
+                    }
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.bottom, Spacing.lg)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .ignoresSafeArea(.keyboard, edges: .bottom)
             }
-            .background(Color.bgPrimary)
             .navigationTitle("Paste text")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -201,6 +275,8 @@ struct AddMultipleExpensesView: View {
                         .foregroundStyle(Color.textSecondary)
                 }
             }
+            .onAppear { isPasteFieldFocused = true }
+            .keyboardDoneToolbar()
         }
     }
 
@@ -242,25 +318,31 @@ struct AddMultipleExpensesView: View {
         step = .review
     }
 
+    /// Returns to the input step, keeping `pastedText` unchanged and clearing all review-only state.
+    private func goBackFromReview() {
+        parsedExpenses = []
+        linkedTagIds = [:]
+        showingTagLinkPickerFor = nil
+        step = .input
+    }
+
     // MARK: - Review Step
 
     private var reviewStep: some View {
-        VStack(spacing: 0) {
+        ZStack {
             List {
                 ForEach(groupedExpenseSections, id: \.tagKey) { section in
                     Section {
                         ForEach(section.expenses) { exp in
-                            reviewExpenseRow(exp, onTagTap: {
-                                showingTagLinkPickerFor = TagLinkPickerTag("expense:\(exp.id)")
-                            })
-                            .listRowBackground(Color.surface)
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    removeExpenseFromPending(exp)
-                                } label: {
-                                    Label("Remove", systemImage: "trash")
+                            reviewExpenseRow(exp)
+                                .listRowBackground(Color.surface)
+                                .swipeActions(edge: .trailing) {
+                                    Button(role: .destructive) {
+                                        removeExpenseFromPending(exp)
+                                    } label: {
+                                        Label("Remove", systemImage: "trash")
+                                    }
                                 }
-                            }
                         }
                     } header: {
                         HStack(spacing: Spacing.sm) {
@@ -297,12 +379,18 @@ struct AddMultipleExpensesView: View {
             .scrollContentBackground(.hidden)
             .animation(.easeInOut(duration: 0.25), value: parsedExpenses.map { "\($0.id):\($0.suggestedTagName ?? "")" }.joined())
             .background(Color.bgPrimary)
+            .contentMargins(.bottom, 96, for: .scrollContent)
 
-            PrimaryButton(title: "Import \(parsedExpenses.count) expenses") {
-                performImport()
+            VStack {
+                Spacer(minLength: 0)
+                PrimaryButton(title: "Import \(parsedExpenses.count) expenses") {
+                    performImport()
+                }
+                .padding(.horizontal, Spacing.lg)
+                .padding(.bottom, Spacing.xl)
             }
-            .padding(.horizontal, Spacing.lg)
-            .padding(.bottom, Spacing.xl)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            .ignoresSafeArea(.keyboard, edges: .bottom)
         }
     }
 
@@ -327,12 +415,25 @@ struct AddMultipleExpensesView: View {
             result.append((name, displayName, isNew, linkedId ?? (matched.flatMap { m in tags.first { $0.name == m }?.id }), exps))
         }
         if let untagged = groups["__untagged__"], !untagged.isEmpty {
-            result.append(("__untagged__", "Untagged", false, nil, untagged))
+            result.append(("__untagged__", "No tag", false, nil, untagged))
         }
         return result
     }
 
     private func handleTagPickerSelection(contextId: String, tagId: String) {
+        if tagId.hasPrefix(TagLinkPickerSheet.importSelectionPrefix) {
+            let name = String(tagId.dropFirst(TagLinkPickerSheet.importSelectionPrefix.count))
+            if contextId.hasPrefix("group:") { return }
+            if contextId.hasPrefix("expense:") {
+                let expenseId = String(contextId.dropFirst(8))
+                guard let idx = parsedExpenses.firstIndex(where: { $0.id == expenseId }) else { return }
+                withAnimation(.easeInOut(duration: 0.25)) {
+                    parsedExpenses[idx].suggestedTagName = name
+                }
+            }
+            return
+        }
+
         let tagName: String? = tags.first(where: { $0.id == tagId })?.name
             ?? (try? modelContext.fetch(FetchDescriptor<TagModel>(predicate: #Predicate { $0.id == tagId })).first)?.name
         guard let tagName else { return }
@@ -350,32 +451,35 @@ struct AddMultipleExpensesView: View {
         }
     }
 
-    private func reviewExpenseRow(_ exp: ParsedExpense, onTagTap: @escaping () -> Void) -> some View {
-        HStack(spacing: Spacing.sm) {
+    private func reviewExpenseRow(_ exp: ParsedExpense) -> some View {
+        let amountStr = CurrencyFormatter.shared.format(cents: exp.amountCents, currencyCode: appState.defaultCurrency)
+
+        return HStack(spacing: Spacing.sm) {
             Text(exp.description)
                 .font(Fonts.body(16))
                 .foregroundStyle(Color.textPrimary)
 
             Spacer()
 
-            TextField("Amount", value: Binding(
-                get: { Double(exp.amountCents) / 100 },
-                set: { newVal in
-                    guard let idx = parsedExpenses.firstIndex(where: { $0.id == exp.id }) else { return }
-                    let roundedToCents = (newVal * 100).rounded() / 100
-                    parsedExpenses[idx].amountCents = max(0, Int(round(roundedToCents * 100)))
-                }
-            ), format: .currency(code: appState.defaultCurrency))
-            .keyboardType(.decimalPad)
-            .font(Fonts.mono(16))
-            .foregroundStyle(Color.textPrimary)
-            .multilineTextAlignment(.trailing)
-            .frame(width: 100)
+            Text(amountStr)
+                .font(Fonts.mono(16))
+                .foregroundStyle(Color.textPrimary)
+                .multilineTextAlignment(.trailing)
+                .frame(minWidth: 72, alignment: .trailing)
 
-            Button(action: onTagTap) {
-                Image(systemName: "tag")
+            Button {
+                bulkEditExpenseId = exp.id
+            } label: {
+                Image(systemName: "pencil")
                     .font(.system(size: 14))
                     .foregroundStyle(Color.textMuted)
+                    .frame(width: 28, height: 28)
+                    .background(Color.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: 6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(Color.borderColor, lineWidth: 1)
+                    )
             }
             .buttonStyle(.plain)
         }
@@ -431,6 +535,7 @@ struct AddMultipleExpensesView: View {
                     date: today,
                     description: exp.description,
                     tagIds: tagId.map { [$0] } ?? [],
+                    notes: exp.description,
                     source: "bulk_import"
                 )
                 modelContext.insert(model)
@@ -496,8 +601,12 @@ struct TagLinkPickerTag: Identifiable {
 }
 
 struct TagLinkPickerSheet: View {
+    /// Prefix for `onSelect` when choosing an in-import tag name that is not yet saved.
+    static let importSelectionPrefix = "import:"
+
     @Environment(\.dismiss) private var dismiss
     let tags: [TagModel]
+    var importTagNames: [String] = []
     var allowsCreateNew: Bool = true
     let onSelect: (String) -> Void
 
@@ -505,6 +614,12 @@ struct TagLinkPickerSheet: View {
 
     private var standaloneTags: [TagModel] { tags.filter { $0.parentId == nil && !$0.isGroup } }
     private var groupTags: [TagModel] { tags.filter { $0.isGroup } }
+
+    private func importTagDotColor(for name: String) -> Color {
+        let palette = TagColors.palette
+        let idx = abs(name.hashValue) % max(palette.count, 1)
+        return palette[idx].primaryColor
+    }
 
     var body: some View {
         NavigationStack {
@@ -517,7 +632,7 @@ struct TagLinkPickerSheet: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "plus")
                                     .font(.system(size: 12, weight: .semibold))
-                                Text("Create new tag")
+                                Text("+ New tag")
                                     .font(Fonts.label(14))
                             }
                             .foregroundStyle(Color.brandPrimary)
@@ -531,6 +646,32 @@ struct TagLinkPickerSheet: View {
                         Divider()
                             .background(Color.borderColor.opacity(0.6))
                             .padding(.vertical, Spacing.sm)
+                    }
+
+                    if !importTagNames.isEmpty {
+                        Text("From this import")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color(hex: "8F9E94"))
+                            .tracking(0.6)
+                            .textCase(.uppercase)
+                            .padding(.top, Spacing.xs)
+
+                        ForEach(importTagNames, id: \.self) { name in
+                            importTagRow(name)
+                        }
+
+                        Divider()
+                            .background(Color.borderColor.opacity(0.6))
+                            .padding(.vertical, Spacing.sm)
+                    }
+
+                    if !standaloneTags.isEmpty || !groupTags.isEmpty {
+                        Text("Your tags")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color(hex: "8F9E94"))
+                            .tracking(0.6)
+                            .textCase(.uppercase)
+                            .padding(.top, importTagNames.isEmpty ? Spacing.xs : 0)
                     }
 
                     ForEach(standaloneTags) { tag in
@@ -565,7 +706,36 @@ struct TagLinkPickerSheet: View {
                     dismiss()
                 }
             }
+            .keyboardDoneToolbar()
         }
+    }
+
+    private func importTagRow(_ name: String) -> some View {
+        Button {
+            onSelect(Self.importSelectionPrefix + name)
+            dismiss()
+        } label: {
+            HStack(spacing: Spacing.smd) {
+                Circle()
+                    .fill(importTagDotColor(for: name))
+                    .frame(width: 14, height: 14)
+                Text(name)
+                    .font(Fonts.body(16))
+                    .foregroundStyle(Color.textPrimary)
+                Spacer()
+                Text("New")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(hex: "F5A623"))
+                    .clipShape(Capsule())
+            }
+            .padding(Spacing.md)
+            .background(Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+        }
+        .buttonStyle(.plain)
     }
 
     private func tagRow(_ tag: TagModel) -> some View {
@@ -587,5 +757,214 @@ struct TagLinkPickerSheet: View {
             .clipShape(RoundedRectangle(cornerRadius: Radius.md))
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Bulk review row edit sheet
+
+private struct BulkExpenseRowEditSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let tags: [TagModel]
+    let importTagNames: [String]
+    let existingTagNames: [String]
+    let currencyCode: String
+    @Binding var linkedTagIds: [String: String]
+    let onSave: (ParsedExpense) -> Void
+    let onCancel: () -> Void
+
+    @State private var draft: ParsedExpense
+    @State private var amountText: String
+    @State private var showingTagPicker = false
+
+    init(
+        tags: [TagModel],
+        importTagNames: [String],
+        existingTagNames: [String],
+        currencyCode: String,
+        initial: ParsedExpense,
+        linkedTagIds: Binding<[String: String]>,
+        onSave: @escaping (ParsedExpense) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.tags = tags
+        self.importTagNames = importTagNames
+        self.existingTagNames = existingTagNames
+        self.currencyCode = currencyCode
+        _linkedTagIds = linkedTagIds
+        self.onSave = onSave
+        self.onCancel = onCancel
+        _draft = State(initialValue: initial)
+        let uses = CurrencyFormatter.shared.usesDecimals(for: currencyCode)
+        let cents = initial.amountCents
+        if uses {
+            _amountText = State(initialValue: String(format: "%.2f", Double(cents) / 100.0))
+        } else {
+            _amountText = State(initialValue: String(format: "%.0f", Double(cents)))
+        }
+    }
+
+    private var navigationTitleText: String {
+        let t = draft.description
+        guard t.count > 36 else { return t }
+        return String(t.prefix(35)) + "…"
+    }
+
+    private var displayTagLabel: String {
+        if let name = draft.suggestedTagName {
+            if let linked = linkedTagIds[name], let t = tags.first(where: { $0.id == linked }) {
+                return t.name
+            }
+            if let matched = BulkExpenseParser.findMatchingTag(suggested: name, existingTags: existingTagNames),
+               let t = tags.first(where: { $0.name == matched }) {
+                return t.name
+            }
+            return name
+        }
+        return ""
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: Spacing.lg) {
+                    amountCard
+                    tagCard
+                }
+                .padding(.horizontal, Spacing.lg)
+                .padding(.top, Spacing.md)
+                .padding(.bottom, Spacing.xl)
+            }
+            .background(Color.bgPrimary)
+            .navigationTitle(navigationTitleText)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        onCancel()
+                        dismiss()
+                    }
+                    .foregroundStyle(Color.textSecondary)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        applyAmountFromText()
+                        onSave(draft)
+                        dismiss()
+                    }
+                    .foregroundStyle(Color(hex: "346049"))
+                }
+            }
+            .sheet(isPresented: $showingTagPicker) {
+                TagLinkPickerSheet(
+                    tags: tags,
+                    importTagNames: importTagNames,
+                    allowsCreateNew: true,
+                    onSelect: { selection in
+                        applyTagSelection(selection)
+                    }
+                )
+            }
+            .keyboardDoneToolbar()
+        }
+    }
+
+    private var amountCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("AMOUNT")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color(hex: "8F9E94"))
+                .tracking(0.6)
+                .textCase(.uppercase)
+            HStack(spacing: 6) {
+                Text(CurrencyFormatter.shared.symbol(for: currencyCode))
+                    .font(Fonts.mono(20))
+                    .foregroundStyle(Color(hex: "346049").opacity(0.5))
+                TextField("", text: $amountText)
+                    .font(Fonts.mono(20))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+                    .keyboardType(CurrencyFormatter.shared.usesDecimals(for: currencyCode) ? .decimalPad : .numberPad)
+                    .textFieldStyle(.plain)
+                    .onChange(of: amountText) { _, newValue in
+                        let filtered = newValue.filter { $0.isNumber || $0 == "." }
+                        let parts = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
+                        let sanitized = parts.count > 1
+                            ? parts[0] + "." + parts.dropFirst().joined()
+                            : filtered
+                        if sanitized != newValue { amountText = String(sanitized) }
+                    }
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
+    }
+
+    private var tagCard: some View {
+        Button {
+            showingTagPicker = true
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("TAG")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+                    .tracking(0.6)
+                    .textCase(.uppercase)
+                HStack(spacing: Spacing.smd) {
+                    Image(systemName: "tag.fill")
+                        .font(.system(size: 16))
+                        .foregroundStyle(Color.brandPrimary)
+                    if displayTagLabel.isEmpty {
+                        Text("Add tag")
+                            .font(Fonts.body(16))
+                            .foregroundStyle(Color(hex: "C4BFB9"))
+                    } else {
+                        Text(displayTagLabel)
+                            .font(Fonts.body(16))
+                            .foregroundStyle(Color.textPrimary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color(hex: "C4BFB9"))
+                }
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func applyAmountFromText() {
+        guard let v = Double(amountText), v >= 0 else { return }
+        let uses = CurrencyFormatter.shared.usesDecimals(for: currencyCode)
+        if uses {
+            let rounded = (v * 100).rounded() / 100
+            draft.amountCents = max(0, Int(round(rounded * 100)))
+        } else {
+            draft.amountCents = max(0, Int(round(v)))
+        }
+    }
+
+    private func applyTagSelection(_ selection: String) {
+        if selection.hasPrefix(TagLinkPickerSheet.importSelectionPrefix) {
+            let name = String(selection.dropFirst(TagLinkPickerSheet.importSelectionPrefix.count))
+            draft.suggestedTagName = name
+            linkedTagIds.removeValue(forKey: name)
+            return
+        }
+        guard let tag = tags.first(where: { $0.id == selection }) else { return }
+        draft.suggestedTagName = tag.name
+        linkedTagIds[tag.name] = tag.id
     }
 }

@@ -29,49 +29,53 @@ struct CurrencySetupView: View {
     private var filteredOther: [SupportedCurrency] { otherCurrencies.filter { matches($0) } }
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-                .padding(.horizontal, Spacing.lg)
-                .padding(.top, Spacing.xl)
-                .padding(.bottom, Spacing.md)
-
-            searchBar
-                .padding(.horizontal, Spacing.lg)
-                .padding(.bottom, Spacing.md)
-
-            ScrollView {
-                VStack(spacing: Spacing.lg) {
-                    if !filteredCommon.isEmpty {
-                        currencySection(currencies: filteredCommon)
-                    }
-                    if !filteredOther.isEmpty {
-                        currencySection(currencies: filteredOther)
-                    }
-                    if filteredCommon.isEmpty && filteredOther.isEmpty {
-                        Text("No currencies match \"\(searchText)\"")
-                            .font(Fonts.body(15))
-                            .foregroundStyle(Color.textMuted)
-                            .padding(.top, Spacing.xl)
-                    }
-                }
-                .padding(.horizontal, Spacing.lg)
-                .padding(.bottom, 100)
-            }
-
-            Spacer(minLength: 0)
-
+        NavigationStack {
             VStack(spacing: 0) {
-                Divider()
-                PrimaryButton(title: "Continue") {
-                    appState.defaultCurrency = selectedCode
-                    onComplete?()
+                header
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.top, Spacing.xl)
+                    .padding(.bottom, Spacing.md)
+
+                searchBar
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.bottom, Spacing.md)
+
+                ScrollView {
+                    VStack(spacing: Spacing.lg) {
+                        if !filteredCommon.isEmpty {
+                            currencySection(currencies: filteredCommon)
+                        }
+                        if !filteredOther.isEmpty {
+                            currencySection(currencies: filteredOther)
+                        }
+                        if filteredCommon.isEmpty && filteredOther.isEmpty {
+                            Text("No currencies match \"\(searchText)\"")
+                                .font(Fonts.body(15))
+                                .foregroundStyle(Color.textMuted)
+                                .padding(.top, Spacing.xl)
+                        }
+                    }
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.bottom, 100)
                 }
-                .padding(.horizontal, Spacing.lg)
-                .padding(.vertical, Spacing.md)
+
+                Spacer(minLength: 0)
+
+                VStack(spacing: 0) {
+                    Divider()
+                    PrimaryButton(title: "Continue") {
+                        appState.defaultCurrency = selectedCode
+                        onComplete?()
+                    }
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.vertical, Spacing.md)
+                }
+                .background(Color.bgPrimary)
             }
             .background(Color.bgPrimary)
+            .toolbar(.hidden, for: .navigationBar)
+            .keyboardDoneToolbar()
         }
-        .background(Color.bgPrimary)
     }
 
     private var header: some View {
