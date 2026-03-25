@@ -299,8 +299,6 @@ struct AddExpenseView: View {
         addExpenseFormZStack
             .navigationTitle(isEditing ? "Edit expense" : "Add expense")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color(hex: "346049"), for: .keyboard)
-            .toolbarBackground(.visible, for: .keyboard)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
