@@ -55,6 +55,8 @@ targets:
     dependencies:
       - package: GoogleMobileAds
         product: GoogleMobileAds
+      - package: RevenueCat
+        product: RevenueCat
 
   TallyTests:
     type: bundle.unit-test
@@ -74,6 +76,9 @@ packages:
   GoogleMobileAds:
     url: https://github.com/googleads/swift-package-manager-google-mobile-ads
     from: "11.0.0"
+  RevenueCat:
+    url: https://github.com/RevenueCat/purchases-ios-spm.git
+    from: "5.0.0"
 
 schemes:
   Tally:
