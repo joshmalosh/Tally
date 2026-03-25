@@ -193,7 +193,6 @@ struct SubscriptionView: View {
         do {
             let offerings = try await Purchases.shared.offerings()
             let offering = offerings.offering(identifier: RevenueCatConfig.offeringIdentifier)
-                ?? offerings.current
             guard let offering else {
                 await MainActor.run {
                     didLoadProducts = true
@@ -202,7 +201,7 @@ struct SubscriptionView: View {
                 }
                 return
             }
-            let pkg = offering.monthly ?? offering.availablePackages.first
+            let pkg = offering.package(identifier: "$rc_monthly") ?? offering.availablePackages.first
             await MainActor.run {
                 monthlyPackage = pkg
                 didLoadProducts = true
