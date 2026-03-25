@@ -28,7 +28,7 @@ targets:
         INFOPLIST_FILE: Tally/Info.plist
         SWIFT_EMIT_LOC_STRINGS: "YES"
         CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: ""
+        DEVELOPMENT_TEAM: 4YNKJC64K2
     info:
       path: Tally/Info.plist
       properties:
