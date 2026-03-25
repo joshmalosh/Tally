@@ -59,8 +59,8 @@ struct AddEntryPicker: View {
                 )
                 entryOption(
                     icon: "list.bullet.rectangle",
-                    title: "Add multiple expenses",
-                    subtitle: "Import from notes or receipt photo",
+                    title: "Import from notes",
+                    subtitle: "Turn a list or photo into tagged expenses",
                     mode: .bulkImport
                 )
             }

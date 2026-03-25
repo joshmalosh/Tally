@@ -69,9 +69,25 @@ struct AddExpenseView: View {
         return Int(round(amount))
     }
 
+    private var usesDecimalCurrency: Bool {
+        CurrencyFormatter.shared.usesDecimals(for: currency)
+    }
+
+    private var zeroAmountPlaceholder: String {
+        usesDecimalCurrency ? "0.00" : "0"
+    }
+
+    private var isAmountDisplayEmpty: Bool {
+        amountText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private func formatAmount() {
-        guard let value = Double(amountText), value > 0 else { return }
-        if CurrencyFormatter.shared.usesDecimals(for: currency) {
+        let trimmed = amountText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = Double(trimmed), value > 0 else {
+            amountText = ""
+            return
+        }
+        if usesDecimalCurrency {
             amountText = String(format: "%.2f", value)
         } else {
             amountText = String(format: "%.0f", value)
@@ -166,18 +182,26 @@ struct AddExpenseView: View {
             }
             .navigationTitle(isEditing ? "Edit expense" : "Add expense")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color(hex: "346049"), for: .keyboard)
+            .toolbarBackground(.visible, for: .keyboard)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                         .foregroundStyle(Color(hex: "8F9E94"))
                 }
                 ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") {
-                        focusedField = nil
-                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    HStack {
+                        Spacer()
+                        Button("Done") {
+                            focusedField = nil
+                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        }
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.white)
                     }
-                    .foregroundStyle(Color(hex: "346049"))
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.trailing, 16)
+                    .padding(.vertical, 10)
                 }
             }
             .confirmationDialog("Add receipt", isPresented: $showingAddReceiptSources, titleVisibility: .visible) {
@@ -249,7 +273,9 @@ struct AddExpenseView: View {
                 }
             }
             .sheet(isPresented: $showingMonthlyLimitSheet) {
-                MonthlyLimitSheet()
+                MonthlyLimitSheet(onProUnlocked: {
+                    saveExpense()
+                })
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
             }
@@ -390,11 +416,14 @@ struct AddExpenseView: View {
                 }
                 .buttonStyle(.plain)
 
-                TextField("", text: $amountText)
+                TextField("", text: $amountText, prompt: Text(zeroAmountPlaceholder)
                     .font(.system(size: 52, weight: .regular, design: .monospaced))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+                    .tracking(-2))
+                    .font(.system(size: 52, weight: .regular, design: .monospaced))
+                    .foregroundStyle(isAmountDisplayEmpty ? Color(hex: "8F9E94") : Color(hex: "1C1C1E"))
                     .tracking(-2)
-                    .keyboardType(CurrencyFormatter.shared.usesDecimals(for: currency) ? .decimalPad : .numberPad)
+                    .keyboardType(usesDecimalCurrency ? .decimalPad : .numberPad)
                     .textFieldStyle(.plain)
                     .focused($focusedField, equals: .amount)
                     .onChange(of: amountText) { _, newValue in
@@ -429,6 +458,10 @@ struct AddExpenseView: View {
         .padding(.vertical, 20)
         .background(Color(hex: "346049").opacity(0.06))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
         .padding(.horizontal, 16)
         .contentShape(Rectangle())
         .onTapGesture {
@@ -493,6 +526,10 @@ struct AddExpenseView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
         .clipShape(unevenRect(topLeading: radiusTop, topTrailing: radiusTop, bottomLeading: radiusBottom, bottomTrailing: radiusBottom))
+        .overlay(
+            unevenRect(topLeading: radiusTop, topTrailing: radiusTop, bottomLeading: radiusBottom, bottomTrailing: radiusBottom)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
     }
 
     private func dateRowShape(radiusTop: CGFloat, radiusBottom: CGFloat) -> some View {
@@ -532,6 +569,10 @@ struct AddExpenseView: View {
         }
         .buttonStyle(.plain)
         .clipShape(unevenRect(topLeading: radiusTop, topTrailing: radiusTop, bottomLeading: radiusBottom, bottomTrailing: radiusBottom))
+        .overlay(
+            unevenRect(topLeading: radiusTop, topTrailing: radiusTop, bottomLeading: radiusBottom, bottomTrailing: radiusBottom)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
     }
 
     private static func shortDateString(_ d: Date) -> String {
@@ -565,6 +606,10 @@ struct AddExpenseView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.white)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+                    )
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 16)
@@ -651,6 +696,10 @@ struct AddExpenseView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 16)
@@ -687,6 +736,10 @@ struct AddExpenseView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+                )
                 .padding(.horizontal, 16)
             }
         }
@@ -736,6 +789,10 @@ struct AddExpenseView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
         .padding(.horizontal, 16)
     }
 
@@ -887,10 +944,12 @@ struct AddExpenseView: View {
                 }
                 .buttonStyle(.plain)
 
-                TextField("", text: $amountText)
+                TextField("", text: $amountText, prompt: Text(zeroAmountPlaceholder)
                     .font(.system(size: 36, weight: .regular, design: .monospaced))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-                    .keyboardType(CurrencyFormatter.shared.usesDecimals(for: currency) ? .decimalPad : .numberPad)
+                    .foregroundStyle(Color(hex: "8F9E94")))
+                    .font(.system(size: 36, weight: .regular, design: .monospaced))
+                    .foregroundStyle(isAmountDisplayEmpty ? Color(hex: "8F9E94") : Color(hex: "1C1C1E"))
+                    .keyboardType(usesDecimalCurrency ? .decimalPad : .numberPad)
                     .textFieldStyle(.plain)
                     .focused($focusedField, equals: .amount)
                     .onChange(of: amountText) { _, newValue in
@@ -910,6 +969,10 @@ struct AddExpenseView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(hex: "346049").opacity(0.06))
         .clipShape(unevenRect(topLeading: 14, topTrailing: 14, bottomLeading: 4, bottomTrailing: 4))
+        .overlay(
+            unevenRect(topLeading: 14, topTrailing: 14, bottomLeading: 4, bottomTrailing: 4)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
         .padding(.horizontal, 16)
         .contentShape(Rectangle())
         .onTapGesture { focusedField = .amount }
@@ -934,6 +997,10 @@ struct AddExpenseView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
         .clipShape(unevenRect(topLeading: 4, topTrailing: 4, bottomLeading: 4, bottomTrailing: 4))
+        .overlay(
+            unevenRect(topLeading: 4, topTrailing: 4, bottomLeading: 4, bottomTrailing: 4)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
         .padding(.horizontal, 16)
     }
 
@@ -974,6 +1041,10 @@ struct AddExpenseView: View {
         }
         .buttonStyle(.plain)
         .clipShape(unevenRect(topLeading: 4, topTrailing: 4, bottomLeading: 14, bottomTrailing: 14))
+        .overlay(
+            unevenRect(topLeading: 4, topTrailing: 4, bottomLeading: 14, bottomTrailing: 14)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
         .padding(.horizontal, 16)
     }
 

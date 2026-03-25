@@ -23,6 +23,7 @@ struct AddMultipleExpensesView: View {
     @State private var showingPhotoLibrary = false
     @State private var photoForOCR: UIImage?
     @FocusState private var isPasteFieldFocused: Bool
+    @FocusState private var focusedAmountExpenseId: String?
 
     private var existingTagNames: [String] { tags.map(\.name) }
 
@@ -41,7 +42,7 @@ struct AddMultipleExpensesView: View {
                 }
             }
             .background(Color.bgPrimary)
-            .navigationTitle(step == .input ? "Add from notes" : "Review expenses")
+            .navigationTitle(step == .input ? "Import from notes" : "Review & import")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if step == .review {
@@ -55,10 +56,15 @@ struct AddMultipleExpensesView: View {
                         }
                         .accessibilityLabel("Back")
                     }
-                }
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(Color.textSecondary)
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Cancel") { dismiss() }
+                            .foregroundStyle(Color(hex: "8F9E94"))
+                    }
+                } else {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }
+                            .foregroundStyle(Color.textSecondary)
+                    }
                 }
             }
         }
@@ -88,7 +94,9 @@ struct AddMultipleExpensesView: View {
             pasteTextSheet
         }
         .sheet(isPresented: $showingMonthlyLimitSheet) {
-            MonthlyLimitSheet()
+            MonthlyLimitSheet(onProUnlocked: {
+                performImport()
+            })
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
@@ -127,7 +135,7 @@ struct AddMultipleExpensesView: View {
                 inputCard(
                     icon: "doc.text",
                     title: "Paste text",
-                    subtitle: "Paste or type your expenses"
+                    subtitle: "Paste from Notes, Messages, anywhere"
                 ) {
                     showingPasteEditor = true
                 }
@@ -188,14 +196,24 @@ struct AddMultipleExpensesView: View {
     private var pasteTextSheet: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                TextEditor(text: $pastedText)
-                    .font(Fonts.body(16))
-                    .foregroundStyle(Color.textPrimary)
-                    .scrollContentBackground(.hidden)
-                    .padding(Spacing.md)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.surface)
-                    .focused($isPasteFieldFocused)
+                ZStack(alignment: .topLeading) {
+                    if pastedText.isEmpty {
+                        Text("Paste or type your expenses here — we'll sort and tag them for you.")
+                            .font(Fonts.body(16))
+                            .foregroundStyle(Color.textMuted)
+                            .padding(.top, Spacing.md + 2)
+                            .padding(.leading, Spacing.md + 4)
+                            .allowsHitTesting(false)
+                    }
+                    TextEditor(text: $pastedText)
+                        .font(Fonts.body(16))
+                        .foregroundStyle(Color.textPrimary)
+                        .scrollContentBackground(.hidden)
+                        .padding(Spacing.md)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color.surface)
+                        .focused($isPasteFieldFocused)
+                }
 
                 PrimaryButton(title: "Continue") {
                     proceedWithText(pastedText)
@@ -205,12 +223,17 @@ struct AddMultipleExpensesView: View {
                 .padding(.bottom, Spacing.lg)
             }
             .background(Color.bgPrimary)
-            .navigationTitle("Paste text")
+            .navigationTitle("Paste expenses")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { showingPasteEditor = false }
                         .foregroundStyle(Color.textSecondary)
+                }
+            }
+            .onAppear {
+                DispatchQueue.main.async {
+                    isPasteFieldFocused = true
                 }
             }
         }
@@ -265,64 +288,119 @@ struct AddMultipleExpensesView: View {
     // MARK: - Review Step
 
     private var reviewStep: some View {
-        VStack(spacing: 0) {
-            List {
-                ForEach(groupedExpenseSections, id: \.tagKey) { section in
-                    Section {
-                        ForEach(section.expenses) { exp in
-                            reviewExpenseRow(exp, onTagTap: {
-                                showingTagLinkPickerFor = TagLinkPickerTag("expense:\(exp.id)")
-                            })
-                            .listRowBackground(Color.surface)
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    removeExpenseFromPending(exp)
-                                } label: {
-                                    Label("Remove", systemImage: "trash")
-                                }
+        let importCount = parsedExpenses.filter { $0.amountCents > 0 }.count
+        let importEnabled = importCount > 0
+
+        return ZStack(alignment: .bottom) {
+            ScrollView {
+                VStack(spacing: 20) {
+                    ForEach(groupedExpenseSections, id: \.tagKey) { section in
+                        reviewTagGroupSection(section)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 110)
+            }
+            .animation(.easeInOut(duration: 0.25), value: parsedExpenses.map { "\($0.id):\($0.suggestedTagName ?? "")" }.joined())
+
+            VStack(spacing: 0) {
+                ZStack(alignment: .bottom) {
+                    LinearGradient(
+                        colors: [Color.clear, Color(hex: "F6F5F3")],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 80)
+                    .allowsHitTesting(false)
+
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        performImport()
+                    } label: {
+                        Text("Import \(parsedExpenses.count) expenses")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.vertical, 18)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(BulkImportStickyCTAStyle(isEnabled: importEnabled))
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 10)
+                    .disabled(!importEnabled)
+                }
+                .background(Color(hex: "F6F5F3"))
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        }
+    }
+
+    private func headerDotColor(for section: (tagKey: String, tagDisplayName: String, isNew: Bool, linkedTagId: String?, expenses: [ParsedExpense])) -> Color {
+        if let lid = section.linkedTagId, let t = tags.first(where: { $0.id == lid }) {
+            return t.tagColor.primaryColor
+        }
+        if section.tagKey != "__untagged__",
+           let matched = BulkExpenseParser.findMatchingTag(suggested: section.tagKey, existingTags: existingTagNames),
+           let t = tags.first(where: { $0.name == matched }) {
+            return t.tagColor.primaryColor
+        }
+        return Color(hex: "8F9E94")
+    }
+
+    @ViewBuilder
+    private func reviewTagGroupSection(_ section: (tagKey: String, tagDisplayName: String, isNew: Bool, linkedTagId: String?, expenses: [ParsedExpense])) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 8) {
+                Circle()
+                    .fill(headerDotColor(for: section))
+                    .frame(width: 8, height: 8)
+
+                Text(section.tagDisplayName)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+
+                if section.isNew {
+                    Text("New")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(hex: "F5A623"))
+                        .clipShape(Capsule())
+                }
+
+                Spacer(minLength: 8)
+
+                if section.tagKey != "__untagged__" {
+                    Button("Link to existing tag") {
+                        showingTagLinkPickerFor = TagLinkPickerTag("group:\(section.tagKey)")
+                    }
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color(hex: "346049"))
+                }
+            }
+
+            VStack(spacing: 0) {
+                ForEach(Array(section.expenses.enumerated()), id: \.element.id) { idx, exp in
+                    reviewExpenseRow(exp)
+                        .contextMenu {
+                            Button("Remove", role: .destructive) {
+                                removeExpenseFromPending(exp)
                             }
                         }
-                    } header: {
-                        HStack(spacing: Spacing.sm) {
-                            Text(section.tagDisplayName)
-                                .font(Fonts.headline(15))
-                                .foregroundStyle(Color.textPrimary)
-
-                            if section.isNew {
-                                Text("New")
-                                    .font(Fonts.caption(11))
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(Color(hex: "D4872A"))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color(hex: "D4872A").opacity(0.2))
-                                    .clipShape(Capsule())
-                            }
-
-                            Spacer()
-
-                            if section.tagKey != "__untagged__" {
-                                Button("Link to existing tag") {
-                                    showingTagLinkPickerFor = TagLinkPickerTag("group:\(section.tagKey)")
-                                }
-                                .font(Fonts.label(13))
-                                .foregroundStyle(Color.brandPrimary)
-                            }
-                        }
-                        .padding(.vertical, Spacing.sm)
+                    if idx < section.expenses.count - 1 {
+                        Rectangle()
+                            .fill(Color(hex: "DEDAD2"))
+                            .frame(height: 1)
                     }
                 }
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
-            .animation(.easeInOut(duration: 0.25), value: parsedExpenses.map { "\($0.id):\($0.suggestedTagName ?? "")" }.joined())
-            .background(Color.bgPrimary)
-
-            PrimaryButton(title: "Import \(parsedExpenses.count) expenses") {
-                performImport()
-            }
-            .padding(.horizontal, Spacing.lg)
-            .padding(.bottom, Spacing.xl)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+            )
         }
     }
 
@@ -370,13 +448,14 @@ struct AddMultipleExpensesView: View {
         }
     }
 
-    private func reviewExpenseRow(_ exp: ParsedExpense, onTagTap: @escaping () -> Void) -> some View {
-        HStack(spacing: Spacing.sm) {
+    private func reviewExpenseRow(_ exp: ParsedExpense) -> some View {
+        HStack(alignment: .center, spacing: 12) {
             Text(exp.description)
-                .font(Fonts.body(16))
-                .foregroundStyle(Color.textPrimary)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Color(hex: "1C1C1E"))
+                .multilineTextAlignment(.leading)
 
-            Spacer()
+            Spacer(minLength: 8)
 
             TextField("Amount", value: Binding(
                 get: { Double(exp.amountCents) / 100 },
@@ -387,26 +466,23 @@ struct AddMultipleExpensesView: View {
                 }
             ), format: .currency(code: appState.defaultCurrency))
             .keyboardType(.decimalPad)
-            .font(Fonts.mono(16))
-            .foregroundStyle(Color.textPrimary)
+            .font(.system(size: 15, weight: .medium, design: .monospaced))
+            .foregroundStyle(Color(hex: "1C1C1E"))
             .multilineTextAlignment(.trailing)
-            .frame(width: 100)
+            .frame(minWidth: 72, maxWidth: 120)
+            .focused($focusedAmountExpenseId, equals: exp.id)
 
-            Button(action: onTagTap) {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color.textMuted)
-                    .frame(width: 28, height: 28)
-                    .background(Color.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(Color.borderColor, lineWidth: 1)
-                    )
+            Button {
+                focusedAmountExpenseId = exp.id
+            } label: {
+                Image(systemName: "square.and.pencil")
+                    .font(.system(size: 15))
+                    .foregroundStyle(Color(hex: "8F9E94"))
             }
             .buttonStyle(.plain)
         }
-        .padding(.vertical, Spacing.sm)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
     }
 
     private func expenseCountInMonth(of d: Date) -> Int {
@@ -474,6 +550,28 @@ struct AddMultipleExpensesView: View {
         }
 
         dismiss()
+    }
+}
+
+// MARK: - Import sticky CTA (matches AddExpense save button)
+
+private struct BulkImportStickyCTAStyle: ButtonStyle {
+    var isEnabled: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(background(isPressed: configuration.isPressed))
+            )
+            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
+    }
+
+    private func background(isPressed: Bool) -> Color {
+        if !isEnabled {
+            return Color(hex: "346049").opacity(0.4)
+        }
+        return isPressed ? Color(hex: "2D5A3F") : Color(hex: "346049")
     }
 }
 

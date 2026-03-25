@@ -352,7 +352,11 @@ struct ExportLimitSheet: View {
 
 struct MonthlyLimitSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppState.self) private var appState
     @State private var showingSubscription = false
+
+    /// Called after the user becomes Pro (e.g. successful purchase) so the host can dismiss the limit sheet and retry save/import.
+    var onProUnlocked: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: Spacing.lg) {
@@ -397,6 +401,14 @@ struct MonthlyLimitSheet: View {
         .background(Color.bgPrimary)
         .sheet(isPresented: $showingSubscription) {
             SubscriptionView()
+        }
+        .onChange(of: appState.subscriptionStatus) { _, status in
+            guard status == .pro else { return }
+            showingSubscription = false
+            dismiss()
+            DispatchQueue.main.async {
+                onProUnlocked?()
+            }
         }
     }
 }

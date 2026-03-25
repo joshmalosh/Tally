@@ -139,13 +139,15 @@ struct HomeView: View {
                 if !isHeaderCollapsed {
                     appBar
                         .transition(.move(edge: .top).combined(with: .opacity))
-
-                    searchBar
-                        .transition(.move(edge: .top).combined(with: .opacity))
                 }
 
                 headerSection
                     .allowsHitTesting(!isSelecting)
+
+                if !isHeaderCollapsed {
+                    searchBar
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
 
                 tagRow
                     .padding(.top, Spacing.smd)
