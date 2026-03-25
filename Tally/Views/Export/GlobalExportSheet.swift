@@ -732,55 +732,102 @@ struct TagExportPickerSheet: View {
                     }
                 } else {
                 ScrollView {
-                    VStack(spacing: Spacing.md) {
+                    VStack(spacing: Spacing.lg) {
                         if !standaloneTags.isEmpty {
-                            VStack(alignment: .leading, spacing: Spacing.sm) {
+                            VStack(alignment: .leading, spacing: Spacing.xs) {
                                 Text("Tags")
                                     .font(Fonts.caption(12))
                                     .foregroundStyle(Color.textSecondary)
                                     .padding(.leading, Spacing.xs)
 
-                                FlowLayout(spacing: Spacing.sm) {
+                                VStack(spacing: 0) {
                                     ForEach(standaloneTags) { tag in
-                                        selectableChip(
-                                            name: tag.name,
-                                            color: tag.tagColor,
-                                            isSelected: selectedIds.contains(tag.id)
-                                        ) {
+                                        let isSelected = selectedIds.contains(tag.id)
+                                        Button {
                                             toggleSelection(tag.id)
+                                        } label: {
+                                            HStack(spacing: Spacing.smd) {
+                                                Circle()
+                                                    .fill(tag.tagColor.primaryColor)
+                                                    .frame(width: 12, height: 12)
+                                                Text(tag.name)
+                                                    .font(Fonts.body(15))
+                                                    .foregroundStyle(Color.textPrimary)
+                                                Spacer()
+                                                if isSelected {
+                                                    Image(systemName: "checkmark")
+                                                        .font(.system(size: 13, weight: .semibold))
+                                                        .foregroundStyle(Color.brandPrimary)
+                                                }
+                                            }
+                                            .padding(.horizontal, Spacing.md)
+                                            .frame(height: 48)
+                                            .background(isSelected ? Color.brandTint : Color.surface)
+                                        }
+                                        .buttonStyle(.plain)
+
+                                        if tag.id != standaloneTags.last?.id {
+                                            Divider().padding(.leading, Spacing.md)
                                         }
                                     }
                                 }
+                                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: Radius.md)
+                                        .stroke(Color.borderColor, lineWidth: 1)
+                                )
                             }
                         }
 
                         if !groupTags.isEmpty {
-                            VStack(alignment: .leading, spacing: Spacing.sm) {
+                            VStack(alignment: .leading, spacing: Spacing.xs) {
                                 Text("Groups")
                                     .font(Fonts.caption(12))
                                     .foregroundStyle(Color.textSecondary)
                                     .padding(.leading, Spacing.xs)
 
-                                FlowLayout(spacing: Spacing.sm) {
+                                VStack(spacing: 0) {
                                     ForEach(groupTags) { group in
-                                        selectableChip(
-                                            name: group.name,
-                                            color: group.tagColor,
-                                            isSelected: selectedIds.contains(group.id),
-                                            isGroup: true
-                                        ) {
+                                        let isSelected = selectedIds.contains(group.id)
+                                        Button {
                                             toggleSelection(group.id)
+                                        } label: {
+                                            HStack(spacing: Spacing.smd) {
+                                                Image(systemName: "folder.fill")
+                                                    .font(.system(size: 13))
+                                                    .foregroundStyle(group.tagColor.primaryColor)
+                                                Text(group.name)
+                                                    .font(Fonts.body(15))
+                                                    .foregroundStyle(Color.textPrimary)
+                                                Spacer()
+                                                if isSelected {
+                                                    Image(systemName: "checkmark")
+                                                        .font(.system(size: 13, weight: .semibold))
+                                                        .foregroundStyle(Color.brandPrimary)
+                                                }
+                                            }
+                                            .padding(.horizontal, Spacing.md)
+                                            .frame(height: 48)
+                                            .background(isSelected ? Color.brandTint : Color.surface)
+                                        }
+                                        .buttonStyle(.plain)
+
+                                        if group.id != groupTags.last?.id {
+                                            Divider().padding(.leading, Spacing.md)
                                         }
                                     }
                                 }
+                                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: Radius.md)
+                                        .stroke(Color.borderColor, lineWidth: 1)
+                                )
                             }
                         }
 
                         if !selectedIds.isEmpty {
                             VStack(spacing: Spacing.sm) {
-                                Divider()
-                                    .foregroundStyle(Color.borderColor)
-
+                                Divider().foregroundStyle(Color.borderColor)
                                 HStack {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text("\(matchingExpenses.count) expense\(matchingExpenses.count == 1 ? "" : "s")")
@@ -790,9 +837,7 @@ struct TagExportPickerSheet: View {
                                             .font(Fonts.caption(13))
                                             .foregroundStyle(Color.textSecondary)
                                     }
-
                                     Spacer()
-
                                     Text(periodLabel)
                                         .font(Fonts.caption(12))
                                         .foregroundStyle(Color.textMuted)
@@ -852,43 +897,6 @@ struct TagExportPickerSheet: View {
         } else {
             selectedIds.insert(id)
         }
-    }
-
-    private func selectableChip(
-        name: String,
-        color: TagColor,
-        isSelected: Bool,
-        isGroup: Bool = false,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                if isGroup {
-                    Image(systemName: "folder.fill")
-                        .font(.system(size: 10))
-                        .foregroundStyle(isSelected ? .white : color.primaryColor)
-                } else {
-                    Circle()
-                        .fill(isSelected ? .white : color.primaryColor)
-                        .frame(width: 8, height: 8)
-                }
-
-                Text(name)
-                    .font(Fonts.label(14))
-                    .foregroundStyle(isSelected ? .white : Color.textPrimary)
-
-                if isSelected {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(.white)
-                }
-            }
-            .padding(.horizontal, Spacing.smd)
-            .padding(.vertical, 7)
-            .background(isSelected ? color.primaryColor : Color.chipInactiveBg)
-            .clipShape(Capsule())
-        }
-        .buttonStyle(.plain)
     }
 
     private func exportFiltered() {

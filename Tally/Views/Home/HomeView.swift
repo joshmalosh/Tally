@@ -14,9 +14,8 @@ struct HomeView: View {
     @State private var selectedEntryMode: AddEntryMode?
     @State private var thumbnailCache: [String: UIImage] = [:]
     @State private var periodFilter: PeriodFilter = .allTime
-    @State private var showingTagCreation = false
-    @State private var showingGroupCreation = false
-    @State private var showingNewTagOrGroupDialog = false
+    @State private var showingSharedTagPicker = false
+    @State private var isHeaderCollapsed = false
     @State private var showingGlobalExport = false
     @State private var showingFilteredExport = false
     @State private var isSelecting = false
@@ -138,12 +137,19 @@ struct HomeView: View {
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
                 VStack(spacing: 0) {
-                    appBar
+                    if !isHeaderCollapsed {
+                        appBar
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
 
                     headerSection
                         .allowsHitTesting(!isSelecting)
 
-                    searchBar
+                    if !isHeaderCollapsed {
+                        searchBar
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
                     tagRow
                         .padding(.top, 4)
 
@@ -210,26 +216,10 @@ struct HomeView: View {
                 filterLabel: activeFilterLabel
             )
         }
-        .sheet(isPresented: $showingTagCreation) {
-            TagCreationView()
-        }
-        .sheet(isPresented: $showingGroupCreation) {
-            TagCreationView(isGroupMode: true)
-        }
-        .confirmationDialog("New tag or group", isPresented: $showingNewTagOrGroupDialog, titleVisibility: .visible) {
-            Button("New Tag") {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                    showingTagCreation = true
-                }
-            }
-            Button("New Group") {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                    showingGroupCreation = true
-                }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Choose what to create.")
+        .sheet(isPresented: $showingSharedTagPicker) {
+            SharedTagPickerSheet(homeVisibilityMode: ())
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
         .sheet(item: $exportWithSelectionItem) { item in
             GlobalExportSheet(initialSelection: item.expenses)
@@ -503,7 +493,7 @@ struct HomeView: View {
                         }
                     }
 
-                    Button { showingNewTagOrGroupDialog = true } label: {
+                    Button { showingSharedTagPicker = true } label: {
                         AddTagPill()
                     }
                     .buttonStyle(.plain)
@@ -592,10 +582,10 @@ struct HomeView: View {
 
     /// Keeps empty-state copy above the enlarged FAB and home banner ad.
     private var emptyStateBottomSafeInset: CGFloat {
-        let fabDiameter: CGFloat = 88
+        let fabDiameter: CGFloat = 75
         let fabBottomPadding = showsBannerAd ? (Spacing.xl + 16) : (Spacing.xl + 10)
         let bannerHeight: CGFloat = showsBannerAd ? 50 : 0
-        return fabDiameter + fabBottomPadding + bannerHeight + Spacing.md
+        return fabDiameter + fabBottomPadding + bannerHeight + 80
     }
 
     private var emptyState: some View {
@@ -631,6 +621,19 @@ struct HomeView: View {
 
     private var expenseList: some View {
         List {
+            Color.clear
+                .frame(height: 1)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear.preference(
+                            key: HomeListScrollAnchorKey.self,
+                            value: proxy.frame(in: .named("homeScroll")).minY
+                        )
+                    }
+                )
+
             ForEach(filteredExpenses, id: \.id) { expense in
                 let tag = primaryTag(for: expense)
                 let isSelected = selectedExpenseIds.contains(expense.id)
@@ -695,6 +698,22 @@ struct HomeView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .scrollDismissesKeyboard(.interactively)
+        .coordinateSpace(name: "homeScroll")
+        .onPreferenceChange(HomeListScrollAnchorKey.self) { minY in
+            if minY < -16 {
+                if !isHeaderCollapsed {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isHeaderCollapsed = true
+                    }
+                }
+            } else if minY > 2 {
+                if isHeaderCollapsed {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isHeaderCollapsed = false
+                    }
+                }
+            }
+        }
         .contentMargins(.top, 0, for: .scrollContent)
     }
 
@@ -949,6 +968,15 @@ struct HomeView: View {
 private struct ExportWithSelectionItem: Identifiable {
     let id = UUID()
     let expenses: [ExpenseModel]
+}
+
+// MARK: - List scroll (header collapse)
+
+private struct HomeListScrollAnchorKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
 }
 
 // MARK: - Period Filter

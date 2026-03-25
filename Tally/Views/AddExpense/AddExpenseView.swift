@@ -69,9 +69,25 @@ struct AddExpenseView: View {
         return Int(round(amount))
     }
 
+    private var usesDecimalCurrency: Bool {
+        CurrencyFormatter.shared.usesDecimals(for: currency)
+    }
+
+    private var zeroAmountPlaceholder: String {
+        usesDecimalCurrency ? "0.00" : "0"
+    }
+
+    private var isAmountDisplayEmpty: Bool {
+        amountText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     private func formatAmount() {
-        guard let value = Double(amountText), value > 0 else { return }
-        if CurrencyFormatter.shared.usesDecimals(for: currency) {
+        let trimmed = amountText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = Double(trimmed), value > 0 else {
+            amountText = ""
+            return
+        }
+        if usesDecimalCurrency {
             amountText = String(format: "%.2f", value)
         } else {
             amountText = String(format: "%.0f", value)
@@ -94,19 +110,17 @@ struct AddExpenseView: View {
         !appState.isPro && !isKeyboardVisible
     }
 
-    /// Scroll content inset so fields stay above the fixed bottom save bar (+ banner when visible).
+    /// Save ~56pt + vertical padding, optional ad ~52pt, safe bottom ~34, margin 16.
     private var formBottomChromeClearance: CGFloat {
-        let saveStack: CGFloat = 108
+        let saveChrome: CGFloat = 56 + 36
         let banner: CGFloat = shouldShowBanner ? 52 : 0
-        return saveStack + banner + Spacing.sm
+        let safeBottom: CGFloat = 34
+        let margin: CGFloat = 16
+        return saveChrome + banner + safeBottom + margin
     }
 
     private var selectedTags: [TagModel] {
         selectedTagIds.compactMap { id in tags.first { $0.id == id } }
-    }
-
-    private var assignableTags: [TagModel] {
-        tags.filter { !$0.isGroup }.sorted { $0.sortOrder < $1.sortOrder }
     }
 
     private var knownMerchants: [String] {
@@ -130,11 +144,6 @@ struct AddExpenseView: View {
         receiptImageAttached && ocrPopulatedAnyField && !isRunningOCR
     }
 
-    private var receiptDisplayFileName: String {
-        if let url = attachedFileURL { return url.lastPathComponent }
-        return "receipt_photo.jpg"
-    }
-
     private static let datePillFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateStyle = .medium
@@ -146,114 +155,13 @@ struct AddExpenseView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottom) {
-                Color.bgPrimary.ignoresSafeArea()
+            addExpenseNavigationRoot
+        }
+    }
 
-                Group {
-                    if formReady {
-                        ScrollView {
-                            formScrollStack
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .scrollDismissesKeyboard(.interactively)
-                    }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                if formReady {
-                    stickySaveChrome
-                        .ignoresSafeArea(.keyboard, edges: .bottom)
-                }
-            }
-            .navigationTitle(isEditing ? "Edit expense" : "Add expense")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(Color(hex: "8F9E94"))
-                }
-            }
-            .confirmationDialog("Add receipt", isPresented: $showingAddReceiptSources, titleVisibility: .visible) {
-                Button("Camera") { showingCamera = true }
-                Button("Photos") { showingPhotoPicker = true }
-                Button("File") { showingDocumentPicker = true }
-                Button("Cancel", role: .cancel) {}
-            }
-            .confirmationDialog("Replace receipt", isPresented: $showingReplaceReceiptSources, titleVisibility: .visible) {
-                Button("Camera") { showingCamera = true }
-                Button("Photos") { showingPhotoPicker = true }
-                Button("File") { showingDocumentPicker = true }
-                Button("Cancel", role: .cancel) {}
-            }
-            .alert("Error", isPresented: $showingError) {
-                Button("OK") {}
-            } message: {
-                Text(errorMessage)
-            }
-            .sheet(isPresented: $showingDatePickerSheet) {
-                NavigationStack {
-                    DatePicker(
-                        "Date of transaction",
-                        selection: $date,
-                        displayedComponents: .date
-                    )
-                    .datePickerStyle(.graphical)
-                    .padding()
-                    .navigationTitle("Date")
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Done") { showingDatePickerSheet = false }
-                                .foregroundStyle(Color(hex: "346049"))
-                        }
-                    }
-                }
-                .presentationDetents([.medium, .large])
-            }
-            .fullScreenCover(isPresented: $showingCamera) {
-                CameraPicker(image: $attachedImage)
-                    .ignoresSafeArea()
-            }
-            .sheet(isPresented: $showingPhotoPicker) {
-                PhotosPicker(image: $attachedImage, onCancel: {
-                    if enteredViaPhotoFlow && attachedImage == nil {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                            dismiss()
-                        }
-                    }
-                })
-            }
-            .sheet(isPresented: $showingDocumentPicker) {
-                DocumentPicker(selectedFileURL: $attachedFileURL, selectedImage: $attachedImage)
-            }
-            .sheet(isPresented: $showingTagPicker) {
-                TagPickerSheet(selectedTagIds: $selectedTagIds)
-                    .presentationDetents([.large])
-                    .presentationDragIndicator(.visible)
-            }
-            .sheet(isPresented: $showingCurrencyPicker) {
-                CurrencyPickerSheet(selectedCode: $currency)
-                    .presentationDetents([.medium, .large])
-                    .presentationDragIndicator(.visible)
-            }
-            .fullScreenCover(isPresented: $showingFullImage) {
-                if let image = attachedImage {
-                    FullImageView(image: image)
-                }
-            }
-            .sheet(isPresented: $showingMonthlyLimitSheet) {
-                MonthlyLimitSheet()
-                    .presentationDetents([.medium])
-                    .presentationDragIndicator(.visible)
-            }
-            .sheet(isPresented: $showingProBenefitsCard, onDismiss: { dismiss() }) {
-                ProBenefitsCard()
-                    .presentationDetents([.height(320)])
-                    .presentationDragIndicator(.visible)
-            }
-            .sheet(isPresented: $showingGoProFromOcrBanner) {
-                SubscriptionView()
-            }
+    /// Split from `body` so the type checker can infer `NavigationStack` without timing out.
+    private var addExpenseNavigationRoot: some View {
+        addExpenseFormWithSheets
             .onChange(of: attachedImage) { _, newValue in
                 if newValue == nil {
                     ocrPopulatedAnyField = false
@@ -316,6 +224,127 @@ struct AddExpenseView: View {
                 isKeyboardVisible = false
             }
             .keyboardDoneToolbar()
+    }
+
+    private var addExpenseFormWithSheets: some View {
+        addExpenseFormChrome
+            .sheet(isPresented: $showingDatePickerSheet) {
+                NavigationStack {
+                    DatePicker(
+                        "Date of transaction",
+                        selection: $date,
+                        displayedComponents: .date
+                    )
+                    .datePickerStyle(.graphical)
+                    .padding()
+                    .navigationTitle("Date")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showingDatePickerSheet = false }
+                                .foregroundStyle(Color(hex: "346049"))
+                        }
+                    }
+                }
+                .presentationDetents([.medium, .large])
+            }
+            .fullScreenCover(isPresented: $showingCamera) {
+                CameraPicker(image: $attachedImage)
+                    .ignoresSafeArea()
+            }
+            .sheet(isPresented: $showingPhotoPicker) {
+                PhotosPicker(image: $attachedImage, onCancel: {
+                    if enteredViaPhotoFlow && attachedImage == nil {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            dismiss()
+                        }
+                    }
+                })
+            }
+            .sheet(isPresented: $showingDocumentPicker) {
+                DocumentPicker(selectedFileURL: $attachedFileURL, selectedImage: $attachedImage)
+            }
+            .sheet(isPresented: $showingTagPicker) {
+                SharedTagPickerSheet(selectedTagIds: $selectedTagIds)
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showingCurrencyPicker) {
+                CurrencyPickerSheet(selectedCode: $currency)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
+            .fullScreenCover(isPresented: $showingFullImage) {
+                if let image = attachedImage {
+                    FullImageView(image: image)
+                }
+            }
+            .sheet(isPresented: $showingMonthlyLimitSheet) {
+                MonthlyLimitSheet(onProUnlocked: {
+                    saveExpense()
+                })
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showingProBenefitsCard, onDismiss: { dismiss() }) {
+                ProBenefitsCard()
+                    .presentationDetents([.height(320)])
+                    .presentationDragIndicator(.visible)
+            }
+            .sheet(isPresented: $showingGoProFromOcrBanner) {
+                SubscriptionView()
+            }
+    }
+
+    private var addExpenseFormChrome: some View {
+        addExpenseFormZStack
+            .navigationTitle(isEditing ? "Edit expense" : "Add expense")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(Color(hex: "8F9E94"))
+                }
+            }
+            .confirmationDialog("Add receipt", isPresented: $showingAddReceiptSources, titleVisibility: .visible) {
+                Button("Camera") { showingCamera = true }
+                Button("Photos") { showingPhotoPicker = true }
+                Button("File") { showingDocumentPicker = true }
+                Button("Cancel", role: .cancel) {}
+            }
+            .confirmationDialog("Replace receipt", isPresented: $showingReplaceReceiptSources, titleVisibility: .visible) {
+                Button("Camera") { showingCamera = true }
+                Button("Photos") { showingPhotoPicker = true }
+                Button("File") { showingDocumentPicker = true }
+                Button("Cancel", role: .cancel) {}
+            }
+            .alert("Error", isPresented: $showingError) {
+                Button("OK") {}
+            } message: {
+                Text(errorMessage)
+            }
+    }
+
+    private var addExpenseFormZStack: some View {
+        ZStack {
+            Color.bgPrimary.ignoresSafeArea()
+
+            Group {
+                if formReady {
+                    ScrollView {
+                        formScrollStack
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .scrollDismissesKeyboard(.interactively)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            if formReady {
+                stickySaveChrome
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .ignoresSafeArea(.keyboard, edges: .bottom)
+            }
         }
     }
 
@@ -324,39 +353,15 @@ struct AddExpenseView: View {
     private var formScrollStack: some View {
         VStack(spacing: 8) {
             if receiptImageAttached {
-                receiptImageHero
-                    .transition(.move(edge: .top).combined(with: .opacity))
-
-                if shouldShowOcrFilledBanner {
-                    ocrFilledBanner
-                }
-
-                if !appState.isPro {
-                    proUpsellCompactBanner
-                }
-
-                receiptStateAmountMerchantDateCluster
+                receiptImageAttachedFormBlock
             } else {
-                amountHeroBlock
-                    .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
-
-                merchantDateCardCluster
-
-                if attachedFileURL != nil {
-                    pdfAttachmentCard
-                }
-
-                tagsRow
-
-                addReceiptCard
-
-                notesRow
+                manualEntryFormBlock
             }
 
             if receiptImageAttached {
-                tagsRow
+                tagsRowView
 
-                notesRow
+                notesRowView
             }
         }
         .padding(.top, 12)
@@ -364,9 +369,43 @@ struct AddExpenseView: View {
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: receiptImageAttached)
     }
 
+    @ViewBuilder
+    private var receiptImageAttachedFormBlock: some View {
+        receiptHeroView
+            .transition(.move(edge: .top).combined(with: .opacity))
+
+        if shouldShowOcrFilledBanner {
+            ocrFilledBanner
+        }
+
+        if !appState.isPro {
+            proUpsellCompactBanner
+        }
+
+        receiptStateAmountMerchantDateCluster
+    }
+
+    @ViewBuilder
+    private var manualEntryFormBlock: some View {
+        amountHeroView
+            .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+
+        merchantDateView
+
+        if attachedFileURL != nil {
+            pdfAttachmentCard
+        }
+
+        tagsRowView
+
+        addReceiptView
+
+        notesRowView
+    }
+
     // MARK: - State 1: Amount hero
 
-    private var amountHeroBlock: some View {
+    private var amountHeroView: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("AMOUNT")
                 .font(.system(size: 11, weight: .semibold, design: .default))
@@ -385,8 +424,8 @@ struct AddExpenseView: View {
                 .buttonStyle(.plain)
 
                 ZStack(alignment: .leading) {
-                    if amountText.isEmpty {
-                        Text(CurrencyFormatter.shared.usesDecimals(for: currency) ? "0.00" : "0")
+                    if isAmountDisplayEmpty {
+                        Text(zeroAmountPlaceholder)
                             .font(.system(size: 52, weight: .regular, design: .monospaced))
                             .foregroundStyle(Color(hex: "8F9E94"))
                             .tracking(-2)
@@ -396,7 +435,7 @@ struct AddExpenseView: View {
                         .font(.system(size: 52, weight: .regular, design: .monospaced))
                         .foregroundStyle(Color(hex: "1C1C1E"))
                         .tracking(-2)
-                        .keyboardType(CurrencyFormatter.shared.usesDecimals(for: currency) ? .decimalPad : .numberPad)
+                        .keyboardType(usesDecimalCurrency ? .decimalPad : .numberPad)
                         .textFieldStyle(.plain)
                         .focused($focusedField, equals: .amount)
                         .onChange(of: amountText) { _, newValue in
@@ -432,6 +471,10 @@ struct AddExpenseView: View {
         .padding(.vertical, 20)
         .background(Color(hex: "346049").opacity(0.06))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
         .padding(.horizontal, 16)
         .contentShape(Rectangle())
         .onTapGesture {
@@ -446,7 +489,7 @@ struct AddExpenseView: View {
 
     // MARK: - State 1: Merchant + date cluster
 
-    private var merchantDateCardCluster: some View {
+    private var merchantDateView: some View {
         VStack(spacing: 2) {
             merchantRowShape(radiusTop: 14, radiusBottom: 6)
             dateRowShape(radiusTop: 6, radiusBottom: 14)
@@ -496,6 +539,10 @@ struct AddExpenseView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
         .clipShape(unevenRect(topLeading: radiusTop, topTrailing: radiusTop, bottomLeading: radiusBottom, bottomTrailing: radiusBottom))
+        .overlay(
+            unevenRect(topLeading: radiusTop, topTrailing: radiusTop, bottomLeading: radiusBottom, bottomTrailing: radiusBottom)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
     }
 
     private func dateRowShape(radiusTop: CGFloat, radiusBottom: CGFloat) -> some View {
@@ -535,6 +582,10 @@ struct AddExpenseView: View {
         }
         .buttonStyle(.plain)
         .clipShape(unevenRect(topLeading: radiusTop, topTrailing: radiusTop, bottomLeading: radiusBottom, bottomTrailing: radiusBottom))
+        .overlay(
+            unevenRect(topLeading: radiusTop, topTrailing: radiusTop, bottomLeading: radiusBottom, bottomTrailing: radiusBottom)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
     }
 
     private static func shortDateString(_ d: Date) -> String {
@@ -545,76 +596,86 @@ struct AddExpenseView: View {
 
     // MARK: - Tags row
 
-    private var tagsRow: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("TAGS")
-                .font(.system(size: 11, weight: .regular))
-                .foregroundStyle(Color(hex: "8F9E94"))
-                .textCase(.uppercase)
-                .padding(.leading, 18)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(assignableTags) { tag in
-                        let selected = selectedTagIds.contains(tag.id)
-                        Button {
-                            if let i = selectedTagIds.firstIndex(of: tag.id) {
-                                selectedTagIds.remove(at: i)
-                            } else {
-                                selectedTagIds.append(tag.id)
-                            }
-                        } label: {
+    private var tagsRowView: some View {
+        Group {
+            if selectedTagIds.isEmpty {
+                Button {
+                    showingTagPicker = true
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "tag.fill")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color(hex: "8F9E94"))
+                        Text("Add tag")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color(hex: "C4BFB9"))
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color(hex: "C4BFB9"))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(selectedTags) { tag in
                             HStack(spacing: 6) {
                                 Circle()
                                     .fill(tag.tagColor.primaryColor)
                                     .frame(width: 8, height: 8)
                                 Text(tag.name)
                                     .font(.system(size: 14, weight: .medium))
-                                    .foregroundStyle(selected ? Color(hex: "346049") : Color(hex: "1C1C1E"))
+                                    .foregroundStyle(Color(hex: "346049"))
                             }
                             .padding(.vertical, 8)
                             .padding(.horizontal, 14)
-                            .background(selected ? Color(hex: "E8F0EA") : Color(hex: "F6F5F3"))
+                            .background(Color(hex: "E8F0EA"))
                             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                    .stroke(selected ? Color(hex: "346049") : Color.clear, lineWidth: 1.5)
+                                    .stroke(Color(hex: "346049"), lineWidth: 1.5)
                             )
+                        }
+
+                        Button {
+                            showingTagPicker = true
+                        } label: {
+                            Text("+ Add tag")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(Color(hex: "8F9E94"))
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 14)
+                                .background(Color.clear)
+                                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                        .stroke(Color(hex: "DEDAD2"), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                                )
                         }
                         .buttonStyle(.plain)
                     }
-
-                    Button {
-                        showingTagPicker = true
-                    } label: {
-                        Text("＋ New tag")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(Color(hex: "8F9E94"))
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 14)
-                            .background(Color.clear)
-                            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                    .stroke(Color(hex: "DEDAD2"), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-                            )
-                    }
-                    .buttonStyle(.plain)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 4)
                 }
-                .padding(.horizontal, 18)
-                .padding(.bottom, 4)
+                .padding(.horizontal, 0)
             }
         }
-        .padding(.vertical, 14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .padding(.horizontal, 16)
     }
 
     // MARK: - Add receipt card (state 1 only in stack)
 
-    private var addReceiptCard: some View {
+    private var addReceiptView: some View {
         Button {
             showingAddReceiptSources = true
         } label: {
@@ -648,6 +709,10 @@ struct AddExpenseView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
         .padding(.horizontal, 16)
@@ -684,6 +749,10 @@ struct AddExpenseView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+                )
                 .padding(.horizontal, 16)
             }
         }
@@ -691,7 +760,7 @@ struct AddExpenseView: View {
 
     // MARK: - Notes
 
-    private var notesRow: some View {
+    private var notesRowView: some View {
         VStack(alignment: .leading, spacing: 0) {
             if notesExpanded {
                 HStack(alignment: .top, spacing: 10) {
@@ -733,12 +802,16 @@ struct AddExpenseView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
         .padding(.horizontal, 16)
     }
 
     // MARK: - State 2: Receipt hero
 
-    private var receiptImageHero: some View {
+    private var receiptHeroView: some View {
         ZStack {
             if let image = attachedImage {
                 Button { showingFullImage = true } label: {
@@ -781,42 +854,33 @@ struct AddExpenseView: View {
             }
         }
         .frame(height: 200)
-        .overlay(alignment: .bottom) {
+        .overlay(alignment: .bottomTrailing) {
             if attachedImage != nil {
-                HStack(alignment: .bottom) {
-                    Text(receiptDisplayFileName)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-
-                    Spacer(minLength: 12)
-
-                    HStack(spacing: 14) {
-                        Button {
-                            showingReplaceReceiptSources = true
-                        } label: {
-                            Text("Replace")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.white.opacity(0.75))
-                                .underline()
-                        }
-                        .buttonStyle(.plain)
-
-                        Button {
-                            attachedImage = nil
-                            attachedFileURL = nil
-                            attachmentKey = nil
-                            source = .manual
-                            enteredViaPhotoFlow = true
-                            ocrPopulatedAnyField = false
-                        } label: {
-                            Text("Remove")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.white.opacity(0.75))
-                                .underline()
-                        }
-                        .buttonStyle(.plain)
+                HStack(spacing: 14) {
+                    Button {
+                        showingReplaceReceiptSources = true
+                    } label: {
+                        Text("Replace")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.75))
+                            .underline()
                     }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        attachedImage = nil
+                        attachedFileURL = nil
+                        attachmentKey = nil
+                        source = .manual
+                        enteredViaPhotoFlow = true
+                        ocrPopulatedAnyField = false
+                    } label: {
+                        Text("Remove")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.75))
+                            .underline()
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 14)
                 .padding(.bottom, 12)
@@ -894,8 +958,8 @@ struct AddExpenseView: View {
                 .buttonStyle(.plain)
 
                 ZStack(alignment: .leading) {
-                    if amountText.isEmpty {
-                        Text(CurrencyFormatter.shared.usesDecimals(for: currency) ? "0.00" : "0")
+                    if isAmountDisplayEmpty {
+                        Text(zeroAmountPlaceholder)
                             .font(.system(size: 36, weight: .regular, design: .monospaced))
                             .foregroundStyle(Color(hex: "8F9E94"))
                             .allowsHitTesting(false)
@@ -903,7 +967,7 @@ struct AddExpenseView: View {
                     TextField("", text: $amountText)
                         .font(.system(size: 36, weight: .regular, design: .monospaced))
                         .foregroundStyle(Color(hex: "1C1C1E"))
-                        .keyboardType(CurrencyFormatter.shared.usesDecimals(for: currency) ? .decimalPad : .numberPad)
+                        .keyboardType(usesDecimalCurrency ? .decimalPad : .numberPad)
                         .textFieldStyle(.plain)
                         .focused($focusedField, equals: .amount)
                         .onChange(of: amountText) { _, newValue in
@@ -924,6 +988,10 @@ struct AddExpenseView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(hex: "346049").opacity(0.06))
         .clipShape(unevenRect(topLeading: 14, topTrailing: 14, bottomLeading: 4, bottomTrailing: 4))
+        .overlay(
+            unevenRect(topLeading: 14, topTrailing: 14, bottomLeading: 4, bottomTrailing: 4)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
         .padding(.horizontal, 16)
         .contentShape(Rectangle())
         .onTapGesture { focusedField = .amount }
@@ -948,6 +1016,10 @@ struct AddExpenseView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color.white)
         .clipShape(unevenRect(topLeading: 4, topTrailing: 4, bottomLeading: 4, bottomTrailing: 4))
+        .overlay(
+            unevenRect(topLeading: 4, topTrailing: 4, bottomLeading: 4, bottomTrailing: 4)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
         .padding(.horizontal, 16)
     }
 
@@ -988,6 +1060,10 @@ struct AddExpenseView: View {
         }
         .buttonStyle(.plain)
         .clipShape(unevenRect(topLeading: 4, topTrailing: 4, bottomLeading: 14, bottomTrailing: 14))
+        .overlay(
+            unevenRect(topLeading: 4, topTrailing: 4, bottomLeading: 14, bottomTrailing: 14)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
         .padding(.horizontal, 16)
     }
 
@@ -995,10 +1071,6 @@ struct AddExpenseView: View {
 
     private var stickySaveChrome: some View {
         VStack(spacing: 0) {
-            if shouldShowBanner {
-                BannerAdView()
-            }
-
             ZStack(alignment: .bottom) {
                 LinearGradient(
                     colors: [Color.clear, Color(hex: "F6F5F3")],
@@ -1012,18 +1084,11 @@ struct AddExpenseView: View {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     saveExpense()
                 } label: {
-                    HStack {
-                        Text("Save expense")
-                            .font(.system(size: 16, weight: .semibold))
-                        Spacer()
-                        Text("→")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.vertical, 18)
-                    .padding(.horizontal, 18)
-                    .frame(maxWidth: .infinity)
+                    Text("Save expense")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.vertical, 18)
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(StickySaveCTAStyle(isEnabled: canSave))
                 .padding(.horizontal, 16)
@@ -1031,6 +1096,10 @@ struct AddExpenseView: View {
                 .disabled(!canSave)
             }
             .background(Color(hex: "F6F5F3"))
+
+            if shouldShowBanner {
+                BannerAdView()
+            }
         }
     }
 

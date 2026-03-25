@@ -286,30 +286,6 @@ enum ReceiptOCRService {
         return last
     }
 
-    // MARK: - Merchant Extraction
-
-    private static let merchantNoiseWords: Set<String> = [
-        "tax invoice", "receipt", "invoice", "order", "duplicate",
-        "gst", "abn", "total", "subtotal", "change", "cash", "card",
-        "visa", "mastercard", "eftpos", "amex", "date", "time", "thank",
-        "welcome", "www.", "http", ".com", "phone", "tel:", "fax", "email",
-        "address", "qty", "price", "ticket", "terminal", "pos ", "take away",
-        "takeout", "dine in", "table", "server", "user:", "auth:", "sale approved",
-        "contactless", "chip", "pin", "entry method", "approved",
-        "***", "---", "===", "item"
-    ]
-
-    private static let merchantSkipPatterns = [
-        "receipt", "duplicate", "invoice", "tax", "gst", "abn", "total", "subtotal",
-        "change", "cash", "card", "visa", "mastercard", "eftpos", "amex",
-        "date", "time", "thank", "welcome", "www.", "http", ".com",
-        "phone", "tel:", "fax", "email", "address", "qty", "price",
-        "ticket", "terminal", "pos ", "take away", "takeout", "dine in",
-        "order", "table", "server", "user:", "auth:", "sale approved",
-        "contactless", "chip", "pin", "entry method", "approved",
-        "***", "---", "===", "item"
-    ]
-
     // MARK: - Date Extraction
 
     /// Matches common receipt date formats: DD/MM/YYYY, DD/MM/YY, DD-MM-YYYY, DD.MM.YYYY,
@@ -439,41 +415,42 @@ enum ReceiptOCRService {
 
     // MARK: - Merchant Extraction
 
-    /// First prominent non-numeric, non-address text block at top of receipt.
-    /// Strips noise: TAX INVOICE, RECEIPT, ORDER, etc.
+    /// First prominent line at the **top** of the receipt: no digits, short phrase, high confidence.
+    /// Strips required noise phrases (TAX INVOICE, RECEIPT, ORDER, ABN, GST, etc.).
+    private static let merchantNoisePhrases: [String] = [
+        "tax invoice", "receipt", "invoice", "order", "abn", "gst", "duplicate",
+        "subtotal", "total", "change", "cash", "card", "visa", "mastercard", "eftpos", "amex",
+        "date", "time", "thank", "welcome", "phone", "tel:", "fax", "email", "address",
+        "qty", "price", "ticket", "terminal", "pos", "take away", "takeout", "dine in",
+        "table", "server", "www.", "http", ".com", "item"
+    ]
+
     private static func extractMerchant(from blocks: [TextBlock]) -> String? {
-        let topBlocks = blocks
-            .sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
-            .prefix(10)
+        let ordered = blocks.sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
 
-        for block in topBlocks {
-            var text = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        for block in ordered {
+            guard block.confidence >= 0.75 else { continue }
 
-            // Strip common noise words (whole-word or phrase)
-            for noise in merchantNoiseWords {
-                let pattern = "\\b" + NSRegularExpression.escapedPattern(for: noise) + "\\b"
-                if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
-                    let range = NSRange(text.startIndex..., in: text)
-                    text = regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
-                }
+            let raw = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard raw.count >= 2 else { continue }
+
+            // Never use a line that contains any numeric character (amounts, ABN, street numbers, item lines).
+            if raw.contains(where: { $0.isNumber }) { continue }
+
+            var text = raw
+            for phrase in merchantNoisePhrases {
+                text = text.replacingOccurrences(of: phrase, with: " ", options: .caseInsensitive)
             }
             text = text
-                .replacingOccurrences(of: "^[*\\-=\\s,#]+|[*\\-=\\s,#]+$", with: "", options: .regularExpression)
+                .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: ".,;:-•·"))
 
-            if text.count < 2 || text.count > 50 { continue }
+            guard text.count >= 2, text.count <= 45 else { continue }
+            if text.contains(where: { $0.isNumber }) { continue }
 
-            let lower = text.lowercased()
-            let isSkippable = merchantSkipPatterns.contains { lower.contains($0) }
-            if isSkippable { continue }
-
-            let digitCount = text.filter(\.isNumber).count
-            if text.count > 0 && Double(digitCount) / Double(text.count) > 0.4 { continue }
-
-            let specialCount = text.filter { !$0.isLetter && !$0.isWhitespace && $0 != "-" && $0 != "'" && $0 != "&" }.count
-            if text.count > 0 && Double(specialCount) / Double(text.count) > 0.3 { continue }
-
-            if block.confidence < 0.7 { continue }
+            let wordCount = text.split(whereSeparator: { $0.isWhitespace }).count
+            guard wordCount <= 6 else { continue }
 
             return text
         }

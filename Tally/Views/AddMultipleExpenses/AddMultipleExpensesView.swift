@@ -27,7 +27,6 @@ struct AddMultipleExpensesView: View {
 
     private var existingTagNames: [String] { tags.map(\.name) }
 
-    /// Suggested tag names from this import that are not yet linked or matched to a saved tag.
     private func unsavedImportTagNames() -> [String] {
         let names = Set(parsedExpenses.compactMap(\.suggestedTagName))
         return names.filter { name in
@@ -52,7 +51,7 @@ struct AddMultipleExpensesView: View {
                 }
             }
             .background(Color.bgPrimary)
-            .navigationTitle(step == .input ? "Add from notes" : "Review expenses")
+            .navigationTitle(step == .input ? "Import from notes" : "Review & import")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if step == .review {
@@ -66,10 +65,15 @@ struct AddMultipleExpensesView: View {
                         }
                         .accessibilityLabel("Back")
                     }
-                }
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(Color.textSecondary)
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Cancel") { dismiss() }
+                            .foregroundStyle(Color(hex: "8F9E94"))
+                    }
+                } else {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { dismiss() }
+                            .foregroundStyle(Color.textSecondary)
+                    }
                 }
             }
             .keyboardDoneToolbar()
@@ -100,7 +104,9 @@ struct AddMultipleExpensesView: View {
             pasteTextSheet
         }
         .sheet(isPresented: $showingMonthlyLimitSheet) {
-            MonthlyLimitSheet()
+            MonthlyLimitSheet(onProUnlocked: {
+                performImport()
+            })
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
@@ -166,7 +172,7 @@ struct AddMultipleExpensesView: View {
                 inputCard(
                     icon: "doc.text",
                     title: "Paste text",
-                    subtitle: "Paste or type your expenses"
+                    subtitle: "Paste from Notes, Messages, anywhere"
                 ) {
                     showingPasteEditor = true
                 }
@@ -267,7 +273,7 @@ struct AddMultipleExpensesView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                 .ignoresSafeArea(.keyboard, edges: .bottom)
             }
-            .navigationTitle("Paste text")
+            .navigationTitle("Paste expenses")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -329,68 +335,120 @@ struct AddMultipleExpensesView: View {
     // MARK: - Review Step
 
     private var reviewStep: some View {
-        ZStack {
-            List {
-                ForEach(groupedExpenseSections, id: \.tagKey) { section in
-                    Section {
-                        ForEach(section.expenses) { exp in
-                            reviewExpenseRow(exp)
-                                .listRowBackground(Color.surface)
-                                .swipeActions(edge: .trailing) {
-                                    Button(role: .destructive) {
-                                        removeExpenseFromPending(exp)
-                                    } label: {
-                                        Label("Remove", systemImage: "trash")
-                                    }
-                                }
-                        }
-                    } header: {
-                        HStack(spacing: Spacing.sm) {
-                            Text(section.tagDisplayName)
-                                .font(Fonts.headline(15))
-                                .foregroundStyle(Color.textPrimary)
+        let importCount = parsedExpenses.filter { $0.amountCents > 0 }.count
+        let importEnabled = importCount > 0
 
-                            if section.isNew {
-                                Text("New")
-                                    .font(Fonts.caption(11))
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(Color(hex: "D4872A"))
-                                    .padding(.horizontal, 8)
-                                    .padding(.vertical, 4)
-                                    .background(Color(hex: "D4872A").opacity(0.2))
-                                    .clipShape(Capsule())
-                            }
-
-                            Spacer()
-
-                            if section.tagKey != "__untagged__" {
-                                Button("Link to existing tag") {
-                                    showingTagLinkPickerFor = TagLinkPickerTag("group:\(section.tagKey)")
-                                }
-                                .font(Fonts.label(13))
-                                .foregroundStyle(Color.brandPrimary)
-                            }
-                        }
-                        .padding(.vertical, Spacing.sm)
+        return ZStack(alignment: .bottom) {
+            ScrollView {
+                VStack(spacing: 20) {
+                    ForEach(groupedExpenseSections, id: \.tagKey) { section in
+                        reviewTagGroupSection(section)
                     }
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 110)
             }
-            .listStyle(.insetGrouped)
-            .scrollContentBackground(.hidden)
             .animation(.easeInOut(duration: 0.25), value: parsedExpenses.map { "\($0.id):\($0.suggestedTagName ?? "")" }.joined())
-            .background(Color.bgPrimary)
-            .contentMargins(.bottom, 96, for: .scrollContent)
 
-            VStack {
-                Spacer(minLength: 0)
-                PrimaryButton(title: "Import \(parsedExpenses.count) expenses") {
-                    performImport()
+            VStack(spacing: 0) {
+                ZStack(alignment: .bottom) {
+                    LinearGradient(
+                        colors: [Color.clear, Color(hex: "F6F5F3")],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 80)
+                    .allowsHitTesting(false)
+
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        performImport()
+                    } label: {
+                        Text("Import \(parsedExpenses.count) expenses")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.vertical, 18)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(BulkImportStickyCTAStyle(isEnabled: importEnabled))
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 10)
+                    .disabled(!importEnabled)
                 }
-                .padding(.horizontal, Spacing.lg)
-                .padding(.bottom, Spacing.xl)
+                .background(Color(hex: "F6F5F3"))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             .ignoresSafeArea(.keyboard, edges: .bottom)
+        }
+    }
+
+    private func headerDotColor(for section: (tagKey: String, tagDisplayName: String, isNew: Bool, linkedTagId: String?, expenses: [ParsedExpense])) -> Color {
+        if let lid = section.linkedTagId, let t = tags.first(where: { $0.id == lid }) {
+            return t.tagColor.primaryColor
+        }
+        if section.tagKey != "__untagged__",
+           let matched = BulkExpenseParser.findMatchingTag(suggested: section.tagKey, existingTags: existingTagNames),
+           let t = tags.first(where: { $0.name == matched }) {
+            return t.tagColor.primaryColor
+        }
+        return Color(hex: "8F9E94")
+    }
+
+    @ViewBuilder
+    private func reviewTagGroupSection(_ section: (tagKey: String, tagDisplayName: String, isNew: Bool, linkedTagId: String?, expenses: [ParsedExpense])) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 8) {
+                Circle()
+                    .fill(headerDotColor(for: section))
+                    .frame(width: 8, height: 8)
+
+                Text(section.tagDisplayName)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+
+                if section.isNew {
+                    Text("New")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color(hex: "F5A623"))
+                        .clipShape(Capsule())
+                }
+
+                Spacer(minLength: 8)
+
+                if section.tagKey != "__untagged__" {
+                    Button("Link to existing tag") {
+                        showingTagLinkPickerFor = TagLinkPickerTag("group:\(section.tagKey)")
+                    }
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color(hex: "346049"))
+                }
+            }
+
+            VStack(spacing: 0) {
+                ForEach(Array(section.expenses.enumerated()), id: \.element.id) { idx, exp in
+                    reviewExpenseRow(exp)
+                        .contextMenu {
+                            Button("Remove", role: .destructive) {
+                                removeExpenseFromPending(exp)
+                            }
+                        }
+                    if idx < section.expenses.count - 1 {
+                        Rectangle()
+                            .fill(Color(hex: "DEDAD2"))
+                            .frame(height: 1)
+                    }
+                }
+            }
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+            )
         }
     }
 
@@ -454,16 +512,17 @@ struct AddMultipleExpensesView: View {
     private func reviewExpenseRow(_ exp: ParsedExpense) -> some View {
         let amountStr = CurrencyFormatter.shared.format(cents: exp.amountCents, currencyCode: appState.defaultCurrency)
 
-        return HStack(spacing: Spacing.sm) {
+        return HStack(alignment: .center, spacing: 12) {
             Text(exp.description)
-                .font(Fonts.body(16))
-                .foregroundStyle(Color.textPrimary)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Color(hex: "1C1C1E"))
+                .multilineTextAlignment(.leading)
 
-            Spacer()
+            Spacer(minLength: 8)
 
             Text(amountStr)
-                .font(Fonts.mono(16))
-                .foregroundStyle(Color.textPrimary)
+                .font(.system(size: 15, weight: .medium, design: .monospaced))
+                .foregroundStyle(Color(hex: "1C1C1E"))
                 .multilineTextAlignment(.trailing)
                 .frame(minWidth: 72, alignment: .trailing)
 
@@ -471,19 +530,13 @@ struct AddMultipleExpensesView: View {
                 bulkEditExpenseId = exp.id
             } label: {
                 Image(systemName: "pencil")
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color.textMuted)
-                    .frame(width: 28, height: 28)
-                    .background(Color.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(Color.borderColor, lineWidth: 1)
-                    )
+                    .font(.system(size: 15))
+                    .foregroundStyle(Color(hex: "8F9E94"))
             }
             .buttonStyle(.plain)
         }
-        .padding(.vertical, Spacing.sm)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
     }
 
     private func expenseCountInMonth(of d: Date) -> Int {
@@ -554,6 +607,28 @@ struct AddMultipleExpensesView: View {
     }
 }
 
+// MARK: - Import sticky CTA (matches AddExpense save button)
+
+private struct BulkImportStickyCTAStyle: ButtonStyle {
+    var isEnabled: Bool
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(background(isPressed: configuration.isPressed))
+            )
+            .animation(.easeInOut(duration: 0.12), value: configuration.isPressed)
+    }
+
+    private func background(isPressed: Bool) -> Color {
+        if !isEnabled {
+            return Color(hex: "346049").opacity(0.4)
+        }
+        return isPressed ? Color(hex: "2D5A3F") : Color(hex: "346049")
+    }
+}
+
 // MARK: - Bulk Import File Picker
 
 struct BulkImportFilePicker: UIViewControllerRepresentable {
@@ -601,7 +676,6 @@ struct TagLinkPickerTag: Identifiable {
 }
 
 struct TagLinkPickerSheet: View {
-    /// Prefix for `onSelect` when choosing an in-import tag name that is not yet saved.
     static let importSelectionPrefix = "import:"
 
     @Environment(\.dismiss) private var dismiss

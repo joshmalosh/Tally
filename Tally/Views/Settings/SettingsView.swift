@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import UserNotifications
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -74,44 +73,6 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Toggle("Recurring expense alerts", isOn: Binding(
-                        get: { appState.recurringNotificationEnabled },
-                        set: { newValue in
-                            appState.recurringNotificationEnabled = newValue
-                            if newValue {
-                                Task {
-                                    _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
-                                }
-                            }
-                        }
-                    ))
-                    .tint(Color.brandPrimary)
-                } header: {
-                    Text("Notifications")
-                } footer: {
-                    Text("Get notified at 10am when recurring expenses are auto-logged.")
-                }
-
-                Section("Preferences") {
-                    Button { showingCurrencyPicker = true } label: {
-                        HStack {
-                            Image(systemName: "coloncurrencysign.circle")
-                                .font(.system(size: 20))
-                                .foregroundStyle(Color.brandPrimary)
-                            Text("Default currency")
-                                .foregroundStyle(Color.textPrimary)
-                            Spacer()
-                            Text("\(CurrencyFormatter.shared.symbol(for: appState.defaultCurrency)) \(appState.defaultCurrency)")
-                                .font(Fonts.caption(14))
-                                .foregroundStyle(Color.textSecondary)
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Color.textMuted)
-                        }
-                    }
-                }
-
-                Section {
                     ForEach(allTagsSorted) { tag in
                         HStack(spacing: Spacing.smd) {
                             Button {
@@ -155,13 +116,7 @@ struct SettingsView: View {
                                 .foregroundStyle(Color.brandPrimary)
                         }
                     }
-                } header: {
-                    Text("Tags")
-                } footer: {
-                    Text("Choose which tags appear as filters on the home screen.")
-                }
 
-                Section("Groups") {
                     ForEach(groupsSorted) { group in
                         NavigationLink {
                             GroupDetailView(group: group)
@@ -190,6 +145,29 @@ struct SettingsView: View {
                                 .foregroundStyle(Color.brandPrimary)
                             Text("Add group")
                                 .foregroundStyle(Color.brandPrimary)
+                        }
+                    }
+                } header: {
+                    Text("Tags & Groups")
+                } footer: {
+                    Text("Choose which tags appear as filters on the home screen.")
+                }
+
+                Section("Preferences") {
+                    Button { showingCurrencyPicker = true } label: {
+                        HStack {
+                            Image(systemName: "coloncurrencysign.circle")
+                                .font(.system(size: 20))
+                                .foregroundStyle(Color.brandPrimary)
+                            Text("Default currency")
+                                .foregroundStyle(Color.textPrimary)
+                            Spacer()
+                            Text("\(CurrencyFormatter.shared.symbol(for: appState.defaultCurrency)) \(appState.defaultCurrency)")
+                                .font(Fonts.caption(14))
+                                .foregroundStyle(Color.textSecondary)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color.textMuted)
                         }
                     }
                 }

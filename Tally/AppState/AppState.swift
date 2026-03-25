@@ -39,9 +39,10 @@ final class AppState {
     var subscriptionStatus: SubscriptionStatus = .free
     var isOffline = false
 
-    // Export tracking (free tier — 1 CSV/month)
+    // Export tracking (free tier — capped CSV exports per calendar month; Pro unlimited)
     private static let csvExportCountKey = "csvExportCount"
     private static let csvExportMonthKey = "csvExportMonth"
+    private static let freeTierCSVExportsPerMonth = 2
 
     var csvExportsThisMonth: Int {
         let stored = UserDefaults.standard.integer(forKey: Self.csvExportCountKey)
@@ -49,7 +50,10 @@ final class AppState {
         return storedMonth == currentMonthKey ? stored : 0
     }
 
-    var canExportCSV: Bool { isPro }
+    var canExportCSV: Bool {
+        if isPro { return true }
+        return csvExportsThisMonth < Self.freeTierCSVExportsPerMonth
+    }
 
     func recordCSVExport() {
         let month = currentMonthKey
@@ -95,11 +99,6 @@ final class AppState {
     // Preferences
     private static let defaultCurrencyKey = "defaultCurrency"
     private static let ocrEnabledKey = "ocrEnabled"
-    private static let recurringNotificationKey = "recurringNotificationEnabled"
-
-    var recurringNotificationEnabled: Bool = false {
-        didSet { UserDefaults.standard.set(recurringNotificationEnabled, forKey: Self.recurringNotificationKey) }
-    }
 
     var defaultCurrency: String {
         didSet { UserDefaults.standard.set(defaultCurrency, forKey: Self.defaultCurrencyKey) }
@@ -127,6 +126,5 @@ final class AppState {
     init() {
         self.defaultCurrency = UserDefaults.standard.string(forKey: Self.defaultCurrencyKey) ?? "USD"
         self.ocrEnabled = UserDefaults.standard.object(forKey: Self.ocrEnabledKey) as? Bool ?? true
-        self.recurringNotificationEnabled = UserDefaults.standard.object(forKey: Self.recurringNotificationKey) as? Bool ?? false
     }
 }

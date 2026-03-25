@@ -132,19 +132,15 @@ struct TagPill: View {
 
 struct AddTagPill: View {
     var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "plus")
-                .font(.system(size: 12, weight: .semibold))
-            Text("Add Tag")
-                .font(.system(size: 14, weight: .medium))
-        }
-        .foregroundStyle(Color.textSecondary)
-        .padding(.horizontal, 12)
-        .frame(height: 32)
-        .background(
-            RoundedRectangle(cornerRadius: Radius.pill)
-                .stroke(Color.borderColor, lineWidth: 1)
-        )
+        Text("+ Tag or Group")
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(Color.textSecondary)
+            .padding(.horizontal, 12)
+            .frame(height: 32)
+            .background(
+                RoundedRectangle(cornerRadius: Radius.pill)
+                    .stroke(Color.borderColor, lineWidth: 1)
+            )
     }
 }
 
@@ -159,7 +155,6 @@ struct ExpenseCard: View {
     let date: Date
     let tagName: String
     let tagColor: TagColor
-    var showRecurringIcon: Bool = false
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -174,69 +169,69 @@ struct ExpenseCard: View {
         return description.isEmpty ? "Expense" : description
     }
 
+    private static let rowHorizontalPadding: CGFloat = 11
+
     var body: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .center, spacing: Spacing.smd) {
+            HStack(alignment: .center, spacing: 12) {
+                // Thumbnail
                 ZStack {
-                    RoundedRectangle(cornerRadius: Radius.sm)
-                        .fill(Color.surface)
-                        .frame(width: 36, height: 36)
-
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(thumbnailImage != nil ? Color.clear : Color(hex: "F0EDEA"))
+                        .frame(width: 44, height: 44)
                     if let image = thumbnailImage {
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .frame(width: 36, height: 36)
-                            .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+                            .frame(width: 44, height: 44)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                     } else {
-                        Image(systemName: "receipt")
-                            .font(.system(size: 15))
-                            .foregroundStyle(Color.textMuted)
+                        Image(systemName: "doc.text")
+                            .font(.system(size: 18))
+                            .foregroundStyle(Color(hex: "8F9E94"))
                     }
                 }
+                .frame(width: 44, height: 44)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 5) {
-                        Text(displayTitle)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Color.textPrimary)
-                            .lineLimit(1)
-                        if showRecurringIcon {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(Color(hex: "346049"))
+                // Text content
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(displayTitle)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                        .lineLimit(1)
+                    if !tagName.isEmpty {
+                        HStack(spacing: 5) {
+                            Circle()
+                                .fill(tagColor.primaryColor)
+                                .frame(width: 8, height: 8)
+                            Text(tagName)
+                                .font(.system(size: 13, weight: .regular))
+                                .foregroundStyle(Color(hex: "8F9E94"))
+                                .lineLimit(1)
                         }
                     }
-
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(tagColor.primaryColor)
-                            .frame(width: 11, height: 11)
-                        Text(tagName)
-                            .font(Fonts.caption(12))
-                            .foregroundStyle(Color.textSecondary)
-                            .lineLimit(1)
-                    }
                 }
 
-                Spacer(minLength: Spacing.sm)
+                Spacer(minLength: 8)
 
-                VStack(alignment: .trailing, spacing: 2) {
+                // Amount + date
+                VStack(alignment: .trailing, spacing: 4) {
                     Text(CurrencyFormatter.shared.format(cents: amountCents, currencyCode: currency))
-                        .font(Fonts.mono(15))
-                        .foregroundStyle(Color.textPrimary)
+                        .font(.system(size: 16, weight: .semibold).monospacedDigit())
+                        .foregroundStyle(Color(hex: "1C1C1E"))
                     Text(Self.dateFormatter.string(from: date))
-                        .font(Fonts.caption(11))
-                        .foregroundStyle(Color.textMuted)
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(Color(hex: "8F9E94"))
                 }
             }
-            .padding(.horizontal, Spacing.lg)
-            .padding(.vertical, 14)
+            .padding(.horizontal, Self.rowHorizontalPadding)
+            .padding(.vertical, 13)
 
+            // Hairline separator — inset to align with text, not thumbnail
             Rectangle()
-                .fill(Color.borderColor.opacity(0.6))
+                .fill(Color(hex: "DEDAD2").opacity(0.8))
                 .frame(height: 0.5)
-                .padding(.leading, Spacing.lg + 36 + Spacing.smd)
+                .padding(.leading, Self.rowHorizontalPadding + 44 + 12)
         }
     }
 }
@@ -249,11 +244,13 @@ struct FABButton: View {
     @State private var pulseScale: CGFloat = 1.0
     @State private var pulseOpacity: Double = 0.0
 
+    private var fabSize: CGFloat { 75 }
+
     var body: some View {
         ZStack {
             Circle()
                 .stroke(Color.actionGreen, lineWidth: 2)
-                .frame(width: 52, height: 52)
+                .frame(width: fabSize, height: fabSize)
                 .scaleEffect(pulseScale)
                 .opacity(pulseOpacity)
 
@@ -280,9 +277,9 @@ struct FABButton: View {
                 action()
             } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: 22, weight: .medium))
+                    .font(.system(size: 32, weight: .medium))
                     .foregroundStyle(.white)
-                    .frame(width: 52, height: 52)
+                    .frame(width: fabSize, height: fabSize)
             }
             .buttonStyle(FABButtonStyle())
             .scaleEffect(didTap ? 0.88 : 1.0)

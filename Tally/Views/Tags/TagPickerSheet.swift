@@ -1,220 +1,144 @@
 import SwiftUI
 import SwiftData
 
-struct TagPickerSheet: View {
+/// Shared tag picker: expense multi-select (non-group tags, A–Z) or home row visibility (root tags & groups, A–Z).
+struct SharedTagPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
-    @Environment(AppState.self) private var appState
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
 
-    @Binding var selectedTagIds: [String]
+    @Binding private var selectedTagIds: [String]
+    private let isHomeVisibilityMode: Bool
 
-    @State private var expandedGroups: Set<String> = []
+    @State private var workingIds: [String] = []
+    @State private var showingNewTag = false
+    @State private var showingNewGroup = false
 
-    private var standaloneTags: [TagModel] {
-        tags.filter { $0.parentId == nil && !$0.isGroup }
+    init(selectedTagIds: Binding<[String]>) {
+        _selectedTagIds = selectedTagIds
+        isHomeVisibilityMode = false
     }
 
-    private var groupTags: [TagModel] {
-        tags.filter { $0.isGroup }
+    /// Home: toggles `showOnHome` for root-level tags and groups (`parentId == nil`).
+    init(homeVisibilityMode: Void) {
+        _selectedTagIds = .constant([])
+        isHomeVisibilityMode = true
     }
 
-    private func childrenOf(_ group: TagModel) -> [TagModel] {
-        tags.filter { $0.parentId == group.id }.sorted { $0.sortOrder < $1.sortOrder }
-    }
-
-    private func isSelected(_ tag: TagModel) -> Bool {
-        selectedTagIds.contains(tag.id)
-    }
-
-    private func toggleTag(_ tag: TagModel) {
-        if let idx = selectedTagIds.firstIndex(of: tag.id) {
-            selectedTagIds.remove(at: idx)
-        } else {
-            selectedTagIds.append(tag.id)
+    private var listTags: [TagModel] {
+        if isHomeVisibilityMode {
+            return tags
+                .filter { $0.parentId == nil }
+                .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
         }
+        return tags
+            .filter { !$0.isGroup }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private var navigationTitle: String {
+        if workingIds.isEmpty { return "Select tags" }
+        if workingIds.count == 1 { return "1 tag selected" }
+        return "\(workingIds.count) tags selected"
     }
 
     var body: some View {
         NavigationStack {
-            tagList
-                .background(Color.bgPrimary)
-                .navigationTitle(selectedTagIds.isEmpty ? "Select Tags" : "\(selectedTagIds.count) tag\(selectedTagIds.count == 1 ? "" : "s") selected")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { dismiss() }
-                            .foregroundStyle(Color.textSecondary)
-                    }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") { dismiss() }
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color.brandPrimary)
-                    }
-                }
-        }
-    }
-
-    // MARK: - Tag List
-
-    private var tagList: some View {
-        ScrollView {
             VStack(spacing: 0) {
                 HStack(spacing: Spacing.sm) {
-                    NavigationLink(destination: TagCreationView(
-                        initialParentId: nil,
-                        embeddedInNavigation: true
-                    ) { newId in
-                        selectedTagIds = selectedTagIds + [newId]
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 12, weight: .semibold))
-                            Text("New tag")
-                                .font(Fonts.label(14))
-                        }
-                        .foregroundStyle(Color.brandPrimary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 36)
-                        .background(Color.brandTint)
-                        .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+                    Button {
+                        showingNewTag = true
+                    } label: {
+                        Text("+ New tag")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color(hex: "346049"))
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(Color(hex: "E8F0EA"))
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
                     .buttonStyle(.plain)
 
-                    NavigationLink(destination: TagCreationView(
-                        initialParentId: nil,
-                        isGroupMode: true,
-                        embeddedInNavigation: true
-                    )) {
+                    Button {
+                        showingNewGroup = true
+                    } label: {
                         HStack(spacing: 6) {
-                            Image(systemName: "folder.badge.plus")
-                                .font(.system(size: 12, weight: .semibold))
+                            Image(systemName: "folder.fill")
+                                .font(.system(size: 13, weight: .semibold))
                             Text("New group")
-                                .font(Fonts.label(14))
+                                .font(.system(size: 14, weight: .semibold))
                         }
-                        .foregroundStyle(Color.brandPrimary)
+                        .foregroundStyle(Color(hex: "346049"))
                         .frame(maxWidth: .infinity)
-                        .frame(height: 36)
-                        .background(Color.brandTint)
-                        .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+                        .frame(height: 44)
+                        .background(Color(hex: "E8F0EA"))
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.bottom, Spacing.md)
+                .padding(.horizontal, Spacing.lg)
+                .padding(.top, Spacing.md)
+                .padding(.bottom, Spacing.sm)
 
-                if !standaloneTags.isEmpty {
-                    ForEach(standaloneTags) { tag in
-                        tagRow(tag)
-                    }
-                }
-
-                if !standaloneTags.isEmpty && !groupTags.isEmpty {
-                    Divider()
-                        .foregroundStyle(Color.borderColor.opacity(0.5))
-                        .padding(.top, Spacing.smd)
-                        .padding(.bottom, Spacing.sm)
-                }
-
-                if !groupTags.isEmpty {
-                    ForEach(groupTags) { group in
-                        groupSection(group)
-                    }
-                }
-            }
-            .padding(.horizontal, Spacing.lg)
-            .padding(.top, Spacing.md)
-            .padding(.bottom, Spacing.xl)
-        }
-    }
-
-    // MARK: - Group Section
-
-    private func groupSection(_ group: TagModel) -> some View {
-        let isExpanded = expandedGroups.contains(group.id)
-        let children = childrenOf(group)
-
-        return VStack(spacing: 0) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    if isExpanded {
-                        expandedGroups.remove(group.id)
-                    } else {
-                        expandedGroups.insert(group.id)
-                    }
-                }
-            } label: {
-                HStack(spacing: Spacing.smd) {
-                    Image(systemName: isExpanded ? "folder.fill" : "folder")
-                        .font(.system(size: 14))
-                        .foregroundStyle(Color.textMuted)
-                        .frame(width: 14)
-
-                    Text(group.name)
-                        .font(Fonts.body(16))
-                        .fontWeight(.medium)
-                        .foregroundStyle(Color.textPrimary)
-
-                    if !children.isEmpty {
-                        Text("\(children.count)")
-                            .font(Fonts.caption(11))
-                            .foregroundStyle(Color.textMuted)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.borderColor.opacity(0.4))
-                            .clipShape(RoundedRectangle(cornerRadius: 4))
-                    }
-
-                    Spacer()
-
-                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color.textMuted)
-                }
-                .padding(.horizontal, Spacing.md)
-                .frame(height: 44)
-            }
-            .buttonStyle(.plain)
-
-            if isExpanded {
-                VStack(spacing: 0) {
-                    ForEach(children) { child in
-                        tagRow(child, indented: true)
-                    }
-
-                    NavigationLink(destination: TagCreationView(
-                        initialParentId: group.id,
-                        embeddedInNavigation: true
-                    ) { newId in
-                        selectedTagIds = selectedTagIds + [newId]
-                    }) {
-                        HStack(spacing: Spacing.smd) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundStyle(Color.textMuted)
-
-                            Text("New tag in \(group.name)")
-                                .font(Fonts.body(14))
-                                .foregroundStyle(Color.textMuted)
-
-                            Spacer()
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(listTags) { tag in
+                            tagRow(tag)
                         }
-                        .padding(.leading, Spacing.xl + Spacing.smd)
-                        .padding(.trailing, Spacing.md)
-                        .frame(height: 36)
                     }
-                    .buttonStyle(.plain)
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.bottom, Spacing.xl)
                 }
+            }
+            .background(Color.bgPrimary)
+            .navigationTitle(navigationTitle)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(Color.textSecondary)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { confirmDone() }
+                        .fontWeight(.semibold)
+                        .foregroundStyle(Color(hex: "346049"))
+                }
+            }
+            .onAppear {
+                if isHomeVisibilityMode {
+                    workingIds = tags.filter { $0.showOnHome && $0.parentId == nil }.map(\.id)
+                } else {
+                    workingIds = selectedTagIds
+                }
+            }
+            .sheet(isPresented: $showingNewTag) {
+                TagCreationView(onSave: { newId in
+                    if !workingIds.contains(newId) {
+                        workingIds.append(newId)
+                    }
+                })
+            }
+            .sheet(isPresented: $showingNewGroup) {
+                TagCreationView(isGroupMode: true, onSave: { newId in
+                    if !workingIds.contains(newId) {
+                        workingIds.append(newId)
+                    }
+                })
             }
         }
     }
 
-    // MARK: - Tag Row
-
-    private func tagRow(_ tag: TagModel, indented: Bool = false) -> some View {
-        let selected = isSelected(tag)
+    private func tagRow(_ tag: TagModel) -> some View {
+        let selected = workingIds.contains(tag.id)
 
         return Button {
-            withAnimation(.easeInOut(duration: 0.15)) { toggleTag(tag) }
+            withAnimation(.easeInOut(duration: 0.15)) {
+                if let i = workingIds.firstIndex(of: tag.id) {
+                    workingIds.remove(at: i)
+                } else {
+                    workingIds.append(tag.id)
+                }
+            }
         } label: {
             HStack(spacing: Spacing.smd) {
                 Circle()
@@ -225,23 +149,37 @@ struct TagPickerSheet: View {
                     .font(Fonts.body(16))
                     .foregroundStyle(Color.textPrimary)
 
-                Spacer()
+                Spacer(minLength: 0)
 
                 if selected {
                     Image(systemName: "checkmark")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Color.brandPrimary)
+                        .foregroundStyle(Color(hex: "346049"))
                 }
             }
-            .padding(.leading, indented ? Spacing.xl : Spacing.md)
-            .padding(.trailing, Spacing.md)
-            .frame(height: 43)
-            .background(
-                selected ? tag.tagColor.primaryColor.opacity(0.06) : Color.clear
-            )
+            .padding(.horizontal, Spacing.md)
+            .frame(height: 44)
+            .background(selected ? tag.tagColor.primaryColor.opacity(0.06) : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: Radius.md))
         }
         .buttonStyle(.plain)
     }
 
+    private func confirmDone() {
+        if isHomeVisibilityMode {
+            for tag in tags where tag.parentId == nil {
+                tag.showOnHome = workingIds.contains(tag.id)
+            }
+            do {
+                try modelContext.save()
+            } catch {
+                #if DEBUG
+                print("[Tally] ERROR saving home tag visibility: \(error)")
+                #endif
+            }
+        } else {
+            selectedTagIds = workingIds
+        }
+        dismiss()
+    }
 }

@@ -310,12 +310,12 @@ struct ExportLimitSheet: View {
                 .foregroundStyle(Color.textMuted)
 
             VStack(spacing: Spacing.sm) {
-                Text("Export limit reached")
+                Text("You've used your free exports")
                     .font(Fonts.headline(20))
                     .foregroundStyle(Color.textPrimary)
                     .multilineTextAlignment(.center)
 
-                Text("Free plan includes 1 CSV export per month.\nUpgrade to Pro for unlimited exports and PDF reports.")
+                Text("Free accounts can export up to 2 times per month. Upgrade to Pro for unlimited exports.")
                     .font(Fonts.body(15))
                     .foregroundStyle(Color.textSecondary)
                     .multilineTextAlignment(.center)
@@ -352,7 +352,11 @@ struct ExportLimitSheet: View {
 
 struct MonthlyLimitSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppState.self) private var appState
     @State private var showingSubscription = false
+
+    /// Called after the user becomes Pro (e.g. successful purchase) so the host can dismiss the limit sheet and retry save/import.
+    var onProUnlocked: (() -> Void)? = nil
 
     var body: some View {
         VStack(spacing: Spacing.lg) {
@@ -397,6 +401,14 @@ struct MonthlyLimitSheet: View {
         .background(Color.bgPrimary)
         .sheet(isPresented: $showingSubscription) {
             SubscriptionView()
+        }
+        .onChange(of: appState.subscriptionStatus) { _, status in
+            guard status == .pro else { return }
+            showingSubscription = false
+            dismiss()
+            DispatchQueue.main.async {
+                onProUnlocked?()
+            }
         }
     }
 }
