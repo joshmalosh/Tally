@@ -431,25 +431,25 @@ struct AddExpenseView: View {
                             .tracking(-2)
                             .allowsHitTesting(false)
                     }
-                    NumericFieldWithDone(
-                        text: $amountText,
-                        keyboardType: usesDecimalCurrency ? .decimalPad : .numberPad,
-                        font: UIFont.monospacedSystemFont(ofSize: 52, weight: .regular),
-                        isFirstResponder: focusedField == .amount,
-                        onDone: { focusedField = nil }
-                    )
-                    .frame(minHeight: 56)
-                    .onChange(of: amountText) { _, newValue in
-                        let filtered = newValue.filter { $0.isNumber || $0 == "." }
-                        let parts = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
-                        let sanitized = parts.count > 1
-                            ? parts[0] + "." + parts.dropFirst().joined()
-                            : filtered
-                        if sanitized != newValue { amountText = String(sanitized) }
-                    }
-                    .onChange(of: focusedField) { _, newValue in
-                        if newValue != .amount { formatAmount() }
-                    }
+                    TextField("", text: $amountText)
+                        .font(.system(size: 52, weight: .regular, design: .monospaced))
+                        .foregroundStyle(amountText.isEmpty ? Color(hex: "8F9E94") : Color(hex: "1C1C1E"))
+                        .tracking(-2)
+                        .keyboardType(usesDecimalCurrency ? .decimalPad : .numberPad)
+                        .textFieldStyle(.plain)
+                        .focused($focusedField, equals: .amount)
+                        .tint(Color(hex: "346049"))
+                        .onChange(of: amountText) { _, newValue in
+                            let filtered = newValue.filter { $0.isNumber || $0 == "." }
+                            let parts = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
+                            let sanitized = parts.count > 1
+                                ? parts[0] + "." + parts.dropFirst().joined()
+                                : filtered
+                            if sanitized != newValue { amountText = String(sanitized) }
+                        }
+                        .onChange(of: focusedField) { _, newValue in
+                            if newValue != .amount { formatAmount() }
+                        }
                 }
             }
 
@@ -955,25 +955,25 @@ struct AddExpenseView: View {
                             .foregroundStyle(Color(hex: "8F9E94"))
                             .allowsHitTesting(false)
                     }
-                    NumericFieldWithDone(
-                        text: $amountText,
-                        keyboardType: usesDecimalCurrency ? .decimalPad : .numberPad,
-                        font: UIFont.monospacedSystemFont(ofSize: 36, weight: .regular),
-                        isFirstResponder: focusedField == .amount,
-                        onDone: { focusedField = nil }
-                    )
-                    .frame(minHeight: 44)
-                    .onChange(of: amountText) { _, newValue in
-                        let filtered = newValue.filter { $0.isNumber || $0 == "." }
-                        let parts = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
-                        let sanitized = parts.count > 1
-                            ? parts[0] + "." + parts.dropFirst().joined()
-                            : filtered
-                        if sanitized != newValue { amountText = String(sanitized) }
-                    }
-                    .onChange(of: focusedField) { _, newValue in
-                        if newValue != .amount { formatAmount() }
-                    }
+                    TextField("", text: $amountText)
+                        .font(.system(size: 36, weight: .regular, design: .monospaced))
+                        .foregroundStyle(amountText.isEmpty ? Color(hex: "8F9E94") : Color(hex: "1C1C1E"))
+                        .tracking(-2)
+                        .keyboardType(usesDecimalCurrency ? .decimalPad : .numberPad)
+                        .textFieldStyle(.plain)
+                        .focused($focusedField, equals: .amount)
+                        .tint(Color(hex: "346049"))
+                        .onChange(of: amountText) { _, newValue in
+                            let filtered = newValue.filter { $0.isNumber || $0 == "." }
+                            let parts = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
+                            let sanitized = parts.count > 1
+                                ? parts[0] + "." + parts.dropFirst().joined()
+                                : filtered
+                            if sanitized != newValue { amountText = String(sanitized) }
+                        }
+                        .onChange(of: focusedField) { _, newValue in
+                            if newValue != .amount { formatAmount() }
+                        }
                 }
             }
         }
