@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct HomeView: View {
     @Environment(AppState.self) private var appState
@@ -15,7 +16,7 @@ struct HomeView: View {
     @State private var periodFilter: PeriodFilter = .allTime
     @State private var showingTagCreation = false
     @State private var showingGroupCreation = false
-    @State private var showingAddTagOrGroupPicker = false
+    @State private var showingNewTagOrGroupDialog = false
     @State private var showingGlobalExport = false
     @State private var showingFilteredExport = false
     @State private var isSelecting = false
@@ -24,9 +25,6 @@ struct HomeView: View {
     @State private var expandedGroupId: String?
     @State private var expenseToDelete: ExpenseModel?
     @FocusState private var isSearchFocused: Bool
-    @State private var isHeaderCollapsed = false
-    @State private var scrollIndicatorOffset: CGFloat = 0
-    @State private var scrollIndicatorVisible = false
 
     private var showsBannerAd: Bool { !appState.isPro }
 
@@ -139,25 +137,16 @@ struct HomeView: View {
 
         ZStack(alignment: .bottomTrailing) {
             VStack(spacing: 0) {
-                VStack(spacing: 0) {
-                    if !isHeaderCollapsed {
-                        appBar
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                    }
+                appBar
 
-                    headerSection
-                        .allowsHitTesting(!isSelecting)
+                headerSection
+                    .allowsHitTesting(!isSelecting)
 
-                    if !isHeaderCollapsed {
-                        searchBar
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                    }
+                searchBar
+                tagRow
+                    .padding(.top, Spacing.smd)
 
-                    tagRow
-                        .padding(.top, isHeaderCollapsed ? Spacing.xs : Spacing.smd)
-
-                    divider
-                }
+                divider
 
                 if filteredExpenses.isEmpty && !isSelecting {
                     emptyState
@@ -178,8 +167,8 @@ struct HomeView: View {
 
             if !isSelecting {
                 FABButton { showingEntryPicker = true }
-                    .padding(.trailing, Spacing.lg)
-                    .padding(.bottom, showsBannerAd ? (Spacing.xl + 4) : (Spacing.lg + 4))
+                    .padding(.trailing, Spacing.xl + 10)
+                    .padding(.bottom, showsBannerAd ? (Spacing.xl + 16) : (Spacing.xl + 10))
                     .animation(.easeInOut(duration: 0.3), value: showsBannerAd)
             }
         }
@@ -218,68 +207,20 @@ struct HomeView: View {
         .sheet(isPresented: $showingGroupCreation) {
             TagCreationView(isGroupMode: true)
         }
-        .sheet(isPresented: $showingAddTagOrGroupPicker) {
-            VStack(spacing: 0) {
-                VStack(spacing: 0) {
-                    Button {
-                        showingAddTagOrGroupPicker = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                            showingTagCreation = true
-                        }
-                    } label: {
-                        HStack(spacing: Spacing.md) {
-                            Image(systemName: "tag.fill")
-                                .font(.system(size: 20))
-                                .foregroundStyle(Color.brandPrimary)
-                                .frame(width: 28)
-                            Text("New tag")
-                                .font(Fonts.body(16))
-                                .foregroundStyle(Color.textPrimary)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Color.textMuted)
-                        }
-                        .padding(.horizontal, Spacing.lg)
-                        .frame(height: 52)
-                    }
-                    .buttonStyle(.plain)
-
-                    Divider().padding(.leading, Spacing.lg + 28 + Spacing.md)
-
-                    Button {
-                        showingAddTagOrGroupPicker = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                            showingGroupCreation = true
-                        }
-                    } label: {
-                        HStack(spacing: Spacing.md) {
-                            Image(systemName: "folder.fill")
-                                .font(.system(size: 20))
-                                .foregroundStyle(Color.brandPrimary)
-                                .frame(width: 28)
-                            Text("New group")
-                                .font(Fonts.body(16))
-                                .foregroundStyle(Color.textPrimary)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Color.textMuted)
-                        }
-                        .padding(.horizontal, Spacing.lg)
-                        .frame(height: 52)
-                    }
-                    .buttonStyle(.plain)
+        .confirmationDialog("New tag or group", isPresented: $showingNewTagOrGroupDialog, titleVisibility: .visible) {
+            Button("New Tag") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    showingTagCreation = true
                 }
-                .background(Color.surface)
-                .clipShape(RoundedRectangle(cornerRadius: Radius.lg))
-                Spacer()
             }
-            .padding(.horizontal, Spacing.lg)
-            .padding(.top, Spacing.lg)
-            .background(Color.bgPrimary)
-            .presentationDetents([.height(200)])
-            .presentationDragIndicator(.visible)
+            Button("New Group") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    showingGroupCreation = true
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Choose what to create.")
         }
         .sheet(item: $exportWithSelectionItem) { item in
             GlobalExportSheet(initialSelection: item.expenses)
@@ -327,13 +268,13 @@ struct HomeView: View {
 
                 Button { openExport() } label: {
                     Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 22, weight: .medium))
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(Color.textSecondary)
                 }
 
                 Button { appState.showingSettings = true } label: {
                     Image(systemName: "gearshape")
-                        .font(.system(size: 22))
+                        .font(.system(size: 18))
                         .foregroundStyle(Color.textSecondary)
                 }
             }
@@ -553,7 +494,7 @@ struct HomeView: View {
                         }
                     }
 
-                    Button { showingAddTagOrGroupPicker = true } label: {
+                    Button { showingNewTagOrGroupDialog = true } label: {
                         AddTagPill()
                     }
                     .buttonStyle(.plain)
@@ -669,91 +610,71 @@ struct HomeView: View {
     // MARK: - Expense List
 
     private var expenseList: some View {
-        ZStack(alignment: .trailing) {
-            List {
-                ForEach(filteredExpenses, id: \.id) { expense in
-                    let tag = primaryTag(for: expense)
-                    let isSelected = selectedExpenseIds.contains(expense.id)
+        List {
+            ForEach(filteredExpenses, id: \.id) { expense in
+                let tag = primaryTag(for: expense)
+                let isSelected = selectedExpenseIds.contains(expense.id)
 
-                    HStack(spacing: 0) {
-                        if isSelecting {
-                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                                .font(.system(size: 24, weight: isSelected ? .regular : .light))
-                                .foregroundStyle(isSelected ? Color.brandPrimary : Color.textSecondary.opacity(0.55))
-                                .frame(width: 44)
-                        }
-
-                        ExpenseCard(
-                            thumbnailImage: thumbnailImage(for: expense),
-                            description: expense.expenseDescription ?? "Expense",
-                            merchant: expense.merchant,
-                            amountCents: expense.amountCents,
-                            currency: expense.currency,
-                            date: expense.date,
-                            tagName: displayTagName(for: expense),
-                            tagColor: tag?.tagColor ?? TagColors.forId("warmGrey"),
-                            showRecurringIcon: expense.recurrenceTemplateId != nil || expense.isRecurring
-                        )
+                HStack(spacing: 0) {
+                    if isSelecting {
+                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                            .font(.system(size: 24, weight: isSelected ? .regular : .light))
+                            .foregroundStyle(isSelected ? Color.brandPrimary : Color.textSecondary.opacity(0.55))
+                            .frame(width: 44)
                     }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if isSelecting {
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                toggleExpenseSelection(expense.id)
-                            }
+
+                    ExpenseCard(
+                        thumbnailImage: thumbnailImage(for: expense),
+                        description: expense.expenseDescription ?? "Expense",
+                        merchant: expense.merchant,
+                        amountCents: expense.amountCents,
+                        currency: expense.currency,
+                        date: expense.date,
+                        tagName: displayTagName(for: expense),
+                        tagColor: tag?.tagColor ?? TagColors.forId("warmGrey")
+                    )
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    if isSelecting {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            toggleExpenseSelection(expense.id)
+                        }
+                    } else {
+                        appState.selectedExpenseId = expense.id
+                    }
+                }
+                .onLongPressGesture(minimumDuration: 0.2) {
+                    if !isSelecting {
+                        let gen = UIImpactFeedbackGenerator(style: .heavy)
+                        gen.prepare()
+                        if #available(iOS 17.0, *) {
+                            gen.impactOccurred(intensity: 1.0)
                         } else {
-                            appState.selectedExpenseId = expense.id
+                            gen.impactOccurred()
                         }
-                    }
-                    .onLongPressGesture(minimumDuration: 0.3) {
-                        if !isSelecting {
-                            enterSelectionMode(preselecting: expense.id)
-                        }
-                    }
-                    .listRowInsets(EdgeInsets())
-                    .listRowSeparator(.hidden)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                        if !isSelecting {
-                            Button(role: .destructive) {
-                                expenseToDelete = expense
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
-                        }
-                    }
-                    .task {
-                        await loadThumbnail(for: expense)
+                        enterSelectionMode(preselecting: expense.id)
                     }
                 }
-            }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
-            .scrollDismissesKeyboard(.interactively)
-            .onScrollGeometryChange(for: ScrollGeometry.self) { geo in geo } action: { _, geo in
-                let y = geo.contentOffset.y
-                let shouldCollapse = y > 60
-                if shouldCollapse != isHeaderCollapsed {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isHeaderCollapsed = shouldCollapse
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                    if !isSelecting {
+                        Button(role: .destructive) {
+                            expenseToDelete = expense
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
                     }
                 }
-                scrollIndicatorVisible = y > 20
-                let total = max(geo.contentSize.height - geo.containerSize.height, 1)
-                let progress = min(max(y / total, 0), 1)
-                let trackHeight = geo.containerSize.height - 60
-                scrollIndicatorOffset = progress * trackHeight
-            }
-
-            if scrollIndicatorVisible && filteredExpenses.count > 8 {
-                Capsule()
-                    .fill(Color(hex: "DEDAD2"))
-                    .frame(width: 3, height: 36)
-                    .offset(y: scrollIndicatorOffset - (UIScreen.main.bounds.height / 4))
-                    .padding(.trailing, 3)
-                    .animation(.linear(duration: 0.1), value: scrollIndicatorOffset)
-                    .transition(.opacity)
+                .task {
+                    await loadThumbnail(for: expense)
+                }
             }
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .scrollDismissesKeyboard(.interactively)
     }
 
     // MARK: - Thumbnails
@@ -900,7 +821,6 @@ struct HomeView: View {
     // MARK: - Selection Mode
 
     private func enterSelectionMode(preselecting id: String? = nil) {
-        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
         withAnimation(.easeInOut(duration: 0.25)) {
             isSelecting = true
             selectedExpenseIds.removeAll()
@@ -972,7 +892,7 @@ struct HomeView: View {
 
     private func exportExpensesAsCSV(_ expenses: [ExpenseModel]) {
         guard !expenses.isEmpty else { return }
-        guard appState.canExport else { return }
+        guard appState.canExportCSV else { return }
 
         let domainTags: [Tag] = tags.map {
             Tag(id: $0.id, userId: $0.userId, name: $0.name, colorId: $0.colorId, icon: $0.icon, sortOrder: $0.sortOrder, parentId: $0.parentId)
@@ -984,7 +904,7 @@ struct HomeView: View {
             filenamePrefix: "tally_expenses"
         ) else { return }
 
-        appState.recordExport()
+        appState.recordCSVExport()
         presentShareSheet(items: [fileURL])
         if isSelecting { exitSelectionMode() }
     }

@@ -156,7 +156,6 @@ struct ExpenseCard: View {
     let date: Date
     let tagName: String
     let tagColor: TagColor
-    var showRecurringIcon: Bool = false
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -173,70 +172,61 @@ struct ExpenseCard: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(alignment: .center, spacing: 12) {
-                // Thumbnail
+            HStack(alignment: .center, spacing: Spacing.smd) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(thumbnailImage != nil ? Color.clear : Color(hex: "F0EDEA"))
-                        .frame(width: 44, height: 44)
+                    RoundedRectangle(cornerRadius: Radius.sm)
+                        .fill(Color.surface)
+                        .frame(width: 36, height: 36)
+
                     if let image = thumbnailImage {
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .frame(width: 44, height: 44)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                    } else if showRecurringIcon {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color(hex: "E8F0EA"))
-                            .frame(width: 44, height: 44)
-                        Image(systemName: "arrow.clockwise.circle.fill")
-                            .font(.system(size: 22))
-                            .foregroundStyle(Color(hex: "346049"))
+                            .frame(width: 36, height: 36)
+                            .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
                     } else {
-                        Image(systemName: "doc.text")
-                            .font(.system(size: 18))
-                            .foregroundStyle(Color(hex: "8F9E94"))
+                        Image(systemName: "receipt")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color.textMuted)
                     }
                 }
-                .frame(width: 44, height: 44)
 
-                // Text content
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text(displayTitle)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color(hex: "1C1C1E"))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color.textPrimary)
                         .lineLimit(1)
-                    HStack(spacing: 5) {
+
+                    HStack(spacing: 6) {
                         Circle()
                             .fill(tagColor.primaryColor)
-                            .frame(width: 8, height: 8)
+                            .frame(width: 11, height: 11)
                         Text(tagName)
-                            .font(.system(size: 13, weight: .regular))
-                            .foregroundStyle(Color(hex: "8F9E94"))
+                            .font(Fonts.caption(12))
+                            .foregroundStyle(Color.textSecondary)
                             .lineLimit(1)
                     }
                 }
 
-                Spacer(minLength: 8)
+                Spacer(minLength: Spacing.sm)
 
-                // Amount + date
-                VStack(alignment: .trailing, spacing: 4) {
+                VStack(alignment: .trailing, spacing: 2) {
                     Text(CurrencyFormatter.shared.format(cents: amountCents, currencyCode: currency))
-                        .font(.system(size: 16, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(Color(hex: "1C1C1E"))
+                        .font(Fonts.mono(15))
+                        .foregroundStyle(Color.textPrimary)
+
                     Text(Self.dateFormatter.string(from: date))
-                        .font(.system(size: 12, weight: .regular))
-                        .foregroundStyle(Color(hex: "8F9E94"))
+                        .font(Fonts.caption(11))
+                        .foregroundStyle(Color.textMuted)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 13)
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, 14)
 
-            // Hairline separator — inset to align with text, not thumbnail
             Rectangle()
-                .fill(Color(hex: "DEDAD2").opacity(0.8))
+                .fill(Color.borderColor.opacity(0.6))
                 .frame(height: 0.5)
-                .padding(.leading, 16 + 44 + 12)
+                .padding(.leading, Spacing.lg + 36 + Spacing.smd)
         }
     }
 }

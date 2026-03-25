@@ -54,20 +54,20 @@ struct ExpenseDetailView: View {
                 .navigationTitle("Expense")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
+                    ToolbarItem(placement: .topBarLeading) {
                         Button("Edit") { showingEdit = true }
                             .foregroundStyle(Color.brandPrimary)
                     }
-                    ToolbarItem(placement: .confirmationAction) {
+                    ToolbarItem(placement: .topBarTrailing) {
                         Button("Done") { dismiss() }
                             .foregroundStyle(Color.brandPrimary)
                     }
                 }
-                .alert(expense.isRecurring ? "Stop \(expense.merchant ?? "recurring") recurring?" : "Delete expense?", isPresented: $showingDeleteConfirmation) {
+                .alert("Delete expense?", isPresented: $showingDeleteConfirmation) {
                     Button("Cancel", role: .cancel) {}
-                    Button(expense.isRecurring ? "Stop Recurring" : "Delete", role: .destructive) { deleteExpense(expense) }
+                    Button("Delete", role: .destructive) { deleteExpense(expense) }
                 } message: {
-                    Text(expense.isRecurring ? "Past entries will be kept." : "This action cannot be undone.")
+                    Text("This action cannot be undone.")
                 }
                 .sheet(isPresented: $showingEdit) {
                     AddExpenseView(editingExpense: expense)
@@ -105,9 +105,7 @@ struct ExpenseDetailView: View {
                 .font(Fonts.brand(36))
                 .foregroundStyle(Color.textPrimary)
 
-            if resolvedTags.isEmpty {
-                EmptyView()
-            } else {
+            if !resolvedTags.isEmpty {
                 FlowLayout(spacing: 6, rowAlignment: .bottom, centerRows: true) {
                     ForEach(resolvedTags) { tag in
                         VStack(spacing: 2) {
@@ -146,10 +144,6 @@ struct ExpenseDetailView: View {
         VStack(spacing: 0) {
             detailRow(label: "Date", value: formatDate(expense.date))
             Divider().padding(.leading, Spacing.md)
-            if expense.isRecurring {
-                detailRow(label: "Recurring", value: formatRecurringFrequency(expense.recurringFrequency))
-                Divider().padding(.leading, Spacing.md)
-            }
             if let desc = expense.expenseDescription, !desc.isEmpty {
                 detailRow(label: "Description", value: desc)
                 Divider().padding(.leading, Spacing.md)
@@ -250,14 +244,6 @@ struct ExpenseDetailView: View {
         }
 
         attachmentImage = nil
-    }
-
-    private func formatRecurringFrequency(_ frequency: String) -> String {
-        switch frequency {
-        case "weekly": return "Weekly"
-        case "yearly": return "Yearly"
-        default: return "Monthly"
-        }
     }
 
     private func formatDate(_ date: Date) -> String {

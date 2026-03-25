@@ -15,9 +15,7 @@ struct ExportView: View {
     @State private var selectedFormat: ExportFormat = .csv
     @State private var isExporting = false
     @State private var showingProUpsell = false
-    @State private var showingExportLimit = false
     @State private var proFeatureName = "Export"
-    @State private var selectedTemplate: ExportTemplate = .simple
 
     private var filteredExpenses: [ExpenseModel] {
         activeExpenses.filter { $0.date >= startDate && $0.date <= endDate }
@@ -35,7 +33,6 @@ struct ExportView: View {
                 ScrollView {
                     VStack(spacing: Spacing.lg) {
                         dateRangeSection
-                        exportViewTemplateSection
                         formatSection
                         summarySection
                     }
@@ -56,11 +53,6 @@ struct ExportView: View {
             }
             .sheet(isPresented: $showingProUpsell) {
                 ProFeatureSheet(featureName: proFeatureName)
-                    .presentationDetents([.medium])
-                    .presentationDragIndicator(.visible)
-            }
-            .sheet(isPresented: $showingExportLimit) {
-                ExportLimitSheet()
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
             }
@@ -102,87 +94,6 @@ struct ExportView: View {
         .clipShape(RoundedRectangle(cornerRadius: Radius.md))
     }
 
-    // MARK: - Template
-
-    private var exportViewTemplateSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("Template")
-                .font(Fonts.headline(16))
-                .foregroundStyle(Color.textPrimary)
-
-            VStack(spacing: Spacing.sm) {
-                ForEach(ExportTemplate.allCases, id: \.rawValue) { template in
-                    exportViewTemplateOption(template)
-                }
-            }
-        }
-        .padding(Spacing.md)
-        .background(Color.bgPrimary)
-        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-    }
-
-    private func exportViewTemplateOption(_ template: ExportTemplate) -> some View {
-        let locked = template.isProOnly && !appState.isPro
-
-        return Button {
-            if locked {
-                proFeatureName = "\(template.label) template"
-                showingProUpsell = true
-                return
-            }
-            selectedTemplate = template
-        } label: {
-            HStack(spacing: Spacing.md) {
-                Image(systemName: selectedTemplate == template ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 22))
-                    .foregroundStyle(locked ? Color.textMuted : (selectedTemplate == template ? Color.brandPrimary : Color.textMuted))
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: Spacing.sm) {
-                        Text(template.label)
-                            .font(Fonts.body(15))
-                            .foregroundStyle(Color.textPrimary)
-                        if locked {
-                            HStack(spacing: 4) {
-                                Text("PRO")
-                                    .font(Fonts.caption(10))
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(Color.brandPrimary)
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 4)
-                                            .stroke(Color.brandPrimary, lineWidth: 1)
-                                    )
-                                Image(systemName: "lock.fill")
-                                    .font(.system(size: 10))
-                                    .foregroundStyle(Color.textMuted)
-                            }
-                        }
-                    }
-                    Text(exportViewTemplateColumnsLabel(template))
-                        .font(Fonts.caption(13))
-                        .foregroundStyle(Color.textSecondary)
-                }
-
-                Spacer()
-            }
-            .padding(Spacing.md)
-            .background(selectedTemplate == template ? Color.brandTint : Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
-        }
-        .buttonStyle(.plain)
-        .opacity(locked ? 0.6 : 1)
-    }
-
-    private func exportViewTemplateColumnsLabel(_ template: ExportTemplate) -> String {
-        switch template {
-        case .simple: return "Date, Merchant, Amount, Tag, Notes"
-        case .accountant: return "Date, Merchant, Amount, Category, Notes, Receipt Attached"
-        case .reimbursement: return "Date, Merchant, Purpose, Amount, Tag, Notes"
-        }
-    }
-
     // MARK: - Format
 
     private var formatSection: some View {
@@ -196,13 +107,13 @@ struct ExportView: View {
                     format: .csv,
                     title: "CSV",
                     subtitle: "Spreadsheet-compatible data file",
-                    proOnly: false
+                    proOnly: true
                 )
                 formatOption(
                     format: .pdf,
                     title: "PDF",
                     subtitle: "Coming soon",
-                    proOnly: false
+                    proOnly: true
                 )
             }
         }
@@ -320,15 +231,19 @@ struct ExportView: View {
 
     private func performExport() {
         guard expenseCount > 0 else { return }
-        guard appState.canExport else {
-            showingExportLimit = true
-            return
-        }
 
         switch selectedFormat {
         case .csv:
+            guard appState.isPro else {
+                showingProUpsell = true
+                return
+            }
             executeCSVExport()
         case .pdf:
+            guard appState.isPro else {
+                showingProUpsell = true
+                return
+            }
             executePDFExport()
         }
     }
@@ -347,14 +262,13 @@ struct ExportView: View {
         guard let fileURL = ExpenseExportService.buildCSVExport(
             expenses: filteredExpenses,
             tags: domainTags,
-            filenamePrefix: prefix,
-            template: selectedTemplate
+            filenamePrefix: prefix
         ) else {
             isExporting = false
             return
         }
 
-        appState.recordExport()
+        appState.recordCSVExport()
         isExporting = false
         presentShareSheet(items: [fileURL])
     }
@@ -396,12 +310,12 @@ struct ExportLimitSheet: View {
                 .foregroundStyle(Color.textMuted)
 
             VStack(spacing: Spacing.sm) {
-                Text("You've used your free export")
+                Text("You've used your free exports")
                     .font(Fonts.headline(20))
                     .foregroundStyle(Color.textPrimary)
                     .multilineTextAlignment(.center)
 
-                Text("Free accounts can export once per month. Upgrade to Pro for unlimited exports.")
+                Text("Free accounts can export up to 2 times per month. Upgrade to Pro for unlimited exports.")
                     .font(Fonts.body(15))
                     .foregroundStyle(Color.textSecondary)
                     .multilineTextAlignment(.center)
@@ -504,7 +418,7 @@ struct ProBenefitsCard: View {
                 VStack(alignment: .leading, spacing: Spacing.sm) {
                     benefitRow(icon: "infinity", text: "Unlimited expenses per month")
                     benefitRow(icon: "doc.text.viewfinder", text: "Full OCR auto-fill on receipts")
-                    benefitRow(icon: "square.and.arrow.up", text: "CSV & PDF exports")
+                    benefitRow(icon: "square.and.arrow.up", text: "Unlimited exports")
                     benefitRow(icon: "nosign", text: "No ads")
                 }
                 .padding(.horizontal, Spacing.sm)

@@ -132,19 +132,15 @@ struct TagPill: View {
 
 struct AddTagPill: View {
     var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "plus")
-                .font(.system(size: 12, weight: .semibold))
-            Text("New Tag")
-                .font(.system(size: 14, weight: .medium))
-        }
-        .foregroundStyle(Color.textSecondary)
-        .padding(.horizontal, 12)
-        .frame(height: 32)
-        .background(
-            RoundedRectangle(cornerRadius: Radius.pill)
-                .stroke(Color.borderColor, lineWidth: 1)
-        )
+        Text("+ Tag or Group")
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(Color.textSecondary)
+            .padding(.horizontal, 12)
+            .frame(height: 32)
+            .background(
+                RoundedRectangle(cornerRadius: Radius.pill)
+                    .stroke(Color.borderColor, lineWidth: 1)
+            )
     }
 }
 
@@ -159,7 +155,6 @@ struct ExpenseCard: View {
     let date: Date
     let tagName: String
     let tagColor: TagColor
-    var showRecurringIcon: Bool = false
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -173,6 +168,8 @@ struct ExpenseCard: View {
         }
         return description.isEmpty ? "Expense" : description
     }
+
+    private static let rowHorizontalPadding: CGFloat = 11
 
     var body: some View {
         VStack(spacing: 0) {
@@ -188,13 +185,6 @@ struct ExpenseCard: View {
                             .aspectRatio(contentMode: .fill)
                             .frame(width: 44, height: 44)
                             .clipShape(RoundedRectangle(cornerRadius: 8))
-                    } else if showRecurringIcon {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color(hex: "E8F0EA"))
-                            .frame(width: 44, height: 44)
-                        Image(systemName: "arrow.clockwise.circle.fill")
-                            .font(.system(size: 22))
-                            .foregroundStyle(Color(hex: "346049"))
                     } else {
                         Image(systemName: "doc.text")
                             .font(.system(size: 18))
@@ -210,7 +200,7 @@ struct ExpenseCard: View {
                         .foregroundStyle(Color(hex: "1C1C1E"))
                         .lineLimit(1)
                     if !tagName.isEmpty {
-                        HStack(spacing: 6) {
+                        HStack(spacing: 5) {
                             Circle()
                                 .fill(tagColor.primaryColor)
                                 .frame(width: 8, height: 8)
@@ -234,14 +224,14 @@ struct ExpenseCard: View {
                         .foregroundStyle(Color(hex: "8F9E94"))
                 }
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, Self.rowHorizontalPadding)
             .padding(.vertical, 13)
 
             // Hairline separator — inset to align with text, not thumbnail
             Rectangle()
                 .fill(Color(hex: "DEDAD2").opacity(0.8))
                 .frame(height: 0.5)
-                .padding(.leading, 16 + 44 + 12)
+                .padding(.leading, Self.rowHorizontalPadding + 44 + 12)
         }
     }
 }
@@ -254,11 +244,13 @@ struct FABButton: View {
     @State private var pulseScale: CGFloat = 1.0
     @State private var pulseOpacity: Double = 0.0
 
+    private var fabSize: CGFloat { 88 }
+
     var body: some View {
         ZStack {
             Circle()
                 .stroke(Color.actionGreen, lineWidth: 2)
-                .frame(width: 68, height: 68)
+                .frame(width: fabSize, height: fabSize)
                 .scaleEffect(pulseScale)
                 .opacity(pulseOpacity)
 
@@ -285,9 +277,9 @@ struct FABButton: View {
                 action()
             } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: 29, weight: .medium))
+                    .font(.system(size: 38, weight: .medium))
                     .foregroundStyle(.white)
-                    .frame(width: 68, height: 68)
+                    .frame(width: fabSize, height: fabSize)
             }
             .buttonStyle(FABButtonStyle())
             .scaleEffect(didTap ? 0.88 : 1.0)

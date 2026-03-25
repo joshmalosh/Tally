@@ -1,6 +1,5 @@
 import Vision
 import UIKit
-import CoreImage
 
 struct ReceiptOCRResult {
     var amount: Double?
@@ -11,11 +10,44 @@ struct ReceiptOCRResult {
 
 enum ReceiptOCRService {
 
-    // MARK: - Public entry point
+    /// Extract full raw text from image for bulk import. Returns concatenated text blocks.
+    static func extractFullText(from image: UIImage) async -> String {
+        let cgImage: CGImage
+        if let cg = image.cgImage {
+            cgImage = cg
+        } else if let ciImage = image.ciImage {
+            let context = CIContext()
+            guard let cg = context.createCGImage(ciImage, from: ciImage.extent) else { return "" }
+            cgImage = cg
+        } else if let data = image.pngData(), let reloaded = UIImage(data: data)?.cgImage {
+            cgImage = reloaded
+        } else {
+            return ""
+        }
+        let observations = await recognizeText(in: cgImage)
+        let blocks = observations
+            .sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
+            .compactMap { obs -> String? in
+                obs.topCandidates(1).first?.string
+            }
+        return blocks.joined(separator: "\n")
+    }
 
     static func extract(from image: UIImage) async -> ReceiptOCRResult {
-        let prepared = prepareImage(image)
-        guard let cgImage = prepared.cgImage else { return ReceiptOCRResult() }
+        let cgImage: CGImage
+        if let cg = image.cgImage {
+            cgImage = cg
+        } else if let ciImage = image.ciImage {
+            let context = CIContext()
+            guard let cg = context.createCGImage(ciImage, from: ciImage.extent) else {
+                return ReceiptOCRResult()
+            }
+            cgImage = cg
+        } else if let data = image.pngData(), let reloaded = UIImage(data: data)?.cgImage {
+            cgImage = reloaded
+        } else {
+            return ReceiptOCRResult()
+        }
 
         let observations = await recognizeText(in: cgImage)
         let blocks = observations
@@ -37,55 +69,6 @@ enum ReceiptOCRService {
         return ReceiptOCRResult(amount: amount, merchant: merchant, date: date, notes: notes)
     }
 
-    /// Extract raw text for bulk import
-    static func extractFullText(from image: UIImage) async -> String {
-        let prepared = prepareImage(image)
-        guard let cgImage = prepared.cgImage else { return "" }
-        let observations = await recognizeText(in: cgImage)
-        return observations
-            .sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
-            .compactMap { $0.topCandidates(1).first?.string }
-            .joined(separator: "\n")
-    }
-
-    // MARK: - Image preparation
-
-    /// Normalise orientation and straighten rotated receipts before OCR.
-    private static func prepareImage(_ image: UIImage) -> UIImage {
-        // Fix UIImage orientation metadata first
-        let oriented = fixOrientation(image)
-
-        // Detect if image is landscape (wider than tall) and rotate 90 degrees
-        // Receipts are always portrait — if the image is landscape, the receipt was photographed sideways
-        guard let cgImage = oriented.cgImage else { return oriented }
-        let width = CGFloat(cgImage.width)
-        let height = CGFloat(cgImage.height)
-
-        if width > height {
-            // Rotate 90 degrees clockwise
-            let size = CGSize(width: height, height: width)
-            UIGraphicsBeginImageContextWithOptions(size, false, oriented.scale)
-            let context = UIGraphicsGetCurrentContext()!
-            context.translateBy(x: size.width / 2, y: size.height / 2)
-            context.rotate(by: .pi / 2)
-            oriented.draw(in: CGRect(x: -width / 2, y: -height / 2, width: width, height: height))
-            let rotated = UIGraphicsGetImageFromCurrentImageContext() ?? oriented
-            UIGraphicsEndImageContext()
-            return rotated
-        }
-
-        return oriented
-    }
-
-    private static func fixOrientation(_ image: UIImage) -> UIImage {
-        guard image.imageOrientation != .up else { return image }
-        UIGraphicsBeginImageContextWithOptions(image.size, false, image.scale)
-        image.draw(in: CGRect(origin: .zero, size: image.size))
-        let normalized = UIGraphicsGetImageFromCurrentImageContext() ?? image
-        UIGraphicsEndImageContext()
-        return normalized
-    }
-
     // MARK: - Vision
 
     private static func recognizeText(in cgImage: CGImage) async -> [VNRecognizedTextObservation] {
@@ -96,7 +79,6 @@ enum ReceiptOCRService {
             }
             request.recognitionLevel = .accurate
             request.usesLanguageCorrection = true
-            request.recognitionLanguages = ["en-AU", "en-US", "en-GB"]
 
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
             do {
@@ -110,256 +92,309 @@ enum ReceiptOCRService {
     // MARK: - Amount Extraction
 
     private static let amountPattern = try! NSRegularExpression(
-        pattern: #"[\$£€¥]\s*\d{1,6}[,.]?\d{0,2}|\d{1,6}[,.]\d{2}\s*[\$£€¥]?"#,
+        pattern: #"[\$£€¥]\s*\d{1,}[,.]?\d{0,2}|\d{1,}[,.]\d{2}\s*[\$£€¥]?|\d{1,}[,.]\d{2}"#,
         options: .caseInsensitive
     )
 
-    /// Keywords that strongly indicate the final payable total — ordered by priority.
-    /// "subtotal" and "sub total" are deliberately excluded — they indicate pre-tax amounts.
-    private static let strongTotalKeywords = [
-        "grand total", "total due", "total payable", "amount due",
-        "amount payable", "you pay", "balance due", "total amount due"
-    ]
-    private static let weakTotalKeywords = ["total"]
-    private static let subtotalKeywords = ["subtotal", "sub total", "sub-total", "net total"]
+    private static let percentPattern = try! NSRegularExpression(
+        pattern: #"\d[,.]?\d*\s*%"#,
+        options: []
+    )
 
-    private static func extractAmount(from blocks: [TextBlock]) -> Double? {
-        // Pass 1: Strong total keywords — look for keyword + amount on same line or adjacent line
-        for keyword in strongTotalKeywords {
-            if let value = findAmountNearKeyword(keyword, in: blocks) {
-                return value
-            }
-        }
+    private static let totalLinePattern = try! NSRegularExpression(
+        pattern: #"(?<!\w)(?:grand\s+)?(?:total|net)(?:\s+due|\s+payable|\s+amount|\s+charge)?(?:\s*:)?(?!\w)"#,
+        options: .caseInsensitive
+    )
 
-        // Pass 2: Weak "total" keyword, but only if it's NOT preceded by "sub"
-        for block in blocks {
-            let lower = block.text.lowercased()
-            let isSubtotal = subtotalKeywords.contains { lower.contains($0) }
-            if !isSubtotal && lower.contains("total") {
-                if let value = parseAmount(from: block.text), value > 0 {
-                    return value
-                }
-                // Check adjacent block below (same-line split)
-                if let value = findAmountOnSameLine(as: block, in: blocks) {
-                    return value
-                }
-            }
-        }
+    private static let subtotalPattern = try! NSRegularExpression(
+        pattern: #"sub\s*total|net\s+total"#,
+        options: .caseInsensitive
+    )
 
-        // Pass 3: Fallback — largest dollar-formatted amount in bottom 40% of receipt
-        let bottomBlocks = blocks.filter { $0.boundingBox.origin.y < 0.4 }
-        let candidates = bottomBlocks.compactMap { block -> Double? in
-            guard let val = parseAmount(from: block.text), val > 0 else { return nil }
-            return val
-        }
-        return candidates.max()
-    }
+    private static let currencySymbolPattern = try! NSRegularExpression(
+        pattern: #"[\$£€¥]"#, options: []
+    )
 
-    private static func findAmountNearKeyword(_ keyword: String, in blocks: [TextBlock]) -> Double? {
-        for block in blocks {
-            let lower = block.text.lowercased()
-            guard lower.contains(keyword) else { continue }
+    /// Find the nearest amount block on the same horizontal line as a keyword block.
+    /// Vision's bounding boxes use normalized coordinates (0-1), Y increases upward.
+    private static func findAmountOnSameLine(as keywordBlock: TextBlock, in blocks: [TextBlock]) -> Double? {
+        let yTolerance = 0.015 // blocks within ~1.5% of image height are "same line"
+        let keyY = keywordBlock.boundingBox.midY
 
-            // Amount on same text block
+        var candidates: [(Double, CGFloat)] = [] // (amount, horizontal distance)
+        for block in blocks where block.text != keywordBlock.text || block.boundingBox != keywordBlock.boundingBox {
+            guard abs(block.boundingBox.midY - keyY) < yTolerance else { continue }
             if let value = parseAmount(from: block.text), value > 0 {
-                return value
-            }
-            // Amount on same horizontal line (split across two blocks)
-            if let value = findAmountOnSameLine(as: block, in: blocks) {
-                return value
+                let dist = abs(block.boundingBox.midX - keywordBlock.boundingBox.midX)
+                candidates.append((value, dist))
             }
         }
-        return nil
-    }
-
-    private static func findAmountOnSameLine(as keyBlock: TextBlock, in blocks: [TextBlock]) -> Double? {
-        let yTolerance: CGFloat = 0.02
-        let keyY = keyBlock.boundingBox.midY
-        let candidates = blocks
-            .filter { abs($0.boundingBox.midY - keyY) < yTolerance && $0.text != keyBlock.text }
-            .compactMap { block -> (Double, CGFloat)? in
-                guard let val = parseAmount(from: block.text), val > 0 else { return nil }
-                return (val, abs(block.boundingBox.midX - keyBlock.boundingBox.midX))
-            }
         return candidates.min(by: { $0.1 < $1.1 })?.0
     }
 
-    private static func parseAmount(from text: String) -> Double? {
-        let range = NSRange(text.startIndex..., in: text)
-        let matches = amountPattern.matches(in: text, options: [], range: range)
-        var best: Double?
-        for match in matches {
-            guard let matchRange = Range(match.range, in: text) else { continue }
-            var s = String(text[matchRange])
-            s = s.replacingOccurrences(of: "[$£€¥\\s]", with: "", options: .regularExpression)
-            if s.contains(",") && s.contains(".") {
-                s = s.replacingOccurrences(of: ",", with: "")
-            } else if s.contains(",") {
-                let parts = s.split(separator: ",")
-                if let last = parts.last, last.count == 2 {
-                    s = s.replacingOccurrences(of: ",", with: ".")
-                } else {
-                    s = s.replacingOccurrences(of: ",", with: "")
+    private static func extractAmount(from blocks: [TextBlock]) -> Double? {
+
+        var totalCandidates: [(Double, TextBlock)] = []
+        var subtotalCandidates: [(Double, TextBlock)] = []
+        var totalKeywordBlocks: [TextBlock] = []    // keyword found but no inline amount
+        var subtotalKeywordBlocks: [TextBlock] = []
+
+        for block in blocks {
+            let text = block.text
+            let nsRange = NSRange(text.startIndex..., in: text)
+            let isSubtotal = subtotalPattern.firstMatch(in: text, range: nsRange) != nil
+            let isTotal = totalLinePattern.firstMatch(in: text, range: nsRange) != nil
+
+            if let value = parseAmount(from: text), value > 0 {
+                if isTotal && !isSubtotal {
+                    totalCandidates.append((value, block))
+                } else if isSubtotal {
+                    subtotalCandidates.append((value, block))
+                }
+            } else {
+                if isTotal && !isSubtotal {
+                    totalKeywordBlocks.append(block)
+                } else if isSubtotal {
+                    subtotalKeywordBlocks.append(block)
                 }
             }
-            if let value = Double(s), value > 0 {
-                if best == nil || value > best! { best = value }
+        }
+
+        // Tier 1a: "Total" blocks that contained both keyword and amount
+        if !totalCandidates.isEmpty {
+            let best = totalCandidates.min { $0.1.boundingBox.origin.y < $1.1.boundingBox.origin.y }
+            if let best {
+                return best.0
             }
         }
-        return best
-    }
 
-    // MARK: - Merchant Extraction
-
-    /// Noise words that appear at the top of receipts but are NOT merchant names.
-    /// These are whole-line or dominant-phrase patterns.
-    private static let merchantNoiseLines: Set = [
-        "tax invoice", "tax invoice receipt", "invoice", "receipt",
-        "sales receipt", "official receipt",
-        "abn", "acn", "gst", "gstin",
-        "thank you", "thanks for shopping", "thanks for visiting",
-        "welcome", "please retain", "please keep",
-        "castlehill", "castle hill", // location suffixes for chain stores
-        "wh", "store", "branch",
-        "front end registers", "register",
-        "sale", "transaction",
-        "** tax invoice **", "* tax invoice *"
-    ]
-
-    private static let merchantNoisePatterns: [String] = [
-        "^\\d+$",                          // pure number
-        "^[*\\-=#+]{2,}",                 // decorative separators
-        "\\b(abn|acn|gst)\\s+\\d",        // ABN/ACN/GST numbers
-        "ph:\\s*\\(?\\d",                  // phone numbers
-        "tel:\\s*\\(?\\d",
-        "\\(?0[2-9]\\)?\\s*\\d{4}",       // Australian phone format
-        "\\b\\d{2}/\\d{2}/\\d{4}\\b",     // dates
-        "\\b\\d{4}-\\d{2}-\\d{2}\\b",
-        "\\b(mon|tue|wed|thu|fri|sat|sun)\\b", // day names
-        "www\\.",                           // URLs
-        "\\.com|\\.com\\.au|\\.net",
-        "@",                               // email addresses
-        "r0[0-9]|r[0-9]{2}\\s",           // register IDs like R01
-        "\\bp\\d{3,}\\b",                  // printer/POS codes
-        "\\bc\\d{6,}\\b",                  // long numeric codes
-    ]
-
-    private static func isMerchantNoise(_ text: String) -> Bool {
-        let lower = text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // Exact match against noise lines
-        if merchantNoiseLines.contains(lower) { return true }
-        // Substring match against noise lines (e.g. "** TAX INVOICE **")
-        for noise in merchantNoiseLines {
-            if lower.contains(noise) { return true }
-        }
-        // Regex patterns
-        for pattern in merchantNoisePatterns {
-            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
-                let range = NSRange(lower.startIndex..., in: lower)
-                if regex.firstMatch(in: lower, range: range) != nil { return true }
+        // Tier 1b: "Total"/"Net" keyword block with amount in an adjacent block on the same line.
+        // Prefer keywords in the lower portion of the receipt (actual totals vs column headers).
+        if !totalKeywordBlocks.isEmpty {
+            let sorted = totalKeywordBlocks.sorted { $0.boundingBox.origin.y < $1.boundingBox.origin.y }
+            let hasBottomKeyword = sorted.contains { $0.boundingBox.origin.y < 0.5 }
+            for kwBlock in sorted {
+                if hasBottomKeyword && kwBlock.boundingBox.origin.y >= 0.6 { continue }
+                if let value = findAmountOnSameLine(as: kwBlock, in: blocks) {
+                    return value
+                }
             }
         }
-        return false
-    }
 
-    private static func extractMerchant(from blocks: [TextBlock]) -> String? {
-        // Strategy: scan the top 15% of the receipt (high y values in Vision coordinates).
-        // Prefer the LARGEST text block (by character width relative to bounding box width),
-        // which is typically the brand/store name printed in large font at the very top.
-
-        // First, get blocks in the top portion of the receipt
-        let topBlocks = blocks
-            .filter { $0.boundingBox.origin.y > 0.7 } // top 30% of receipt
-            .sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
-
-        // Try to find the widest/most prominent text block — merchant names are typically
-        // printed larger and span more of the receipt width than address lines or noise
-        var candidates: [(String, CGFloat)] = [] // (text, bounding box width)
-        for block in topBlocks {
-            let text = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard text.count >= 2, text.count <= 60 else { continue }
-            guard block.confidence >= 0.5 else { continue }
-            guard !isMerchantNoise(text) else { continue }
-
-            // Skip if more than 40% digits
-            let digits = text.filter(\.isNumber).count
-            if text.count > 0 && Double(digits) / Double(text.count) > 0.4 { continue }
-
-            candidates.append((text, block.boundingBox.width))
+        // Tier 2: Keyword lines — "amount due", "balance due", "you pay", etc.
+        let fallbackKeywords = [
+            "amount due", "balance due", "you pay", "amount", "balance",
+            "due", "charge", "payment", "tendered", "tender", "net:"
+        ]
+        for keyword in fallbackKeywords {
+            for block in blocks {
+                let lower = block.text.lowercased()
+                if lower.contains(keyword) {
+                    if let value = parseAmount(from: block.text), value > 0 {
+                        return value
+                    }
+                    if let value = findAmountOnSameLine(as: block, in: blocks) {
+                        return value
+                    }
+                }
+            }
         }
 
-        // Pick the widest candidate — large brand names span the full receipt width
-        if let best = candidates.max(by: { $0.1 < $1.1 }) {
-            return toTitleCase(best.0)
+        // Tier 3: Fall back to subtotal
+        if !subtotalCandidates.isEmpty {
+            let best = subtotalCandidates.min(by: { $0.1.boundingBox.origin.y < $1.1.boundingBox.origin.y })
+            if let best {
+                return best.0
+            }
+        }
+        if !subtotalKeywordBlocks.isEmpty {
+            let sorted = subtotalKeywordBlocks.sorted { $0.boundingBox.origin.y < $1.boundingBox.origin.y }
+            for kwBlock in sorted {
+                if let value = findAmountOnSameLine(as: kwBlock, in: blocks) {
+                    return value
+                }
+            }
         }
 
-        // Fallback: first non-noise block at the very top
-        for block in topBlocks.prefix(8) {
-            let text = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard text.count >= 2, text.count <= 60 else { continue }
-            guard !isMerchantNoise(text) else { continue }
-            let digits = text.filter(\.isNumber).count
-            if text.count > 0 && Double(digits) / Double(text.count) > 0.4 { continue }
-            return toTitleCase(text)
+        // Tier 4: Largest amount with a currency symbol
+        var currencyAmounts: [(Double, TextBlock)] = []
+        for block in blocks {
+            let nsRange = NSRange(block.text.startIndex..., in: block.text)
+            if currencySymbolPattern.firstMatch(in: block.text, range: nsRange) != nil {
+                if let value = parseAmount(from: block.text), value > 0 {
+                    currencyAmounts.append((value, block))
+                }
+            }
+        }
+        if let best = currencyAmounts.max(by: { $0.0 < $1.0 }) {
+            return best.0
+        }
+
+        // Tier 5: Last resort — largest standalone amount near the bottom half
+        let bottomHalf = blocks.filter { $0.boundingBox.origin.y < 0.5 }
+        var allAmounts: [(Double, TextBlock)] = []
+        for block in bottomHalf {
+            if let value = parseAmount(from: block.text), value > 0 {
+                allAmounts.append((value, block))
+            }
+        }
+        if let best = allAmounts.max(by: { $0.0 < $1.0 }) {
+            return best.0
         }
 
         return nil
     }
 
-    private static func toTitleCase(_ text: String) -> String {
-        text.lowercased()
-            .split(separator: " ")
-            .map { $0.prefix(1).uppercased() + $0.dropFirst() }
-            .joined(separator: " ")
+    private static func parseAmount(from text: String) -> Double? {
+        let lower = text.lowercased()
+        if lower.contains("rate") || (lower.contains("vat:") && lower.contains("%")) { return nil }
+
+        let range = NSRange(text.startIndex..., in: text)
+        let matches = amountPattern.matches(in: text, options: [], range: range)
+
+        var last: Double?
+        for match in matches {
+            guard let matchRange = Range(match.range, in: text) else { continue }
+            let matched = String(text[matchRange])
+
+            // Skip if this number is followed by a % sign (it's a percentage, not an amount)
+            let afterIdx = matchRange.upperBound
+            if afterIdx < text.endIndex {
+                let remaining = text[afterIdx...].trimmingCharacters(in: .whitespaces)
+                if remaining.hasPrefix("%") { continue }
+            }
+
+            var numString = matched
+            numString = numString.replacingOccurrences(of: "[$£€¥\\s]", with: "", options: .regularExpression)
+
+            if numString.contains(",") && numString.contains(".") {
+                numString = numString.replacingOccurrences(of: ",", with: "")
+            } else if numString.contains(",") {
+                let parts = numString.split(separator: ",")
+                if let last = parts.last, last.count == 2 {
+                    numString = numString.replacingOccurrences(of: ",", with: ".")
+                } else {
+                    numString = numString.replacingOccurrences(of: ",", with: "")
+                }
+            }
+
+            if let value = Double(numString), value > 0 {
+                last = value
+            }
+        }
+
+        return last
     }
 
     // MARK: - Date Extraction
 
-    private static func extractDate(from blocks: [TextBlock]) -> Date? {
-        for block in blocks {
-            let text = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
-            if let date = parseNumericDate(text) { return date }
-            if let date = parseWrittenDate(text) { return date }
-        }
-        return nil
-    }
+    /// Matches common receipt date formats: DD/MM/YYYY, DD/MM/YY, DD-MM-YYYY, DD.MM.YYYY,
+    /// YYYY-MM-DD, plus variants with optional time components.
+    private static let datePattern = try! NSRegularExpression(
+        pattern: #"\d{1,2}[/\-\.]\d{1,2}[/\-\.]\d{2,4}"#,
+        options: []
+    )
 
-    private static func parseNumericDate(_ text: String) -> Date? {
-        let separators: [Character] = ["/", "-", "."]
-        for sep in separators {
-            guard text.contains(sep) else { continue }
-            let parts = text.split(separator: sep).map(String.init)
-            guard parts.count == 3 else { continue }
-            let nums = parts.compactMap { Int($0.prefix(4)) }
-            guard nums.count == 3 else { continue }
-            var a = nums[0], b = nums[1], c = nums[2]
-            // Expand 2-digit year
-            if c < 100 { c += 2000 }
-            if a > 2000 {
-                return makeDate(year: a, month: b, day: c)
-            } else if a > 31 {
-                return nil // invalid
-            } else if a > 12 {
-                return makeDate(year: c, month: b, day: a)
-            } else if b > 12 {
-                return makeDate(year: c, month: a, day: b)
-            } else {
-                // Ambiguous — DD/MM/YYYY is default for AU
-                return makeDate(year: c, month: b, day: a)
+    /// Matches written dates like "09 Dec 2025", "December 9, 2025"
+    private static let writtenDatePattern = try! NSRegularExpression(
+        pattern: #"\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*[\s,]+\d{2,4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2}[\s,]+\d{2,4}"#,
+        options: .caseInsensitive
+    )
+
+    private static func extractDate(from blocks: [TextBlock]) -> Date? {
+        // Prefer date blocks in the upper half of the receipt (dates usually near the top)
+        let sortedByPosition = blocks.sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
+
+        for block in sortedByPosition {
+            let text = block.text
+            if let date = parseDateFromBlock(text) {
+                return date
             }
         }
         return nil
     }
 
+    private static func parseDateFromBlock(_ text: String) -> Date? {
+        let nsRange = NSRange(text.startIndex..., in: text)
+
+        // Try numeric date patterns first (DD/MM/YYYY, etc.)
+        if let match = datePattern.firstMatch(in: text, range: nsRange),
+           let matchRange = Range(match.range, in: text) {
+            let dateString = String(text[matchRange])
+            if let date = parseNumericDate(dateString) {
+                return date
+            }
+        }
+
+        // Try written date patterns (09 Dec 2025, December 9 2025, etc.)
+        if let match = writtenDatePattern.firstMatch(in: text, range: nsRange),
+           let matchRange = Range(match.range, in: text) {
+            let dateString = String(text[matchRange])
+            if let date = parseWrittenDate(dateString) {
+                return date
+            }
+        }
+
+        return nil
+    }
+
+    private static func parseNumericDate(_ text: String) -> Date? {
+        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Determine separator
+        let separator: Character
+        if cleaned.contains("/") { separator = "/" }
+        else if cleaned.contains("-") { separator = "-" }
+        else if cleaned.contains(".") { separator = "." }
+        else { return nil }
+
+        let parts = cleaned.split(separator: separator).map(String.init)
+        guard parts.count == 3 else { return nil }
+
+        let a = Int(parts[0]) ?? 0
+        let b = Int(parts[1]) ?? 0
+        var c = Int(parts[2]) ?? 0
+
+        // Expand 2-digit year
+        if c < 100 { c += 2000 }
+
+        var day: Int
+        var month: Int
+        let year = c
+
+        if a > 2000 {
+            // ISO format: YYYY-MM-DD
+            day = c    // c was already set to year above, swap
+            month = b
+            // Actually re-parse for ISO
+            let isoYear = a
+            let isoMonth = b
+            let isoDay = Int(parts[2]) ?? 0
+            return makeDate(year: isoYear, month: isoMonth, day: isoDay)
+        } else if a > 12 {
+            // Unambiguously DD/MM (day > 12)
+            day = a; month = b
+        } else if b > 12 {
+            // Unambiguously MM/DD (day > 12)
+            day = b; month = a
+        } else {
+            // Ambiguous — default to DD/MM (more common worldwide and on UK receipts)
+            day = a; month = b
+        }
+
+        return makeDate(year: year, month: month, day: day)
+    }
+
     private static func parseWrittenDate(_ text: String) -> Date? {
-        let formats = [
+        let formatters: [String] = [
             "d MMM yyyy", "d MMMM yyyy", "dd MMM yyyy", "dd MMMM yyyy",
-            "MMM d, yyyy", "MMMM d, yyyy"
+            "MMM d, yyyy", "MMMM d, yyyy", "MMM dd, yyyy", "MMMM dd, yyyy",
+            "d MMM yy", "dd MMM yy", "MMM d, yy", "MMM dd, yy"
         ]
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_AU")
-        for format in formats {
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+
+        for format in formatters {
             formatter.dateFormat = format
             if let date = formatter.date(from: text.trimmingCharacters(in: .whitespacesAndNewlines)) {
                 return date
@@ -369,10 +404,58 @@ enum ReceiptOCRService {
     }
 
     private static func makeDate(year: Int, month: Int, day: Int) -> Date? {
-        guard (2000...2099).contains(year), (1...12).contains(month), (1...31).contains(day) else { return nil }
+        guard (1...12).contains(month), (1...31).contains(day), year >= 2000 else { return nil }
         var components = DateComponents()
-        components.year = year; components.month = month; components.day = day; components.hour = 12
+        components.year = year
+        components.month = month
+        components.day = day
+        components.hour = 12 // Noon to avoid timezone edge cases
         return Calendar.current.date(from: components)
+    }
+
+    // MARK: - Merchant Extraction
+
+    /// First prominent line at the **top** of the receipt: no digits, short phrase, high confidence.
+    /// Strips required noise phrases (TAX INVOICE, RECEIPT, ORDER, ABN, GST, etc.).
+    private static let merchantNoisePhrases: [String] = [
+        "tax invoice", "receipt", "invoice", "order", "abn", "gst", "duplicate",
+        "subtotal", "total", "change", "cash", "card", "visa", "mastercard", "eftpos", "amex",
+        "date", "time", "thank", "welcome", "phone", "tel:", "fax", "email", "address",
+        "qty", "price", "ticket", "terminal", "pos", "take away", "takeout", "dine in",
+        "table", "server", "www.", "http", ".com", "item"
+    ]
+
+    private static func extractMerchant(from blocks: [TextBlock]) -> String? {
+        let ordered = blocks.sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
+
+        for block in ordered {
+            guard block.confidence >= 0.75 else { continue }
+
+            let raw = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard raw.count >= 2 else { continue }
+
+            // Never use a line that contains any numeric character (amounts, ABN, street numbers, item lines).
+            if raw.contains(where: { $0.isNumber }) { continue }
+
+            var text = raw
+            for phrase in merchantNoisePhrases {
+                text = text.replacingOccurrences(of: phrase, with: " ", options: .caseInsensitive)
+            }
+            text = text
+                .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .trimmingCharacters(in: CharacterSet(charactersIn: ".,;:-•·"))
+
+            guard text.count >= 2, text.count <= 45 else { continue }
+            if text.contains(where: { $0.isNumber }) { continue }
+
+            let wordCount = text.split(whereSeparator: { $0.isWhitespace }).count
+            guard wordCount <= 6 else { continue }
+
+            return text
+        }
+
+        return nil
     }
 
     // MARK: - Notes Extraction (Pro only)
@@ -380,13 +463,14 @@ enum ReceiptOCRService {
     private static let noteDescriptorKeywords = [
         "takeout", "take away", "take-away", "online order", "dine in", "dine-in",
         "delivery", "pickup", "pick up", "drive thru", "drive-through",
-        "to go", "to-go", "counter", "table"
+        "to go", "to-go", "counter"
     ]
 
+    /// Assemble short note (max 60 chars) from merchant + descriptors. High confidence only.
     private static func extractNotes(from blocks: [TextBlock], merchant: String?) -> String? {
         guard let merchant, !merchant.isEmpty else { return nil }
-        var descriptor: String?
 
+        var descriptor: String?
         let topBlocks = blocks
             .sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
             .prefix(12)
@@ -397,7 +481,7 @@ enum ReceiptOCRService {
             for kw in noteDescriptorKeywords {
                 if lower.contains(kw) {
                     let cleaned = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if cleaned.count <= 30 && !cleaned.isEmpty {
+                    if cleaned.count <= 25 && !cleaned.isEmpty {
                         descriptor = cleaned.prefix(1).uppercased() + cleaned.dropFirst().lowercased()
                         break
                     }
@@ -406,8 +490,33 @@ enum ReceiptOCRService {
             if descriptor != nil { break }
         }
 
-        guard let d = descriptor else { return nil }
-        let note = "\(d) — \(merchant.prefix(40))"
+        // Also check for "TABLE 4", "ORDER #123" style
+        if descriptor == nil {
+            let tablePattern = try? NSRegularExpression(pattern: #"table\s*#?\s*\d+"#, options: .caseInsensitive)
+            let orderPattern = try? NSRegularExpression(pattern: #"order\s*#?\s*\d*"#, options: .caseInsensitive)
+            for block in topBlocks {
+                guard block.confidence >= 0.75 else { continue }
+                let text = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if let t = tablePattern?.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+                   let r = Range(t.range, in: text) {
+                    descriptor = String(text[r]).prefix(1).uppercased() + String(text[r]).dropFirst().lowercased()
+                    break
+                }
+                if let o = orderPattern?.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+                   let r = Range(o.range, in: text) {
+                    descriptor = String(text[r]).prefix(1).uppercased() + String(text[r]).dropFirst().lowercased()
+                    break
+                }
+            }
+        }
+
+        let merchantPart = String(merchant.prefix(40)).trimmingCharacters(in: .whitespaces)
+        let note: String
+        if let d = descriptor, !d.isEmpty {
+            note = "\(d) — \(merchantPart)"
+        } else {
+            return nil  // Only populate if we have a descriptor (high confidence)
+        }
         return note.count <= 60 ? note : String(note.prefix(57)) + "..."
     }
 }

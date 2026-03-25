@@ -185,7 +185,7 @@ Buttons:
 
 ## Subscription Management
 
-- iOS: StoreKit 2 (`com.asimplelife.tally.pro.monthly`).
+- iOS: StoreKit 2 (`com.tally.pro.monthly`).
 - Subscription status stored locally and validated via App Store receipt.
 - No proprietary backend for subscription validation.
 - On expiry/cancellation: revert to free tier. All data preserved. Export limits re-apply.

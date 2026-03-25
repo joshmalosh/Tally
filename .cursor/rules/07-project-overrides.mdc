@@ -63,5 +63,8 @@ Each override follows this format:
 
 ### Project structure — Single Xcode project
 **Default:** Multiple Xcode projects or platform-specific source trees.
-**Override:** One Xcode project only: `Tally/IOS/Tally.xcodeproj`. All source files live under `Tally/IOS/Tally/` (Views, Domain, Models, Services, etc.). No duplicate `ios/` folder, no second project. Git operations run from `Tally/IOS/` and push to the Tally repo.
+**Override:** One Xcode project only: `Tally/IOS/Tally.xcodeproj`. All source files live under `Tally/IOS/Tally/` (Views, Domain, Models, Services, etc.). No duplicate `ios/` folder, no second project.
 **Rationale:** Duplicate projects and parallel source trees caused bugs (fixes applied to wrong files) and maintenance burden. One project, one source tree.
+
+### Git push — Tally app MUST push to Tally repo only
+**Critical:** All Tally app changes MUST be committed and pushed to https://github.com/joshmalosh/Tally. The ASimpleLife workspace has origin = A-Simple-Life-Website (website repo). Do NOT push Tally app code to origin. **Failsafe:** See `.cursor/rules/failsafe-tally-push.mdc`. Tally repo lives at `e:\Projects\ASimpleLife\TallyRepo` — stage all (`git add -A`), commit, then `git push origin main`.

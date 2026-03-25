@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import RevenueCat
 
 @main
 struct TallyApp: App {
@@ -15,19 +14,35 @@ struct TallyApp: App {
     // entitlements are configured for iCloud + Push Notifications.
     static let cloudKitEnabled = false
 
+    /// Bump when the SwiftData schema changes in dev; wipes the local store once so no migration is required.
+    private static let storeSchemaVersionKey = "tallySwiftDataStoreSchemaVersion"
+    private static let currentStoreSchemaVersion = 2
+
+    private static func deletePersistentStoreFiles() {
+        let urls = [
+            URL.applicationSupportDirectory.appending(path: "default.store"),
+            URL.applicationSupportDirectory.appending(path: "default.store-shm"),
+            URL.applicationSupportDirectory.appending(path: "default.store-wal"),
+        ]
+        for url in urls {
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
+
     init() {
         let schema = Schema([ExpenseModel.self, TagModel.self])
 
+        if UserDefaults.standard.integer(forKey: Self.storeSchemaVersionKey) < Self.currentStoreSchemaVersion {
+            Self.deletePersistentStoreFiles()
+            UserDefaults.standard.set(Self.currentStoreSchemaVersion, forKey: Self.storeSchemaVersionKey)
+            #if DEBUG
+            print("[Tally] SwiftData store recreated for schema version \(Self.currentStoreSchemaVersion).")
+            #endif
+        }
+
         func makeContainer(deleteFirst: Bool = false) -> ModelContainer {
             if deleteFirst {
-                let urls = [
-                    URL.applicationSupportDirectory.appending(path: "default.store"),
-                    URL.applicationSupportDirectory.appending(path: "default.store-shm"),
-                    URL.applicationSupportDirectory.appending(path: "default.store-wal"),
-                ]
-                for url in urls {
-                    try? FileManager.default.removeItem(at: url)
-                }
+                Self.deletePersistentStoreFiles()
                 #if DEBUG
                 print("[Tally] Deleted old database to resolve schema mismatch.")
                 #endif
@@ -38,7 +53,7 @@ struct TallyApp: App {
                 if Self.cloudKitEnabled {
                     config = ModelConfiguration(
                         schema: schema,
-                        cloudKitDatabase: .private("iCloud.com.asimplelife.tally")
+                        cloudKitDatabase: .private("iCloud.com.tally.app")
                     )
                 } else {
                     config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
@@ -56,25 +71,8 @@ struct TallyApp: App {
         }
 
         self.modelContainer = makeContainer()
-        configureRevenueCat()
         #if DEBUG
         print("[Tally] ModelContainer created successfully (CloudKit: \(Self.cloudKitEnabled))")
-        #endif
-
-        let container = modelContainer
-        Task.detached(priority: .userInitiated) {
-            _ = try? await MainActor.run {
-                _ = try? container.mainContext.fetchCount(FetchDescriptor<ExpenseModel>())
-            }
-        }
-    }
-
-    private func configureRevenueCat() {
-        Purchases.configure(withAPIKey: RevenueCatConfig.revenueCatAPIKey)
-        #if DEBUG
-        Purchases.logLevel = .debug
-        #else
-        Purchases.logLevel = .error
         #endif
     }
 

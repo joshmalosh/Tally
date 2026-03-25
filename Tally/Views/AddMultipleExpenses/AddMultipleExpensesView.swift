@@ -44,6 +44,18 @@ struct AddMultipleExpensesView: View {
             .navigationTitle(step == .input ? "Add from notes" : "Review expenses")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                if step == .review {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            goBackFromReview()
+                        } label: {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(Color.textPrimary)
+                        }
+                        .accessibilityLabel("Back")
+                    }
+                }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                         .foregroundStyle(Color.textSecondary)
@@ -240,6 +252,14 @@ struct AddMultipleExpensesView: View {
         }
         parsedExpenses = parsed
         step = .review
+    }
+
+    /// Returns to the input step, keeping `pastedText` unchanged and clearing all review-only state.
+    private func goBackFromReview() {
+        parsedExpenses = []
+        linkedTagIds = [:]
+        showingTagLinkPickerFor = nil
+        step = .input
     }
 
     // MARK: - Review Step

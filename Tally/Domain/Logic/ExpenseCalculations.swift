@@ -49,60 +49,46 @@ enum ExpenseCalculations {
     }
 
     /// Generate CSV content. `receiptFilenames` maps expense ID → filename in the receipts folder.
-    static func generateCSV(expenses: [Expense], tags: [Tag], receiptFilenames: [String: String] = [:], template: ExportTemplate = .simple) -> String {
+    static func generateCSV(expenses: [Expense], tags: [Tag], receiptFilenames: [String: String] = [:]) -> String {
+        let header = "date,description,merchant,amount,currency,groups,tags,notes,receipt,created_at"
         let tagMap = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0) })
+
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
 
-        let (header, rowFields): (String, (Expense) -> [String]) = {
-            switch template {
-            case .simple:
-                return ("date,merchant,amount,tag,notes", { expense in
-                    let amount = String(format: "%.2f", Double(expense.amountCents) / 100.0)
-                    let resolvedTags = expense.tagIds.compactMap { tagMap[$0] }
-                    let tagNames = resolvedTags.isEmpty ? "Untagged" : resolvedTags.map(\.name).joined(separator: "; ")
-                    return [
-                        dateFormatter.string(from: expense.date),
-                        csvEscape(expense.merchant ?? ""),
-                        amount,
-                        csvEscape(tagNames),
-                        csvEscape(expense.notes ?? ""),
-                    ]
-                })
-            case .accountant:
-                return ("date,merchant,amount,category,notes,receipt_attached", { expense in
-                    let amount = String(format: "%.2f", Double(expense.amountCents) / 100.0)
-                    let resolvedTags = expense.tagIds.compactMap { tagMap[$0] }
-                    let categoryNames = resolvedTags.isEmpty ? "Untagged" : resolvedTags.map(\.name).joined(separator: "; ")
-                    let hasReceipt = (expense.attachmentKey != nil)
-                    return [
-                        dateFormatter.string(from: expense.date),
-                        csvEscape(expense.merchant ?? ""),
-                        amount,
-                        csvEscape(categoryNames),
-                        csvEscape(expense.notes ?? ""),
-                        hasReceipt ? "Yes" : "No",
-                    ]
-                })
-            case .reimbursement:
-                return ("date,merchant,purpose,amount,tag,notes", { expense in
-                    let amount = String(format: "%.2f", Double(expense.amountCents) / 100.0)
-                    let resolvedTags = expense.tagIds.compactMap { tagMap[$0] }
-                    let tagNames = resolvedTags.isEmpty ? "Untagged" : resolvedTags.map(\.name).joined(separator: "; ")
-                    return [
-                        dateFormatter.string(from: expense.date),
-                        csvEscape(expense.merchant ?? ""),
-                        csvEscape(expense.description ?? ""),
-                        amount,
-                        csvEscape(tagNames),
-                        csvEscape(expense.notes ?? ""),
-                    ]
-                })
-            }
-        }()
+        let isoFormatter = ISO8601DateFormatter()
 
-        let rows = sortedByDate(expenses: expenses, ascending: true).map { rowFields($0) }
-        return ([header] + rows.map { $0.joined(separator: ",") }).joined(separator: "\n")
+        let rows = sortedByDate(expenses: expenses, ascending: true).map { expense in
+            let amount = String(format: "%.2f", Double(expense.amountCents) / 100.0)
+
+            let resolvedTags = expense.tagIds.compactMap { tagMap[$0] }
+            let tagNames = resolvedTags.isEmpty ? "Untagged" : resolvedTags.map(\.name).joined(separator: "; ")
+
+            var groupNames: [String] = []
+            for tag in resolvedTags {
+                if let parentId = tag.parentId, let parent = tagMap[parentId] {
+                    if !groupNames.contains(parent.name) { groupNames.append(parent.name) }
+                }
+            }
+            let groupField = groupNames.joined(separator: "; ")
+
+            let receiptFile = receiptFilenames[expense.id] ?? ""
+
+            let fields = [
+                dateFormatter.string(from: expense.date),
+                csvEscape(expense.description ?? ""),
+                csvEscape(expense.merchant ?? ""),
+                amount,
+                expense.currency,
+                csvEscape(groupField),
+                csvEscape(tagNames),
+                csvEscape(expense.notes ?? ""),
+                receiptFile,
+                isoFormatter.string(from: expense.createdAt),
+            ]
+            return fields.joined(separator: ",")
+        }
+        return ([header] + rows).joined(separator: "\n")
     }
 
     private static func csvEscape(_ value: String) -> String {

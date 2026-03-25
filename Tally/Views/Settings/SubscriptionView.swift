@@ -1,5 +1,5 @@
 import SwiftUI
-import RevenueCat
+import StoreKit
 
 struct SubscriptionView: View {
     @Environment(\.dismiss) private var dismiss
@@ -7,8 +7,10 @@ struct SubscriptionView: View {
 
     @State private var isPurchasing = false
     @State private var errorMessage: String?
-    @State private var packages: [Package] = []
-    @State private var didLoadPackages = false
+    @State private var products: [Product] = []
+    @State private var didLoadProducts = false
+
+    private let productId = "com.tally.pro.monthly"
 
     var body: some View {
         NavigationStack {
@@ -32,7 +34,7 @@ struct SubscriptionView: View {
                         .foregroundStyle(Color.textSecondary)
                 }
             }
-            .task { await loadPackages() }
+            .task { await loadProducts() }
         }
     }
 
@@ -89,17 +91,16 @@ struct SubscriptionView: View {
 
     private var pricingSection: some View {
         VStack(spacing: Spacing.md) {
-            if let package = packages.first {
-                let priceText = package.storeProduct.localizedPriceString
+            if let product = products.first {
                 PrimaryButton(
-                    title: "Subscribe for \(priceText)/month",
-                    action: { purchase(package) },
+                    title: "Subscribe for \(product.displayPrice)/month",
+                    action: { purchase(product) },
                     isLoading: isPurchasing
                 )
-            } else if didLoadPackages {
+            } else if didLoadProducts {
                 PrimaryButton(
                     title: "Retry loading",
-                    action: { Task { await loadPackages() } }
+                    action: { Task { await loadProducts() } }
                 )
             } else {
                 PrimaryButton(
@@ -133,57 +134,59 @@ struct SubscriptionView: View {
             .multilineTextAlignment(.center)
     }
 
-    // MARK: - RevenueCat
+    // MARK: - StoreKit
 
-    private func loadPackages() async {
-        didLoadPackages = false
+    private func loadProducts() async {
+        didLoadProducts = false
         errorMessage = nil
         do {
-            let offerings = try await Purchases.shared.offerings()
-            let availablePackages = offerings[RevenueCatConfig.offeringIdentifier]?.availablePackages ?? []
-            let monthlyFirst = availablePackages.sorted { p1, p2 in
-                if p1.packageType == .monthly { return true }
-                if p2.packageType == .monthly { return false }
-                return true
-            }
-            await MainActor.run {
-                packages = monthlyFirst
-                didLoadPackages = true
-                if packages.isEmpty {
-                    errorMessage = "Subscription not available. Please try again later."
-                }
+            products = try await Product.products(for: [productId])
+            didLoadProducts = true
+            if products.isEmpty {
+                errorMessage = "Subscription not available. Please try again later."
             }
         } catch {
-            await MainActor.run {
-                didLoadPackages = true
-                errorMessage = "Unable to load subscription details."
-            }
+            didLoadProducts = true
+            errorMessage = "Unable to load subscription details."
         }
     }
 
-    private func purchase(_ package: Package) {
+    private func purchase(_ product: Product) {
         isPurchasing = true
         errorMessage = nil
 
         Task {
             do {
-                let (_, customerInfo, userCancelled) = try await Purchases.shared.purchase(package: package)
-                await MainActor.run {
-                    isPurchasing = false
-                    if userCancelled { return }
-                    if customerInfo.entitlements[RevenueCatConfig.proEntitlementId]?.isActive == true {
-                        appState.subscriptionStatus = .pro
-                        dismiss()
-                    } else {
-                        errorMessage = "Purchase could not be verified."
+                let result = try await product.purchase()
+                switch result {
+                case .success(let verification):
+                    switch verification {
+                    case .verified:
+                        await MainActor.run {
+                            appState.subscriptionStatus = .pro
+                            isPurchasing = false
+                            dismiss()
+                        }
+                    case .unverified:
+                        await MainActor.run {
+                            errorMessage = "Purchase could not be verified."
+                            isPurchasing = false
+                        }
                     }
+                case .pending:
+                    await MainActor.run {
+                        errorMessage = "Purchase is pending approval."
+                        isPurchasing = false
+                    }
+                case .userCancelled:
+                    await MainActor.run { isPurchasing = false }
+                @unknown default:
+                    await MainActor.run { isPurchasing = false }
                 }
-            } catch let error as ErrorCode where error == .purchaseCancelledError {
-                await MainActor.run { isPurchasing = false }
             } catch {
                 await MainActor.run {
-                    isPurchasing = false
                     errorMessage = "Purchase failed. Please try again."
+                    isPurchasing = false
                 }
             }
         }
@@ -191,14 +194,19 @@ struct SubscriptionView: View {
 
     private func restorePurchases() async {
         do {
-            let customerInfo = try await Purchases.shared.restorePurchases()
-            await MainActor.run {
-                if customerInfo.entitlements[RevenueCatConfig.proEntitlementId]?.isActive == true {
-                    appState.subscriptionStatus = .pro
-                    dismiss()
-                } else {
-                    errorMessage = "No active subscription found."
+            try await AppStore.sync()
+            for await result in Transaction.currentEntitlements {
+                if case .verified(let transaction) = result,
+                   transaction.productID == productId {
+                    await MainActor.run {
+                        appState.subscriptionStatus = .pro
+                        dismiss()
+                    }
+                    return
                 }
+            }
+            await MainActor.run {
+                errorMessage = "No active subscription found."
             }
         } catch {
             await MainActor.run {

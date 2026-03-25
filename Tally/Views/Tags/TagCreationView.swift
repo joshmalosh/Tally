@@ -183,11 +183,11 @@ struct TagCreationView: View {
             showingDeleteConfirmation = true
         } label: {
             Text("Delete tag")
-                .font(Fonts.body(16))
-                .fontWeight(.medium)
+                .font(Fonts.body(17))
+                .fontWeight(.semibold)
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
+                .padding(.vertical, 17)
                 .background(Color.danger)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.md))
         }

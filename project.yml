@@ -2,7 +2,7 @@ name: Tally
 options:
   bundleIdPrefix: com.tally
   deploymentTarget:
-    iOS: "18.0"
+    iOS: "17.0"
   xcodeVersion: "16.0"
   createIntermediateGroups: true
   generateEmptyDirectories: true
@@ -24,7 +24,7 @@ targets:
           - "**/.gitkeep"
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.asimplelife.tally
+        PRODUCT_BUNDLE_IDENTIFIER: com.tally.app
         INFOPLIST_FILE: Tally/Info.plist
         SWIFT_EMIT_LOC_STRINGS: "YES"
         CODE_SIGN_STYLE: Automatic
@@ -49,7 +49,7 @@ targets:
       #   com.apple.developer.applesignin:
       #     - Default
       #   com.apple.developer.icloud-container-identifiers:
-      #     - iCloud.com.asimplelife.tally
+      #     - iCloud.com.tally.app
       #   com.apple.developer.icloud-services:
       #     - CloudKit
     dependencies:
@@ -65,7 +65,7 @@ targets:
           - "**/.gitkeep"
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.asimplelife.tally.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.tally.app.tests
         GENERATE_INFOPLIST_FILE: "YES"
     dependencies:
       - target: Tally

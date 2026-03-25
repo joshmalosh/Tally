@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import UserNotifications
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -14,14 +13,6 @@ struct SettingsView: View {
     @State private var showingTagCreation = false
     @State private var showingGroupCreation = false
     @State private var editingTag: TagModel?
-    @State private var notificationTime: Date = {
-        let stored = UserDefaults.standard.double(forKey: "recurringNotificationTime")
-        if stored > 0 { return Date(timeIntervalSince1970: stored) }
-        var components = DateComponents()
-        components.hour = 10
-        components.minute = 0
-        return Calendar.current.date(from: components) ?? Date()
-    }()
 
     /// All tags (standalone + group children), sorted A–Z
     private var allTagsSorted: [TagModel] {
@@ -125,17 +116,7 @@ struct SettingsView: View {
                                 .foregroundStyle(Color.brandPrimary)
                         }
                     }
-                } header: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Tags")
-                        Text("Toggle to show or hide on your home screen.")
-                            .font(.system(size: 13))
-                            .foregroundStyle(Color.textSecondary)
-                            .textCase(nil)
-                    }
-                }
 
-                Section("Groups") {
                     ForEach(groupsSorted) { group in
                         NavigationLink {
                             GroupDetailView(group: group)
@@ -166,39 +147,10 @@ struct SettingsView: View {
                                 .foregroundStyle(Color.brandPrimary)
                         }
                     }
-                }
-
-                Section {
-                    Toggle("Recurring expense alerts", isOn: Binding(
-                        get: { appState.recurringNotificationEnabled },
-                        set: { newValue in
-                            appState.recurringNotificationEnabled = newValue
-                            if newValue {
-                                Task {
-                                    _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
-                                }
-                            }
-                        }
-                    ))
-                    .tint(Color.brandPrimary)
-
-                    if appState.recurringNotificationEnabled {
-                        DatePicker(
-                            "Notify at",
-                            selection: $notificationTime,
-                            displayedComponents: .hourAndMinute
-                        )
-                        .tint(Color.brandPrimary)
-                        .onChange(of: notificationTime) { _, newTime in
-                            UserDefaults.standard.set(newTime.timeIntervalSince1970, forKey: "recurringNotificationTime")
-                        }
-                    }
                 } header: {
-                    Text("Notifications")
+                    Text("Tags & Groups")
                 } footer: {
-                    Text(appState.recurringNotificationEnabled
-                        ? "You'll be notified when recurring expenses are auto-logged."
-                        : "Enable to get notified when recurring expenses are auto-logged.")
+                    Text("Choose which tags appear as filters on the home screen.")
                 }
 
                 Section("Preferences") {
@@ -216,6 +168,20 @@ struct SettingsView: View {
                             Image(systemName: "chevron.right")
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(Color.textMuted)
+                        }
+                    }
+                }
+
+                Section("Data") {
+                    Button {
+                        appState.showingExport = true
+                        dismiss()
+                    } label: {
+                        HStack {
+                            Image(systemName: "square.and.arrow.up")
+                                .foregroundStyle(Color.brandPrimary)
+                            Text("Export your expenses")
+                                .foregroundStyle(Color.textPrimary)
                         }
                     }
                 }
