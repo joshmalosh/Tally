@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var currentTaglineIndex = 0
     @State private var taglineOpacity: Double = 1
     @State private var taglineTimerTask: Task<Void, Never>?
+    @State private var didRefreshProStatus = false
 
     private static let splashDuration: TimeInterval = 2.5
     private static let taglines = [
@@ -49,6 +50,10 @@ struct ContentView: View {
         }
         .preferredColorScheme(.light)
         .onAppear {
+            if !didRefreshProStatus {
+                didRefreshProStatus = true
+                Task { await SubscriptionService.refreshProStatus(appState: appState) }
+            }
             seedDefaultTags()
             adManager.configure(isPro: appState.isPro)
             if !hasCompletedOnboarding {

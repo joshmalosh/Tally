@@ -227,10 +227,13 @@ struct SubscriptionView: View {
                 let result = try await Purchases.shared.purchase(package: package)
                 await MainActor.run {
                     isPurchasing = false
-                    if result.userCancelled { return }
+                    if result.userCancelled {
+                        dismiss()
+                        return
+                    }
                     let active = result.customerInfo.entitlements[RevenueCatConfig.proEntitlementId]?.isActive == true
                     if active {
-                        SubscriptionService.setSubscriptionActive(true, appState: appState)
+                        appState.subscriptionStatus = .pro
                         dismiss()
                     } else {
                         errorMessage = "Purchase could not be verified."
@@ -240,6 +243,7 @@ struct SubscriptionView: View {
                 await MainActor.run {
                     isPurchasing = false
                     if let code = error as? ErrorCode, code == .purchaseCancelledError {
+                        dismiss()
                         return
                     }
                     errorMessage = error.localizedDescription
@@ -251,11 +255,10 @@ struct SubscriptionView: View {
     private func restorePurchases() async {
         errorMessage = nil
         do {
-            let customerInfo = try await Purchases.shared.restorePurchases()
-            let isActive = customerInfo.entitlements[RevenueCatConfig.proEntitlementId]?.isActive == true
+            _ = try await Purchases.shared.restorePurchases()
+            await SubscriptionService.refreshProStatus(appState: appState)
             await MainActor.run {
-                SubscriptionService.setSubscriptionActive(isActive, appState: appState)
-                if isActive {
+                if appState.isPro {
                     dismiss()
                 } else {
                     errorMessage = "No active subscription found."

@@ -35,6 +35,8 @@ struct TallyApp: App {
         Purchases.configure(withAPIKey: RevenueCatConfig.apiKey)
         #if DEBUG
         Purchases.logLevel = .debug
+        #endif
+        #if DEBUG
         print("[Tally] ModelContainer created successfully (CloudKit: \(Self.cloudKitEnabled))")
         #endif
     }
@@ -50,9 +52,6 @@ struct TallyApp: App {
                         UIApplication.shared.endEditing()
                     }
                 )
-                .task {
-                    await SubscriptionService.restoreSubscriptionStatus(appState: appState)
-                }
         }
         .modelContainer(modelContainer)
     }
