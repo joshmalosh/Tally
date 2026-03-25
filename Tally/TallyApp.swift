@@ -23,7 +23,7 @@ struct TallyApp: App {
             if Self.cloudKitEnabled {
                 config = ModelConfiguration(
                     schema: schema,
-                    cloudKitDatabase: .private("iCloud.com.tally.app")
+                    cloudKitDatabase: .private("iCloud.com.asimplelife.tally")
                 )
             } else {
                 config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
