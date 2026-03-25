@@ -94,6 +94,13 @@ struct AddExpenseView: View {
         !appState.isPro && !isKeyboardVisible
     }
 
+    /// Scroll content inset so fields stay above the fixed bottom save bar (+ banner when visible).
+    private var formBottomChromeClearance: CGFloat {
+        let saveStack: CGFloat = 108
+        let banner: CGFloat = shouldShowBanner ? 52 : 0
+        return saveStack + banner + Spacing.sm
+    }
+
     private var selectedTags: [TagModel] {
         selectedTagIds.compactMap { id in tags.first { $0.id == id } }
     }
@@ -139,19 +146,28 @@ struct AddExpenseView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
+            ZStack(alignment: .bottom) {
                 Color.bgPrimary.ignoresSafeArea()
 
-                VStack(spacing: 0) {
+                Group {
                     if formReady {
                         ScrollView {
                             formScrollStack
                         }
-                        .ignoresSafeArea(.keyboard)
-                        .onTapGesture {
-                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .scrollDismissesKeyboard(.interactively)
+                        .simultaneousGesture(
+                            TapGesture().onEnded { _ in
+                                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                            }
+                        )
                     }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                if formReady {
+                    stickySaveChrome
+                        .ignoresSafeArea(.keyboard, edges: .bottom)
                 }
             }
             .navigationTitle(isEditing ? "Edit expense" : "Add expense")
@@ -161,9 +177,14 @@ struct AddExpenseView: View {
                     Button("Cancel") { dismiss() }
                         .foregroundStyle(Color(hex: "8F9E94"))
                 }
-            }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                stickySaveChrome
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        focusedField = nil
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    }
+                    .foregroundStyle(Color(hex: "346049"))
+                }
             }
             .confirmationDialog("Add receipt", isPresented: $showingAddReceiptSources, titleVisibility: .visible) {
                 Button("Camera") { showingCamera = true }
@@ -351,7 +372,7 @@ struct AddExpenseView: View {
             }
         }
         .padding(.top, 12)
-        .padding(.bottom, 120)
+        .padding(.bottom, formBottomChromeClearance)
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: receiptImageAttached)
     }
 
