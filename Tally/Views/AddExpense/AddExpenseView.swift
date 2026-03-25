@@ -155,72 +155,78 @@ struct AddExpenseView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color.bgPrimary.ignoresSafeArea()
+            addExpenseNavigationRoot
+        }
+    }
 
-                Group {
-                    if formReady {
-                        ScrollView {
-                            formScrollStack
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .scrollDismissesKeyboard(.interactively)
-                        .simultaneousGesture(
-                            TapGesture().onEnded { _ in
-                                UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                            }
-                        )
+    /// Split from `body` so the type checker can infer `NavigationStack` without timing out.
+    private var addExpenseNavigationRoot: some View {
+        addExpenseFormWithSheets
+            .onChange(of: attachedImage) { _, newValue in
+                if newValue == nil {
+                    ocrPopulatedAnyField = false
+                }
+                if let image = newValue {
+                    if AttachmentService.exceedsMaxSize(image) {
+                        attachedImage = nil
+                        attachedFileURL = nil
+                        errorMessage = "This image is too large. Maximum size is 20 MB."
+                        showingError = true
+                        return
+                    }
+                    source = showingCamera ? .camera : .upload
+                    ocrPopulatedAnyField = false
+                    if !isEditing {
+                        runOCR(on: image)
                     }
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                if formReady {
-                    stickySaveChrome
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                        .ignoresSafeArea(.keyboard, edges: .bottom)
-                }
             }
-            .navigationTitle(isEditing ? "Edit expense" : "Add expense")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(Color(hex: "346049"), for: .keyboard)
-            .toolbarBackground(.visible, for: .keyboard)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(Color(hex: "8F9E94"))
+            .onChange(of: showingCamera) { _, showing in
+                if !showing && !formReady {
+                    withAnimation(.easeIn(duration: 0.2)) { formReady = true }
                 }
-                ToolbarItemGroup(placement: .keyboard) {
-                    HStack {
-                        Spacer()
-                        Button("Done") {
-                            focusedField = nil
-                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                        }
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(.white)
+                if !showing && attachedImage == nil && enteredViaPhotoFlow {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        if attachedImage == nil { dismiss() }
                     }
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .padding(.trailing, 16)
-                    .padding(.vertical, 10)
                 }
             }
-            .confirmationDialog("Add receipt", isPresented: $showingAddReceiptSources, titleVisibility: .visible) {
-                Button("Camera") { showingCamera = true }
-                Button("Photos") { showingPhotoPicker = true }
-                Button("File") { showingDocumentPicker = true }
-                Button("Cancel", role: .cancel) {}
+            .onChange(of: showingPhotoPicker) { _, showing in
+                if !showing && !formReady {
+                    withAnimation(.easeIn(duration: 0.2)) { formReady = true }
+                }
             }
-            .confirmationDialog("Replace receipt", isPresented: $showingReplaceReceiptSources, titleVisibility: .visible) {
-                Button("Camera") { showingCamera = true }
-                Button("Photos") { showingPhotoPicker = true }
-                Button("File") { showingDocumentPicker = true }
-                Button("Cancel", role: .cancel) {}
+            .onChange(of: showingDocumentPicker) { _, showing in
+                if !showing && !formReady {
+                    withAnimation(.easeIn(duration: 0.2)) { formReady = true }
+                }
             }
-            .alert("Error", isPresented: $showingError) {
-                Button("OK") {}
-            } message: {
-                Text(errorMessage)
+            .onChange(of: formReady) { _, ready in
+                if ready && focusedField == nil && !receiptImageAttached {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        focusedField = .amount
+                    }
+                }
             }
+            .onChange(of: notes) { _, newVal in
+                if !newVal.isEmpty { notesExpanded = true }
+            }
+            .onAppear {
+                applyInitialState()
+                if !receiptImageAttached, notesExpanded == false, !notes.isEmpty {
+                    notesExpanded = true
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                isKeyboardVisible = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                isKeyboardVisible = false
+            }
+    }
+
+    private var addExpenseFormWithSheets: some View {
+        addExpenseFormChrome
             .sheet(isPresented: $showingDatePickerSheet) {
                 NavigationStack {
                     DatePicker(
@@ -287,66 +293,77 @@ struct AddExpenseView: View {
             .sheet(isPresented: $showingGoProFromOcrBanner) {
                 SubscriptionView()
             }
-            .onChange(of: attachedImage) { _, newValue in
-                if newValue == nil {
-                    ocrPopulatedAnyField = false
+    }
+
+    private var addExpenseFormChrome: some View {
+        addExpenseFormZStack
+            .navigationTitle(isEditing ? "Edit expense" : "Add expense")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color(hex: "346049"), for: .keyboard)
+            .toolbarBackground(.visible, for: .keyboard)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                        .foregroundStyle(Color(hex: "8F9E94"))
                 }
-                if let image = newValue {
-                    if AttachmentService.exceedsMaxSize(image) {
-                        attachedImage = nil
-                        attachedFileURL = nil
-                        errorMessage = "This image is too large. Maximum size is 20 MB."
-                        showingError = true
-                        return
+                ToolbarItemGroup(placement: .keyboard) {
+                    HStack {
+                        Spacer()
+                        Button("Done") {
+                            focusedField = nil
+                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        }
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(.white)
                     }
-                    source = showingCamera ? .camera : .upload
-                    ocrPopulatedAnyField = false
-                    if !isEditing {
-                        runOCR(on: image)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.trailing, 16)
+                    .padding(.vertical, 10)
+                }
+            }
+            .confirmationDialog("Add receipt", isPresented: $showingAddReceiptSources, titleVisibility: .visible) {
+                Button("Camera") { showingCamera = true }
+                Button("Photos") { showingPhotoPicker = true }
+                Button("File") { showingDocumentPicker = true }
+                Button("Cancel", role: .cancel) {}
+            }
+            .confirmationDialog("Replace receipt", isPresented: $showingReplaceReceiptSources, titleVisibility: .visible) {
+                Button("Camera") { showingCamera = true }
+                Button("Photos") { showingPhotoPicker = true }
+                Button("File") { showingDocumentPicker = true }
+                Button("Cancel", role: .cancel) {}
+            }
+            .alert("Error", isPresented: $showingError) {
+                Button("OK") {}
+            } message: {
+                Text(errorMessage)
+            }
+    }
+
+    private var addExpenseFormZStack: some View {
+        ZStack {
+            Color.bgPrimary.ignoresSafeArea()
+
+            Group {
+                if formReady {
+                    ScrollView {
+                        formScrollStack
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .scrollDismissesKeyboard(.interactively)
+                    .simultaneousGesture(
+                        TapGesture().onEnded { _ in
+                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        }
+                    )
                 }
             }
-            .onChange(of: showingCamera) { _, showing in
-                if !showing && !formReady {
-                    withAnimation(.easeIn(duration: 0.2)) { formReady = true }
-                }
-                if !showing && attachedImage == nil && enteredViaPhotoFlow {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                        if attachedImage == nil { dismiss() }
-                    }
-                }
-            }
-            .onChange(of: showingPhotoPicker) { _, showing in
-                if !showing && !formReady {
-                    withAnimation(.easeIn(duration: 0.2)) { formReady = true }
-                }
-            }
-            .onChange(of: showingDocumentPicker) { _, showing in
-                if !showing && !formReady {
-                    withAnimation(.easeIn(duration: 0.2)) { formReady = true }
-                }
-            }
-            .onChange(of: formReady) { _, ready in
-                if ready && focusedField == nil && !receiptImageAttached {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        focusedField = .amount
-                    }
-                }
-            }
-            .onChange(of: notes) { _, newVal in
-                if !newVal.isEmpty { notesExpanded = true }
-            }
-            .onAppear {
-                applyInitialState()
-                if !receiptImageAttached, notesExpanded == false, !notes.isEmpty {
-                    notesExpanded = true
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
-                isKeyboardVisible = true
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-                isKeyboardVisible = false
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            if formReady {
+                stickySaveChrome
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .ignoresSafeArea(.keyboard, edges: .bottom)
             }
         }
     }
@@ -356,39 +373,15 @@ struct AddExpenseView: View {
     private var formScrollStack: some View {
         VStack(spacing: 8) {
             if receiptImageAttached {
-                receiptImageHero
-                    .transition(.move(edge: .top).combined(with: .opacity))
-
-                if shouldShowOcrFilledBanner {
-                    ocrFilledBanner
-                }
-
-                if !appState.isPro {
-                    proUpsellCompactBanner
-                }
-
-                receiptStateAmountMerchantDateCluster
+                receiptImageAttachedFormBlock
             } else {
-                amountHeroBlock
-                    .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
-
-                merchantDateCardCluster
-
-                if attachedFileURL != nil {
-                    pdfAttachmentCard
-                }
-
-                tagsRow
-
-                addReceiptCard
-
-                notesRow
+                manualEntryFormBlock
             }
 
             if receiptImageAttached {
-                tagsRow
+                tagsRowView
 
-                notesRow
+                notesRowView
             }
         }
         .padding(.top, 12)
@@ -396,9 +389,43 @@ struct AddExpenseView: View {
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: receiptImageAttached)
     }
 
+    @ViewBuilder
+    private var receiptImageAttachedFormBlock: some View {
+        receiptHeroView
+            .transition(.move(edge: .top).combined(with: .opacity))
+
+        if shouldShowOcrFilledBanner {
+            ocrFilledBanner
+        }
+
+        if !appState.isPro {
+            proUpsellCompactBanner
+        }
+
+        receiptStateAmountMerchantDateCluster
+    }
+
+    @ViewBuilder
+    private var manualEntryFormBlock: some View {
+        amountHeroView
+            .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+
+        merchantDateView
+
+        if attachedFileURL != nil {
+            pdfAttachmentCard
+        }
+
+        tagsRowView
+
+        addReceiptView
+
+        notesRowView
+    }
+
     // MARK: - State 1: Amount hero
 
-    private var amountHeroBlock: some View {
+    private var amountHeroView: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("AMOUNT")
                 .font(.system(size: 11, weight: .semibold, design: .default))
@@ -476,7 +503,7 @@ struct AddExpenseView: View {
 
     // MARK: - State 1: Merchant + date cluster
 
-    private var merchantDateCardCluster: some View {
+    private var merchantDateView: some View {
         VStack(spacing: 2) {
             merchantRowShape(radiusTop: 14, radiusBottom: 6)
             dateRowShape(radiusTop: 6, radiusBottom: 14)
@@ -583,7 +610,7 @@ struct AddExpenseView: View {
 
     // MARK: - Tags row
 
-    private var tagsRow: some View {
+    private var tagsRowView: some View {
         Group {
             if selectedTagIds.isEmpty {
                 Button {
@@ -662,7 +689,7 @@ struct AddExpenseView: View {
 
     // MARK: - Add receipt card (state 1 only in stack)
 
-    private var addReceiptCard: some View {
+    private var addReceiptView: some View {
         Button {
             showingAddReceiptSources = true
         } label: {
@@ -747,7 +774,7 @@ struct AddExpenseView: View {
 
     // MARK: - Notes
 
-    private var notesRow: some View {
+    private var notesRowView: some View {
         VStack(alignment: .leading, spacing: 0) {
             if notesExpanded {
                 HStack(alignment: .top, spacing: 10) {
@@ -798,7 +825,7 @@ struct AddExpenseView: View {
 
     // MARK: - State 2: Receipt hero
 
-    private var receiptImageHero: some View {
+    private var receiptHeroView: some View {
         ZStack {
             if let image = attachedImage {
                 Button { showingFullImage = true } label: {
