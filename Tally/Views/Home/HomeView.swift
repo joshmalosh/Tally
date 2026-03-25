@@ -27,6 +27,12 @@ struct HomeView: View {
 
     private var showsBannerAd: Bool { !appState.isPro }
 
+    /// Clears FAB above the home banner (~52pt) with comfortable margin when ads show.
+    private var fabBottomInset: CGFloat {
+        let margin: CGFloat = 18
+        return showsBannerAd ? 52 + margin : margin
+    }
+
     private static let monthYearFormatter: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "MMM yyyy"; return f
     }()
@@ -180,14 +186,16 @@ struct HomeView: View {
                 if !isSelecting {
                     FABButton { showingEntryPicker = true }
                         .padding(.trailing, Spacing.xl + 10)
-                        .padding(.bottom, showsBannerAd ? (Spacing.xl + 16) : (Spacing.xl + 10))
+                        .padding(.bottom, fabBottomInset)
                         .animation(.easeInOut(duration: 0.3), value: showsBannerAd)
                 }
             }
+            .background(Color(hex: "F6F5F3").ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
+            .toolbarBackground(Color(hex: "F6F5F3"), for: .navigationBar)
             .keyboardDoneToolbar()
         }
-        .background(Color.bgPrimary)
+        .background(Color(hex: "F6F5F3").ignoresSafeArea())
         .sheet(isPresented: $showingEntryPicker) {
             AddEntryPicker { mode in
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -614,6 +622,8 @@ struct HomeView: View {
             }
             .frame(maxWidth: .infinity)
         }
+        .scrollContentBackground(.hidden)
+        .background(Color(hex: "F6F5F3"))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -697,6 +707,7 @@ struct HomeView: View {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .background(Color(hex: "F6F5F3"))
         .scrollDismissesKeyboard(.interactively)
         .coordinateSpace(name: "homeScroll")
         .onPreferenceChange(HomeListScrollAnchorKey.self) { minY in
