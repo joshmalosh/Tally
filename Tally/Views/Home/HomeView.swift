@@ -725,7 +725,6 @@ struct HomeView: View {
                 }
             }
         }
-        .contentMargins(.top, 0, for: .scrollContent)
     }
 
     // MARK: - Thumbnails

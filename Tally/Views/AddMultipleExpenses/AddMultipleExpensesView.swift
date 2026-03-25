@@ -953,19 +953,19 @@ private struct BulkExpenseRowEditSheet: View {
                 Text(CurrencyFormatter.shared.symbol(for: currencyCode))
                     .font(Fonts.mono(20))
                     .foregroundStyle(Color(hex: "346049").opacity(0.5))
-                TextField("", text: $amountText)
-                    .font(Fonts.mono(20))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-                    .keyboardType(CurrencyFormatter.shared.usesDecimals(for: currencyCode) ? .decimalPad : .numberPad)
-                    .textFieldStyle(.plain)
-                    .onChange(of: amountText) { _, newValue in
-                        let filtered = newValue.filter { $0.isNumber || $0 == "." }
-                        let parts = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
-                        let sanitized = parts.count > 1
-                            ? parts[0] + "." + parts.dropFirst().joined()
-                            : filtered
-                        if sanitized != newValue { amountText = String(sanitized) }
-                    }
+                NumericFieldWithDone(
+                    text: $amountText,
+                    keyboardType: CurrencyFormatter.shared.usesDecimals(for: currencyCode) ? .decimalPad : .numberPad,
+                    font: UIFont.monospacedSystemFont(ofSize: 20, weight: .medium)
+                )
+                .onChange(of: amountText) { _, newValue in
+                    let filtered = newValue.filter { $0.isNumber || $0 == "." }
+                    let parts = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
+                    let sanitized = parts.count > 1
+                        ? parts[0] + "." + parts.dropFirst().joined()
+                        : filtered
+                    if sanitized != newValue { amountText = String(sanitized) }
+                }
             }
         }
         .padding(18)

@@ -10,7 +10,7 @@ struct SubscriptionView: View {
     @State private var products: [Product] = []
     @State private var didLoadProducts = false
 
-    private let productId = "com.tally.pro.monthly"
+    private let productId = SubscriptionService.proProductId
 
     var body: some View {
         NavigationStack {
@@ -163,7 +163,7 @@ struct SubscriptionView: View {
                     switch verification {
                     case .verified:
                         await MainActor.run {
-                            appState.subscriptionStatus = .pro
+                            SubscriptionService.setSubscriptionActive(true, appState: appState)
                             isPurchasing = false
                             dismiss()
                         }
@@ -199,13 +199,14 @@ struct SubscriptionView: View {
                 if case .verified(let transaction) = result,
                    transaction.productID == productId {
                     await MainActor.run {
-                        appState.subscriptionStatus = .pro
+                        SubscriptionService.setSubscriptionActive(true, appState: appState)
                         dismiss()
                     }
                     return
                 }
             }
             await MainActor.run {
+                SubscriptionService.setSubscriptionActive(false, appState: appState)
                 errorMessage = "No active subscription found."
             }
         } catch {

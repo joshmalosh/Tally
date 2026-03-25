@@ -62,6 +62,19 @@ struct ExpenseDetailView: View {
         CurrencyFormatter.shared.symbol(for: currency)
     }
 
+    private func formatAmountField() {
+        let trimmed = amountText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let value = Double(trimmed), value > 0 else {
+            amountText = ""
+            return
+        }
+        if CurrencyFormatter.shared.usesDecimals(for: currency) {
+            amountText = String(format: "%.2f", value)
+        } else {
+            amountText = String(format: "%.0f", value)
+        }
+    }
+
     private var canSaveEdits: Bool {
         parsedAmountCents != nil && !isSaving
     }
@@ -328,12 +341,25 @@ struct ExpenseDetailView: View {
                         }
                         .buttonStyle(.plain)
 
-                        TextField("", text: $amountText)
-                            .font(.system(size: 36, weight: .regular, design: .monospaced))
-                            .foregroundStyle(Color(hex: "1C1C1E"))
-                            .keyboardType(CurrencyFormatter.shared.usesDecimals(for: currency) ? .decimalPad : .numberPad)
-                            .textFieldStyle(.plain)
-                            .focused($focusedField, equals: .amount)
+                        NumericFieldWithDone(
+                            text: $amountText,
+                            keyboardType: CurrencyFormatter.shared.usesDecimals(for: currency) ? .decimalPad : .numberPad,
+                            font: UIFont.monospacedSystemFont(ofSize: 36, weight: .regular),
+                            isFirstResponder: focusedField == .amount,
+                            onDone: { focusedField = nil }
+                        )
+                        .frame(minHeight: 44)
+                        .onChange(of: amountText) { _, newValue in
+                            let filtered = newValue.filter { $0.isNumber || $0 == "." }
+                            let parts = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
+                            let sanitized = parts.count > 1
+                                ? parts[0] + "." + parts.dropFirst().joined()
+                                : filtered
+                            if sanitized != newValue { amountText = String(sanitized) }
+                        }
+                        .onChange(of: focusedField) { _, newValue in
+                            if newValue != .amount { formatAmountField() }
+                        }
                     }
                 }
                 .padding(14)
@@ -384,13 +410,25 @@ struct ExpenseDetailView: View {
                         }
                         .buttonStyle(.plain)
 
-                        TextField("", text: $amountText)
-                            .font(.system(size: 52, weight: .regular, design: .monospaced))
-                            .foregroundStyle(Color(hex: "1C1C1E"))
-                            .tracking(-2)
-                            .keyboardType(CurrencyFormatter.shared.usesDecimals(for: currency) ? .decimalPad : .numberPad)
-                            .textFieldStyle(.plain)
-                            .focused($focusedField, equals: .amount)
+                        NumericFieldWithDone(
+                            text: $amountText,
+                            keyboardType: CurrencyFormatter.shared.usesDecimals(for: currency) ? .decimalPad : .numberPad,
+                            font: UIFont.monospacedSystemFont(ofSize: 52, weight: .regular),
+                            isFirstResponder: focusedField == .amount,
+                            onDone: { focusedField = nil }
+                        )
+                        .frame(minHeight: 56)
+                        .onChange(of: amountText) { _, newValue in
+                            let filtered = newValue.filter { $0.isNumber || $0 == "." }
+                            let parts = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
+                            let sanitized = parts.count > 1
+                                ? parts[0] + "." + parts.dropFirst().joined()
+                                : filtered
+                            if sanitized != newValue { amountText = String(sanitized) }
+                        }
+                        .onChange(of: focusedField) { _, newValue in
+                            if newValue != .amount { formatAmountField() }
+                        }
                     }
 
                     Text("Tap to enter amount")

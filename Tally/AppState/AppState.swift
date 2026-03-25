@@ -126,5 +126,8 @@ final class AppState {
     init() {
         self.defaultCurrency = UserDefaults.standard.string(forKey: Self.defaultCurrencyKey) ?? "USD"
         self.ocrEnabled = UserDefaults.standard.object(forKey: Self.ocrEnabledKey) as? Bool ?? true
+        if UserDefaults.standard.bool(forKey: SubscriptionService.proCacheKey) {
+            subscriptionStatus = .pro
+        }
     }
 }
