@@ -706,8 +706,10 @@ struct HomeView: View {
             }
         }
         .listStyle(.plain)
+        .environment(\.defaultMinListRowHeight, 0)
         .scrollContentBackground(.hidden)
         .background(Color(hex: "F6F5F3"))
+        .contentMargins(.top, 0, for: .scrollContent)
         .scrollDismissesKeyboard(.interactively)
         .coordinateSpace(name: "homeScroll")
         .onPreferenceChange(HomeListScrollAnchorKey.self) { minY in
