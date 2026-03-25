@@ -244,7 +244,7 @@ struct FABButton: View {
     @State private var pulseScale: CGFloat = 1.0
     @State private var pulseOpacity: Double = 0.0
 
-    private var fabSize: CGFloat { 88 }
+    private var fabSize: CGFloat { 75 }
 
     var body: some View {
         ZStack {
@@ -277,7 +277,7 @@ struct FABButton: View {
                 action()
             } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: 38, weight: .medium))
+                    .font(.system(size: 32, weight: .medium))
                     .foregroundStyle(.white)
                     .frame(width: fabSize, height: fabSize)
             }

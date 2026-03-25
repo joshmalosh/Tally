@@ -94,19 +94,17 @@ struct AddExpenseView: View {
         !appState.isPro && !isKeyboardVisible
     }
 
-    /// Scroll content inset so fields stay above the fixed bottom save bar (+ banner when visible).
+    /// Save ~56pt + vertical padding, optional ad ~52pt, safe bottom ~34, margin 16.
     private var formBottomChromeClearance: CGFloat {
-        let saveStack: CGFloat = 108
+        let saveChrome: CGFloat = 56 + 36
         let banner: CGFloat = shouldShowBanner ? 52 : 0
-        return saveStack + banner + Spacing.sm
+        let safeBottom: CGFloat = 34
+        let margin: CGFloat = 16
+        return saveChrome + banner + safeBottom + margin
     }
 
     private var selectedTags: [TagModel] {
         selectedTagIds.compactMap { id in tags.first { $0.id == id } }
-    }
-
-    private var assignableTags: [TagModel] {
-        tags.filter { !$0.isGroup }.sorted { $0.sortOrder < $1.sortOrder }
     }
 
     private var knownMerchants: [String] {
@@ -130,11 +128,6 @@ struct AddExpenseView: View {
         receiptImageAttached && ocrPopulatedAnyField && !isRunningOCR
     }
 
-    private var receiptDisplayFileName: String {
-        if let url = attachedFileURL { return url.lastPathComponent }
-        return "receipt_photo.jpg"
-    }
-
     private static let datePillFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateStyle = .medium
@@ -146,7 +139,7 @@ struct AddExpenseView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottom) {
+            ZStack {
                 Color.bgPrimary.ignoresSafeArea()
 
                 Group {
@@ -167,6 +160,7 @@ struct AddExpenseView: View {
 
                 if formReady {
                     stickySaveChrome
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                         .ignoresSafeArea(.keyboard, edges: .bottom)
                 }
             }
@@ -240,7 +234,7 @@ struct AddExpenseView: View {
                 DocumentPicker(selectedFileURL: $attachedFileURL, selectedImage: $attachedImage)
             }
             .sheet(isPresented: $showingTagPicker) {
-                TagPickerSheet(selectedTagIds: $selectedTagIds)
+                SharedTagPickerSheet(selectedTagIds: $selectedTagIds)
                     .presentationDetents([.large])
                     .presentationDragIndicator(.visible)
             }
@@ -549,70 +543,76 @@ struct AddExpenseView: View {
     // MARK: - Tags row
 
     private var tagsRow: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("TAGS")
-                .font(.system(size: 11, weight: .regular))
-                .foregroundStyle(Color(hex: "8F9E94"))
-                .textCase(.uppercase)
-                .padding(.leading, 18)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(assignableTags) { tag in
-                        let selected = selectedTagIds.contains(tag.id)
-                        Button {
-                            if let i = selectedTagIds.firstIndex(of: tag.id) {
-                                selectedTagIds.remove(at: i)
-                            } else {
-                                selectedTagIds.append(tag.id)
-                            }
-                        } label: {
+        Group {
+            if selectedTagIds.isEmpty {
+                Button {
+                    showingTagPicker = true
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "tag.fill")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color(hex: "8F9E94"))
+                        Text("Add tag")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color(hex: "C4BFB9"))
+                        Spacer(minLength: 0)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color(hex: "C4BFB9"))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 16)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(selectedTags) { tag in
                             HStack(spacing: 6) {
                                 Circle()
                                     .fill(tag.tagColor.primaryColor)
                                     .frame(width: 8, height: 8)
                                 Text(tag.name)
                                     .font(.system(size: 14, weight: .medium))
-                                    .foregroundStyle(selected ? Color(hex: "346049") : Color(hex: "1C1C1E"))
+                                    .foregroundStyle(Color(hex: "346049"))
                             }
                             .padding(.vertical, 8)
                             .padding(.horizontal, 14)
-                            .background(selected ? Color(hex: "E8F0EA") : Color(hex: "F6F5F3"))
+                            .background(Color(hex: "E8F0EA"))
                             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                    .stroke(selected ? Color(hex: "346049") : Color.clear, lineWidth: 1.5)
+                                    .stroke(Color(hex: "346049"), lineWidth: 1.5)
                             )
+                        }
+
+                        Button {
+                            showingTagPicker = true
+                        } label: {
+                            Text("+ Add tag")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(Color(hex: "8F9E94"))
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 14)
+                                .background(Color.clear)
+                                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                        .stroke(Color(hex: "DEDAD2"), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                                )
                         }
                         .buttonStyle(.plain)
                     }
-
-                    Button {
-                        showingTagPicker = true
-                    } label: {
-                        Text("＋ New tag")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(Color(hex: "8F9E94"))
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 14)
-                            .background(Color.clear)
-                            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                    .stroke(Color(hex: "DEDAD2"), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-                            )
-                    }
-                    .buttonStyle(.plain)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 4)
                 }
-                .padding(.horizontal, 18)
-                .padding(.bottom, 4)
+                .padding(.horizontal, 0)
             }
         }
-        .padding(.vertical, 14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .padding(.horizontal, 16)
     }
 
     // MARK: - Add receipt card (state 1 only in stack)
@@ -784,42 +784,33 @@ struct AddExpenseView: View {
             }
         }
         .frame(height: 200)
-        .overlay(alignment: .bottom) {
+        .overlay(alignment: .bottomTrailing) {
             if attachedImage != nil {
-                HStack(alignment: .bottom) {
-                    Text(receiptDisplayFileName)
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-
-                    Spacer(minLength: 12)
-
-                    HStack(spacing: 14) {
-                        Button {
-                            showingReplaceReceiptSources = true
-                        } label: {
-                            Text("Replace")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.white.opacity(0.75))
-                                .underline()
-                        }
-                        .buttonStyle(.plain)
-
-                        Button {
-                            attachedImage = nil
-                            attachedFileURL = nil
-                            attachmentKey = nil
-                            source = .manual
-                            enteredViaPhotoFlow = true
-                            ocrPopulatedAnyField = false
-                        } label: {
-                            Text("Remove")
-                                .font(.system(size: 12))
-                                .foregroundStyle(.white.opacity(0.75))
-                                .underline()
-                        }
-                        .buttonStyle(.plain)
+                HStack(spacing: 14) {
+                    Button {
+                        showingReplaceReceiptSources = true
+                    } label: {
+                        Text("Replace")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.75))
+                            .underline()
                     }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        attachedImage = nil
+                        attachedFileURL = nil
+                        attachmentKey = nil
+                        source = .manual
+                        enteredViaPhotoFlow = true
+                        ocrPopulatedAnyField = false
+                    } label: {
+                        Text("Remove")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.75))
+                            .underline()
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 14)
                 .padding(.bottom, 12)
@@ -990,10 +981,6 @@ struct AddExpenseView: View {
 
     private var stickySaveChrome: some View {
         VStack(spacing: 0) {
-            if shouldShowBanner {
-                BannerAdView()
-            }
-
             ZStack(alignment: .bottom) {
                 LinearGradient(
                     colors: [Color.clear, Color(hex: "F6F5F3")],
@@ -1007,18 +994,11 @@ struct AddExpenseView: View {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     saveExpense()
                 } label: {
-                    HStack {
-                        Text("Save expense")
-                            .font(.system(size: 16, weight: .semibold))
-                        Spacer()
-                        Text("→")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(.white.opacity(0.7))
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.vertical, 18)
-                    .padding(.horizontal, 18)
-                    .frame(maxWidth: .infinity)
+                    Text("Save expense")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.vertical, 18)
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(StickySaveCTAStyle(isEnabled: canSave))
                 .padding(.horizontal, 16)
@@ -1026,6 +1006,10 @@ struct AddExpenseView: View {
                 .disabled(!canSave)
             }
             .background(Color(hex: "F6F5F3"))
+
+            if shouldShowBanner {
+                BannerAdView()
+            }
         }
     }
 
