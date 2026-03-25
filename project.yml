@@ -57,6 +57,8 @@ targets:
         product: GoogleMobileAds
       - package: RevenueCat
         product: RevenueCat
+      - package: RevenueCat
+        product: RevenueCatUI
 
   TallyTests:
     type: bundle.unit-test
@@ -78,7 +80,7 @@ packages:
     from: "11.0.0"
   RevenueCat:
     url: https://github.com/RevenueCat/purchases-ios-spm.git
-    from: "5.0.0"
+    from: "5.5.0"
 
 schemes:
   Tally:

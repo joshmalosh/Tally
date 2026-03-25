@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UIKit
+import RevenueCat
 
 @main
 struct TallyApp: App {
@@ -31,7 +32,9 @@ struct TallyApp: App {
         } catch {
             fatalError("Failed to create ModelContainer: \(error)")
         }
+        Purchases.configure(withAPIKey: RevenueCatConfig.apiKey)
         #if DEBUG
+        Purchases.logLevel = .debug
         print("[Tally] ModelContainer created successfully (CloudKit: \(Self.cloudKitEnabled))")
         #endif
     }
