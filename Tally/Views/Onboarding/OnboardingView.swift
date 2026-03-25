@@ -32,7 +32,6 @@ struct OnboardingView: View {
             CurrencySetupView {
                 hasCompleted = true
             }
-            .transition(.move(edge: .trailing))
         } else {
             VStack(spacing: 0) {
                 TabView(selection: $currentPage) {
@@ -84,7 +83,8 @@ struct OnboardingView: View {
 
             if currentPage == pages.count - 1 {
                 PrimaryButton(title: "Get started") {
-                    withAnimation { showingCurrencySetup = true }
+                    // No withAnimation: avoids a long layout transaction where currency rows ignore taps.
+                    showingCurrencySetup = true
                 }
             } else {
                 PrimaryButton(title: "Next") {

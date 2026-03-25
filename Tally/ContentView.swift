@@ -39,7 +39,9 @@ struct ContentView: View {
                 }
             }
 
-            if showSplash {
+            // Splash only after onboarding: first-run users go straight to onboarding/currency
+            // without a 2.5s full-screen layer that can block or race hit-testing on currency rows.
+            if showSplash && hasCompletedOnboarding {
                 splashOverlay
                     .opacity(splashOpacity)
                     .allowsHitTesting(false)
@@ -49,7 +51,13 @@ struct ContentView: View {
         .onAppear {
             seedDefaultTags()
             adManager.configure(isPro: appState.isPro)
-            dismissSplash()
+            if !hasCompletedOnboarding {
+                taglineTimerTask?.cancel()
+                showSplash = false
+                splashOpacity = 0
+            } else {
+                dismissSplash()
+            }
         }
         .onChange(of: appState.subscriptionStatus) { _, _ in
             adManager.configure(isPro: appState.isPro)
