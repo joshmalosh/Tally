@@ -129,14 +129,20 @@ struct SettingsView: View {
                                         .frame(width: 12, height: 12)
                                     Text(group.name)
                                         .foregroundStyle(Color.textPrimary)
-                                    Spacer(minLength: 0)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(Color.textMuted)
                                 }
                             }
                             .buttonStyle(.plain)
 
-                            Color.clear
-                                .frame(width: 51, height: 44)
-                                .accessibilityHidden(true)
+                            Toggle("", isOn: Binding(
+                                get: { group.showOnHome },
+                                set: { group.showOnHome = $0 }
+                            ))
+                            .labelsHidden()
+                            .tint(Color.brandPrimary)
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button(role: .destructive) { deleteTag(group) } label: {

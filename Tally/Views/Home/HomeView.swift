@@ -415,8 +415,11 @@ struct HomeView: View {
 
     // MARK: - Tag Row
 
+    /// Standalone tags and groups with `showOnHome`, A–Z (same pill row).
     private var homeVisibleTags: [TagModel] {
-        tags.filter { $0.showOnHome && $0.parentId == nil }
+        tags
+            .filter { $0.showOnHome && $0.parentId == nil }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     private func childrenOf(_ group: TagModel) -> [TagModel] {
