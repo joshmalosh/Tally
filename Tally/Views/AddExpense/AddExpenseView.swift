@@ -38,7 +38,6 @@ struct AddExpenseView: View {
     @State private var errorMessage = ""
     @State private var isSaving = false
     @State private var formReady = true
-    @State private var isKeyboardVisible = false
     @State private var isRunningOCR = false
     @State private var showingMonthlyLimitSheet = false
     @State private var showingProBenefitsCard = false
@@ -77,6 +76,10 @@ struct AddExpenseView: View {
         usesDecimalCurrency ? "0.00" : "0"
     }
 
+    private var amountFieldTextColor: Color {
+        amountText.isEmpty ? Color(hex: "8F9E94") : Color(hex: "1C1C1E")
+    }
+
     private func formatAmount() {
         let trimmed = amountText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let value = Double(trimmed), value > 0 else {
@@ -102,14 +105,10 @@ struct AddExpenseView: View {
         attachedImage != nil || attachedFileURL != nil
     }
 
-    private var shouldShowBanner: Bool {
-        !appState.isPro && !isKeyboardVisible
-    }
-
     /// Save ~56pt + vertical padding, optional ad ~52pt, safe bottom ~34, margin 16.
     private var formBottomChromeClearance: CGFloat {
         let saveChrome: CGFloat = 56 + 36
-        let banner: CGFloat = shouldShowBanner ? 52 : 0
+        let banner: CGFloat = !appState.isPro ? 52 : 0
         let safeBottom: CGFloat = 34
         let margin: CGFloat = 16
         return saveChrome + banner + safeBottom + margin
@@ -185,6 +184,7 @@ struct AddExpenseView: View {
                     }
                     source = showingCamera ? .camera : .upload
                     ocrPopulatedAnyField = false
+                    focusedField = nil
                     if !isEditing {
                         runOCR(on: image)
                     }
@@ -211,10 +211,10 @@ struct AddExpenseView: View {
                 }
             }
             .onChange(of: formReady) { _, ready in
-                if ready && focusedField == nil && !receiptImageAttached {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        focusedField = .amount
-                    }
+                guard ready, focusedField == nil, !hasAttachment else { return }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    guard attachedImage == nil, attachedFileURL == nil else { return }
+                    focusedField = .amount
                 }
             }
             .onChange(of: notes) { _, newVal in
@@ -225,12 +225,6 @@ struct AddExpenseView: View {
                 if !receiptImageAttached, notesExpanded == false, !notes.isEmpty {
                     notesExpanded = true
                 }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
-                isKeyboardVisible = true
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-                isKeyboardVisible = false
             }
             .keyboardDoneToolbar()
     }
@@ -442,7 +436,7 @@ struct AddExpenseView: View {
                     }
                     TextField("", text: $amountText)
                         .font(.system(size: 52, weight: .regular, design: .monospaced))
-                        .foregroundStyle(amountText.isEmpty ? Color(hex: "8F9E94") : Color(hex: "1C1C1E"))
+                        .foregroundStyle(amountFieldTextColor)
                         .tracking(-2)
                         .keyboardType(usesDecimalCurrency ? .decimalPad : .numberPad)
                         .textFieldStyle(.plain)
@@ -481,7 +475,7 @@ struct AddExpenseView: View {
             focusedField = .amount
         }
         .onAppear {
-            if !isEditing, focusedField == nil {
+            if !isEditing, focusedField == nil, !hasAttachment {
                 focusedField = .amount
             }
         }
@@ -505,34 +499,14 @@ struct AddExpenseView: View {
                 .tracking(0.6)
                 .textCase(.uppercase)
 
-            if focusedField == .merchant, !topMerchantSuggestions.isEmpty {
-                HStack(spacing: 8) {
-                    ForEach(topMerchantSuggestions, id: \.self) { name in
-                        Button {
-                            merchant = name
-                            focusedField = nil
-                        } label: {
-                            Text(name)
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(Color(hex: "346049"))
-                                .lineLimit(1)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color(hex: "E8F0EA"))
-                                .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    Spacer(minLength: 0)
-                }
-            }
-
             TextField("Where did you pay?", text: $merchant)
                 .font(.system(size: 16))
                 .foregroundStyle(Color(hex: "1C1C1E"))
                 .focused($focusedField, equals: .merchant)
                 .textInputAutocapitalization(.words)
                 .tint(Color(hex: "346049"))
+
+            merchantSuggestionInlineList()
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
@@ -967,7 +941,7 @@ struct AddExpenseView: View {
                     }
                     TextField("", text: $amountText)
                         .font(.system(size: 36, weight: .regular, design: .monospaced))
-                        .foregroundStyle(amountText.isEmpty ? Color(hex: "8F9E94") : Color(hex: "1C1C1E"))
+                        .foregroundStyle(amountFieldTextColor)
                         .tracking(-2)
                         .keyboardType(usesDecimalCurrency ? .decimalPad : .numberPad)
                         .textFieldStyle(.plain)
@@ -1008,33 +982,13 @@ struct AddExpenseView: View {
                 .tracking(0.6)
                 .textCase(.uppercase)
 
-            if focusedField == .merchant, !topMerchantSuggestions.isEmpty {
-                HStack(spacing: 8) {
-                    ForEach(topMerchantSuggestions, id: \.self) { name in
-                        Button {
-                            merchant = name
-                            focusedField = nil
-                        } label: {
-                            Text(name)
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(Color(hex: "346049"))
-                                .lineLimit(1)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 6)
-                                .background(Color(hex: "E8F0EA"))
-                                .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    Spacer(minLength: 0)
-                }
-            }
-
             TextField("Where did you pay?", text: $merchant)
                 .font(.system(size: 16, weight: .medium))
                 .foregroundStyle(Color(hex: "1C1C1E"))
                 .focused($focusedField, equals: .merchant)
                 .textInputAutocapitalization(.words)
+
+            merchantSuggestionInlineList()
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
@@ -1123,7 +1077,7 @@ struct AddExpenseView: View {
             }
             .background(Color(hex: "F6F5F3"))
 
-            if shouldShowBanner {
+            if !appState.isPro {
                 BannerAdView()
             }
         }
@@ -1139,6 +1093,36 @@ struct AddExpenseView: View {
             topTrailingRadius: topTrailing,
             style: .continuous
         )
+    }
+
+    @ViewBuilder
+    private func merchantSuggestionInlineList() -> some View {
+        let suggestions = topMerchantSuggestions
+        if focusedField == .merchant, !suggestions.isEmpty {
+            VStack(spacing: 0) {
+                ForEach(Array(suggestions.enumerated()), id: \.element) { index, name in
+                    Button {
+                        merchant = name
+                        focusedField = nil
+                    } label: {
+                        Text(name)
+                            .font(.system(size: 14))
+                            .foregroundStyle(Color(hex: "1C1C1E"))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .frame(height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+
+                    if index < suggestions.count - 1 {
+                        Rectangle()
+                            .fill(Color(hex: "DEDAD2"))
+                            .frame(height: 1)
+                    }
+                }
+            }
+            .padding(.top, 4)
+        }
     }
 
     // MARK: - State / OCR / Save
