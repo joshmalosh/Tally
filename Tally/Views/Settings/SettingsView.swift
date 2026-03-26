@@ -118,16 +118,29 @@ struct SettingsView: View {
                     }
 
                     ForEach(groupsSorted) { group in
-                        NavigationLink {
-                            GroupDetailView(group: group)
-                        } label: {
-                            HStack(spacing: Spacing.smd) {
-                                Image(systemName: "folder.fill")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(group.tagColor.primaryColor)
-                                Text(group.name)
-                                    .foregroundStyle(Color.textPrimary)
+                        HStack(spacing: Spacing.smd) {
+                            NavigationLink {
+                                GroupDetailView(group: group)
+                            } label: {
+                                HStack(spacing: Spacing.smd) {
+                                    Image(systemName: "folder.fill")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(group.tagColor.primaryColor)
+                                        .frame(width: 12, height: 12)
+                                    Text(group.name)
+                                        .foregroundStyle(Color.textPrimary)
+                                    Spacer(minLength: 0)
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(Color.textMuted)
+                                }
                             }
+                            .buttonStyle(.plain)
+                            .navigationLinkChevronVisibility(.hidden)
+
+                            Color.clear
+                                .frame(width: 51, height: 44)
+                                .accessibilityHidden(true)
                         }
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                             Button(role: .destructive) { deleteTag(group) } label: {
@@ -148,9 +161,14 @@ struct SettingsView: View {
                         }
                     }
                 } header: {
-                    Text("Tags & Groups")
-                } footer: {
-                    Text("Choose which tags appear as filters on the home screen.")
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Tags & Groups")
+                        Text("Toggle tags to show them as filters on your home screen.")
+                            .font(Fonts.caption(13))
+                            .foregroundStyle(Color.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
 
                 Section("Preferences") {
