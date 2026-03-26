@@ -25,12 +25,10 @@ struct HomeView: View {
     @State private var expenseToDelete: ExpenseModel?
     @FocusState private var isSearchFocused: Bool
 
-    private var showsBannerAd: Bool { !appState.isPro }
-
     /// Clears FAB above the home banner (~52pt) with comfortable margin when ads show.
     private var fabBottomInset: CGFloat {
         let margin: CGFloat = 18
-        return showsBannerAd ? 52 + margin : margin
+        return !appState.isPro ? 52 + margin : margin
     }
 
     private static let monthYearFormatter: DateFormatter = {
@@ -187,7 +185,7 @@ struct HomeView: View {
                     FABButton { showingEntryPicker = true }
                         .padding(.trailing, Spacing.xl + 10)
                         .padding(.bottom, fabBottomInset)
-                        .animation(.easeInOut(duration: 0.3), value: showsBannerAd)
+                        .animation(.easeInOut(duration: 0.3), value: appState.isPro)
                 }
             }
             .background(Color(hex: "F6F5F3").ignoresSafeArea())
@@ -591,8 +589,8 @@ struct HomeView: View {
     /// Keeps empty-state copy above the enlarged FAB and home banner ad.
     private var emptyStateBottomSafeInset: CGFloat {
         let fabDiameter: CGFloat = 75
-        let fabBottomPadding = showsBannerAd ? (Spacing.xl + 16) : (Spacing.xl + 10)
-        let bannerHeight: CGFloat = showsBannerAd ? 50 : 0
+        let fabBottomPadding = !appState.isPro ? (Spacing.xl + 16) : (Spacing.xl + 10)
+        let bannerHeight: CGFloat = !appState.isPro ? 50 : 0
         return fabDiameter + fabBottomPadding + bannerHeight + 80
     }
 

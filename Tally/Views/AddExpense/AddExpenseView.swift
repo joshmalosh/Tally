@@ -76,10 +76,6 @@ struct AddExpenseView: View {
         usesDecimalCurrency ? "0.00" : "0"
     }
 
-    private var amountFieldTextColor: Color {
-        amountText.isEmpty ? Color(hex: "8F9E94") : Color(hex: "1C1C1E")
-    }
-
     private func formatAmount() {
         let trimmed = amountText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let value = Double(trimmed), value > 0 else {
@@ -427,16 +423,14 @@ struct AddExpenseView: View {
                 .buttonStyle(.plain)
 
                 ZStack(alignment: .leading) {
-                    if amountText.isEmpty {
-                        Text(zeroAmountPlaceholder)
-                            .font(.system(size: 52, weight: .regular, design: .monospaced))
-                            .foregroundStyle(Color(hex: "8F9E94"))
-                            .tracking(-2)
-                            .allowsHitTesting(false)
-                    }
+                    Text(amountText.isEmpty ? zeroAmountPlaceholder : amountText)
+                        .font(.system(size: 52, weight: .regular, design: .monospaced))
+                        .foregroundStyle(amountText.isEmpty ? Color(hex: "8F9E94") : Color(hex: "1C1C1E"))
+                        .tracking(-2)
+                        .allowsHitTesting(false)
                     TextField("", text: $amountText)
                         .font(.system(size: 52, weight: .regular, design: .monospaced))
-                        .foregroundStyle(amountFieldTextColor)
+                        .foregroundStyle(Color.clear)
                         .tracking(-2)
                         .keyboardType(usesDecimalCurrency ? .decimalPad : .numberPad)
                         .textFieldStyle(.plain)
@@ -933,15 +927,14 @@ struct AddExpenseView: View {
                 .buttonStyle(.plain)
 
                 ZStack(alignment: .leading) {
-                    if amountText.isEmpty {
-                        Text(zeroAmountPlaceholder)
-                            .font(.system(size: 36, weight: .regular, design: .monospaced))
-                            .foregroundStyle(Color(hex: "8F9E94"))
-                            .allowsHitTesting(false)
-                    }
+                    Text(amountText.isEmpty ? zeroAmountPlaceholder : amountText)
+                        .font(.system(size: 36, weight: .regular, design: .monospaced))
+                        .foregroundStyle(amountText.isEmpty ? Color(hex: "8F9E94") : Color(hex: "1C1C1E"))
+                        .tracking(-2)
+                        .allowsHitTesting(false)
                     TextField("", text: $amountText)
                         .font(.system(size: 36, weight: .regular, design: .monospaced))
-                        .foregroundStyle(amountFieldTextColor)
+                        .foregroundStyle(Color.clear)
                         .tracking(-2)
                         .keyboardType(usesDecimalCurrency ? .decimalPad : .numberPad)
                         .textFieldStyle(.plain)
