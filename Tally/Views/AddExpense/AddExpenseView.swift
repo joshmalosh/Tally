@@ -49,7 +49,6 @@ struct AddExpenseView: View {
     @State private var showingReplaceReceiptSources = false
     @State private var notesExpanded = false
     @State private var ocrPopulatedAnyField = false
-    @State private var merchantCardHeight: CGFloat = 0
 
     @FocusState private var focusedField: Field?
 
@@ -76,10 +75,6 @@ struct AddExpenseView: View {
 
     private var zeroAmountPlaceholder: String {
         usesDecimalCurrency ? "0.00" : "0"
-    }
-
-    private var isAmountDisplayEmpty: Bool {
-        amountText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 
     private func formatAmount() {
@@ -150,10 +145,8 @@ struct AddExpenseView: View {
         }
     }
 
-    private var showMerchantSuggestionsDropdown: Bool {
-        focusedField == .merchant
-            && !merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !filteredMerchantSuggestions.isEmpty
+    private var topMerchantSuggestions: [String] {
+        Array(filteredMerchantSuggestions.prefix(3))
     }
 
     private var shouldShowOcrFilledBanner: Bool {
@@ -440,7 +433,7 @@ struct AddExpenseView: View {
                 .buttonStyle(.plain)
 
                 ZStack(alignment: .leading) {
-                    if isAmountDisplayEmpty {
+                    if amountText.isEmpty {
                         Text(zeroAmountPlaceholder)
                             .font(.system(size: 52, weight: .regular, design: .monospaced))
                             .foregroundStyle(Color(hex: "8F9E94"))
@@ -497,28 +490,11 @@ struct AddExpenseView: View {
     // MARK: - State 1: Merchant + date cluster
 
     private var merchantDateView: some View {
-        ZStack(alignment: .topLeading) {
-            VStack(spacing: 2) {
-                merchantRowShape(radiusTop: 14, radiusBottom: 6)
-                    .background(
-                        GeometryReader { geometry in
-                            Color.clear.preference(
-                                key: MerchantCardHeightPreferenceKey.self,
-                                value: geometry.size.height
-                            )
-                        }
-                    )
-                dateRowShape(radiusTop: 6, radiusBottom: 14)
-            }
-
-            if showMerchantSuggestionsDropdown {
-                merchantSuggestionsDropdownList(suggestions: filteredMerchantSuggestions)
-                    .offset(y: merchantCardHeight)
-                    .zIndex(1)
-            }
+        VStack(spacing: 2) {
+            merchantRowShape(radiusTop: 14, radiusBottom: 6)
+            dateRowShape(radiusTop: 6, radiusBottom: 14)
         }
         .padding(.horizontal, 16)
-        .onPreferenceChange(MerchantCardHeightPreferenceKey.self) { merchantCardHeight = $0 }
     }
 
     private func merchantRowShape(radiusTop: CGFloat, radiusBottom: CGFloat) -> some View {
@@ -528,6 +504,28 @@ struct AddExpenseView: View {
                 .foregroundStyle(Color(hex: "8F9E94"))
                 .tracking(0.6)
                 .textCase(.uppercase)
+
+            if focusedField == .merchant, !topMerchantSuggestions.isEmpty {
+                HStack(spacing: 8) {
+                    ForEach(topMerchantSuggestions, id: \.self) { name in
+                        Button {
+                            merchant = name
+                            focusedField = nil
+                        } label: {
+                            Text(name)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(Color(hex: "346049"))
+                                .lineLimit(1)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color(hex: "E8F0EA"))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
 
             TextField("Where did you pay?", text: $merchant)
                 .font(.system(size: 16))
@@ -916,27 +914,8 @@ struct AddExpenseView: View {
     private var receiptStateAmountMerchantDateCluster: some View {
         VStack(spacing: 2) {
             receiptAmountRow
-            ZStack(alignment: .topLeading) {
-                VStack(spacing: 2) {
-                    receiptMerchantRow
-                        .background(
-                            GeometryReader { geometry in
-                                Color.clear.preference(
-                                    key: MerchantCardHeightPreferenceKey.self,
-                                    value: geometry.size.height
-                                )
-                            }
-                        )
-                    dateRowForReceiptState
-                }
-
-                if showMerchantSuggestionsDropdown {
-                    merchantSuggestionsDropdownList(suggestions: filteredMerchantSuggestions)
-                        .offset(y: merchantCardHeight)
-                        .zIndex(1)
-                }
-            }
-            .onPreferenceChange(MerchantCardHeightPreferenceKey.self) { merchantCardHeight = $0 }
+            receiptMerchantRow
+            dateRowForReceiptState
         }
     }
 
@@ -980,7 +959,7 @@ struct AddExpenseView: View {
                 .buttonStyle(.plain)
 
                 ZStack(alignment: .leading) {
-                    if isAmountDisplayEmpty {
+                    if amountText.isEmpty {
                         Text(zeroAmountPlaceholder)
                             .font(.system(size: 36, weight: .regular, design: .monospaced))
                             .foregroundStyle(Color(hex: "8F9E94"))
@@ -1028,6 +1007,28 @@ struct AddExpenseView: View {
                 .foregroundStyle(Color(hex: "8F9E94"))
                 .tracking(0.6)
                 .textCase(.uppercase)
+
+            if focusedField == .merchant, !topMerchantSuggestions.isEmpty {
+                HStack(spacing: 8) {
+                    ForEach(topMerchantSuggestions, id: \.self) { name in
+                        Button {
+                            merchant = name
+                            focusedField = nil
+                        } label: {
+                            Text(name)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(Color(hex: "346049"))
+                                .lineLimit(1)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color(hex: "E8F0EA"))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    Spacer(minLength: 0)
+                }
+            }
 
             TextField("Where did you pay?", text: $merchant)
                 .font(.system(size: 16, weight: .medium))
@@ -1137,47 +1138,6 @@ struct AddExpenseView: View {
             bottomTrailingRadius: bottomTrailing,
             topTrailingRadius: topTrailing,
             style: .continuous
-        )
-    }
-
-    private static let merchantSuggestionRowHeight: CGFloat = 48
-    private static let merchantSuggestionMaxVisibleRows: CGFloat = 4
-
-    private func merchantSuggestionsDropdownList(suggestions: [String]) -> some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                ForEach(suggestions, id: \.self) { name in
-                    Button {
-                        merchant = name
-                        focusedField = nil
-                    } label: {
-                        Text(name)
-                            .font(.system(size: 15))
-                            .foregroundStyle(Color(hex: "1C1C1E"))
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 16)
-                            .frame(height: Self.merchantSuggestionRowHeight, alignment: .leading)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-
-                    if name != suggestions.last {
-                        Rectangle()
-                            .fill(Color(hex: "DEDAD2"))
-                            .frame(height: 1)
-                    }
-                }
-            }
-        }
-        .frame(maxHeight: Self.merchantSuggestionRowHeight * Self.merchantSuggestionMaxVisibleRows)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
         )
     }
 
@@ -1397,15 +1357,6 @@ struct AddExpenseView: View {
                 dismiss()
             }
         }
-    }
-}
-
-// MARK: - Merchant suggestion layout
-
-private enum MerchantCardHeightPreferenceKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
     }
 }
 

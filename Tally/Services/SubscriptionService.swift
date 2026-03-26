@@ -3,7 +3,6 @@ import RevenueCat
 
 enum SubscriptionService {
     /// Refreshes Pro status from RevenueCat and updates the given AppState.
-    /// Call this once from ContentView.onAppear — not on foreground, not repeatedly.
     static func refreshProStatus(appState: AppState) async {
         do {
             let customerInfo = try await Purchases.shared.customerInfo()

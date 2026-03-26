@@ -32,12 +32,18 @@ struct TallyApp: App {
         } catch {
             fatalError("Failed to create ModelContainer: \(error)")
         }
+        configureRevenueCat()
+        #if DEBUG
+        print("[Tally] ModelContainer created successfully (CloudKit: \(Self.cloudKitEnabled))")
+        #endif
+    }
+
+    private func configureRevenueCat() {
         Purchases.configure(withAPIKey: RevenueCatConfig.apiKey)
         #if DEBUG
         Purchases.logLevel = .debug
-        #endif
-        #if DEBUG
-        print("[Tally] ModelContainer created successfully (CloudKit: \(Self.cloudKitEnabled))")
+        #else
+        Purchases.logLevel = .error
         #endif
     }
 
