@@ -6,7 +6,6 @@ struct TagCreationView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppState.self) private var appState
     @Query(sort: \TagModel.sortOrder) private var allTags: [TagModel]
-    @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil }) private var allExpenses: [ExpenseModel]
 
     @State private var name = ""
     @State private var showingDeleteConfirmation = false
@@ -199,7 +198,11 @@ struct TagCreationView: View {
     private func performDeleteTag() {
         guard let tag = editingTag else { return }
         appState.removeFilter(id: tag.id)
-        for expense in allExpenses {
+        let descriptor = FetchDescriptor<ExpenseModel>(
+            predicate: #Predicate { $0.deletedAt == nil }
+        )
+        let expenses = (try? modelContext.fetch(descriptor)) ?? []
+        for expense in expenses {
             if expense.resolvedTagIds.contains(tag.id) {
                 expense.tagIds = (expense.tagIds ?? []).filter { $0 != tag.id }
                 if expense.tagId == tag.id {

@@ -30,6 +30,9 @@ struct NumericFieldWithDone: UIViewRepresentable {
     var textAlignment: NSTextAlignment = .natural
     /// When true, keeps the UIKit field as first responder; sync with SwiftUI focus for amount fields.
     var isFirstResponder: Bool = false
+    /// When true, field text is invisible so a SwiftUI `Text` overlay can supply styling (Add Expense hero).
+    var hidesFieldText: Bool = false
+    var onBeginEditing: (() -> Void)? = nil
     var onDone: (() -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
@@ -44,15 +47,19 @@ struct NumericFieldWithDone: UIViewRepresentable {
         tf.borderStyle = .none
         tf.backgroundColor = .clear
         tf.tintColor = UIColor(red: 0x34 / 255, green: 0x60 / 255, blue: 0x49 / 255, alpha: 1)
-        tf.textColor = UIColor(red: 0x1C / 255, green: 0x1C / 255, blue: 0x1E / 255, alpha: 1)
+        tf.textColor = hidesFieldText
+            ? .clear
+            : UIColor(red: 0x1C / 255, green: 0x1C / 255, blue: 0x1E / 255, alpha: 1)
         context.coordinator.textField = tf
         tf.inputAccessoryView = KeyboardAccessoryBar(target: context.coordinator, action: #selector(Coordinator.doneTapped))
         tf.addTarget(context.coordinator, action: #selector(Coordinator.textChanged(_:)), for: .editingChanged)
+        tf.addTarget(context.coordinator, action: #selector(Coordinator.editingDidBegin), for: .editingDidBegin)
         tf.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return tf
     }
 
     func updateUIView(_ uiView: UITextField, context: Context) {
+        context.coordinator.onBeginEditing = onBeginEditing
         context.coordinator.onDone = onDone
         if uiView.font != font {
             uiView.font = font
@@ -62,9 +69,13 @@ struct NumericFieldWithDone: UIViewRepresentable {
         if uiView.text != text {
             uiView.text = text
         }
-        uiView.textColor = text.isEmpty
-            ? UIColor(red: 0x8F / 255, green: 0x9E / 255, blue: 0x94 / 255, alpha: 1)
-            : UIColor(red: 0x1C / 255, green: 0x1C / 255, blue: 0x1E / 255, alpha: 1)
+        if hidesFieldText {
+            uiView.textColor = .clear
+        } else {
+            uiView.textColor = text.isEmpty
+                ? UIColor(red: 0x8F / 255, green: 0x9E / 255, blue: 0x94 / 255, alpha: 1)
+                : UIColor(red: 0x1C / 255, green: 0x1C / 255, blue: 0x1E / 255, alpha: 1)
+        }
 
         if isFirstResponder {
             if !uiView.isFirstResponder {
@@ -79,6 +90,7 @@ struct NumericFieldWithDone: UIViewRepresentable {
 
     final class Coordinator: NSObject {
         @Binding var text: String
+        var onBeginEditing: (() -> Void)?
         var onDone: (() -> Void)?
         weak var textField: UITextField?
 
@@ -88,6 +100,10 @@ struct NumericFieldWithDone: UIViewRepresentable {
 
         @objc func textChanged(_ tf: UITextField) {
             text = tf.text ?? ""
+        }
+
+        @objc func editingDidBegin() {
+            onBeginEditing?()
         }
 
         @objc func doneTapped() {

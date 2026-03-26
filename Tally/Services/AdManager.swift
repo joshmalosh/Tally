@@ -5,7 +5,13 @@ import GoogleMobileAds
 final class AdManager {
     var shouldShowBannerAd = true
 
-    static let bannerAdUnitID = "ca-app-pub-7313737046490523/5051262373"
+    static var bannerAdUnitID: String {
+        #if DEBUG
+        return "ca-app-pub-3940256099942544/2934735716"
+        #else
+        return "ca-app-pub-7313737046490523/5051262373"
+        #endif
+    }
 
     func configure(isPro: Bool) {
         shouldShowBannerAd = !isPro
