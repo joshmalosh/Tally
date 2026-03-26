@@ -130,13 +130,9 @@ struct SettingsView: View {
                                     Text(group.name)
                                         .foregroundStyle(Color.textPrimary)
                                     Spacer(minLength: 0)
-                                    Image(systemName: "chevron.right")
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundStyle(Color.textMuted)
                                 }
                             }
                             .buttonStyle(.plain)
-                            .navigationLinkChevronVisibility(.hidden)
 
                             Color.clear
                                 .frame(width: 51, height: 44)
