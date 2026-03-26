@@ -7,7 +7,7 @@ struct AddExpenseView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppState.self) private var appState
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
-    @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil }) private var allExpenses: [ExpenseModel]
+    @State private var allExpenses: [ExpenseModel] = []
 
     var initialMode: AddEntryMode = .manual
     var initialImage: UIImage? = nil
@@ -227,6 +227,7 @@ struct AddExpenseView: View {
             }
             .onAppear {
                 applyInitialState()
+                loadExpenses()
                 if !receiptImageAttached, notesExpanded == false, !notes.isEmpty {
                     notesExpanded = true
                 }
@@ -1100,9 +1101,9 @@ struct AddExpenseView: View {
     @ViewBuilder
     private func merchantSuggestionInlineList() -> some View {
         let suggestions = topMerchantSuggestions
-        if focusedField == .merchant, !suggestions.isEmpty {
+        if focusedField == .merchant && !merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             VStack(spacing: 0) {
-                ForEach(Array(suggestions.enumerated()), id: \.element) { index, name in
+                ForEach(suggestions, id: \.self) { name in
                     Button {
                         merchant = name
                         focusedField = nil
@@ -1116,7 +1117,7 @@ struct AddExpenseView: View {
                     }
                     .buttonStyle(.plain)
 
-                    if index < suggestions.count - 1 {
+                    if name != suggestions.last {
                         Rectangle()
                             .fill(Color(hex: "DEDAD2"))
                             .frame(height: 1)
@@ -1124,6 +1125,7 @@ struct AddExpenseView: View {
                 }
             }
             .padding(.top, 4)
+            .animation(nil, value: suggestions)
         }
     }
 
@@ -1231,6 +1233,13 @@ struct AddExpenseView: View {
         }.count
     }
 
+    private func loadExpenses() {
+        let descriptor = FetchDescriptor<ExpenseModel>(
+            predicate: #Predicate { $0.deletedAt == nil }
+        )
+        allExpenses = (try? modelContext.fetch(descriptor)) ?? []
+    }
+
     private func saveExpense() {
         guard let amountCents = parsedAmountCents else {
             errorMessage = "Please enter a valid amount."
@@ -1304,6 +1313,7 @@ struct AddExpenseView: View {
 
                     do {
                         try modelContext.save()
+                        loadExpenses()
                     } catch {}
                 } else {
                     let countBeforeInsert = expenseCountInMonth(of: date)
@@ -1325,6 +1335,7 @@ struct AddExpenseView: View {
                     do {
                         try modelContext.save()
                         appState.totalExpenseCount += 1
+                        loadExpenses()
                     } catch {}
                     appState.clearFilters()
 

@@ -8,7 +8,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         GADMobileAds.sharedInstance().start(completionHandler: nil)
         #if DEBUG
-        GADMobileAds.sharedInstance().requestConfiguration.testDeviceIdentifiers = ["7db17e45877bbadfd79fe61a4f746257"]
+        GADMobileAds.sharedInstance().requestConfiguration.testDeviceIdentifiers = ["85cfbfb7ce8b00c84d994276c193783d"]
         #endif
         return true
     }
