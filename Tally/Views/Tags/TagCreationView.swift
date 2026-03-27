@@ -32,15 +32,19 @@ struct TagCreationView: View {
     }
 
     private var formContent: some View {
-        VStack(spacing: Spacing.lg) {
-            nameField
-            if !isGroupMode { groupPicker }
-            colorGrid
-            if isEditing && !isGroupMode { deleteTagButton }
-            Spacer()
+        ScrollView {
+            VStack(spacing: Spacing.lg) {
+                nameField
+                if !isGroupMode { groupPicker }
+                colorGrid
+                if isEditing && !isGroupMode { deleteTagButton }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, Spacing.lg)
+            .padding(.top, embeddedInNavigation ? Spacing.xl : Spacing.md)
+            .padding(.bottom, Spacing.xl)
         }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.top, embeddedInNavigation ? Spacing.xl : Spacing.md)
+        .ignoresSafeArea(.keyboard)
         .background(Color.bgPrimary)
         .navigationTitle(navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
@@ -82,7 +86,6 @@ struct TagCreationView: View {
             NavigationStack {
                 formContent
             }
-            .ignoresSafeArea(.keyboard)
         }
     }
 
