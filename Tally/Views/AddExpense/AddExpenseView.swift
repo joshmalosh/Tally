@@ -288,17 +288,27 @@ struct AddExpenseView: View {
                         .foregroundStyle(Color(hex: "8F9E94"))
                 }
             }
-            .confirmationDialog("Add receipt", isPresented: $showingAddReceiptSources, titleVisibility: .visible) {
-                Button("Camera") { showingCamera = true }
-                Button("Photos") { showingPhotoPicker = true }
-                Button("File") { showingDocumentPicker = true }
-                Button("Cancel", role: .cancel) {}
+            .sheet(isPresented: $showingAddReceiptSources) {
+                ReceiptSourcePickerSheet(
+                    title: "Add receipt",
+                    onCamera: { showingCamera = true },
+                    onPhotos: { showingPhotoPicker = true },
+                    onFile: { showingDocumentPicker = true }
+                )
+                .presentationDetents([.height(280)])
+                .presentationDragIndicator(.hidden)
+                .presentationBackground(Color(hex: "F6F5F3"))
             }
-            .confirmationDialog("Replace receipt", isPresented: $showingReplaceReceiptSources, titleVisibility: .visible) {
-                Button("Camera") { showingCamera = true }
-                Button("Photos") { showingPhotoPicker = true }
-                Button("File") { showingDocumentPicker = true }
-                Button("Cancel", role: .cancel) {}
+            .sheet(isPresented: $showingReplaceReceiptSources) {
+                ReceiptSourcePickerSheet(
+                    title: "Replace receipt",
+                    onCamera: { showingCamera = true },
+                    onPhotos: { showingPhotoPicker = true },
+                    onFile: { showingDocumentPicker = true }
+                )
+                .presentationDetents([.height(280)])
+                .presentationDragIndicator(.hidden)
+                .presentationBackground(Color(hex: "F6F5F3"))
             }
             .alert("Error", isPresented: $showingError) {
                 Button("OK") {}
@@ -1292,6 +1302,78 @@ struct AddExpenseView: View {
                 dismiss()
             }
         }
+    }
+}
+
+private struct ReceiptSourcePickerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let title: String
+    let onCamera: () -> Void
+    let onPhotos: () -> Void
+    let onFile: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            RoundedRectangle(cornerRadius: 2.5)
+                .fill(Color(hex: "DEDAD2"))
+                .frame(width: 36, height: 5)
+                .padding(.top, 12)
+                .padding(.bottom, 20)
+
+            Text(title)
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Color(hex: "1C1C1E"))
+                .padding(.bottom, 20)
+
+            VStack(spacing: 10) {
+                sourceButton(icon: "camera.fill", label: "Camera") {
+                    dismiss()
+                    onCamera()
+                }
+                sourceButton(icon: "photo.fill", label: "Photos") {
+                    dismiss()
+                    onPhotos()
+                }
+                sourceButton(icon: "doc.fill", label: "File") {
+                    dismiss()
+                    onFile()
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 32)
+        }
+        .background(Color(hex: "F6F5F3"))
+    }
+
+    private func sourceButton(icon: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(hex: "E8F0EA"))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: icon)
+                        .font(.system(size: 18))
+                        .foregroundStyle(Color(hex: "346049"))
+                }
+                Text(label)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color(hex: "C4BFB9"))
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 
