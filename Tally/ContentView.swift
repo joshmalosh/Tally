@@ -32,16 +32,19 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            Group {
-                if !hasCompletedOnboarding {
-                    OnboardingView()
-                } else {
-                    mainApp
-                }
+            // HomeView is always present and rendering in the background.
+            // It is invisible and non-interactive until onboarding completes.
+            mainApp
+                .opacity(hasCompletedOnboarding ? 1 : 0)
+                .allowsHitTesting(hasCompletedOnboarding)
+
+            // Onboarding covers HomeView until complete.
+            if !hasCompletedOnboarding {
+                OnboardingView()
+                    .transition(.opacity)
             }
 
-            // Splash only after onboarding: first-run users go straight to onboarding/currency
-            // without a 2.5s full-screen layer that can block or race hit-testing on currency rows.
+            // Splash overlays everything after onboarding, fades out as before.
             if showSplash && hasCompletedOnboarding {
                 splashOverlay
                     .opacity(splashOpacity)
@@ -66,6 +69,11 @@ struct ContentView: View {
         }
         .onChange(of: appState.subscriptionStatus) { _, _ in
             adManager.configure(isPro: appState.isPro)
+        }
+        .onChange(of: hasCompletedOnboarding) { _, completed in
+            if completed {
+                dismissSplash()
+            }
         }
     }
 
