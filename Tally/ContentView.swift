@@ -32,6 +32,13 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
+            // Pre-warms AddExpenseView so first open has no cold-start delay.
+            AddExpenseView(initialMode: .manual)
+                .frame(width: 0, height: 0)
+                .opacity(0)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+
             // HomeView is always present and rendering in the background.
             // It is invisible and non-interactive until onboarding completes.
             mainApp
