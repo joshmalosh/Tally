@@ -13,8 +13,6 @@ struct AddExpenseView: View {
     var initialImage: UIImage? = nil
     var initialFileURL: URL? = nil
     var editingExpense: ExpenseModel? = nil
-    /// True when embedded in ContentView only to warm SwiftUI; skips focus and formReady focus side effects.
-    var isPrewarm: Bool = false
 
     @State private var amountText = ""
     @State private var currency = ""
@@ -192,7 +190,7 @@ struct AddExpenseView: View {
                 }
             }
             .onChange(of: formReady) { _, ready in
-                guard !isPrewarm, ready, focusedField == nil, !hasAttachment else { return }
+                guard ready, focusedField == nil, !hasAttachment else { return }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                     guard attachedImage == nil, attachedFileURL == nil else { return }
                     focusedField = .amount
@@ -204,16 +202,14 @@ struct AddExpenseView: View {
             .onAppear {
                 applyInitialState()
                 loadExpenses()
-                if !receiptImageAttached, notesExpanded == false, !notes.isEmpty {
+                if !receiptImageAttached, !notes.isEmpty {
                     notesExpanded = true
                 }
-                // Reset and re-trigger focus so keyboard opens even after pre-warm (real sheet only).
-                // The short delay ensures the sheet presentation animation has completed.
-                if !isPrewarm, !isEditing, !hasAttachment {
-                    focusedField = nil
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        focusedField = .amount
-                    }
+                guard !isEditing, !hasAttachment else { return }
+                focusedField = nil
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    guard !hasAttachment else { return }
+                    focusedField = .amount
                 }
             }
     }
@@ -1143,9 +1139,7 @@ struct AddExpenseView: View {
             showingDocumentPicker = true
         case .manual, .bulkImport:
             source = .manual
-            if !isPrewarm {
-                focusedField = .amount
-            }
+            focusedField = .amount
         }
         if let img = initialImage { attachedImage = img }
         if let url = initialFileURL { attachedFileURL = url }

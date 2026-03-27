@@ -32,13 +32,6 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            // Pre-warms AddExpenseView so first open has no cold-start delay.
-            AddExpenseView(initialMode: .manual, isPrewarm: true)
-                .frame(width: 0, height: 0)
-                .opacity(0)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-
             // Pre-warms AddEntryPicker so the FAB sheet opens without cold layout.
             AddEntryPicker { _ in }
                 .frame(width: 0, height: 0)
