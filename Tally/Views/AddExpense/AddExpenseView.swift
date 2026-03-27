@@ -204,6 +204,14 @@ struct AddExpenseView: View {
                 if !receiptImageAttached, notesExpanded == false, !notes.isEmpty {
                     notesExpanded = true
                 }
+                // Reset and re-trigger focus so keyboard opens even after pre-warm.
+                // The short delay ensures the sheet presentation animation has completed.
+                if !isEditing, !hasAttachment {
+                    focusedField = nil
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                        focusedField = .amount
+                    }
+                }
             }
             .keyboardDoneToolbar()
     }
@@ -461,11 +469,6 @@ struct AddExpenseView: View {
         .onTapGesture {
             focusedField = .amount
         }
-        .onAppear {
-            if !isEditing, focusedField == nil, !hasAttachment {
-                focusedField = .amount
-            }
-        }
     }
 
     // MARK: - State 1: Merchant + date cluster
@@ -590,16 +593,25 @@ struct AddExpenseView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(selectedTags) { tag in
-                            HStack(spacing: 6) {
+                            HStack(spacing: 4) {
                                 Circle()
                                     .fill(tag.tagColor.primaryColor)
                                     .frame(width: 8, height: 8)
                                 Text(tag.name)
                                     .font(.system(size: 14, weight: .medium))
                                     .foregroundStyle(Color(hex: "346049"))
+                                Button {
+                                    selectedTagIds.removeAll { $0 == tag.id }
+                                } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(Color(hex: "346049").opacity(0.6))
+                                }
+                                .buttonStyle(.plain)
                             }
                             .padding(.vertical, 8)
-                            .padding(.horizontal, 14)
+                            .padding(.leading, 14)
+                            .padding(.trailing, 10)
                             .background(Color(hex: "E8F0EA"))
                             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                             .overlay(

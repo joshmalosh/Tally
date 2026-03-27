@@ -185,6 +185,8 @@ struct SharedTagPickerSheet: View {
                 })
             }
         }
+        .presentationDetents([.large])
+        .ignoresSafeArea(.keyboard)
     }
 
     @ViewBuilder
