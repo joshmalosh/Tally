@@ -18,7 +18,7 @@ struct ContentView: View {
     @State private var taglineTimerTask: Task<Void, Never>?
     @State private var didRefreshProStatus = false
 
-    private static let splashDuration: TimeInterval = 2.5
+    private static let splashDuration: TimeInterval = 3.5
     private static let taglines = [
         "Decluttering your finances.",
         "Making expenses boring again.",

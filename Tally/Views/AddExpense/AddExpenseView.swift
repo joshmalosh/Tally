@@ -48,6 +48,7 @@ struct AddExpenseView: View {
     @State private var showingReplaceReceiptSources = false
     @State private var notesExpanded = false
     @State private var ocrPopulatedAnyField = false
+    @State private var amountFocusRequested: Bool = false
 
     @FocusState private var focusedField: Field?
 
@@ -164,6 +165,7 @@ struct AddExpenseView: View {
                     source = showingCamera ? .camera : .upload
                     ocrPopulatedAnyField = false
                     focusedField = nil
+                    amountFocusRequested = false
                     if !isEditing {
                         runOCR(on: image)
                     }
@@ -193,7 +195,7 @@ struct AddExpenseView: View {
                 guard ready, focusedField == nil, !hasAttachment else { return }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                     guard attachedImage == nil, attachedFileURL == nil else { return }
-                    focusedField = .amount
+                    amountFocusRequested = true
                 }
             }
             .onChange(of: notes) { _, newVal in
@@ -206,10 +208,10 @@ struct AddExpenseView: View {
                     notesExpanded = true
                 }
                 guard !isEditing, !hasAttachment else { return }
-                focusedField = nil
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                amountFocusRequested = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                     guard !hasAttachment else { return }
-                    focusedField = .amount
+                    amountFocusRequested = true
                 }
             }
     }
@@ -427,10 +429,13 @@ struct AddExpenseView: View {
                         keyboardType: usesDecimalCurrency ? .decimalPad : .numberPad,
                         font: UIFont.monospacedSystemFont(ofSize: 52, weight: .regular),
                         textAlignment: .natural,
-                        focusTrigger: !hasAttachment && focusedField == .amount,
+                        focusRequested: amountFocusRequested,
                         hidesFieldText: true,
                         onBeginEditing: { DispatchQueue.main.async { focusedField = .amount } },
-                        onDone: { focusedField = nil }
+                        onDone: {
+                            amountFocusRequested = false
+                            focusedField = nil
+                        }
                     )
                     .frame(maxWidth: .infinity, minHeight: 52)
                     .onChange(of: amountText) { _, newValue in
@@ -465,7 +470,7 @@ struct AddExpenseView: View {
         .padding(.horizontal, 16)
         .contentShape(Rectangle())
         .simultaneousGesture(TapGesture().onEnded {
-            focusedField = .amount
+            amountFocusRequested = true
         })
     }
 
@@ -933,10 +938,13 @@ struct AddExpenseView: View {
                         keyboardType: usesDecimalCurrency ? .decimalPad : .numberPad,
                         font: UIFont.monospacedSystemFont(ofSize: 36, weight: .regular),
                         textAlignment: .natural,
-                        focusTrigger: focusedField == .amount,
+                        focusRequested: amountFocusRequested,
                         hidesFieldText: true,
                         onBeginEditing: { DispatchQueue.main.async { focusedField = .amount } },
-                        onDone: { focusedField = nil }
+                        onDone: {
+                            amountFocusRequested = false
+                            focusedField = nil
+                        }
                     )
                     .frame(maxWidth: .infinity, minHeight: 40)
                     .onChange(of: amountText) { _, newValue in
@@ -965,7 +973,7 @@ struct AddExpenseView: View {
         )
         .padding(.horizontal, 16)
         .contentShape(Rectangle())
-        .onTapGesture { focusedField = .amount }
+        .onTapGesture { amountFocusRequested = true }
     }
 
     private var receiptMerchantRow: some View {
@@ -1139,7 +1147,6 @@ struct AddExpenseView: View {
             showingDocumentPicker = true
         case .manual, .bulkImport:
             source = .manual
-            focusedField = .amount
         }
         if let img = initialImage { attachedImage = img }
         if let url = initialFileURL { attachedFileURL = url }

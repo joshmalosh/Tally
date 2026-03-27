@@ -28,8 +28,8 @@ struct NumericFieldWithDone: UIViewRepresentable {
     var keyboardType: UIKeyboardType = .decimalPad
     var font: UIFont = UIFont.monospacedSystemFont(ofSize: 52, weight: .regular)
     var textAlignment: NSTextAlignment = .natural
-    /// When true, schedules `becomeFirstResponder` once (after a short delay) so the field can open the keyboard without fighting SwiftUI updates.
-    var focusTrigger: Bool = false
+    /// When true, requests the UITextField become first responder synchronously in `updateUIView` (paired with `hasFocused` in the coordinator).
+    var focusRequested: Bool = false
     /// When true, field text is invisible so a SwiftUI `Text` overlay can supply styling (Add Expense hero).
     var hidesFieldText: Bool = false
     var onBeginEditing: (() -> Void)? = nil
@@ -77,16 +77,18 @@ struct NumericFieldWithDone: UIViewRepresentable {
                 : UIColor(red: 0x1C / 255, green: 0x1C / 255, blue: 0x1E / 255, alpha: 1)
         }
 
-        if focusTrigger && !uiView.isFirstResponder {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                guard !uiView.isFirstResponder else { return }
-                uiView.becomeFirstResponder()
-            }
+        if focusRequested && !uiView.isFirstResponder && !context.coordinator.hasFocused {
+            context.coordinator.hasFocused = true
+            uiView.becomeFirstResponder()
+        }
+        if !focusRequested {
+            context.coordinator.hasFocused = false
         }
     }
 
     final class Coordinator: NSObject {
         @Binding var text: String
+        var hasFocused: Bool = false
         var onBeginEditing: (() -> Void)?
         var onDone: (() -> Void)?
         weak var textField: UITextField?
