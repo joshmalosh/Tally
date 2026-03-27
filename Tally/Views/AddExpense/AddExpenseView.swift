@@ -140,6 +140,9 @@ struct AddExpenseView: View {
         NavigationStack {
             addExpenseNavigationRoot
         }
+        .onTapGesture {
+            UIApplication.shared.endEditing()
+        }
     }
 
     /// Split from `body` so the type checker can infer `NavigationStack` without timing out.

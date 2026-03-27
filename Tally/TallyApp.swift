@@ -53,11 +53,6 @@ struct TallyApp: App {
                 .environment(appState)
                 .environment(syncEngine)
                 .environment(adManager)
-                .simultaneousGesture(
-                    TapGesture().onEnded { _ in
-                        UIApplication.shared.endEditing()
-                    }
-                )
         }
         .modelContainer(modelContainer)
     }
