@@ -28,8 +28,8 @@ struct NumericFieldWithDone: UIViewRepresentable {
     var keyboardType: UIKeyboardType = .decimalPad
     var font: UIFont = UIFont.monospacedSystemFont(ofSize: 52, weight: .regular)
     var textAlignment: NSTextAlignment = .natural
-    /// When true, keeps the UIKit field as first responder; sync with SwiftUI focus for amount fields.
-    var isFirstResponder: Bool = false
+    /// When true, schedules `becomeFirstResponder` once (after a short delay) so the field can open the keyboard without fighting SwiftUI updates.
+    var focusTrigger: Bool = false
     /// When true, field text is invisible so a SwiftUI `Text` overlay can supply styling (Add Expense hero).
     var hidesFieldText: Bool = false
     var onBeginEditing: (() -> Void)? = nil
@@ -77,15 +77,10 @@ struct NumericFieldWithDone: UIViewRepresentable {
                 : UIColor(red: 0x1C / 255, green: 0x1C / 255, blue: 0x1E / 255, alpha: 1)
         }
 
-        if isFirstResponder && !uiView.isFirstResponder {
-            DispatchQueue.main.async {
+        if focusTrigger && !uiView.isFirstResponder {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 guard !uiView.isFirstResponder else { return }
                 uiView.becomeFirstResponder()
-            }
-        } else if !isFirstResponder && uiView.isFirstResponder {
-            DispatchQueue.main.async {
-                guard uiView.isFirstResponder else { return }
-                uiView.resignFirstResponder()
             }
         }
     }

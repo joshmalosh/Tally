@@ -408,7 +408,7 @@ struct AddExpenseView: View {
                         keyboardType: usesDecimalCurrency ? .decimalPad : .numberPad,
                         font: UIFont.monospacedSystemFont(ofSize: 52, weight: .regular),
                         textAlignment: .natural,
-                        isFirstResponder: focusedField == .amount,
+                        focusTrigger: !hasAttachment && focusedField == .amount,
                         hidesFieldText: true,
                         onBeginEditing: { DispatchQueue.main.async { focusedField = .amount } },
                         onDone: { focusedField = nil }
@@ -910,7 +910,7 @@ struct AddExpenseView: View {
                         keyboardType: usesDecimalCurrency ? .decimalPad : .numberPad,
                         font: UIFont.monospacedSystemFont(ofSize: 36, weight: .regular),
                         textAlignment: .natural,
-                        isFirstResponder: focusedField == .amount,
+                        focusTrigger: focusedField == .amount,
                         hidesFieldText: true,
                         onBeginEditing: { DispatchQueue.main.async { focusedField = .amount } },
                         onDone: { focusedField = nil }

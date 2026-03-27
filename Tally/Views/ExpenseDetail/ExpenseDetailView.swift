@@ -345,7 +345,7 @@ struct ExpenseDetailView: View {
                             text: $amountText,
                             keyboardType: CurrencyFormatter.shared.usesDecimals(for: currency) ? .decimalPad : .numberPad,
                             font: UIFont.monospacedSystemFont(ofSize: 36, weight: .regular),
-                            isFirstResponder: focusedField == .amount,
+                            focusTrigger: focusedField == .amount,
                             onDone: { focusedField = nil }
                         )
                         .frame(minHeight: 44)
@@ -414,7 +414,7 @@ struct ExpenseDetailView: View {
                             text: $amountText,
                             keyboardType: CurrencyFormatter.shared.usesDecimals(for: currency) ? .decimalPad : .numberPad,
                             font: UIFont.monospacedSystemFont(ofSize: 52, weight: .regular),
-                            isFirstResponder: focusedField == .amount,
+                            focusTrigger: focusedField == .amount,
                             onDone: { focusedField = nil }
                         )
                         .frame(minHeight: 56)
