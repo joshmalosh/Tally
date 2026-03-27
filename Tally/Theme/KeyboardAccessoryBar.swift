@@ -77,14 +77,16 @@ struct NumericFieldWithDone: UIViewRepresentable {
                 : UIColor(red: 0x1C / 255, green: 0x1C / 255, blue: 0x1E / 255, alpha: 1)
         }
 
-        if isFirstResponder {
-            if !uiView.isFirstResponder {
-                DispatchQueue.main.async {
-                    uiView.becomeFirstResponder()
-                }
+        if isFirstResponder && !uiView.isFirstResponder {
+            DispatchQueue.main.async {
+                guard !uiView.isFirstResponder else { return }
+                uiView.becomeFirstResponder()
             }
-        } else if uiView.isFirstResponder {
-            uiView.resignFirstResponder()
+        } else if !isFirstResponder && uiView.isFirstResponder {
+            DispatchQueue.main.async {
+                guard uiView.isFirstResponder else { return }
+                uiView.resignFirstResponder()
+            }
         }
     }
 

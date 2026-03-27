@@ -123,36 +123,6 @@ struct AddExpenseView: View {
         selectedTagIds.compactMap { id in tags.first { $0.id == id } }
     }
 
-    /// Deduplicated case-insensitively; keeps spelling from the most recently updated expense per name.
-    private var knownMerchants: [String] {
-        let byRecency = allExpenses.sorted { $0.updatedAt > $1.updatedAt }
-        var seenLowercased = Set<String>()
-        var unique: [String] = []
-        for expense in byRecency {
-            guard let raw = expense.merchant else { continue }
-            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { continue }
-            let key = trimmed.lowercased()
-            guard seenLowercased.insert(key).inserted else { continue }
-            unique.append(trimmed)
-        }
-        return unique.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
-    }
-
-    private var filteredMerchantSuggestions: [String] {
-        let trimmed = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard focusedField == .merchant, !trimmed.isEmpty else { return [] }
-        let q = trimmed.lowercased()
-        return knownMerchants.filter { candidate in
-            let low = candidate.lowercased()
-            return low.contains(q) && low != q
-        }
-    }
-
-    private var topMerchantSuggestions: [String] {
-        Array(filteredMerchantSuggestions.prefix(3))
-    }
-
     private var shouldShowOcrFilledBanner: Bool {
         receiptImageAttached && ocrPopulatedAnyField && !isRunningOCR
     }
@@ -440,7 +410,7 @@ struct AddExpenseView: View {
                         textAlignment: .natural,
                         isFirstResponder: focusedField == .amount,
                         hidesFieldText: true,
-                        onBeginEditing: { focusedField = .amount },
+                        onBeginEditing: { DispatchQueue.main.async { focusedField = .amount } },
                         onDone: { focusedField = nil }
                     )
                     .frame(maxWidth: .infinity, minHeight: 52)
@@ -509,8 +479,6 @@ struct AddExpenseView: View {
                 .focused($focusedField, equals: .merchant)
                 .textInputAutocapitalization(.words)
                 .tint(Color(hex: "346049"))
-
-            merchantSuggestionInlineList()
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
@@ -944,7 +912,7 @@ struct AddExpenseView: View {
                         textAlignment: .natural,
                         isFirstResponder: focusedField == .amount,
                         hidesFieldText: true,
-                        onBeginEditing: { focusedField = .amount },
+                        onBeginEditing: { DispatchQueue.main.async { focusedField = .amount } },
                         onDone: { focusedField = nil }
                     )
                     .frame(maxWidth: .infinity, minHeight: 40)
@@ -990,8 +958,6 @@ struct AddExpenseView: View {
                 .foregroundStyle(Color(hex: "1C1C1E"))
                 .focused($focusedField, equals: .merchant)
                 .textInputAutocapitalization(.words)
-
-            merchantSuggestionInlineList()
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
@@ -1096,37 +1062,6 @@ struct AddExpenseView: View {
             topTrailingRadius: topTrailing,
             style: .continuous
         )
-    }
-
-    @ViewBuilder
-    private func merchantSuggestionInlineList() -> some View {
-        let suggestions = topMerchantSuggestions
-        if focusedField == .merchant && !merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            VStack(spacing: 0) {
-                ForEach(suggestions, id: \.self) { name in
-                    Button {
-                        merchant = name
-                        focusedField = nil
-                    } label: {
-                        Text(name)
-                            .font(.system(size: 14))
-                            .foregroundStyle(Color(hex: "1C1C1E"))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .frame(height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-
-                    if name != suggestions.last {
-                        Rectangle()
-                            .fill(Color(hex: "DEDAD2"))
-                            .frame(height: 1)
-                    }
-                }
-            }
-            .padding(.top, 4)
-            .animation(nil, value: suggestions)
-        }
     }
 
     // MARK: - State / OCR / Save
