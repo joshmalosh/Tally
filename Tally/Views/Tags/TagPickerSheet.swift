@@ -161,28 +161,28 @@ struct SharedTagPickerSheet: View {
                 }
             }
             .sheet(isPresented: $showingNewTag) {
-                TagCreationView(suppressNameFieldAutofocus: true, onSave: { newId in
+                TagCreationView(onSave: { newId in
                     if !workingIds.contains(newId) {
                         workingIds.append(newId)
                     }
-                })
+                }, suppressNameFieldAutofocus: true)
             }
             .sheet(isPresented: $showingNewGroup) {
-                TagCreationView(isGroupMode: true, suppressNameFieldAutofocus: true, onSave: { newId in
+                TagCreationView(isGroupMode: true, onSave: { newId in
                     if !workingIds.contains(newId) {
                         workingIds.append(newId)
                     }
                     expandedGroupIds.insert(newId)
-                })
+                }, suppressNameFieldAutofocus: true)
             }
             .sheet(item: $showingNewTagInGroup) { group in
-                TagCreationView(initialParentId: group.id, suppressNameFieldAutofocus: true, onSave: { newId in
+                TagCreationView(initialParentId: group.id, onSave: { newId in
                     if !workingIds.contains(newId) {
                         workingIds.append(newId)
                     }
                     // Keep the group expanded so the new tag is visible
                     expandedGroupIds.insert(group.id)
-                })
+                }, suppressNameFieldAutofocus: true)
             }
         }
         .presentationDetents([.large])
