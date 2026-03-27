@@ -211,7 +211,7 @@ struct AddExpenseView: View {
                 // The short delay ensures the sheet presentation animation has completed.
                 if !isPrewarm, !isEditing, !hasAttachment {
                     focusedField = nil
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         focusedField = .amount
                     }
                 }
@@ -468,9 +468,9 @@ struct AddExpenseView: View {
         )
         .padding(.horizontal, 16)
         .contentShape(Rectangle())
-        .onTapGesture {
+        .simultaneousGesture(TapGesture().onEnded {
             focusedField = .amount
-        }
+        })
     }
 
     // MARK: - State 1: Merchant + date cluster

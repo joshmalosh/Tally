@@ -78,7 +78,7 @@ struct NumericFieldWithDone: UIViewRepresentable {
         }
 
         if focusTrigger && !uiView.isFirstResponder {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                 guard !uiView.isFirstResponder else { return }
                 uiView.becomeFirstResponder()
             }
