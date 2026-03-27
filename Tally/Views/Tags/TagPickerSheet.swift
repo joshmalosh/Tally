@@ -161,14 +161,14 @@ struct SharedTagPickerSheet: View {
                 }
             }
             .sheet(isPresented: $showingNewTag) {
-                TagCreationView(onSave: { newId in
+                TagCreationView(suppressNameFieldAutofocus: true, onSave: { newId in
                     if !workingIds.contains(newId) {
                         workingIds.append(newId)
                     }
                 })
             }
             .sheet(isPresented: $showingNewGroup) {
-                TagCreationView(isGroupMode: true, onSave: { newId in
+                TagCreationView(isGroupMode: true, suppressNameFieldAutofocus: true, onSave: { newId in
                     if !workingIds.contains(newId) {
                         workingIds.append(newId)
                     }
@@ -176,7 +176,7 @@ struct SharedTagPickerSheet: View {
                 })
             }
             .sheet(item: $showingNewTagInGroup) { group in
-                TagCreationView(initialParentId: group.id, onSave: { newId in
+                TagCreationView(initialParentId: group.id, suppressNameFieldAutofocus: true, onSave: { newId in
                     if !workingIds.contains(newId) {
                         workingIds.append(newId)
                     }

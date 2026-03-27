@@ -19,6 +19,10 @@ struct TagCreationView: View {
     var isGroupMode: Bool = false
     var embeddedInNavigation: Bool = false  // when true, no NavigationStack, Back shows automatically
     var onSave: ((String) -> Void)? = nil
+    /// When true (e.g. nested sheet from tag picker), do not auto-activate the name field — avoids keyboard resizing the parent sheet.
+    var suppressNameFieldAutofocus: Bool = false
+
+    @FocusState private var isNameFieldFocused: Bool
 
     private var isEditing: Bool { editingTag != nil }
     private var canSave: Bool { !name.trimmingCharacters(in: .whitespaces).isEmpty }
@@ -60,6 +64,9 @@ struct TagCreationView: View {
                 selectedParentId = tag.parentId
             } else {
                 selectedParentId = initialParentId
+            }
+            if suppressNameFieldAutofocus {
+                isNameFieldFocused = false
             }
         }
         .alert("Delete \(editingTag?.name ?? "tag")?", isPresented: $showingDeleteConfirmation) {
@@ -106,6 +113,7 @@ struct TagCreationView: View {
                 .font(Fonts.body(16))
                 .foregroundStyle(Color.textPrimary)
                 .textFieldStyle(.plain)
+                .focused($isNameFieldFocused)
             }
             .padding(.horizontal, Spacing.md)
             .frame(height: 48)
