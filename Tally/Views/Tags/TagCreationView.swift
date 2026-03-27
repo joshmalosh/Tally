@@ -65,9 +65,6 @@ struct TagCreationView: View {
             } else {
                 selectedParentId = initialParentId
             }
-            if suppressNameFieldAutofocus {
-                isNameFieldFocused = false
-            }
         }
         .alert("Delete \(editingTag?.name ?? "tag")?", isPresented: $showingDeleteConfirmation) {
             Button("Cancel", role: .cancel) {}
@@ -85,6 +82,7 @@ struct TagCreationView: View {
             NavigationStack {
                 formContent
             }
+            .ignoresSafeArea(.keyboard)
         }
     }
 
@@ -110,10 +108,21 @@ struct TagCreationView: View {
                     isGroupMode ? "e.g. Projects" : "e.g. Office supplies",
                     text: $name
                 )
+                .id("tagCreationNameField")
                 .font(Fonts.body(16))
                 .foregroundStyle(Color.textPrimary)
                 .textFieldStyle(.plain)
+                .autocorrectionDisabled()
                 .focused($isNameFieldFocused)
+                .onAppear {
+                    // Only focus if explicitly allowed — prevents keyboard from
+                    // pushing up the sheet content when opened from tag picker.
+                    if !suppressNameFieldAutofocus {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            isNameFieldFocused = true
+                        }
+                    }
+                }
             }
             .padding(.horizontal, Spacing.md)
             .frame(height: 48)

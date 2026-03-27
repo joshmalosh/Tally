@@ -209,7 +209,7 @@ struct AddExpenseView: View {
                 }
                 guard !isEditing, !hasAttachment else { return }
                 amountFocusRequested = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                     guard !hasAttachment else { return }
                     amountFocusRequested = true
                 }

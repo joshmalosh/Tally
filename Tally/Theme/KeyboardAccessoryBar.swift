@@ -79,7 +79,10 @@ struct NumericFieldWithDone: UIViewRepresentable {
 
         if focusRequested && !uiView.isFirstResponder && !context.coordinator.hasFocused {
             context.coordinator.hasFocused = true
-            uiView.becomeFirstResponder()
+            DispatchQueue.main.async {
+                guard !uiView.isFirstResponder else { return }
+                uiView.becomeFirstResponder()
+            }
         }
         if !focusRequested {
             context.coordinator.hasFocused = false
