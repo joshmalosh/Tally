@@ -4,6 +4,12 @@ import RevenueCat
 enum SubscriptionService {
     /// Refreshes Pro status from RevenueCat and updates the given AppState.
     static func refreshProStatus(appState: AppState) async {
+        #if DEBUG
+        if RevenueCatConfig.forcePro {
+            await MainActor.run { appState.subscriptionStatus = .pro }
+            return
+        }
+        #endif
         do {
             let customerInfo = try await Purchases.shared.customerInfo()
             let isActive = customerInfo.entitlements[RevenueCatConfig.proEntitlementId]?.isActive == true
