@@ -108,6 +108,42 @@ final class AppState {
         didSet { UserDefaults.standard.set(ocrEnabled, forKey: Self.ocrEnabledKey) }
     }
 
+    private static let financialYearStartMonthKey = "financialYearStartMonth"
+
+    /// 1–12; persisted under the same key as `@AppStorage("financialYearStartMonth")` would use.
+    var financialYearStartMonth: Int {
+        get {
+            if let v = UserDefaults.standard.object(forKey: Self.financialYearStartMonthKey) as? Int,
+               (1...12).contains(v) {
+                return v
+            }
+            return Self.defaultFinancialYearStartMonth()
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Self.financialYearStartMonthKey)
+        }
+    }
+
+    static func defaultFinancialYearStartMonth() -> Int {
+        let regionCode = Locale.current.region?.identifier ?? "US"
+        switch regionCode {
+        case "AU", "NZ": return 7
+        case "GB", "IN", "PK", "BD": return 4
+        case "JP": return 4
+        case "CA": return 4
+        default: return 1
+        }
+    }
+
+    var currentFinancialYearStart: Date {
+        let cal = Calendar.current
+        let now = Date()
+        let year = cal.component(.year, from: now)
+        let month = cal.component(.month, from: now)
+        let startYear = month >= financialYearStartMonth ? year : year - 1
+        return cal.date(from: DateComponents(year: startYear, month: financialYearStartMonth, day: 1)) ?? now
+    }
+
     // Expense count (for ad threshold)
     private static let totalExpenseCountKey = "totalExpenseCount"
 

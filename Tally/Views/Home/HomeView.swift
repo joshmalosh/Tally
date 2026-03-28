@@ -44,6 +44,9 @@ struct HomeView: View {
             return activeExpenses.filter { selectedExpenseIds.contains($0.id) }
         case .allTime:
             return activeExpenses
+        case .thisFinancialYear:
+            let start = appState.currentFinancialYearStart
+            return activeExpenses.filter { $0.date >= start }
         case .thisYear:
             let cal = Calendar.current
             let now = Date()
@@ -101,6 +104,9 @@ struct HomeView: View {
                 return "Since \(Self.monthYearFormatter.string(from: earliest))"
             }
             return "All expenses"
+        case .thisFinancialYear:
+            let start = appState.currentFinancialYearStart
+            return "\(Self.monthDayFormatter.string(from: start)) onwards"
         case .thisYear:
             let year = Calendar.current.component(.year, from: Date())
             return "Jan – Dec \(year)"
@@ -301,6 +307,8 @@ struct HomeView: View {
             return "\(count) selected"
         case .allTime:
             return "\(count) \(noun)"
+        case .thisFinancialYear:
+            return "\(count) \(noun) this financial year"
         case .thisYear:
             return "\(count) \(noun) this year"
         case .thisMonth:
@@ -358,7 +366,7 @@ struct HomeView: View {
 
     private var periodToggle: some View {
         Menu {
-            ForEach([PeriodFilter.allTime, .thisYear, .thisMonth], id: \.label) { filter in
+            ForEach([PeriodFilter.allTime, .thisFinancialYear, .thisYear, .thisMonth], id: \.label) { filter in
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) { periodFilter = filter }
                 } label: {
@@ -997,6 +1005,7 @@ private struct HomeListScrollAnchorKey: PreferenceKey {
 enum PeriodFilter {
     case selected
     case allTime
+    case thisFinancialYear
     case thisYear
     case thisMonth
 
@@ -1004,6 +1013,7 @@ enum PeriodFilter {
         switch self {
         case .selected: "Selected"
         case .allTime: "All Time"
+        case .thisFinancialYear: "This Financial Year"
         case .thisYear: "This Year"
         case .thisMonth: "This Month"
         }

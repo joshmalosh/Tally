@@ -9,6 +9,7 @@ struct SettingsView: View {
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
 
     @State private var showingSubscription = false
+    @State private var showingFinancialYearPicker = false
     @State private var showingCurrencyPicker = false
     @State private var showingTagCreation = false
     @State private var showingGroupCreation = false
@@ -190,6 +191,25 @@ struct SettingsView: View {
                                 .foregroundStyle(Color.textMuted)
                         }
                     }
+
+                    Button {
+                        showingFinancialYearPicker = true
+                    } label: {
+                        HStack {
+                            Image(systemName: "calendar")
+                                .font(.system(size: 20))
+                                .foregroundStyle(Color.brandPrimary)
+                            Text("Financial year start")
+                                .foregroundStyle(Color.textPrimary)
+                            Spacer()
+                            Text(monthName(appState.financialYearStartMonth))
+                                .font(Fonts.caption(14))
+                                .foregroundStyle(Color.textSecondary)
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color.textMuted)
+                        }
+                    }
                 }
 
                 Section("Data") {
@@ -290,6 +310,35 @@ struct SettingsView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
             }
+            .sheet(isPresented: $showingFinancialYearPicker) {
+                NavigationStack {
+                    List(1...12, id: \.self) { month in
+                        Button {
+                            appState.financialYearStartMonth = month
+                            showingFinancialYearPicker = false
+                        } label: {
+                            HStack {
+                                Text(monthName(month))
+                                    .foregroundStyle(Color.textPrimary)
+                                Spacer()
+                                if appState.financialYearStartMonth == month {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(Color.brandPrimary)
+                                }
+                            }
+                        }
+                    }
+                    .navigationTitle("Financial year start")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { showingFinancialYearPicker = false }
+                                .foregroundStyle(Color.textSecondary)
+                        }
+                    }
+                }
+                .presentationDetents([.medium])
+            }
             .sheet(isPresented: $showingSubscription) {
                 SubscriptionView()
             }
@@ -303,6 +352,10 @@ struct SettingsView: View {
                 TagCreationView(editingTag: tag)
             }
         }
+    }
+
+    private func monthName(_ month: Int) -> String {
+        DateFormatter().monthSymbols[month - 1]
     }
 
     private func deleteTag(_ tag: TagModel) {

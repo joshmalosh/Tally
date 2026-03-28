@@ -38,6 +38,9 @@ struct GlobalExportSheet: View {
             return initialSelection ?? []
         case .allTime:
             return activeExpenses
+        case .thisFinancialYear:
+            let start = appState.currentFinancialYearStart
+            return activeExpenses.filter { $0.date >= start }
         case .thisYear:
             let cal = Calendar.current
             let now = Date()
@@ -65,6 +68,9 @@ struct GlobalExportSheet: View {
                 return "Since \(Self.monthYearFormatter.string(from: earliest))"
             }
             return "All expenses"
+        case .thisFinancialYear:
+            let start = appState.currentFinancialYearStart
+            return "\(Self.monthDayFormatter.string(from: start)) onwards"
         case .thisYear:
             let year = Calendar.current.component(.year, from: Date())
             return "Jan – Dec \(year)"
@@ -240,8 +246,8 @@ struct GlobalExportSheet: View {
     private var periodMenu: some View {
         Menu {
             let filters: [PeriodFilter] = hasSelection
-                ? [.selected, .allTime, .thisYear, .thisMonth]
-                : [.allTime, .thisYear, .thisMonth]
+                ? [.selected, .allTime, .thisFinancialYear, .thisYear, .thisMonth]
+                : [.allTime, .thisFinancialYear, .thisYear, .thisMonth]
             ForEach(filters, id: \.label) { filter in
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) { periodFilter = filter }

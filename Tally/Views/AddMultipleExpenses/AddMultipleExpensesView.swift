@@ -704,16 +704,16 @@ struct TagLinkPickerSheet: View {
                             showingTagCreation = true
                         } label: {
                             HStack(spacing: 6) {
-                                Image(systemName: "plus")
-                                    .font(.system(size: 12, weight: .semibold))
-                                Text("+ New tag")
-                                    .font(Fonts.label(14))
+                                Image(systemName: "tag.fill")
+                                    .font(.system(size: 13, weight: .semibold))
+                                Text("New tag")
+                                    .font(.system(size: 14, weight: .semibold))
                             }
-                            .foregroundStyle(Color.brandPrimary)
+                            .foregroundStyle(Color(hex: "346049"))
                             .frame(maxWidth: .infinity)
-                            .frame(height: 36)
-                            .background(Color.brandTint)
-                            .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+                            .frame(height: 44)
+                            .background(Color(hex: "E8F0EA"))
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         }
                         .buttonStyle(.plain)
 
