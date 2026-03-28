@@ -189,76 +189,34 @@ struct SharedTagPickerSheet: View {
         .ignoresSafeArea(.keyboard)
     }
 
-    @ViewBuilder
     private func groupRow(_ group: TagModel) -> some View {
         let isExpanded = expandedGroupIds.contains(group.id)
         let children = childTags(of: group)
         let selectedChildCount = children.filter { workingIds.contains($0.id) }.count
+        let allSelected = !children.isEmpty && selectedChildCount == children.count
 
-        if isHomeVisibilityMode {
-            HStack(spacing: Spacing.smd) {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        if isExpanded {
-                            expandedGroupIds.remove(group.id)
-                        } else {
-                            expandedGroupIds.insert(group.id)
-                        }
-                    }
-                } label: {
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color(hex: "8F9E94"))
-                        .frame(width: 28, height: 44)
-                }
-                .buttonStyle(.plain)
-
-                Button {
+        return HStack(spacing: 0) {
+            // Left: folder icon + name + badge — tapping selects/deselects all children
+            Button {
+                if isHomeVisibilityMode {
+                    // Home mode: toggle the group itself
                     withAnimation(.easeInOut(duration: 0.15)) {
-                        if let i = workingIds.firstIndex(of: group.id) {
-                            workingIds.remove(at: i)
+                        if workingIds.contains(group.id) {
+                            workingIds.removeAll { $0 == group.id }
                         } else {
                             workingIds.append(group.id)
                         }
                     }
-                } label: {
-                    HStack(spacing: Spacing.smd) {
-                        Image(systemName: isExpanded ? "folder.fill" : "folder")
-                            .font(.system(size: 14))
-                            .foregroundStyle(group.tagColor.primaryColor)
-                            .frame(width: 14, height: 14)
-
-                        Text(group.name)
-                            .font(Fonts.body(16))
-                            .foregroundStyle(Color.textPrimary)
-
-                        if selectedChildCount > 0 {
-                            Text("\(selectedChildCount)")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 7)
-                                .padding(.vertical, 2)
-                                .background(Color(hex: "346049"))
-                                .clipShape(Capsule())
+                } else {
+                    // Standard mode: select/deselect all child tags
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        if allSelected {
+                            workingIds.removeAll { id in children.contains { $0.id == id } }
+                        } else {
+                            for child in children where !workingIds.contains(child.id) {
+                                workingIds.append(child.id)
+                            }
                         }
-
-                        Spacer(minLength: 0)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(height: 44)
-                }
-                .buttonStyle(.plain)
-            }
-            .padding(.horizontal, Spacing.md)
-            .background(Color.clear)
-            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-        } else {
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    if isExpanded {
-                        expandedGroupIds.remove(group.id)
-                    } else {
-                        expandedGroupIds.insert(group.id)
                     }
                 }
             } label: {
@@ -272,7 +230,8 @@ struct SharedTagPickerSheet: View {
                         .font(Fonts.body(16))
                         .foregroundStyle(Color.textPrimary)
 
-                    if selectedChildCount > 0 {
+                    if !isHomeVisibilityMode && selectedChildCount > 0 && !allSelected {
+                        // Partial selection badge
                         Text("\(selectedChildCount)")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(.white)
@@ -284,17 +243,47 @@ struct SharedTagPickerSheet: View {
 
                     Spacer(minLength: 0)
 
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color(hex: "8F9E94"))
+                    if isHomeVisibilityMode {
+                        if workingIds.contains(group.id) {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Color(hex: "346049"))
+                        }
+                    } else {
+                        if allSelected {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Color(hex: "346049"))
+                        }
+                    }
                 }
-                .padding(.horizontal, Spacing.md)
+                .padding(.leading, Spacing.md)
+                .padding(.trailing, Spacing.sm)
                 .frame(height: 44)
-                .background(Color.clear)
-                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            // Right: chevron — tapping only expands/collapses
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    if isExpanded {
+                        expandedGroupIds.remove(group.id)
+                    } else {
+                        expandedGroupIds.insert(group.id)
+                    }
+                }
+            } label: {
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
+        .background(allSelected && !isHomeVisibilityMode ? group.tagColor.primaryColor.opacity(0.06) : Color.clear)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
     }
 
     private func tagRow(_ tag: TagModel, indent: Bool) -> some View {
