@@ -339,21 +339,30 @@ struct HomeView: View {
         HStack(spacing: 0) {
             Text("Top category: ")
                 .foregroundStyle(Color.textMuted)
+                .layoutPriority(1)
             Text(insight.name)
                 .fontWeight(.medium)
                 .foregroundStyle(Color.textSecondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .layoutPriority(0)
             Text(" · ")
                 .foregroundStyle(Color.textMuted)
+                .layoutPriority(1)
             Text(amountText)
                 .fontWeight(.medium)
                 .foregroundStyle(Color.textSecondary)
+                .layoutPriority(1)
             Text(" · ")
                 .foregroundStyle(Color.textMuted)
+                .layoutPriority(1)
             Text("\(count) \(noun)")
                 .foregroundStyle(Color.textMuted)
+                .layoutPriority(1)
         }
         .font(Fonts.caption(13))
-        .lineLimit(2)
+        .lineLimit(1)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Header
@@ -394,8 +403,7 @@ struct HomeView: View {
                 }
                 .opacity(isSelecting && !hasSelection ? 0.15 : 1)
             }
-
-            Spacer()
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
 
             VStack(alignment: .trailing, spacing: 4) {
                 periodToggle
@@ -460,7 +468,7 @@ struct HomeView: View {
         }
         .padding(.horizontal, Spacing.md)
         .frame(height: 40)
-        .background(Color.bgPrimary.opacity(0.6))
+        .background(Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
         .overlay(
             RoundedRectangle(cornerRadius: Radius.sm)
@@ -774,7 +782,7 @@ struct HomeView: View {
         } label: {
             HStack(spacing: 0) {
                 Image(systemName: "plus")
-                    .font(.system(size: 24, weight: .light))
+                    .font(.system(size: 28, weight: .light))
                     .foregroundStyle(.white)
                     .frame(width: 48, height: 48)
                     .background(Circle().fill(Color.brandPrimary))

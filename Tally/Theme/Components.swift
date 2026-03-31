@@ -173,7 +173,7 @@ struct ExpenseCard: View {
         return description.isEmpty ? "Expense" : description
     }
 
-    private static let rowHorizontalPadding: CGFloat = 11
+    private static let rowHorizontalPadding: CGFloat = Spacing.md
     private static let iconSlot: CGFloat = 38
 
     var body: some View {
