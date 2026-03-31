@@ -186,8 +186,8 @@ struct HomeView: View {
 
                 if !isSelecting {
                     addExpenseFAB
-                        .padding(.trailing, 20)
-                        .padding(.bottom, 24)
+                        .padding(.trailing, 35)
+                        .padding(.bottom, 30)
                 }
             }
             .background(Color(hex: "F6F5F3").ignoresSafeArea())
@@ -702,10 +702,11 @@ struct HomeView: View {
             showingEntryPicker = true
         } label: {
             Image(systemName: "plus")
-                .font(.system(size: 32, weight: .light))
+                .font(.system(size: 36, weight: .light))
                 .foregroundStyle(.white)
-                .frame(width: 64, height: 64)
+                .frame(width: 72, height: 72)
                 .background(Circle().fill(Color.brandPrimary))
+                .shadow(color: Color.brandPrimary.opacity(0.35), radius: 16, x: 0, y: 3)
         }
         .buttonStyle(.plain)
     }
@@ -732,7 +733,6 @@ struct HomeView: View {
                         .foregroundStyle(Color.textMuted)
                         .tracking(0.55)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, Spacing.md)
                         .listRowInsets(EdgeInsets(top: Spacing.sm, leading: 0, bottom: Spacing.xs, trailing: 0))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
