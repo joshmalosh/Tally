@@ -250,7 +250,7 @@ struct GlobalExportSheet: View {
                 : [.allTime, .thisFinancialYear, .thisYear, .thisMonth]
             ForEach(filters, id: \.label) { filter in
                 Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { periodFilter = filter }
+                    withAnimation(nil) { periodFilter = filter }
                 } label: {
                     Label(periodLabel(for: filter), systemImage: periodFilter == filter ? "checkmark" : "")
                 }

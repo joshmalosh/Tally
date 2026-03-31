@@ -148,6 +148,10 @@ struct AddTagPill: View {
 
 struct ExpenseCard: View {
     let thumbnailImage: Image?
+    /// When `true` and `thumbnailImage` is nil, a receipt exists but is still loading.
+    let hasReceiptAttachment: Bool
+    let iconSystemName: String
+    let iconBackground: Color
     let description: String
     let merchant: String?
     let amountCents: Int
@@ -170,69 +174,63 @@ struct ExpenseCard: View {
     }
 
     private static let rowHorizontalPadding: CGFloat = 11
+    private static let iconSlot: CGFloat = 38
 
     var body: some View {
-        VStack(spacing: 0) {
-            HStack(alignment: .center, spacing: 12) {
-                // Thumbnail
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(thumbnailImage != nil ? Color.clear : Color(hex: "F0EDEA"))
-                        .frame(width: 44, height: 44)
-                    if let image = thumbnailImage {
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 44, height: 44)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                    } else {
-                        Image(systemName: "doc.text")
-                            .font(.system(size: 18))
-                            .foregroundStyle(Color(hex: "8F9E94"))
-                    }
-                }
-                .frame(width: 44, height: 44)
-
-                // Text content
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(displayTitle)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color(hex: "1C1C1E"))
-                        .lineLimit(1)
-                    if !tagName.isEmpty {
-                        HStack(spacing: 5) {
-                            Circle()
-                                .fill(tagColor.primaryColor)
-                                .frame(width: 8, height: 8)
-                            Text(tagName)
-                                .font(.system(size: 13, weight: .regular))
-                                .foregroundStyle(Color(hex: "8F9E94"))
-                                .lineLimit(1)
-                        }
-                    }
-                }
-
-                Spacer(minLength: 8)
-
-                // Amount + date
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(CurrencyFormatter.shared.format(cents: amountCents, currencyCode: currency))
-                        .font(.system(size: 16, weight: .semibold).monospacedDigit())
-                        .foregroundStyle(Color(hex: "1C1C1E"))
-                    Text(Self.dateFormatter.string(from: date))
-                        .font(.system(size: 12, weight: .regular))
-                        .foregroundStyle(Color(hex: "8F9E94"))
+        HStack(alignment: .center, spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: Radius.sm)
+                    .fill(iconBackground)
+                    .frame(width: Self.iconSlot, height: Self.iconSlot)
+                if let image = thumbnailImage {
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: Self.iconSlot, height: Self.iconSlot)
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+                } else if hasReceiptAttachment {
+                    RoundedRectangle(cornerRadius: Radius.sm)
+                        .fill(Color.borderColor.opacity(0.28))
+                        .frame(width: Self.iconSlot, height: Self.iconSlot)
+                } else {
+                    Image(systemName: iconSystemName)
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Color.textSecondary)
                 }
             }
-            .padding(.horizontal, Self.rowHorizontalPadding)
-            .padding(.vertical, 13)
+            .frame(width: Self.iconSlot, height: Self.iconSlot)
 
-            // Hairline separator — inset to align with text, not thumbnail
-            Rectangle()
-                .fill(Color(hex: "DEDAD2").opacity(0.8))
-                .frame(height: 0.5)
-                .padding(.leading, Self.rowHorizontalPadding + 44 + 12)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(displayTitle)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(1)
+                if !tagName.isEmpty {
+                    HStack(spacing: 5) {
+                        Circle()
+                            .fill(tagColor.primaryColor)
+                            .frame(width: 8, height: 8)
+                        Text(tagName)
+                            .font(.system(size: 13, weight: .regular))
+                            .foregroundStyle(Color.textMuted)
+                            .lineLimit(1)
+                    }
+                }
+            }
+
+            Spacer(minLength: 8)
+
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(CurrencyFormatter.shared.format(cents: amountCents, currencyCode: currency))
+                    .font(.system(size: 16, weight: .semibold).monospacedDigit())
+                    .foregroundStyle(Color.textPrimary)
+                Text(Self.dateFormatter.string(from: date))
+                    .font(.system(size: 12, weight: .regular))
+                    .foregroundStyle(Color.textMuted)
+            }
         }
+        .padding(.horizontal, Self.rowHorizontalPadding)
+        .padding(.vertical, 13)
     }
 }
 

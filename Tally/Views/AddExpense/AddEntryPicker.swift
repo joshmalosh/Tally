@@ -60,13 +60,14 @@ struct AddEntryPicker: View {
                 entryOption(
                     icon: "list.bullet.rectangle",
                     title: "Import from notes",
-                    subtitle: "Turn a list or photo into tagged expenses",
+                    subtitle: "Turn a list into tagged expenses",
                     mode: .bulkImport
                 )
             }
             .padding(.horizontal, Spacing.md)
             .padding(.bottom, Spacing.xl)
         }
+        .padding(.top, 20)
         .background(Color.bgPrimary)
     }
 

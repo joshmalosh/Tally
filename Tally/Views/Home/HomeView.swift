@@ -25,12 +25,6 @@ struct HomeView: View {
     @State private var expenseToDelete: ExpenseModel?
     @FocusState private var isSearchFocused: Bool
 
-    /// Clears FAB above the home banner (~52pt) with comfortable margin when ads show.
-    private var fabBottomInset: CGFloat {
-        let margin: CGFloat = 18
-        return !appState.isPro ? 52 + margin : margin
-    }
-
     private static let monthYearFormatter: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "MMM yyyy"; return f
     }()
@@ -188,10 +182,9 @@ struct HomeView: View {
                 }
 
                 if !isSelecting {
-                    FABButton { showingEntryPicker = true }
-                        .padding(.trailing, Spacing.xl + 10)
-                        .padding(.bottom, fabBottomInset)
-                        .animation(.easeInOut(duration: 0.3), value: appState.isPro)
+                    addExpenseFAB
+                        .padding(.trailing, 16)
+                        .padding(.bottom, 78)
                 }
             }
             .background(Color(hex: "F6F5F3").ignoresSafeArea())
@@ -316,6 +309,53 @@ struct HomeView: View {
         }
     }
 
+    /// Sums and counts per primary tag for the active period; `nil` when no tagged expenses.
+    private var topCategoryInsight: (name: String, amountCents: Int, expenseCount: Int)? {
+        var totals: [String: (cents: Int, count: Int)] = [:]
+        for expense in periodExpenses {
+            guard let tagId = expense.resolvedTagIds.first else { continue }
+            let cur = totals[tagId, default: (0, 0)]
+            totals[tagId] = (cur.cents + expense.amountCents, cur.count + 1)
+        }
+        guard !totals.isEmpty else { return nil }
+        guard let best = totals.max(by: { a, b in
+            if a.value.cents != b.value.cents { return a.value.cents < b.value.cents }
+            let n1 = tags.first { $0.id == a.key }?.name ?? ""
+            let n2 = tags.first { $0.id == b.key }?.name ?? ""
+            return n1.localizedCompare(n2) == .orderedAscending
+        }) else { return nil }
+        guard let tagName = tags.first(where: { $0.id == best.key })?.name else { return nil }
+        return (tagName, best.value.cents, best.value.count)
+    }
+
+    @ViewBuilder
+    private func insightSubtitleView(insight: (name: String, amountCents: Int, expenseCount: Int)) -> some View {
+        let amountText = CurrencyFormatter.shared.format(
+            cents: insight.amountCents,
+            currencyCode: appState.defaultCurrency
+        )
+        let count = insight.expenseCount
+        let noun = count == 1 ? "expense" : "expenses"
+        HStack(spacing: 0) {
+            Text("Top category: ")
+                .foregroundStyle(Color.textMuted)
+            Text(insight.name)
+                .fontWeight(.medium)
+                .foregroundStyle(Color.textSecondary)
+            Text(" · ")
+                .foregroundStyle(Color.textMuted)
+            Text(amountText)
+                .fontWeight(.medium)
+                .foregroundStyle(Color.textSecondary)
+            Text(" · ")
+                .foregroundStyle(Color.textMuted)
+            Text("\(count) \(noun)")
+                .foregroundStyle(Color.textMuted)
+        }
+        .font(Fonts.caption(13))
+        .lineLimit(2)
+    }
+
     // MARK: - Header
 
     private var selectedTotalCents: Int {
@@ -339,11 +379,19 @@ struct HomeView: View {
                 .contentTransition(.numericText())
                 .animation(.easeInOut(duration: 0.2), value: selectedTotalCents)
 
-                Text(hasSelection
-                     ? "\(selectedExpenseIds.count) selected"
-                     : expenseCountLabel)
-                .font(Fonts.caption(13))
-                .foregroundStyle(Color.textSecondary)
+                Group {
+                    if hasSelection {
+                        Text("\(selectedExpenseIds.count) selected")
+                            .font(Fonts.caption(13))
+                            .foregroundStyle(Color.textSecondary)
+                    } else if let insight = topCategoryInsight {
+                        insightSubtitleView(insight: insight)
+                    } else {
+                        Text("\(periodExpenseCount) expenses")
+                            .font(Fonts.caption(13))
+                            .foregroundStyle(Color.textMuted)
+                    }
+                }
                 .opacity(isSelecting && !hasSelection ? 0.15 : 1)
             }
 
@@ -368,7 +416,7 @@ struct HomeView: View {
         Menu {
             ForEach([PeriodFilter.allTime, .thisFinancialYear, .thisYear, .thisMonth], id: \.label) { filter in
                 Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { periodFilter = filter }
+                    withAnimation(nil) { periodFilter = filter }
                 } label: {
                     Label(filter.label, systemImage: periodFilter == filter ? "checkmark" : "")
                 }
@@ -412,11 +460,11 @@ struct HomeView: View {
         }
         .padding(.horizontal, Spacing.md)
         .frame(height: 40)
-        .background(Color.surface)
+        .background(Color.bgPrimary.opacity(0.6))
         .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
         .overlay(
             RoundedRectangle(cornerRadius: Radius.sm)
-                .stroke(isSearchFocused ? Color.brandPrimary : Color.borderColor.opacity(0.7), lineWidth: isSearchFocused ? 1 : 0.5)
+                .stroke(isSearchFocused ? Color.brandPrimary : Color.borderColor, lineWidth: isSearchFocused ? 1 : 0.5)
         )
         .padding(.horizontal, Spacing.lg)
     }
@@ -597,12 +645,9 @@ struct HomeView: View {
         !searchText.isEmpty || appState.hasTagFilters
     }
 
-    /// Keeps empty-state copy above the enlarged FAB and home banner ad.
+    /// Clears the combined Add Expense control (48pt) anchored 78pt above the bottom edge.
     private var emptyStateBottomSafeInset: CGFloat {
-        let fabDiameter: CGFloat = 75
-        let fabBottomPadding = !appState.isPro ? (Spacing.xl + 16) : (Spacing.xl + 10)
-        let bannerHeight: CGFloat = !appState.isPro ? 50 : 0
-        return fabDiameter + fabBottomPadding + bannerHeight + 80
+        78 + 48 + 40
     }
 
     private var emptyState: some View {
@@ -638,6 +683,119 @@ struct HomeView: View {
 
     // MARK: - Expense List
 
+    private struct DayExpenseGroup: Identifiable {
+        let id: String
+        let dayStart: Date
+        let items: [ExpenseModel]
+    }
+
+    private var dayGroups: [DayExpenseGroup] {
+        let cal = Calendar.current
+        var buckets: [Date: [ExpenseModel]] = [:]
+        for expense in filteredExpenses {
+            let d = cal.startOfDay(for: expense.date)
+            buckets[d, default: []].append(expense)
+        }
+        let sortedDays = buckets.keys.sorted(by: >)
+        return sortedDays.map { day in
+            DayExpenseGroup(
+                id: "\(day.timeIntervalSince1970)",
+                dayStart: day,
+                items: (buckets[day] ?? []).sorted { $0.date > $1.date }
+            )
+        }
+    }
+
+    private func daySectionTitle(for dayStart: Date) -> String {
+        let cal = Calendar.current
+        if cal.isDateInToday(dayStart) { return "Today" }
+        if cal.isDateInYesterday(dayStart) { return "Yesterday" }
+        let f = DateFormatter()
+        f.dateFormat = "EEE d MMM"
+        return f.string(from: dayStart)
+    }
+
+    @ViewBuilder
+    private func groupCardRowBackground(index: Int, count: Int) -> some View {
+        let r = Radius.lg
+        if count == 1 {
+            RoundedRectangle(cornerRadius: r, style: .continuous)
+                .fill(Color.surface)
+                .shadow(color: .black.opacity(0.07), radius: 10, x: 0, y: 2)
+        } else if index == 0 {
+            UnevenRoundedRectangle(
+                topLeadingRadius: r,
+                bottomLeadingRadius: 0,
+                bottomTrailingRadius: 0,
+                topTrailingRadius: r,
+                style: .continuous
+            )
+            .fill(Color.surface)
+        } else if index == count - 1 {
+            UnevenRoundedRectangle(
+                topLeadingRadius: 0,
+                bottomLeadingRadius: r,
+                bottomTrailingRadius: r,
+                topTrailingRadius: 0,
+                style: .continuous
+            )
+            .fill(Color.surface)
+            .shadow(color: .black.opacity(0.07), radius: 10, x: 0, y: 2)
+        } else {
+            Rectangle()
+                .fill(Color.surface)
+        }
+    }
+
+    private func keywordSearchText(for expense: ExpenseModel) -> String {
+        [expense.expenseDescription, expense.merchant]
+            .compactMap { $0 }
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
+    private func hasReceiptPhoto(_ expense: ExpenseModel) -> Bool {
+        expense.attachmentKey != nil || expense.attachmentData != nil
+    }
+
+    private func resolveIcon(name: String, tag: String?) -> String {
+        HomeExpenseIconResolver.match(name: name, tag: tag).symbol
+    }
+
+    private func resolveIconBackground(name: String, tag: String?) -> Color {
+        HomeExpenseIconResolver.match(name: name, tag: tag).category.tintColor
+    }
+
+    private var addExpenseFAB: some View {
+        Button {
+            let impact = UIImpactFeedbackGenerator(style: .medium)
+            impact.impactOccurred()
+            showingEntryPicker = true
+        } label: {
+            HStack(spacing: 0) {
+                Image(systemName: "plus")
+                    .font(.system(size: 24, weight: .light))
+                    .foregroundStyle(.white)
+                    .frame(width: 48, height: 48)
+                    .background(Circle().fill(Color.brandPrimary))
+                    .shadow(color: Color.brandPrimary.opacity(0.35), radius: 16, x: 0, y: 3)
+                    .zIndex(1)
+
+                Text("Add Expense")
+                    .font(Fonts.body(14))
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color.textPrimary)
+                    .padding(.leading, 10)
+                    .padding(.trailing, 18)
+                    .frame(height: 36)
+                    .background(Color.surface)
+                    .clipShape(Capsule())
+                    .offset(x: -8)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
     private var expenseList: some View {
         List {
             Color.clear
@@ -653,64 +811,20 @@ struct HomeView: View {
                     }
                 )
 
-            ForEach(filteredExpenses, id: \.id) { expense in
-                let tag = primaryTag(for: expense)
-                let isSelected = selectedExpenseIds.contains(expense.id)
+            ForEach(dayGroups) { group in
+                Group {
+                    Text(daySectionTitle(for: group.dayStart).uppercased())
+                        .font(Fonts.caption(11))
+                        .foregroundStyle(Color.textMuted)
+                        .tracking(0.55)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .listRowInsets(EdgeInsets(top: Spacing.sm, leading: Spacing.lg, bottom: Spacing.xs, trailing: Spacing.lg))
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
 
-                HStack(spacing: 0) {
-                    if isSelecting {
-                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 24, weight: isSelected ? .regular : .light))
-                            .foregroundStyle(isSelected ? Color.brandPrimary : Color.textSecondary.opacity(0.55))
-                            .frame(width: 44)
+                    ForEach(Array(group.items.enumerated()), id: \.element.id) { index, expense in
+                        groupedExpenseRow(group: group, index: index, expense: expense)
                     }
-
-                    ExpenseCard(
-                        thumbnailImage: thumbnailImage(for: expense),
-                        description: expense.expenseDescription ?? "Expense",
-                        merchant: expense.merchant,
-                        amountCents: expense.amountCents,
-                        currency: expense.currency,
-                        date: expense.date,
-                        tagName: displayTagName(for: expense),
-                        tagColor: tag?.tagColor ?? TagColors.forId("warmGrey")
-                    )
-                }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    if isSelecting {
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            toggleExpenseSelection(expense.id)
-                        }
-                    } else {
-                        appState.selectedExpenseId = expense.id
-                    }
-                }
-                .onLongPressGesture(minimumDuration: 0.2) {
-                    if !isSelecting {
-                        let gen = UIImpactFeedbackGenerator(style: .heavy)
-                        gen.prepare()
-                        if #available(iOS 17.0, *) {
-                            gen.impactOccurred(intensity: 1.0)
-                        } else {
-                            gen.impactOccurred()
-                        }
-                        enterSelectionMode(preselecting: expense.id)
-                    }
-                }
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    if !isSelecting {
-                        Button(role: .destructive) {
-                            expenseToDelete = expense
-                        } label: {
-                            Label("Delete", systemImage: "trash")
-                        }
-                    }
-                }
-                .task {
-                    await loadThumbnail(for: expense)
                 }
             }
         }
@@ -735,6 +849,81 @@ struct HomeView: View {
                     }
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func groupedExpenseRow(group: DayExpenseGroup, index: Int, expense: ExpenseModel) -> some View {
+        let tag = primaryTag(for: expense)
+        let isSelected = selectedExpenseIds.contains(expense.id)
+        let nameKey = keywordSearchText(for: expense)
+        let primaryTagName = primaryTag(for: expense)?.name
+
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                if isSelecting {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 24, weight: isSelected ? .regular : .light))
+                        .foregroundStyle(isSelected ? Color.brandPrimary : Color.textSecondary.opacity(0.55))
+                        .frame(width: 44)
+                }
+
+                ExpenseCard(
+                    thumbnailImage: thumbnailImage(for: expense),
+                    hasReceiptAttachment: hasReceiptPhoto(expense),
+                    iconSystemName: resolveIcon(name: nameKey, tag: primaryTagName),
+                    iconBackground: resolveIconBackground(name: nameKey, tag: primaryTagName),
+                    description: expense.expenseDescription ?? "Expense",
+                    merchant: expense.merchant,
+                    amountCents: expense.amountCents,
+                    currency: expense.currency,
+                    date: expense.date,
+                    tagName: displayTagName(for: expense),
+                    tagColor: tag?.tagColor ?? TagColors.forId("warmGrey")
+                )
+            }
+
+            if index < group.items.count - 1 {
+                Divider()
+                    .padding(.leading, 58)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if isSelecting {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    toggleExpenseSelection(expense.id)
+                }
+            } else {
+                appState.selectedExpenseId = expense.id
+            }
+        }
+        .onLongPressGesture(minimumDuration: 0.2) {
+            if !isSelecting {
+                let gen = UIImpactFeedbackGenerator(style: .heavy)
+                gen.prepare()
+                if #available(iOS 17.0, *) {
+                    gen.impactOccurred(intensity: 1.0)
+                } else {
+                    gen.impactOccurred()
+                }
+                enterSelectionMode(preselecting: expense.id)
+            }
+        }
+        .listRowInsets(EdgeInsets(top: 0, leading: Spacing.lg, bottom: 0, trailing: Spacing.lg))
+        .listRowSeparator(.hidden)
+        .listRowBackground(groupCardRowBackground(index: index, count: group.items.count))
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            if !isSelecting {
+                Button(role: .destructive) {
+                    expenseToDelete = expense
+                } label: {
+                    Label("Delete", systemImage: "trash")
+                }
+            }
+        }
+        .task {
+            await loadThumbnail(for: expense)
         }
     }
 
@@ -984,6 +1173,81 @@ struct HomeView: View {
     }
 }
 
+// MARK: - Expense icon resolver (keywords → SF Symbol + tint category)
+
+private enum HomeExpenseIconResolver {
+    enum Category {
+        case foodDrink
+        case transport
+        case techOffice
+        case subscription
+        case health
+        case work
+        case generic
+
+        var tintColor: Color {
+            switch self {
+            case .foodDrink: return Color(hex: "A67C52").opacity(0.12)
+            case .transport: return Color(hex: "8B8680").opacity(0.12)
+            case .techOffice: return Color(hex: "5B8FC7").opacity(0.12)
+            case .subscription: return Color(hex: "D48BC9").opacity(0.12)
+            case .health: return Color(hex: "E57373").opacity(0.12)
+            case .work: return Color(hex: "5B8A72").opacity(0.12)
+            case .generic: return Color(hex: "8B8680").opacity(0.12)
+            }
+        }
+    }
+
+    private struct Rule {
+        let keywords: [String]
+        let symbol: String
+        let category: Category
+    }
+
+    static func match(name: String, tag: String?) -> (symbol: String, category: Category) {
+        let sources = [name, tag ?? ""].filter { !$0.isEmpty }
+        for s in sources {
+            let lower = s.lowercased()
+            for rule in rules {
+                for kw in rule.keywords where lower.contains(kw) {
+                    return (rule.symbol, rule.category)
+                }
+            }
+        }
+        return ("doc.fill", .generic)
+    }
+
+    private static let rules: [Rule] = [
+        Rule(keywords: ["coffee", "cafe", "latte"], symbol: "cup.and.saucer.fill", category: .foodDrink),
+        Rule(keywords: ["groceries", "supermarket", "woolworths", "coles", "aldi"], symbol: "cart.fill", category: .foodDrink),
+        Rule(keywords: ["tyre", "tyres", "car", "mechanic", "rego", "vehicle"], symbol: "car.fill", category: .transport),
+        Rule(keywords: ["fuel", "petrol"], symbol: "fuelpump.fill", category: .transport),
+        Rule(keywords: ["flight", "airfare", "qantas", "jetstar", "virgin"], symbol: "airplane", category: .transport),
+        Rule(keywords: ["bus", "train", "opal", "transit"], symbol: "tram.fill", category: .transport),
+        Rule(keywords: ["parking", "toll"], symbol: "p.square.fill", category: .transport),
+        Rule(keywords: ["keyboard", "keycaps"], symbol: "keyboard.fill", category: .techOffice),
+        Rule(keywords: ["monitor", "display", "screen"], symbol: "display", category: .techOffice),
+        Rule(keywords: ["mouse", "trackpad"], symbol: "computermouse.fill", category: .techOffice),
+        Rule(keywords: ["cable", "adapter", "hub", "usb", "hdmi"], symbol: "cable.connector", category: .techOffice),
+        Rule(keywords: ["desk light", "lamp", "light"], symbol: "lightbulb.fill", category: .techOffice),
+        Rule(keywords: ["domain", "namecheap", "cloudflare"], symbol: "globe", category: .techOffice),
+        Rule(keywords: ["api", "credits", "aws", "hosting", "cloud"], symbol: "cloud.fill", category: .techOffice),
+        Rule(keywords: ["subscription", "plan", "monthly", "annual"], symbol: "arrow.2.circlepath", category: .subscription),
+        Rule(keywords: ["software", "license", "saas"], symbol: "laptopcomputer", category: .techOffice),
+        Rule(keywords: ["doctor", "gp", "medical", "hospital"], symbol: "stethoscope", category: .health),
+        Rule(keywords: ["pharmacy", "chemist"], symbol: "pills.fill", category: .health),
+        Rule(keywords: ["dentist", "dental"], symbol: "mouth.fill", category: .health),
+        Rule(keywords: ["gym", "fitness"], symbol: "dumbbell.fill", category: .health),
+        Rule(keywords: ["haircut", "barber", "salon"], symbol: "scissors", category: .health),
+        Rule(keywords: ["lunch", "dinner", "food", "meal"], symbol: "fork.knife", category: .foodDrink),
+        Rule(keywords: ["bar", "drinks", "pub"], symbol: "wineglass.fill", category: .foodDrink),
+        Rule(keywords: ["takeaway", "ubereats", "doordash", "menulog"], symbol: "bag.fill", category: .foodDrink),
+        Rule(keywords: ["hotel", "accommodation", "airbnb"], symbol: "bed.double.fill", category: .transport),
+        Rule(keywords: ["invoice", "reimbursement"], symbol: "doc.text.fill", category: .work),
+        Rule(keywords: ["delivery", "shipping", "postage"], symbol: "shippingbox.fill", category: .transport)
+    ]
+}
+
 // MARK: - Export With Selection Item
 
 private struct ExportWithSelectionItem: Identifiable {
@@ -1013,7 +1277,7 @@ enum PeriodFilter {
         switch self {
         case .selected: "Selected"
         case .allTime: "All Time"
-        case .thisFinancialYear: "This Financial Year"
+        case .thisFinancialYear: "Financial Year"
         case .thisYear: "This Year"
         case .thisMonth: "This Month"
         }

@@ -355,7 +355,7 @@ struct AddExpenseView: View {
     }
 
     private var addExpenseFormZStack: some View {
-        ZStack {
+        ZStack(alignment: .bottom) {
             Color.bgPrimary.ignoresSafeArea()
 
             Group {
@@ -372,7 +372,7 @@ struct AddExpenseView: View {
             if formReady {
                 stickySaveChrome
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .ignoresSafeArea(.keyboard, edges: .bottom)
+                    .zIndex(1)
             }
         }
     }
@@ -530,6 +530,7 @@ struct AddExpenseView: View {
 
             merchantSuggestionInlineList()
         }
+        .keyboardDoneToolbar()
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1052,6 +1053,7 @@ struct AddExpenseView: View {
                 .focused($focusedField, equals: .merchant)
                 .textInputAutocapitalization(.words)
         }
+        .keyboardDoneToolbar()
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1143,6 +1145,7 @@ struct AddExpenseView: View {
                 BannerAdView()
             }
         }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
     }
 
     // MARK: - Helpers
