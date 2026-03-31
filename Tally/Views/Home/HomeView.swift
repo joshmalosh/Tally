@@ -144,6 +144,9 @@ struct HomeView: View {
                     if !isHeaderCollapsed {
                         appBar
                             .transition(.move(edge: .top).combined(with: .opacity))
+
+                        Spacer()
+                            .frame(height: 8)
                     }
 
                     headerSection
@@ -183,8 +186,8 @@ struct HomeView: View {
 
                 if !isSelecting {
                     addExpenseFAB
-                        .padding(.trailing, 24)
-                        .padding(.bottom, 90)
+                        .padding(.trailing, 16)
+                        .padding(.bottom, 32)
                 }
             }
             .background(Color(hex: "F6F5F3").ignoresSafeArea())
@@ -725,7 +728,7 @@ struct HomeView: View {
                         .foregroundStyle(Color.textMuted)
                         .tracking(0.55)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .listRowInsets(EdgeInsets(top: Spacing.sm, leading: Spacing.smd, bottom: Spacing.xs, trailing: Spacing.smd))
+                        .listRowInsets(EdgeInsets(top: Spacing.sm, leading: Spacing.lg, bottom: Spacing.xs, trailing: Spacing.lg))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
 
@@ -788,7 +791,9 @@ struct HomeView: View {
                     tagName: displayTagName(for: expense),
                     tagColor: tag?.tagColor ?? TagColors.forId("warmGrey")
                 )
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             if index < group.items.count - 1 {
                 Divider()
@@ -817,7 +822,7 @@ struct HomeView: View {
                 enterSelectionMode(preselecting: expense.id)
             }
         }
-        .listRowInsets(EdgeInsets(top: 0, leading: Spacing.smd, bottom: 0, trailing: Spacing.smd))
+        .listRowInsets(EdgeInsets(top: 0, leading: Spacing.lg, bottom: 0, trailing: Spacing.lg))
         .listRowSeparator(.hidden)
         .listRowBackground(groupCardRowBackground(index: index, count: group.items.count))
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {

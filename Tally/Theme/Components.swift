@@ -229,6 +229,7 @@ struct ExpenseCard: View {
                     .foregroundStyle(Color.textMuted)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Self.rowHorizontalPadding)
         .padding(.vertical, 13)
     }
