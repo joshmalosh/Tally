@@ -25,6 +25,8 @@ struct HomeView: View {
     @State private var expandedGroupId: String?
     @State private var expenseToDelete: ExpenseModel?
     @FocusState private var isSearchFocused: Bool
+    @State private var lastScrollOffset: CGFloat = 0
+    @State private var fabScale: CGFloat = 1.0
 
     private static let monthYearFormatter: DateFormatter = {
         let f = DateFormatter(); f.dateFormat = "MMM yyyy"; return f
@@ -141,13 +143,18 @@ struct HomeView: View {
         adManager.shouldShowBannerAd ? 16 : 32
     }
 
+    /// Main FAB circle diameter (30% larger than prior 64pt).
+    private let fabCircleDimension: CGFloat = 83
+    /// Plus symbol size (30% larger than prior 32pt).
+    private let fabPlusFontSize: CGFloat = 42
+
     /// Reserves space so list / empty content clears the bottom system layer (FAB + gap + banner when applicable).
     private var bottomScrollInsetHeight: CGFloat {
         let bannerH: CGFloat = adManager.shouldShowBannerAd ? 51 : 0
         if isSelecting {
             return bannerH
         }
-        return 64 + fabBottomPadding + bannerH
+        return fabCircleDimension + fabBottomPadding + bannerH
     }
 
     private var homeScrollableColumn: some View {
@@ -198,17 +205,19 @@ struct HomeView: View {
         } label: {
             ZStack {
                 Circle()
-                    .fill(Color.brandPrimary.opacity(0.12))
-                    .frame(width: 72, height: 72)
+                    .fill(Color.brandPrimary.opacity(0.10))
+                    .frame(width: fabCircleDimension + 16, height: fabCircleDimension + 16)
                 Image(systemName: "plus")
-                    .font(.system(size: 32, weight: .light))
+                    .font(.system(size: fabPlusFontSize, weight: .light))
                     .foregroundStyle(.white)
-                    .frame(width: 64, height: 64)
+                    .frame(width: fabCircleDimension, height: fabCircleDimension)
                     .background(Circle().fill(Color.brandPrimary))
                     .shadow(color: Color.brandPrimary.opacity(0.3), radius: 12, x: 0, y: 4)
             }
         }
         .buttonStyle(.plain)
+        .scaleEffect(fabScale)
+        .animation(.easeInOut(duration: 0.2), value: fabScale)
     }
 
     private var bottomSystemLayer: some View {
@@ -778,6 +787,12 @@ struct HomeView: View {
                     }
                 }
             }
+
+            Color.clear
+                .frame(height: fabCircleDimension + 80)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
         }
         .listStyle(.plain)
         .environment(\.defaultMinListRowHeight, 0)
@@ -801,6 +816,17 @@ struct HomeView: View {
                     }
                 }
             }
+
+            if lastScrollOffset != 0 {
+                if abs(minY - lastScrollOffset) < 0.5 {
+                    fabScale = 1.0
+                } else if minY < lastScrollOffset {
+                    fabScale = 0.9
+                } else {
+                    fabScale = 1.0
+                }
+            }
+            lastScrollOffset = minY
         }
     }
 
