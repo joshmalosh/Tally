@@ -138,24 +138,15 @@ struct HomeView: View {
         return "\(first.name) +\(resolved.count - 1)"
     }
 
-    /// Space between FAB and bottom of layer: above ad strip when banner shows, else breathing room for Pro.
+    /// Breathing room below the FAB: tight above the ad when free, more space when Pro (no banner).
     private var fabBottomPadding: CGFloat {
-        adManager.shouldShowBannerAd ? 16 : 32
+        adManager.shouldShowBannerAd ? 12 : 28
     }
 
     /// Main FAB circle diameter (30% larger than prior 64pt).
     private let fabCircleDimension: CGFloat = 83
     /// Plus symbol size (30% larger than prior 32pt).
     private let fabPlusFontSize: CGFloat = 42
-
-    /// Reserves space so list / empty content clears the bottom system layer (FAB + gap + banner when applicable).
-    private var bottomScrollInsetHeight: CGFloat {
-        let bannerH: CGFloat = adManager.shouldShowBannerAd ? 51 : 0
-        if isSelecting {
-            return bannerH
-        }
-        return fabCircleDimension + fabBottomPadding + bannerH
-    }
 
     private var homeScrollableColumn: some View {
         VStack(spacing: 0) {
@@ -220,7 +211,8 @@ struct HomeView: View {
         .animation(.easeInOut(duration: 0.2), value: fabScale)
     }
 
-    private var bottomSystemLayer: some View {
+    /// FAB + optional ad banner, anchored below scroll content via `safeAreaInset`.
+    private var homeBottomInset: some View {
         VStack(spacing: 0) {
             if !isSelecting {
                 HStack {
@@ -228,29 +220,23 @@ struct HomeView: View {
                     homeFABButton
                     Spacer()
                 }
+                .padding(.top, 12)
                 .padding(.bottom, fabBottomPadding)
             }
             if adManager.shouldShowBannerAd {
                 BannerAdView()
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
     }
 
     var body: some View {
         @Bindable var appState = appState
 
         NavigationStack {
-            ZStack {
-                homeScrollableColumn
-                    .safeAreaInset(edge: .bottom, spacing: 0) {
-                        Color.clear
-                            .frame(height: bottomScrollInsetHeight)
-                    }
-
-                bottomSystemLayer
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-            }
+            homeScrollableColumn
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    homeBottomInset
+                }
             .background(Color(hex: "F6F5F3").ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(Color(hex: "F6F5F3"), for: .navigationBar)
@@ -631,10 +617,8 @@ struct HomeView: View {
         !searchText.isEmpty || appState.hasTagFilters
     }
 
-    /// Clears the bottom system layer (FAB + banner slot) plus extra scroll breathing room.
-    private var emptyStateBottomSafeInset: CGFloat {
-        bottomScrollInsetHeight + 40
-    }
+    /// Extra bottom padding inside empty-state scroll; main clearance comes from `safeAreaInset`.
+    private let emptyStateBottomSafeInset: CGFloat = 40
 
     private var emptyState: some View {
         ScrollView {
@@ -788,11 +772,6 @@ struct HomeView: View {
                 }
             }
 
-            Color.clear
-                .frame(height: fabCircleDimension + 80)
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
         }
         .listStyle(.plain)
         .environment(\.defaultMinListRowHeight, 0)
