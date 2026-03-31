@@ -209,7 +209,7 @@ struct ExpenseCard: View {
                     HStack(spacing: 5) {
                         Circle()
                             .fill(tagColor.primaryColor)
-                            .frame(width: 8, height: 8)
+                            .frame(width: 10, height: 10)
                         Text(tagName)
                             .font(.system(size: 13, weight: .regular))
                             .foregroundStyle(Color.textMuted)

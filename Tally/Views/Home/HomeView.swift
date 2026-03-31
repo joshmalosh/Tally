@@ -183,8 +183,8 @@ struct HomeView: View {
 
                 if !isSelecting {
                     addExpenseFAB
-                        .padding(.trailing, 16)
-                        .padding(.bottom, 78)
+                        .padding(.trailing, 24)
+                        .padding(.bottom, 90)
                 }
             }
             .background(Color(hex: "F6F5F3").ignoresSafeArea())
@@ -288,62 +288,6 @@ struct HomeView: View {
         .padding(.bottom, 4)
     }
 
-    private var periodExpenseCount: Int {
-        periodExpenses.count
-    }
-
-    private var expenseCountLabel: String {
-        let count = periodExpenseCount
-        let noun = count == 1 ? "expense" : "expenses"
-        switch periodFilter {
-        case .selected:
-            return "\(count) selected"
-        case .allTime:
-            return "\(count) \(noun)"
-        case .thisFinancialYear:
-            return "\(count) \(noun) this financial year"
-        case .thisYear:
-            return "\(count) \(noun) this year"
-        case .thisMonth:
-            return "\(count) \(noun) this month"
-        }
-    }
-
-    /// Sums and counts per primary tag for the active period; `nil` when no tagged expenses.
-    private var topCategoryInsight: (name: String, amountCents: Int, expenseCount: Int)? {
-        var totals: [String: (cents: Int, count: Int)] = [:]
-        for expense in periodExpenses {
-            guard let tagId = expense.resolvedTagIds.first else { continue }
-            let cur = totals[tagId, default: (0, 0)]
-            totals[tagId] = (cur.cents + expense.amountCents, cur.count + 1)
-        }
-        guard !totals.isEmpty else { return nil }
-        guard let best = totals.max(by: { a, b in
-            if a.value.cents != b.value.cents { return a.value.cents < b.value.cents }
-            let n1 = tags.first { $0.id == a.key }?.name ?? ""
-            let n2 = tags.first { $0.id == b.key }?.name ?? ""
-            return n1.localizedCompare(n2) == .orderedAscending
-        }) else { return nil }
-        guard let tagName = tags.first(where: { $0.id == best.key })?.name else { return nil }
-        return (tagName, best.value.cents, best.value.count)
-    }
-
-    private func insightSubtitleView(insight: (name: String, amountCents: Int, expenseCount: Int)) -> some View {
-        let amountText = CurrencyFormatter.shared.format(
-            cents: insight.amountCents,
-            currencyCode: appState.defaultCurrency
-        )
-        let count = insight.expenseCount
-        let noun = count == 1 ? "expense" : "expenses"
-        return Text("\(insight.name) · \(amountText) · \(count) \(noun)")
-            .font(Fonts.caption(13))
-            .fontWeight(.medium)
-            .foregroundStyle(Color.textSecondary)
-            .lineLimit(1)
-            .truncationMode(.tail)
-            .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
     // MARK: - Header
 
     private var selectedTotalCents: Int {
@@ -367,20 +311,11 @@ struct HomeView: View {
                 .contentTransition(.numericText())
                 .animation(.easeInOut(duration: 0.2), value: selectedTotalCents)
 
-                Group {
-                    if hasSelection {
-                        Text("\(selectedExpenseIds.count) selected")
-                            .font(Fonts.caption(13))
-                            .foregroundStyle(Color.textSecondary)
-                    } else if let insight = topCategoryInsight {
-                        insightSubtitleView(insight: insight)
-                    } else {
-                        Text("\(periodExpenseCount) expenses")
-                            .font(Fonts.caption(13))
-                            .foregroundStyle(Color.textMuted)
-                    }
+                if hasSelection {
+                    Text("\(selectedExpenseIds.count) selected")
+                        .font(Fonts.caption(13))
+                        .foregroundStyle(Color.textSecondary)
                 }
-                .opacity(isSelecting && !hasSelection ? 0.15 : 1)
             }
             .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
 
@@ -760,9 +695,9 @@ struct HomeView: View {
             showingEntryPicker = true
         } label: {
             Image(systemName: "plus")
-                .font(.system(size: 24, weight: .medium))
+                .font(.system(size: 32, weight: .light))
                 .foregroundStyle(.white)
-                .frame(width: 48, height: 48)
+                .frame(width: 64, height: 64)
                 .background(Circle().fill(Color.brandPrimary))
         }
         .buttonStyle(.plain)
@@ -790,7 +725,7 @@ struct HomeView: View {
                         .foregroundStyle(Color.textMuted)
                         .tracking(0.55)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .listRowInsets(EdgeInsets(top: Spacing.sm, leading: Spacing.lg, bottom: Spacing.xs, trailing: Spacing.lg))
+                        .listRowInsets(EdgeInsets(top: Spacing.sm, leading: Spacing.smd, bottom: Spacing.xs, trailing: Spacing.smd))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
 
@@ -882,7 +817,7 @@ struct HomeView: View {
                 enterSelectionMode(preselecting: expense.id)
             }
         }
-        .listRowInsets(EdgeInsets(top: 0, leading: Spacing.lg, bottom: 0, trailing: Spacing.lg))
+        .listRowInsets(EdgeInsets(top: 0, leading: Spacing.smd, bottom: 0, trailing: Spacing.smd))
         .listRowSeparator(.hidden)
         .listRowBackground(groupCardRowBackground(index: index, count: group.items.count))
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
