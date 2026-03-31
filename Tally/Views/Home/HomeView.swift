@@ -138,15 +138,10 @@ struct HomeView: View {
         return "\(first.name) +\(resolved.count - 1)"
     }
 
-    /// Breathing room below the FAB: tight above the ad when free, more space when Pro (no banner).
-    private var fabBottomPadding: CGFloat {
-        adManager.shouldShowBannerAd ? 12 : 28
-    }
-
-    /// Main FAB circle diameter (30% larger than prior 64pt).
-    private let fabCircleDimension: CGFloat = 83
-    /// Plus symbol size (30% larger than prior 32pt).
-    private let fabPlusFontSize: CGFloat = 42
+    /// Main FAB circle diameter (30% larger than prior 83pt).
+    private let fabCircleDimension: CGFloat = 108
+    /// Plus symbol size (30% larger than prior 42pt).
+    private let fabPlusFontSize: CGFloat = 55
 
     private var homeScrollableColumn: some View {
         VStack(spacing: 0) {
@@ -189,7 +184,7 @@ struct HomeView: View {
         }
     }
 
-    private var homeFABButton: some View {
+    private var fabButton: some View {
         Button {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             showingEntryPicker = true
@@ -211,22 +206,23 @@ struct HomeView: View {
         .animation(.easeInOut(duration: 0.2), value: fabScale)
     }
 
-    /// FAB + optional ad banner, anchored below scroll content via `safeAreaInset`.
+    /// FAB + optional ad banner, anchored below the expense list / empty scroll via `safeAreaInset`.
     private var homeBottomInset: some View {
         VStack(spacing: 0) {
             if !isSelecting {
                 HStack {
                     Spacer()
-                    homeFABButton
+                    fabButton
                     Spacer()
                 }
                 .padding(.top, 12)
-                .padding(.bottom, fabBottomPadding)
+                .padding(.bottom, adManager.shouldShowBannerAd ? 12 : 28)
             }
             if adManager.shouldShowBannerAd {
                 BannerAdView()
             }
         }
+        .background(Color.clear)
     }
 
     var body: some View {
@@ -234,9 +230,6 @@ struct HomeView: View {
 
         NavigationStack {
             homeScrollableColumn
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    homeBottomInset
-                }
             .background(Color(hex: "F6F5F3").ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
             .toolbarBackground(Color(hex: "F6F5F3"), for: .navigationBar)
@@ -623,7 +616,6 @@ struct HomeView: View {
     private var emptyState: some View {
         ScrollView {
             VStack {
-                // Shorter top spacer so the block sits higher (clear of FAB overlap).
                 Spacer(minLength: UIScreen.main.bounds.height * 0.14)
                 Group {
                     if hasActiveFilters {
@@ -649,6 +641,9 @@ struct HomeView: View {
         .scrollContentBackground(.hidden)
         .background(Color(hex: "F6F5F3"))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            homeBottomInset
+        }
     }
 
     // MARK: - Expense List
@@ -781,6 +776,9 @@ struct HomeView: View {
         .contentMargins(.horizontal, 0, for: .scrollContent)
         .scrollDismissesKeyboard(.interactively)
         .coordinateSpace(name: "homeScroll")
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            homeBottomInset
+        }
         .onPreferenceChange(HomeListScrollAnchorKey.self) { minY in
             if minY < -16 {
                 if !isHeaderCollapsed {
