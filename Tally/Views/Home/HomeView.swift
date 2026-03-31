@@ -138,10 +138,10 @@ struct HomeView: View {
         return "\(first.name) +\(resolved.count - 1)"
     }
 
-    /// Main FAB circle diameter (30% larger than prior 83pt).
-    private let fabCircleDimension: CGFloat = 108
-    /// Plus symbol size (30% larger than prior 42pt).
-    private let fabPlusFontSize: CGFloat = 55
+    /// Main FAB circle diameter (0.7× prior 108pt).
+    private let fabCircleDimension: CGFloat = 76
+    /// Plus symbol size (0.7× prior 55pt).
+    private let fabPlusFontSize: CGFloat = 39
 
     private var homeScrollableColumn: some View {
         VStack(spacing: 0) {
@@ -204,25 +204,6 @@ struct HomeView: View {
         .buttonStyle(.plain)
         .scaleEffect(fabScale)
         .animation(.easeInOut(duration: 0.2), value: fabScale)
-    }
-
-    /// FAB + optional ad banner, anchored below the expense list / empty scroll via `safeAreaInset`.
-    private var homeBottomInset: some View {
-        VStack(spacing: 0) {
-            if !isSelecting {
-                HStack {
-                    Spacer()
-                    fabButton
-                    Spacer()
-                }
-                .padding(.top, 12)
-                .padding(.bottom, adManager.shouldShowBannerAd ? 12 : 28)
-            }
-            if adManager.shouldShowBannerAd {
-                BannerAdView()
-            }
-        }
-        .background(Color.clear)
     }
 
     var body: some View {
@@ -638,12 +619,26 @@ struct HomeView: View {
             }
             .frame(maxWidth: .infinity)
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 0) {
+                if !isSelecting {
+                    HStack {
+                        Spacer()
+                        fabButton
+                        Spacer()
+                    }
+                    .padding(.top, 12)
+                    .padding(.bottom, adManager.shouldShowBannerAd ? 12 : 28)
+                }
+                if adManager.shouldShowBannerAd {
+                    BannerAdView()
+                }
+            }
+            .background(Color.clear)
+        }
         .scrollContentBackground(.hidden)
         .background(Color(hex: "F6F5F3"))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            homeBottomInset
-        }
     }
 
     // MARK: - Expense List
@@ -768,6 +763,23 @@ struct HomeView: View {
             }
 
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            VStack(spacing: 0) {
+                if !isSelecting {
+                    HStack {
+                        Spacer()
+                        fabButton
+                        Spacer()
+                    }
+                    .padding(.top, 12)
+                    .padding(.bottom, adManager.shouldShowBannerAd ? 12 : 28)
+                }
+                if adManager.shouldShowBannerAd {
+                    BannerAdView()
+                }
+            }
+            .background(Color.clear)
+        }
         .listStyle(.plain)
         .environment(\.defaultMinListRowHeight, 0)
         .scrollContentBackground(.hidden)
@@ -776,9 +788,6 @@ struct HomeView: View {
         .contentMargins(.horizontal, 0, for: .scrollContent)
         .scrollDismissesKeyboard(.interactively)
         .coordinateSpace(name: "homeScroll")
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            homeBottomInset
-        }
         .onPreferenceChange(HomeListScrollAnchorKey.self) { minY in
             if minY < -16 {
                 if !isHeaderCollapsed {
