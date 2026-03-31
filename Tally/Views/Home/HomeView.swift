@@ -186,8 +186,8 @@ struct HomeView: View {
 
                 if !isSelecting {
                     addExpenseFAB
-                        .padding(.trailing, 16)
-                        .padding(.bottom, 32)
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 24)
                 }
             }
             .background(Color(hex: "F6F5F3").ignoresSafeArea())
@@ -646,6 +646,7 @@ struct HomeView: View {
         if count == 1 {
             RoundedRectangle(cornerRadius: r, style: .continuous)
                 .fill(Color.surface)
+                .frame(maxWidth: .infinity)
                 .shadow(color: .black.opacity(0.07), radius: 10, x: 0, y: 2)
         } else if index == 0 {
             UnevenRoundedRectangle(
@@ -656,6 +657,7 @@ struct HomeView: View {
                 style: .continuous
             )
             .fill(Color.surface)
+            .frame(maxWidth: .infinity)
         } else if index == count - 1 {
             UnevenRoundedRectangle(
                 topLeadingRadius: 0,
@@ -665,10 +667,12 @@ struct HomeView: View {
                 style: .continuous
             )
             .fill(Color.surface)
+            .frame(maxWidth: .infinity)
             .shadow(color: .black.opacity(0.07), radius: 10, x: 0, y: 2)
         } else {
             Rectangle()
                 .fill(Color.surface)
+                .frame(maxWidth: .infinity)
         }
     }
 
@@ -728,7 +732,8 @@ struct HomeView: View {
                         .foregroundStyle(Color.textMuted)
                         .tracking(0.55)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .listRowInsets(EdgeInsets(top: Spacing.sm, leading: Spacing.lg, bottom: Spacing.xs, trailing: Spacing.lg))
+                        .padding(.horizontal, Spacing.md)
+                        .listRowInsets(EdgeInsets(top: Spacing.sm, leading: 0, bottom: Spacing.xs, trailing: 0))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
 
@@ -743,6 +748,7 @@ struct HomeView: View {
         .scrollContentBackground(.hidden)
         .background(Color(hex: "F6F5F3"))
         .contentMargins(.top, 0, for: .scrollContent)
+        .contentMargins(.horizontal, 0, for: .scrollContent)
         .scrollDismissesKeyboard(.interactively)
         .coordinateSpace(name: "homeScroll")
         .onPreferenceChange(HomeListScrollAnchorKey.self) { minY in
@@ -800,6 +806,7 @@ struct HomeView: View {
                     .padding(.leading, 58)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .onTapGesture {
             if isSelecting {
@@ -822,7 +829,7 @@ struct HomeView: View {
                 enterSelectionMode(preselecting: expense.id)
             }
         }
-        .listRowInsets(EdgeInsets(top: 0, leading: Spacing.lg, bottom: 0, trailing: Spacing.lg))
+        .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
         .listRowSeparator(.hidden)
         .listRowBackground(groupCardRowBackground(index: index, count: group.items.count))
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
