@@ -5,6 +5,7 @@ import UIKit
 struct HomeView: View {
     @Environment(AppState.self) private var appState
     @Environment(SyncEngine.self) private var syncEngine
+    @Environment(AdManager.self) private var adManager
     @Environment(\.modelContext) private var modelContext
     @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil }, sort: \ExpenseModel.date, order: .reverse) private var activeExpenses: [ExpenseModel]
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
@@ -135,60 +136,111 @@ struct HomeView: View {
         return "\(first.name) +\(resolved.count - 1)"
     }
 
+    /// Space between FAB and bottom of layer: above ad strip when banner shows, else breathing room for Pro.
+    private var fabBottomPadding: CGFloat {
+        adManager.shouldShowBannerAd ? 16 : 32
+    }
+
+    /// Reserves space so list / empty content clears the bottom system layer (FAB + gap + banner when applicable).
+    private var bottomScrollInsetHeight: CGFloat {
+        let bannerH: CGFloat = adManager.shouldShowBannerAd ? 51 : 0
+        if isSelecting {
+            return bannerH
+        }
+        return 64 + fabBottomPadding + bannerH
+    }
+
+    private var homeScrollableColumn: some View {
+        VStack(spacing: 0) {
+            if !isHeaderCollapsed {
+                appBar
+                    .transition(.move(edge: .top).combined(with: .opacity))
+
+                Spacer()
+                    .frame(height: 8)
+            }
+
+            headerSection
+                .allowsHitTesting(!isSelecting)
+
+            if !isHeaderCollapsed {
+                searchBar
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            tagRow
+                .padding(.top, 4)
+
+            divider
+
+            if filteredExpenses.isEmpty && !isSelecting {
+                emptyState
+            } else {
+                expenseList
+            }
+
+            if isSelecting && !selectedExpenseIds.isEmpty {
+                selectionBottomToolbar
+                    .transition(.move(edge: .bottom))
+            }
+        }
+        .onChange(of: selectedExpenseIds.count) { _, count in
+            if isSelecting && count == 0 {
+                exitSelectionMode()
+            }
+        }
+    }
+
+    private var homeFABButton: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            showingEntryPicker = true
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(Color.brandPrimary.opacity(0.12))
+                    .frame(width: 72, height: 72)
+                Image(systemName: "plus")
+                    .font(.system(size: 32, weight: .light))
+                    .foregroundStyle(.white)
+                    .frame(width: 64, height: 64)
+                    .background(Circle().fill(Color.brandPrimary))
+                    .shadow(color: Color.brandPrimary.opacity(0.3), radius: 12, x: 0, y: 4)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var bottomSystemLayer: some View {
+        VStack(spacing: 0) {
+            if !isSelecting {
+                HStack {
+                    Spacer()
+                    homeFABButton
+                    Spacer()
+                }
+                .padding(.bottom, fabBottomPadding)
+            }
+            if adManager.shouldShowBannerAd {
+                BannerAdView()
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+    }
+
     var body: some View {
         @Bindable var appState = appState
 
         NavigationStack {
-            ZStack(alignment: .bottomTrailing) {
-                VStack(spacing: 0) {
-                    if !isHeaderCollapsed {
-                        appBar
-                            .transition(.move(edge: .top).combined(with: .opacity))
-
-                        Spacer()
-                            .frame(height: 8)
+            ZStack {
+                homeScrollableColumn
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        Color.clear
+                            .frame(height: bottomScrollInsetHeight)
                     }
 
-                    headerSection
-                        .allowsHitTesting(!isSelecting)
-
-                    if !isHeaderCollapsed {
-                        searchBar
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                    }
-
-                    tagRow
-                        .padding(.top, 4)
-
-                    divider
-
-                    if filteredExpenses.isEmpty && !isSelecting {
-                        emptyState
-                    } else {
-                        expenseList
-                    }
-
-                    if !appState.isPro {
-                        BannerAdView()
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
-
-                    if isSelecting && !selectedExpenseIds.isEmpty {
-                        selectionBottomToolbar
-                            .transition(.move(edge: .bottom))
-                    }
-                }
-                .onChange(of: selectedExpenseIds.count) { _, count in
-                    if isSelecting && count == 0 {
-                        exitSelectionMode()
-                    }
-                }
-
-                if !isSelecting {
-                    addExpenseFAB
-                        .padding(.trailing, 48)
-                        .padding(.bottom, 30)
-                }
+                bottomSystemLayer
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             }
             .background(Color(hex: "F6F5F3").ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
@@ -570,9 +622,9 @@ struct HomeView: View {
         !searchText.isEmpty || appState.hasTagFilters
     }
 
-    /// Clears the combined Add Expense control (48pt) anchored 78pt above the bottom edge.
+    /// Clears the bottom system layer (FAB + banner slot) plus extra scroll breathing room.
     private var emptyStateBottomSafeInset: CGFloat {
-        78 + 48 + 40
+        bottomScrollInsetHeight + 40
     }
 
     private var emptyState: some View {
@@ -693,22 +745,6 @@ struct HomeView: View {
 
     private func resolveIconBackground(name: String, tag: String?) -> Color {
         HomeExpenseIconResolver.match(name: name, tag: tag).category.tintColor
-    }
-
-    private var addExpenseFAB: some View {
-        Button {
-            let impact = UIImpactFeedbackGenerator(style: .medium)
-            impact.impactOccurred()
-            showingEntryPicker = true
-        } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 47, weight: .light))
-                .foregroundStyle(.white)
-                .frame(width: 94, height: 94)
-                .background(Circle().fill(Color.brandPrimary))
-                .shadow(color: Color.brandPrimary.opacity(0.35), radius: 16, x: 0, y: 3)
-        }
-        .buttonStyle(.plain)
     }
 
     private var expenseList: some View {
