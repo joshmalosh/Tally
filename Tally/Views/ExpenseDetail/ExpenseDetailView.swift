@@ -121,8 +121,6 @@ struct ExpenseDetailView: View {
                                 detailNotesSection
                             }
 
-                            detailSourceAttachmentCards(expense)
-
                             deleteButton
 
                             if !appState.isPro {
@@ -790,43 +788,6 @@ struct ExpenseDetailView: View {
                     .padding(.horizontal, 16)
             }
         }
-    }
-
-    // MARK: - Source + attachment
-
-    private func detailSourceAttachmentCards(_ expense: ExpenseModel) -> some View {
-        VStack(spacing: 2) {
-            metadataCard(label: "Source", value: expense.source.capitalized, topRadius: 14, bottomRadius: expense.attachmentKey != nil || attachedFileURL != nil ? 4 : 14)
-            if expense.attachmentKey != nil || attachedFileURL != nil || attachmentImage != nil {
-                metadataCard(label: "Attachment", value: attachmentSummary, topRadius: 4, bottomRadius: 14)
-            }
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-    }
-
-    private var attachmentSummary: String {
-        if attachedFileURL != nil { return "PDF attached" }
-        if attachmentImage != nil || attachmentKey != nil { return "Receipt attached" }
-        return "—"
-    }
-
-    private func metadataCard(label: String, value: String, topRadius: CGFloat, bottomRadius: CGFloat) -> some View {
-        HStack(alignment: .top) {
-            Text(label)
-                .font(.system(size: 15))
-                .foregroundStyle(Color(hex: "8F9E94"))
-            Spacer(minLength: 12)
-            Text(value)
-                .font(.system(size: 15))
-                .foregroundStyle(Color(hex: "1C1C1E"))
-                .multilineTextAlignment(.trailing)
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
-        .clipShape(unevenRect(topLeading: topRadius, topTrailing: topRadius, bottomLeading: bottomRadius, bottomTrailing: bottomRadius))
     }
 
     // MARK: - Delete

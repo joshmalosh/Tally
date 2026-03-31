@@ -328,7 +328,6 @@ struct HomeView: View {
         return (tagName, best.value.cents, best.value.count)
     }
 
-    @ViewBuilder
     private func insightSubtitleView(insight: (name: String, amountCents: Int, expenseCount: Int)) -> some View {
         let amountText = CurrencyFormatter.shared.format(
             cents: insight.amountCents,
@@ -336,33 +335,13 @@ struct HomeView: View {
         )
         let count = insight.expenseCount
         let noun = count == 1 ? "expense" : "expenses"
-        HStack(spacing: 0) {
-            Text("Top category: ")
-                .foregroundStyle(Color.textMuted)
-                .layoutPriority(1)
-            Text(insight.name)
-                .fontWeight(.medium)
-                .foregroundStyle(Color.textSecondary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .layoutPriority(0)
-            Text(" · ")
-                .foregroundStyle(Color.textMuted)
-                .layoutPriority(1)
-            Text(amountText)
-                .fontWeight(.medium)
-                .foregroundStyle(Color.textSecondary)
-                .layoutPriority(1)
-            Text(" · ")
-                .foregroundStyle(Color.textMuted)
-                .layoutPriority(1)
-            Text("\(count) \(noun)")
-                .foregroundStyle(Color.textMuted)
-                .layoutPriority(1)
-        }
-        .font(Fonts.caption(13))
-        .lineLimit(1)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        return Text("\(insight.name) · \(amountText) · \(count) \(noun)")
+            .font(Fonts.caption(13))
+            .fontWeight(.medium)
+            .foregroundStyle(Color.textSecondary)
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Header
@@ -780,26 +759,11 @@ struct HomeView: View {
             impact.impactOccurred()
             showingEntryPicker = true
         } label: {
-            HStack(spacing: 0) {
-                Image(systemName: "plus")
-                    .font(.system(size: 28, weight: .light))
-                    .foregroundStyle(.white)
-                    .frame(width: 48, height: 48)
-                    .background(Circle().fill(Color.brandPrimary))
-                    .shadow(color: Color.brandPrimary.opacity(0.35), radius: 16, x: 0, y: 3)
-                    .zIndex(1)
-
-                Text("Add Expense")
-                    .font(Fonts.body(14))
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Color.textPrimary)
-                    .padding(.leading, 10)
-                    .padding(.trailing, 18)
-                    .frame(height: 36)
-                    .background(Color.surface)
-                    .clipShape(Capsule())
-                    .offset(x: -8)
-            }
+            Image(systemName: "plus")
+                .font(.system(size: 24, weight: .medium))
+                .foregroundStyle(.white)
+                .frame(width: 48, height: 48)
+                .background(Circle().fill(Color.brandPrimary))
         }
         .buttonStyle(.plain)
     }
