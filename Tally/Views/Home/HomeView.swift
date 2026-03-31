@@ -186,7 +186,7 @@ struct HomeView: View {
 
                 if !isSelecting {
                     addExpenseFAB
-                        .padding(.trailing, 35)
+                        .padding(.trailing, 48)
                         .padding(.bottom, 30)
                 }
             }
@@ -702,9 +702,9 @@ struct HomeView: View {
             showingEntryPicker = true
         } label: {
             Image(systemName: "plus")
-                .font(.system(size: 36, weight: .light))
+                .font(.system(size: 47, weight: .light))
                 .foregroundStyle(.white)
-                .frame(width: 72, height: 72)
+                .frame(width: 94, height: 94)
                 .background(Circle().fill(Color.brandPrimary))
                 .shadow(color: Color.brandPrimary.opacity(0.35), radius: 16, x: 0, y: 3)
         }
