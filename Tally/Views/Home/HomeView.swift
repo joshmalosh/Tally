@@ -25,7 +25,7 @@ struct HomeView: View {
     @State private var expandedGroupId: String?
     @State private var expenseToDelete: ExpenseModel?
     @FocusState private var isSearchFocused: Bool
-    @State private var lastScrollOffset: CGFloat = 0
+    @State private var previousScrollOffset: CGFloat = 0
     @State private var fabScale: CGFloat = 1.0
 
     private static let monthYearFormatter: DateFormatter = {
@@ -817,16 +817,16 @@ struct HomeView: View {
                 }
             }
 
-            if lastScrollOffset != 0 {
-                if abs(minY - lastScrollOffset) < 0.5 {
-                    fabScale = 1.0
-                } else if minY < lastScrollOffset {
+            let newOffset = minY
+            if previousScrollOffset != 0 {
+                let delta = newOffset - previousScrollOffset
+                if delta > 2 {
                     fabScale = 0.9
-                } else {
+                } else if delta < -2 {
                     fabScale = 1.0
                 }
             }
-            lastScrollOffset = minY
+            previousScrollOffset = newOffset
         }
     }
 
