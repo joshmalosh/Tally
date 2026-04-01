@@ -42,5 +42,9 @@
 	</array>
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-7313737046490523~6760288655</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Fraunces_9pt-LightItalic.ttf</string>
+	</array>
 </dict>
 </plist>

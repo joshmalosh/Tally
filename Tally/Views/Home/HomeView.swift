@@ -26,14 +26,13 @@ struct HomeView: View {
     @State private var expenseToDelete: ExpenseModel?
     @FocusState private var isSearchFocused: Bool
     @State private var previousScrollOffset: CGFloat = 0
-    @State private var fabScale: CGFloat = 1.0
-
-    private static let monthYearFormatter: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "MMM yyyy"; return f
-    }()
-    private static let monthDayFormatter: DateFormatter = {
-        let f = DateFormatter(); f.dateFormat = "MMM d"; return f
-    }()
+    @State private var fabScrollScale: CGFloat = 1.0
+    @State private var fabPressScale: CGFloat = 1.0
+    @State private var fabIsPressed: Bool = false
+    @State private var fabRippling: Bool = false
+    @State private var animatedTotal: Double = 0
+    @State private var totalAnimationTrigger: Int = 0
+    @State private var totalCountUpTimer: Timer?
 
     private var periodExpenses: [ExpenseModel] {
         switch periodFilter {
@@ -92,31 +91,6 @@ struct HomeView: View {
         periodExpenses.reduce(0) { $0 + $1.amountCents }
     }
 
-    private var periodSubtitle: String {
-        switch periodFilter {
-        case .selected:
-            return "Selected"
-        case .allTime:
-            if let earliest = activeExpenses.last?.date {
-                return "Since \(Self.monthYearFormatter.string(from: earliest))"
-            }
-            return "All expenses"
-        case .thisFinancialYear:
-            let start = appState.currentFinancialYearStart
-            return "\(Self.monthDayFormatter.string(from: start)) onwards"
-        case .thisYear:
-            let year = Calendar.current.component(.year, from: Date())
-            return "Jan – Dec \(year)"
-        case .thisMonth:
-            let now = Date()
-            let cal = Calendar.current
-            guard let start = cal.date(from: cal.dateComponents([.year, .month], from: now)),
-                  let end = cal.date(byAdding: DateComponents(month: 1, day: -1), to: start)
-            else { return "This month" }
-            return "\(Self.monthDayFormatter.string(from: start)) – \(Self.monthDayFormatter.string(from: end))"
-        }
-    }
-
     private func tagsFor(_ expense: ExpenseModel) -> [TagModel] {
         expense.resolvedTagIds.compactMap { id in tags.first { $0.id == id } }
     }
@@ -138,10 +112,7 @@ struct HomeView: View {
         return "\(first.name) +\(resolved.count - 1)"
     }
 
-    /// Main FAB circle diameter (0.7× prior 108pt).
-    private let fabCircleDimension: CGFloat = 76
-    /// Plus symbol size (0.7× prior 55pt).
-    private let fabPlusFontSize: CGFloat = 39
+    private let fabCircleDimension: CGFloat = 70
 
     private var homeScrollableColumn: some View {
         VStack(spacing: 0) {
@@ -182,28 +153,96 @@ struct HomeView: View {
                 exitSelectionMode()
             }
         }
+        .onAppear {
+            animateTotal()
+        }
+        .onChange(of: activeExpenses.count) { _, _ in
+            animateTotal()
+        }
+    }
+
+    private func formatAnimatedTotal() -> String {
+        let val = animatedTotal / 100.0
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 2
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: val)) ?? "0.00"
+    }
+
+    private func animateTotal() {
+        totalCountUpTimer?.invalidate()
+        animatedTotal = 0
+        let target = Double(displayTotalCents)
+        let duration: Double = 0.9
+        let startTime = Date()
+        let timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { t in
+            let elapsed = Date().timeIntervalSince(startTime)
+            let progress = min(elapsed / duration, 1.0)
+            let eased = 1.0 - pow(2.0, -10.0 * progress)
+            DispatchQueue.main.async {
+                animatedTotal = eased * target
+                if progress >= 1.0 {
+                    animatedTotal = target
+                    totalAnimationTrigger += 1
+                    t.invalidate()
+                    totalCountUpTimer = nil
+                }
+            }
+        }
+        totalCountUpTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
     }
 
     private var fabButton: some View {
-        Button {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            showingEntryPicker = true
-        } label: {
+        Button(action: {}) {
             ZStack {
-                Circle()
-                    .fill(Color.brandPrimary.opacity(0.10))
-                    .frame(width: fabCircleDimension + 16, height: fabCircleDimension + 16)
+                if fabRippling {
+                    Circle()
+                        .stroke(Color.brandPrimary, lineWidth: 2)
+                        .frame(width: fabCircleDimension, height: fabCircleDimension)
+                        .scaleEffect(fabRippling ? 2.1 : 1.0)
+                        .opacity(fabRippling ? 0 : 0.65)
+                        .animation(.easeOut(duration: 0.5), value: fabRippling)
+                }
                 Image(systemName: "plus")
-                    .font(.system(size: fabPlusFontSize, weight: .light))
+                    .font(.system(size: 26, weight: .medium))
                     .foregroundStyle(.white)
                     .frame(width: fabCircleDimension, height: fabCircleDimension)
                     .background(Circle().fill(Color.brandPrimary))
-                    .shadow(color: Color.brandPrimary.opacity(0.3), radius: 12, x: 0, y: 4)
+                    .shadow(color: Color.brandPrimary.opacity(0.45), radius: 12, x: 0, y: 6)
             }
         }
         .buttonStyle(.plain)
-        .scaleEffect(fabScale)
-        .animation(.easeInOut(duration: 0.2), value: fabScale)
+        .scaleEffect(fabScrollScale * fabPressScale)
+        .animation(.easeInOut(duration: 0.2), value: fabScrollScale)
+        .animation(.spring(response: 0.4, dampingFraction: 0.5), value: fabPressScale)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in
+                    if !fabIsPressed {
+                        fabIsPressed = true
+                        withAnimation(.easeIn(duration: 0.07)) {
+                            fabPressScale = 0.86
+                        }
+                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    }
+                }
+                .onEnded { _ in
+                    fabIsPressed = false
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
+                        fabPressScale = 1.0
+                    }
+                    fabRippling = false
+                    fabRippling = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+                        fabRippling = false
+                    }
+                    withAnimation(.spring(response: 0.46, dampingFraction: 0.72)) {
+                        showingEntryPicker = true
+                    }
+                }
+        )
     }
 
     var body: some View {
@@ -294,12 +333,6 @@ struct HomeView: View {
                         .foregroundStyle(Color.danger)
                 }
 
-                Button { openExport() } label: {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(Color.textSecondary)
-                }
-
                 Button { appState.showingSettings = true } label: {
                     Image(systemName: "gearshape")
                         .font(.system(size: 18))
@@ -314,47 +347,32 @@ struct HomeView: View {
 
     // MARK: - Header
 
-    private var selectedTotalCents: Int {
-        filteredExpenses
-            .filter { selectedExpenseIds.contains($0.id) }
-            .reduce(0) { $0 + $1.amountCents }
-    }
-
     private var headerSection: some View {
-        let hasSelection = isSelecting && !selectedExpenseIds.isEmpty
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Text("Total Spent")
+                    .font(.system(size: 13, weight: .regular))
+                    .foregroundStyle(Color(hex: "8F9E94"))
 
-        return HStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(CurrencyFormatter.shared.format(
-                    cents: hasSelection ? selectedTotalCents : displayTotalCents,
-                    currencyCode: appState.defaultCurrency
-                ))
-                .font(Fonts.brand(38))
-                .foregroundStyle(Color.textPrimary)
-                .opacity(isSelecting && !hasSelection ? 0.15 : 1)
-                .contentTransition(.numericText())
-                .animation(.easeInOut(duration: 0.2), value: selectedTotalCents)
-
-                if hasSelection {
-                    Text("\(selectedExpenseIds.count) selected")
-                        .font(Fonts.caption(13))
-                        .foregroundStyle(Color.textSecondary)
-                }
-            }
-            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
-
-            VStack(alignment: .trailing, spacing: 4) {
                 periodToggle
 
-                Text(periodSubtitle)
-                    .font(Fonts.caption(11))
-                    .foregroundStyle(Color.textMuted)
+                Spacer()
             }
-            .padding(.bottom, 2)
-            .opacity(isSelecting ? 0.15 : 1)
+
+            HStack(alignment: .top, spacing: 2) {
+                Text("$")
+                    .font(Font.custom("Fraunces_9pt-LightItalic", size: 28))
+                    .foregroundStyle(Color(hex: "BFBAB3"))
+                    .padding(.top, 10)
+
+                Text(formatAnimatedTotal())
+                    .font(Font.custom("Fraunces_9pt-LightItalic", size: 64))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+                    .kerning(-3)
+            }
         }
         .padding(.horizontal, Spacing.lg)
-        .padding(.top, 6)
+        .padding(.top, 16)
         .padding(.bottom, Spacing.smd)
     }
 
@@ -371,14 +389,14 @@ struct HomeView: View {
             HStack(spacing: 5) {
                 Text(periodFilter.label)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color.textBody)
+                    .foregroundStyle(Color(hex: "2C4A35"))
                 Image(systemName: "chevron.down")
                     .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(Color.textMuted)
+                    .foregroundStyle(Color(hex: "2C4A35").opacity(0.5))
             }
-            .padding(.horizontal, Spacing.smd)
-            .padding(.vertical, 6)
-            .background(Color.chipInactiveBg)
+            .padding(.horizontal, 11)
+            .padding(.vertical, 4)
+            .background(Color(hex: "EDEAE4"))
             .clipShape(Capsule())
         }
     }
@@ -406,7 +424,7 @@ struct HomeView: View {
         }
         .padding(.horizontal, Spacing.md)
         .frame(height: 40)
-        .background(Color.surface)
+        .background(Color(hex: "EDEAE4"))
         .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
         .overlay(
             RoundedRectangle(cornerRadius: Radius.sm)
@@ -807,9 +825,9 @@ struct HomeView: View {
             if previousScrollOffset != 0 {
                 let delta = newOffset - previousScrollOffset
                 if delta > 2 {
-                    fabScale = 0.9
+                    fabScrollScale = 0.9
                 } else if delta < -2 {
-                    fabScale = 1.0
+                    fabScrollScale = 1.0
                 }
             }
             previousScrollOffset = newOffset
@@ -1094,17 +1112,6 @@ struct HomeView: View {
         if names.isEmpty { return "Filtered" }
         if names.count == 1 { return names[0] }
         return "\(names[0]) + \(names.count - 1) more"
-    }
-
-    private func openExport() {
-        if isSelecting && !selectedExpenseIds.isEmpty {
-            let selected = filteredExpenses.filter { selectedExpenseIds.contains($0.id) }
-            exportWithSelectionItem = ExportWithSelectionItem(expenses: selected)
-        } else if appState.hasTagFilters {
-            showingFilteredExport = true
-        } else {
-            showingGlobalExport = true
-        }
     }
 
     private func exportExpensesAsCSV(_ expenses: [ExpenseModel]) {

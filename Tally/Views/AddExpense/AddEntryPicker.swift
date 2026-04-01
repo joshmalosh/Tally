@@ -24,12 +24,19 @@ struct AddEntryPicker: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            handle
+            HStack {
+                Spacer()
+                Capsule()
+                    .fill(Color(hex: "DEDAD2"))
+                    .frame(width: 36, height: 4)
+                Spacer()
+            }
+            .padding(.top, 10)
+            .padding(.bottom, 20)
 
             Text("Add expense")
                 .font(Fonts.headline(18))
                 .foregroundStyle(Color.textPrimary)
-                .padding(.top, Spacing.lg)
                 .padding(.bottom, Spacing.lg)
 
             VStack(spacing: Spacing.sm) {
@@ -71,13 +78,6 @@ struct AddEntryPicker: View {
         .background(Color.bgPrimary)
     }
 
-    private var handle: some View {
-        RoundedRectangle(cornerRadius: 2.5)
-            .fill(Color.borderColor)
-            .frame(width: 36, height: 5)
-            .padding(.top, Spacing.sm)
-    }
-
     private func entryOption(icon: String, title: String, subtitle: String, mode: AddEntryMode) -> some View {
         Button {
             dismiss()
@@ -85,19 +85,19 @@ struct AddEntryPicker: View {
         } label: {
             HStack(spacing: Spacing.md) {
                 Image(systemName: icon)
-                    .font(.system(size: 22))
-                    .foregroundStyle(Color.brandPrimary)
+                    .font(.system(size: 20))
+                    .foregroundStyle(Color(hex: "2C4A35"))
                     .frame(width: 44, height: 44)
-                    .background(Color.brandTint)
-                    .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+                    .background(Color(hex: "E8F0EA"))
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(Fonts.body(16))
-                        .foregroundStyle(Color.textPrimary)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
                     Text(subtitle)
-                        .font(Fonts.caption(13))
-                        .foregroundStyle(Color.textSecondary)
+                        .font(.system(size: 13, weight: .regular))
+                        .foregroundStyle(Color(hex: "8F9E94"))
                 }
 
                 Spacer()
@@ -106,9 +106,8 @@ struct AddEntryPicker: View {
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(Color.textMuted)
             }
-            .padding(Spacing.md)
-            .background(Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+            .padding(.vertical, 13)
+            .padding(.horizontal, 24)
         }
         .buttonStyle(.plain)
     }
