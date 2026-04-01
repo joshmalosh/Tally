@@ -64,7 +64,7 @@ struct SharedTagPickerSheet: View {
                             Text("New tag")
                                 .font(.system(size: 14, weight: .semibold))
                         }
-                        .foregroundStyle(Color(hex: "346049"))
+                        .foregroundStyle(Color(hex: "2F402E"))
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
                         .background(Color(hex: "E8F0EA"))
@@ -81,7 +81,7 @@ struct SharedTagPickerSheet: View {
                             Text("New group")
                                 .font(.system(size: 14, weight: .semibold))
                         }
-                        .foregroundStyle(Color(hex: "346049"))
+                        .foregroundStyle(Color(hex: "2F402E"))
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
                         .background(Color(hex: "E8F0EA"))
@@ -116,10 +116,10 @@ struct SharedTagPickerSheet: View {
                                     HStack(spacing: Spacing.smd) {
                                         Image(systemName: "plus.circle")
                                             .font(.system(size: 14))
-                                            .foregroundStyle(Color(hex: "346049"))
+                                            .foregroundStyle(Color(hex: "2F402E"))
                                         Text("New tag in \(group.name)")
                                             .font(.system(size: 14, weight: .medium))
-                                            .foregroundStyle(Color(hex: "346049"))
+                                            .foregroundStyle(Color(hex: "2F402E"))
                                         Spacer(minLength: 0)
                                     }
                                     .padding(.horizontal, Spacing.md)
@@ -145,7 +145,7 @@ struct SharedTagPickerSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { confirmDone() }
                         .fontWeight(.semibold)
-                        .foregroundStyle(Color(hex: "346049"))
+                        .foregroundStyle(Color(hex: "2F402E"))
                 }
             }
             .onAppear {
@@ -237,7 +237,7 @@ struct SharedTagPickerSheet: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 7)
                             .padding(.vertical, 2)
-                            .background(Color(hex: "346049"))
+                            .background(Color(hex: "2F402E"))
                             .clipShape(Capsule())
                     }
 
@@ -247,13 +247,13 @@ struct SharedTagPickerSheet: View {
                         if workingIds.contains(group.id) {
                             Image(systemName: "checkmark")
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Color(hex: "346049"))
+                                .foregroundStyle(Color(hex: "2F402E"))
                         }
                     } else {
                         if allSelected {
                             Image(systemName: "checkmark")
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Color(hex: "346049"))
+                                .foregroundStyle(Color(hex: "2F402E"))
                         }
                     }
                 }
@@ -312,7 +312,7 @@ struct SharedTagPickerSheet: View {
                 if selected {
                     Image(systemName: "checkmark")
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Color(hex: "346049"))
+                        .foregroundStyle(Color(hex: "2F402E"))
                 }
             }
             .padding(.horizontal, Spacing.md)

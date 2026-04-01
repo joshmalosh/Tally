@@ -424,7 +424,7 @@ struct AddMultipleExpensesView: View {
                         showingTagLinkPickerFor = TagLinkPickerTag("group:\(section.tagKey)")
                     }
                     .font(.system(size: 13))
-                    .foregroundStyle(Color(hex: "346049"))
+                    .foregroundStyle(Color(hex: "2F402E"))
                 }
             }
 
@@ -623,9 +623,9 @@ private struct BulkImportStickyCTAStyle: ButtonStyle {
 
     private func background(isPressed: Bool) -> Color {
         if !isEnabled {
-            return Color(hex: "346049").opacity(0.4)
+            return Color(hex: "2F402E").opacity(0.4)
         }
-        return isPressed ? Color(hex: "2D5A3F") : Color(hex: "346049")
+        return isPressed ? Color(hex: "2D5A3F") : Color(hex: "2F402E")
     }
 }
 
@@ -709,7 +709,7 @@ struct TagLinkPickerSheet: View {
                                 Text("New tag")
                                     .font(.system(size: 14, weight: .semibold))
                             }
-                            .foregroundStyle(Color(hex: "346049"))
+                            .foregroundStyle(Color(hex: "2F402E"))
                             .frame(maxWidth: .infinity)
                             .frame(height: 44)
                             .background(Color(hex: "E8F0EA"))
@@ -925,7 +925,7 @@ private struct BulkExpenseRowEditSheet: View {
                         onSave(draft)
                         dismiss()
                     }
-                    .foregroundStyle(Color(hex: "346049"))
+                    .foregroundStyle(Color(hex: "2F402E"))
                 }
             }
             .sheet(isPresented: $showingTagPicker) {
@@ -952,7 +952,7 @@ private struct BulkExpenseRowEditSheet: View {
             HStack(spacing: 6) {
                 Text(CurrencyFormatter.shared.symbol(for: currencyCode))
                     .font(Fonts.mono(20))
-                    .foregroundStyle(Color(hex: "346049").opacity(0.5))
+                    .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
                 NumericFieldWithDone(
                     text: $amountText,
                     keyboardType: CurrencyFormatter.shared.usesDecimals(for: currencyCode) ? .decimalPad : .numberPad,

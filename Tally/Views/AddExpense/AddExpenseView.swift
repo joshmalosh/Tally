@@ -49,6 +49,7 @@ struct AddExpenseView: View {
     @State private var notesExpanded = false
     @State private var ocrPopulatedAnyField = false
     @State private var amountFocusRequested: Bool = false
+    @State private var keyboardVisible = false
 
     @FocusState private var focusedField: Field?
 
@@ -171,6 +172,12 @@ struct AddExpenseView: View {
             addExpenseNavigationRoot
         }
         .keyboardDoneToolbar()
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) { keyboardVisible = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) { keyboardVisible = false }
+        }
         .onTapGesture {
             UIApplication.shared.endEditing()
         }
@@ -261,7 +268,7 @@ struct AddExpenseView: View {
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
                             Button("Done") { showingDatePickerSheet = false }
-                                .foregroundStyle(Color(hex: "346049"))
+                                .foregroundStyle(Color(hex: "2F402E"))
                         }
                     }
                 }
@@ -438,7 +445,7 @@ struct AddExpenseView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("AMOUNT")
                 .font(.system(size: 11, weight: .semibold, design: .default))
-                .foregroundStyle(Color(hex: "346049").opacity(0.7))
+                .foregroundStyle(Color(hex: "2F402E").opacity(0.7))
                 .tracking(0.8)
                 .textCase(.uppercase)
 
@@ -448,7 +455,7 @@ struct AddExpenseView: View {
                 } label: {
                     Text(currencySymbol)
                         .font(.system(size: 28, weight: .regular, design: .monospaced))
-                        .foregroundStyle(Color(hex: "346049").opacity(0.5))
+                        .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
                 }
                 .buttonStyle(.plain)
 
@@ -490,7 +497,7 @@ struct AddExpenseView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 18)
         .padding(.vertical, 20)
-        .background(Color(hex: "346049").opacity(0.06))
+        .background(Color(hex: "2F402E").opacity(0.06))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -526,7 +533,7 @@ struct AddExpenseView: View {
                 .foregroundStyle(Color(hex: "1C1C1E"))
                 .focused($focusedField, equals: .merchant)
                 .textInputAutocapitalization(.words)
-                .tint(Color(hex: "346049"))
+                .tint(Color(hex: "2F402E"))
 
             merchantSuggestionInlineList()
         }
@@ -587,7 +594,7 @@ struct AddExpenseView: View {
                 HStack(spacing: 10) {
                     Text(Calendar.current.isDateInToday(date) ? "Today" : Self.shortDateString(date))
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color(hex: "346049"))
+                        .foregroundStyle(Color(hex: "2F402E"))
                         .padding(.vertical, 4)
                         .padding(.horizontal, 12)
                         .background(Color(hex: "E8F0EA"))
@@ -817,13 +824,13 @@ struct AddExpenseView: View {
                                     .frame(width: 8, height: 8)
                                 Text(tag.name)
                                     .font(.system(size: 14, weight: .medium))
-                                    .foregroundStyle(Color(hex: "346049"))
+                                    .foregroundStyle(Color(hex: "2F402E"))
                                 Button {
                                     selectedTagIds.removeAll { $0 == tag.id }
                                 } label: {
                                     Image(systemName: "xmark")
                                         .font(.system(size: 10, weight: .bold))
-                                        .foregroundStyle(Color(hex: "346049").opacity(0.6))
+                                        .foregroundStyle(Color(hex: "2F402E").opacity(0.6))
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -834,7 +841,7 @@ struct AddExpenseView: View {
                             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                    .stroke(Color(hex: "346049"), lineWidth: 1.5)
+                                    .stroke(Color(hex: "2F402E"), lineWidth: 1.5)
                             )
                         }
 
@@ -876,7 +883,7 @@ struct AddExpenseView: View {
                         .frame(width: 40, height: 40)
                     Image(systemName: "paperclip")
                         .font(.system(size: 18))
-                        .foregroundStyle(Color(hex: "346049"))
+                        .foregroundStyle(Color(hex: "2F402E"))
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -916,7 +923,7 @@ struct AddExpenseView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "doc.fill")
                         .font(.system(size: 22))
-                        .foregroundStyle(Color(hex: "346049"))
+                        .foregroundStyle(Color(hex: "2F402E"))
                     VStack(alignment: .leading, spacing: 2) {
                         Text(url.lastPathComponent)
                             .font(.system(size: 15, weight: .semibold))
@@ -933,7 +940,7 @@ struct AddExpenseView: View {
                         attachmentKey = nil
                     }
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color(hex: "346049"))
+                    .foregroundStyle(Color(hex: "2F402E"))
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1083,11 +1090,11 @@ struct AddExpenseView: View {
     private var ocrFilledBanner: some View {
         HStack(alignment: .center, spacing: 8) {
             Circle()
-                .fill(Color(hex: "346049"))
+                .fill(Color(hex: "2F402E"))
                 .frame(width: 5, height: 5)
             Text("Fields filled from receipt — review before saving")
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Color(hex: "346049"))
+                .foregroundStyle(Color(hex: "2F402E"))
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.vertical, 8)
@@ -1115,10 +1122,10 @@ struct AddExpenseView: View {
             HStack(spacing: 6) {
                 Image(systemName: "sparkles")
                     .font(.system(size: 12))
-                    .foregroundStyle(Color(hex: "346049"))
+                    .foregroundStyle(Color(hex: "2F402E"))
                 Text("Upgrade to Pro for merchant & notes auto-fill")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(Color(hex: "346049"))
+                    .foregroundStyle(Color(hex: "2F402E"))
                 Spacer(minLength: 0)
             }
             .padding(.vertical, 8)
@@ -1135,7 +1142,7 @@ struct AddExpenseView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("AMOUNT")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color(hex: "346049").opacity(0.7))
+                .foregroundStyle(Color(hex: "2F402E").opacity(0.7))
                 .tracking(0.8)
                 .textCase(.uppercase)
 
@@ -1143,7 +1150,7 @@ struct AddExpenseView: View {
                 Button { showingCurrencyPicker = true } label: {
                     Text(currencySymbol)
                         .font(.system(size: 20, weight: .regular, design: .monospaced))
-                        .foregroundStyle(Color(hex: "346049").opacity(0.5))
+                        .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
                 }
                 .buttonStyle(.plain)
 
@@ -1180,7 +1187,7 @@ struct AddExpenseView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(hex: "346049").opacity(0.06))
+        .background(Color(hex: "2F402E").opacity(0.06))
         .clipShape(unevenRect(topLeading: 14, topTrailing: 14, bottomLeading: 4, bottomTrailing: 4))
         .overlay(
             unevenRect(topLeading: 14, topTrailing: 14, bottomLeading: 4, bottomTrailing: 4)
@@ -1232,7 +1239,7 @@ struct AddExpenseView: View {
                 HStack(spacing: 10) {
                     Text(Calendar.current.isDateInToday(date) ? "Today" : Self.shortDateString(date))
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color(hex: "346049"))
+                        .foregroundStyle(Color(hex: "2F402E"))
                         .padding(.vertical, 4)
                         .padding(.horizontal, 12)
                         .background(Color(hex: "E8F0EA"))
@@ -1290,6 +1297,8 @@ struct AddExpenseView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 10)
                 .disabled(!canSave)
+                .opacity(keyboardVisible ? 0 : 1)
+                .allowsHitTesting(!keyboardVisible)
             }
             .background(Color(hex: "F6F5F3"))
 
@@ -1588,7 +1597,7 @@ private struct ReceiptSourcePickerSheet: View {
                         .frame(width: 40, height: 40)
                     Image(systemName: icon)
                         .font(.system(size: 18))
-                        .foregroundStyle(Color(hex: "346049"))
+                        .foregroundStyle(Color(hex: "2F402E"))
                 }
                 Text(label)
                     .font(.system(size: 16, weight: .medium))
@@ -1627,8 +1636,8 @@ private struct StickySaveCTAStyle: ButtonStyle {
 
     private func background(isPressed: Bool) -> Color {
         if !isEnabled {
-            return Color(hex: "346049").opacity(0.4)
+            return Color(hex: "2F402E").opacity(0.4)
         }
-        return isPressed ? Color(hex: "2D5A3F") : Color(hex: "346049")
+        return isPressed ? Color(hex: "2D5A3F") : Color(hex: "2F402E")
     }
 }

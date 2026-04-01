@@ -4,7 +4,7 @@ import SwiftUI
 
 extension Color {
     // Brand
-    static let brandPrimary = Color(hex: "346049")
+    static let brandPrimary = Color(hex: "2F402E")
     static let brandSecondary = Color(hex: "4A7D62")
     static let brandTint = Color(hex: "E8EFE9")
     static let brandBorder = Color(hex: "8BBF9E")

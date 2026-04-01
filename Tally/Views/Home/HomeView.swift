@@ -99,20 +99,24 @@ struct HomeView: View {
         tagsFor(expense).first
     }
 
-    private func displayTagName(for expense: ExpenseModel) -> String {
+    /// Label for the first tag only (used in list row pill).
+    private func primaryTagDisplayLabel(for expense: ExpenseModel) -> String? {
         let resolved = tagsFor(expense)
-        guard let first = resolved.first else { return "" }
-        if resolved.count == 1 {
-            if let parentId = first.parentId,
-               let group = tags.first(where: { $0.id == parentId }) {
-                return "\(group.name) › \(first.name)"
-            }
-            return first.name
+        guard let first = resolved.first else { return nil }
+        if let parentId = first.parentId,
+           let group = tags.first(where: { $0.id == parentId }) {
+            return "\(group.name) › \(first.name)"
         }
-        return "\(first.name) +\(resolved.count - 1)"
+        return first.name
     }
 
-    private let fabCircleDimension: CGFloat = 70
+    private func additionalTagCount(for expense: ExpenseModel) -> Int {
+        let n = tagsFor(expense).count
+        return n > 1 ? n - 1 : 0
+    }
+
+    private let fabCircleDimension: CGFloat = 91
+    private let fabPlusFontSize: CGFloat = 34
 
     private var homeScrollableColumn: some View {
         VStack(spacing: 0) {
@@ -206,11 +210,11 @@ struct HomeView: View {
                         .animation(.easeOut(duration: 0.5), value: fabRippling)
                 }
                 Image(systemName: "plus")
-                    .font(.system(size: 26, weight: .medium))
+                    .font(.system(size: fabPlusFontSize, weight: .medium))
                     .foregroundStyle(.white)
                     .frame(width: fabCircleDimension, height: fabCircleDimension)
                     .background(Circle().fill(Color.brandPrimary))
-                    .shadow(color: Color.brandPrimary.opacity(0.45), radius: 12, x: 0, y: 6)
+                    .shadow(color: Color.brandPrimary.opacity(0.45), radius: 16, x: 0, y: 8)
             }
         }
         .buttonStyle(.plain)
@@ -361,12 +365,12 @@ struct HomeView: View {
 
             HStack(alignment: .top, spacing: 2) {
                 Text("$")
-                    .font(Font.custom("Fraunces_9pt-LightItalic", size: 28))
+                    .font(Font.custom("Fraunces9pt-LightItalic", size: 28))
                     .foregroundStyle(Color(hex: "BFBAB3"))
                     .padding(.top, 10)
 
                 Text(formatAnimatedTotal())
-                    .font(Font.custom("Fraunces_9pt-LightItalic", size: 64))
+                    .font(Font.custom("Fraunces9pt-LightItalic", size: 64))
                     .foregroundStyle(Color(hex: "1C1C1E"))
                     .kerning(-3)
             }
@@ -389,10 +393,10 @@ struct HomeView: View {
             HStack(spacing: 5) {
                 Text(periodFilter.label)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color(hex: "2C4A35"))
+                    .foregroundStyle(Color(hex: "2F402E"))
                 Image(systemName: "chevron.down")
                     .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(Color(hex: "2C4A35").opacity(0.5))
+                    .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
             }
             .padding(.horizontal, 11)
             .padding(.vertical, 4)
@@ -424,7 +428,7 @@ struct HomeView: View {
         }
         .padding(.horizontal, Spacing.md)
         .frame(height: 40)
-        .background(Color(hex: "EDEAE4"))
+        .background(Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
         .overlay(
             RoundedRectangle(cornerRadius: Radius.sm)
@@ -770,6 +774,7 @@ struct HomeView: View {
                         .foregroundStyle(Color.textMuted)
                         .tracking(0.55)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.leading, Spacing.lg)
                         .listRowInsets(EdgeInsets(top: Spacing.sm, leading: 0, bottom: Spacing.xs, trailing: 0))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
@@ -860,8 +865,9 @@ struct HomeView: View {
                     amountCents: expense.amountCents,
                     currency: expense.currency,
                     date: expense.date,
-                    tagName: displayTagName(for: expense),
-                    tagColor: tag?.tagColor ?? TagColors.forId("warmGrey")
+                    primaryTagLabel: primaryTagDisplayLabel(for: expense),
+                    primaryTagColor: tag?.tagColor,
+                    additionalTagCount: additionalTagCount(for: expense)
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

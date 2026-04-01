@@ -150,7 +150,7 @@ struct ExpenseDetailView: View {
                             Button("Edit") {
                                 beginEditing(from: expense)
                             }
-                            .foregroundStyle(Color(hex: "346049"))
+                            .foregroundStyle(Color(hex: "2F402E"))
                         }
                     }
                     ToolbarItem(placement: .topBarTrailing) {
@@ -161,7 +161,7 @@ struct ExpenseDetailView: View {
                                 dismiss()
                             }
                         }
-                        .foregroundStyle(Color(hex: "346049"))
+                        .foregroundStyle(Color(hex: "2F402E"))
                         .disabled(isEditingMode && !canSaveEdits)
                     }
                 }
@@ -195,7 +195,7 @@ struct ExpenseDetailView: View {
                         .toolbar {
                             ToolbarItem(placement: .confirmationAction) {
                                 Button("Done") { showingDatePickerSheet = false }
-                                    .foregroundStyle(Color(hex: "346049"))
+                                    .foregroundStyle(Color(hex: "2F402E"))
                             }
                         }
                     }
@@ -327,7 +327,7 @@ struct ExpenseDetailView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("AMOUNT")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color(hex: "346049").opacity(0.7))
+                        .foregroundStyle(Color(hex: "2F402E").opacity(0.7))
                         .tracking(0.8)
                         .textCase(.uppercase)
 
@@ -335,7 +335,7 @@ struct ExpenseDetailView: View {
                         Button { showingCurrencyPicker = true } label: {
                             Text(currencySymbol)
                                 .font(.system(size: 20, weight: .regular, design: .monospaced))
-                                .foregroundStyle(Color(hex: "346049").opacity(0.5))
+                                .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
                         }
                         .buttonStyle(.plain)
 
@@ -362,7 +362,7 @@ struct ExpenseDetailView: View {
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(hex: "346049").opacity(0.06))
+                .background(Color(hex: "2F402E").opacity(0.06))
                 .clipShape(unevenRect(topLeading: 14, topTrailing: 14, bottomLeading: 4, bottomTrailing: 4))
                 .padding(.horizontal, 16)
                 .contentShape(Rectangle())
@@ -371,7 +371,7 @@ struct ExpenseDetailView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("AMOUNT")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color(hex: "346049").opacity(0.7))
+                        .foregroundStyle(Color(hex: "2F402E").opacity(0.7))
                         .tracking(0.8)
                         .textCase(.uppercase)
 
@@ -381,7 +381,7 @@ struct ExpenseDetailView: View {
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color(hex: "346049").opacity(0.06))
+                .background(Color(hex: "2F402E").opacity(0.06))
                 .clipShape(unevenRect(topLeading: 14, topTrailing: 14, bottomLeading: 4, bottomTrailing: 4))
                 .padding(.horizontal, 16)
             }
@@ -396,7 +396,7 @@ struct ExpenseDetailView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("AMOUNT")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color(hex: "346049").opacity(0.7))
+                        .foregroundStyle(Color(hex: "2F402E").opacity(0.7))
                         .tracking(0.8)
                         .textCase(.uppercase)
 
@@ -404,7 +404,7 @@ struct ExpenseDetailView: View {
                         Button { showingCurrencyPicker = true } label: {
                             Text(currencySymbol)
                                 .font(.system(size: 28, weight: .regular, design: .monospaced))
-                                .foregroundStyle(Color(hex: "346049").opacity(0.5))
+                                .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
                         }
                         .buttonStyle(.plain)
 
@@ -436,7 +436,7 @@ struct ExpenseDetailView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 20)
-                .background(Color(hex: "346049").opacity(0.06))
+                .background(Color(hex: "2F402E").opacity(0.06))
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .padding(.horizontal, 16)
                 .contentShape(Rectangle())
@@ -445,7 +445,7 @@ struct ExpenseDetailView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("AMOUNT")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color(hex: "346049").opacity(0.7))
+                        .foregroundStyle(Color(hex: "2F402E").opacity(0.7))
                         .tracking(0.8)
                         .textCase(.uppercase)
 
@@ -457,7 +457,7 @@ struct ExpenseDetailView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 20)
-                .background(Color(hex: "346049").opacity(0.06))
+                .background(Color(hex: "2F402E").opacity(0.06))
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                 .padding(.horizontal, 16)
             }
@@ -552,7 +552,7 @@ struct ExpenseDetailView: View {
             HStack(spacing: 10) {
                 Text(Calendar.current.isDateInToday(date) ? "Today" : Self.shortDateString(date))
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color(hex: "346049"))
+                    .foregroundStyle(Color(hex: "2F402E"))
                     .padding(.vertical, 4)
                     .padding(.horizontal, 12)
                     .background(Color(hex: "E8F0EA"))
@@ -590,7 +590,7 @@ struct ExpenseDetailView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "doc.fill")
                         .font(.system(size: 22))
-                        .foregroundStyle(Color(hex: "346049"))
+                        .foregroundStyle(Color(hex: "2F402E"))
                     VStack(alignment: .leading, spacing: 2) {
                         Text(url.lastPathComponent)
                             .font(.system(size: 15, weight: .semibold))
@@ -608,7 +608,7 @@ struct ExpenseDetailView: View {
                             attachmentKey = nil
                         }
                         .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color(hex: "346049"))
+                        .foregroundStyle(Color(hex: "2F402E"))
                     }
                 }
                 .padding(16)
@@ -650,7 +650,7 @@ struct ExpenseDetailView: View {
                                             .frame(width: 8, height: 8)
                                         Text(tag.name)
                                             .font(.system(size: 14, weight: .medium))
-                                            .foregroundStyle(Color(hex: "346049"))
+                                            .foregroundStyle(Color(hex: "2F402E"))
                                     }
                                     .padding(.vertical, 8)
                                     .padding(.horizontal, 14)
@@ -658,7 +658,7 @@ struct ExpenseDetailView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                            .stroke(Color(hex: "346049"), lineWidth: 1.5)
+                                            .stroke(Color(hex: "2F402E"), lineWidth: 1.5)
                                     )
                                 }
                                 Button {
@@ -691,7 +691,7 @@ struct ExpenseDetailView: View {
                                             .frame(width: 8, height: 8)
                                         Text(tag.name)
                                             .font(.system(size: 14, weight: .medium))
-                                            .foregroundStyle(Color(hex: "346049"))
+                                            .foregroundStyle(Color(hex: "2F402E"))
                                     }
                                     .padding(.vertical, 8)
                                     .padding(.horizontal, 14)
@@ -699,7 +699,7 @@ struct ExpenseDetailView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                                     .overlay(
                                         RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                            .stroke(Color(hex: "346049"), lineWidth: 1.5)
+                                            .stroke(Color(hex: "2F402E"), lineWidth: 1.5)
                                     )
                                 }
                             }

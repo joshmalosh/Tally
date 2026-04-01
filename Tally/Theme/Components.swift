@@ -157,8 +157,10 @@ struct ExpenseCard: View {
     let amountCents: Int
     let currency: String
     let date: Date
-    let tagName: String
-    let tagColor: TagColor
+    /// First tag’s display label; `nil` when expense has no tags (no row tag UI).
+    let primaryTagLabel: String?
+    let primaryTagColor: TagColor?
+    let additionalTagCount: Int
 
     private static let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -205,15 +207,27 @@ struct ExpenseCard: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Color.textPrimary)
                     .lineLimit(1)
-                if !tagName.isEmpty {
-                    HStack(spacing: 5) {
-                        Circle()
-                            .fill(tagColor.primaryColor)
-                            .frame(width: 10, height: 10)
-                        Text(tagName)
-                            .font(.system(size: 13, weight: .regular))
-                            .foregroundStyle(Color.textMuted)
-                            .lineLimit(1)
+                if let label = primaryTagLabel, let tagColor = primaryTagColor {
+                    HStack(alignment: .center, spacing: 6) {
+                        HStack(spacing: 4) {
+                            Circle()
+                                .fill(tagColor.primaryColor)
+                                .frame(width: 7, height: 7)
+                            Text(label)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(tagColor.primaryColor.opacity(0.85))
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(tagColor.primaryColor.opacity(0.1))
+                        .clipShape(Capsule())
+
+                        if additionalTagCount > 0 {
+                            Text("+\(additionalTagCount)")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(Color.textMuted)
+                        }
                     }
                 }
             }

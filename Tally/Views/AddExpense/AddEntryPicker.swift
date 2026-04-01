@@ -86,7 +86,7 @@ struct AddEntryPicker: View {
             HStack(spacing: Spacing.md) {
                 Image(systemName: icon)
                     .font(.system(size: 20))
-                    .foregroundStyle(Color(hex: "2C4A35"))
+                    .foregroundStyle(Color(hex: "2F402E"))
                     .frame(width: 44, height: 44)
                     .background(Color(hex: "E8F0EA"))
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))

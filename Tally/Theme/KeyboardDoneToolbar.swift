@@ -10,7 +10,7 @@ struct KeyboardDoneToolbar: ViewModifier {
                     Button("Done") {
                         UIApplication.shared.endEditing()
                     }
-                    .foregroundStyle(Color(hex: "346049"))
+                    .foregroundStyle(Color(hex: "2F402E"))
                     .fontWeight(.medium)
                 }
             }
