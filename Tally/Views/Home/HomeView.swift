@@ -92,6 +92,24 @@ struct HomeView: View {
         periodExpenses.reduce(0) { $0 + $1.amountCents }
     }
 
+    private var invoiceDisplayTotal: Double {
+        guard let company = invoicingState.activeCompany else { return 0.0 }
+        switch invoicingState.totalsMode {
+        case .invoiced:
+            return company.invoices.reduce(0.0) { $0 + $1.grandTotal }
+        case .received:
+            return company.invoices.filter { $0.status == .paid }.reduce(0.0) { $0 + $1.grandTotal }
+        }
+    }
+
+    private func formatDouble(_ value: Double) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 2
+        formatter.maximumFractionDigits = 2
+        return formatter.string(from: NSNumber(value: value)) ?? "0.00"
+    }
+
     private func tagsFor(_ expense: ExpenseModel) -> [TagModel] {
         expense.resolvedTagIds.compactMap { id in tags.first { $0.id == id } }
     }
@@ -413,7 +431,7 @@ struct HomeView: View {
     // MARK: - Header
 
     private var headerSection: some View {
-        HStack(alignment: .bottom, spacing: 0) {
+        HStack(alignment: .top, spacing: 0) {
             VStack(alignment: .leading, spacing: 0) {
                 if invoicingState.hasCompany {
                     HStack(alignment: .firstTextBaseline, spacing: 10) {
@@ -468,19 +486,17 @@ struct HomeView: View {
                         .foregroundStyle(Color(hex: "BFBAB3"))
                         .padding(.top, 8)
 
-                    Text(formatAnimatedTotal())
-                        .font(Fonts.brand(38))
-                        .foregroundStyle(Color(hex: "1C1C1E"))
-                        .kerning(-1)
-                }
-
-                if invoicingState.homeMode == .invoices,
-                   let company = invoicingState.activeCompany {
-                    let unpaid = company.invoices.filter { $0.status == .sent || $0.status == .overdue }.count
-                    Text("\(company.name)\(unpaid > 0 ? " · \(unpaid) unpaid" : "")")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Color(hex: "8F9E94"))
-                        .padding(.top, 3)
+                    if invoicingState.homeMode == .invoices {
+                        Text(formatDouble(invoiceDisplayTotal))
+                            .font(Fonts.brand(38))
+                            .foregroundStyle(Color(hex: "1C1C1E"))
+                            .kerning(-1)
+                    } else {
+                        Text(formatAnimatedTotal())
+                            .font(Fonts.brand(38))
+                            .foregroundStyle(Color(hex: "1C1C1E"))
+                            .kerning(-1)
+                    }
                 }
             }
 
@@ -508,7 +524,6 @@ struct HomeView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.top, 14)
             }
         }
         .padding(.horizontal, Spacing.lg)
@@ -526,18 +541,14 @@ struct HomeView: View {
                 }
             }
         } label: {
-            HStack(spacing: 5) {
+            HStack(spacing: 4) {
                 Text(periodFilter.label)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color(hex: "2F402E"))
+                    .foregroundStyle(Color(hex: "4A5E50"))
                 Image(systemName: "chevron.down")
                     .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
+                    .foregroundStyle(Color(hex: "4A5E50").opacity(0.6))
             }
-            .padding(.horizontal, 11)
-            .padding(.vertical, 4)
-            .background(Color(hex: "EDEAE4"))
-            .clipShape(Capsule())
         }
     }
 

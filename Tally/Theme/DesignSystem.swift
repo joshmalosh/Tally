@@ -10,9 +10,9 @@ extension Color {
     static let brandBorder = Color(hex: "8BBF9E")
     static let brandPressed = Color(hex: "2A4E3B")
 
-    // UI action green (slightly brighter than brand for interactive elements)
-    static let actionGreen = Color(hex: "3E7B63")
-    static let actionGreenPressed = Color(hex: "346856")
+    // UI action green — matches brand primary for interactive elements
+    static let actionGreen = Color(hex: "2F402E")
+    static let actionGreenPressed = Color(hex: "2A4E3B")
 
     // Surfaces
     static let bgPrimary = Color(hex: "F6F5F3")
@@ -32,7 +32,7 @@ extension Color {
     // Chip states (neutral — no multicolored backgrounds)
     static let chipInactiveBg = Color(hex: "EEEDEB")
     static let chipInactiveText = Color(hex: "111417")
-    static let chipActiveBg = Color(hex: "3E7B63")
+    static let chipActiveBg = Color(hex: "2F402E")
     static let chipActiveText = Color.white
     static let chipActiveBorder = Color.clear
 }
