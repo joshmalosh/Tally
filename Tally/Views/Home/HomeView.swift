@@ -3,6 +3,7 @@ import SwiftData
 import UIKit
 
 struct HomeView: View {
+    @EnvironmentObject private var invoicingState: InvoicingState
     @Environment(AppState.self) private var appState
     @Environment(SyncEngine.self) private var syncEngine
     @Environment(AdManager.self) private var adManager
@@ -115,8 +116,8 @@ struct HomeView: View {
         return n > 1 ? n - 1 : 0
     }
 
-    private let fabCircleDimension: CGFloat = 91
-    private let fabPlusFontSize: CGFloat = 34
+    private let fabCircleDimension: CGFloat = 73
+    private let fabPlusFontSize: CGFloat = 27
 
     private var homeScrollableColumn: some View {
         VStack(spacing: 0) {
@@ -131,20 +132,29 @@ struct HomeView: View {
             headerSection
                 .allowsHitTesting(!isSelecting)
 
-            if !isHeaderCollapsed {
+            if !isHeaderCollapsed && invoicingState.homeMode == .expenses {
                 searchBar
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
 
-            tagRow
-                .padding(.top, 4)
+            if invoicingState.homeMode == .expenses {
+                tagRow
+                    .padding(.top, 4)
 
-            divider
+                divider
 
-            if filteredExpenses.isEmpty && !isSelecting {
-                emptyState
+                if filteredExpenses.isEmpty && !isSelecting {
+                    emptyState
+                } else {
+                    expenseList
+                }
             } else {
-                expenseList
+                InvoicesListView()
+                    .environmentObject(invoicingState)
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        fabAndAdBottomInset
+                    }
+                    .background(Color(hex: "F6F5F3"))
             }
 
             if isSelecting && !selectedExpenseIds.isEmpty {
@@ -249,15 +259,44 @@ struct HomeView: View {
         )
     }
 
+    @ViewBuilder
+    private var fabAndAdBottomInset: some View {
+        VStack(spacing: 0) {
+            if !isSelecting {
+                HStack {
+                    Spacer()
+                    fabButton
+                    Spacer()
+                }
+                .padding(.top, 12)
+                .padding(.bottom, adManager.shouldShowBannerAd ? 12 : 28)
+            }
+            if adManager.shouldShowBannerAd {
+                BannerAdView()
+            }
+        }
+        .background(Color.clear)
+    }
+
     var body: some View {
         @Bindable var appState = appState
 
-        NavigationStack {
-            homeScrollableColumn
+        ZStack {
+            NavigationStack {
+                homeScrollableColumn
+                    .background(Color(hex: "F6F5F3").ignoresSafeArea())
+                    .toolbar(.hidden, for: .navigationBar)
+                    .toolbarBackground(Color(hex: "F6F5F3"), for: .navigationBar)
+                    .keyboardDoneToolbar()
+            }
             .background(Color(hex: "F6F5F3").ignoresSafeArea())
-            .toolbar(.hidden, for: .navigationBar)
-            .toolbarBackground(Color(hex: "F6F5F3"), for: .navigationBar)
-            .keyboardDoneToolbar()
+
+            if invoicingState.isProfilePanelOpen {
+                ProfilePanelView()
+                    .environmentObject(invoicingState)
+                    .transition(.move(edge: .trailing))
+                    .zIndex(100)
+            }
         }
         .background(Color(hex: "F6F5F3").ignoresSafeArea())
         .sheet(isPresented: $showingEntryPicker) {
@@ -337,11 +376,33 @@ struct HomeView: View {
                         .foregroundStyle(Color.danger)
                 }
 
-                Button { appState.showingSettings = true } label: {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 18))
-                        .foregroundStyle(Color.textSecondary)
+                if invoicingState.hasCompany {
+                    HStack(spacing: 10) {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                invoicingState.isProfilePanelOpen = true
+                            }
+                        } label: {
+                            if let company = invoicingState.activeCompany {
+                                CompanyAvatarView(company: company, size: 28)
+                            }
+                        }
+                        .buttonStyle(.plain)
+
+                        Rectangle()
+                            .fill(Color(hex: "DEDAD2"))
+                            .frame(width: 1, height: 18)
+                    }
                 }
+
+                Button {
+                    appState.showingSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: invoicingState.hasCompany ? 17 : 18))
+                        .foregroundStyle(invoicingState.hasCompany ? Color(hex: "1C1C1E").opacity(0.55) : Color.textSecondary)
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, Spacing.lg)
@@ -352,27 +413,102 @@ struct HomeView: View {
     // MARK: - Header
 
     private var headerSection: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                Text("Total Spent")
-                    .font(.system(size: 13, weight: .regular))
-                    .foregroundStyle(Color(hex: "8F9E94"))
+        HStack(alignment: .bottom, spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                if invoicingState.hasCompany {
+                    HStack(alignment: .firstTextBaseline, spacing: 10) {
+                        Text(invoicingState.homeMode == .expenses ? "Total Spent" : "")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color(hex: "4A5E50"))
 
-                periodToggle
+                        if invoicingState.homeMode == .invoices {
+                            HStack(spacing: 0) {
+                                ForEach([InvoiceTotalsMode.invoiced, InvoiceTotalsMode.received], id: \.self) { mode in
+                                    Button {
+                                        invoicingState.totalsMode = mode
+                                    } label: {
+                                        Text(mode == .invoiced ? "Invoiced" : "Received")
+                                            .font(.system(size: 12, weight: .medium))
+                                            .padding(.horizontal, 10)
+                                            .padding(.vertical, 3)
+                                            .background(
+                                                invoicingState.totalsMode == mode
+                                                ? Color(hex: "2F402E")
+                                                : Color.white
+                                            )
+                                            .foregroundStyle(
+                                                invoicingState.totalsMode == mode
+                                                ? Color.white
+                                                : Color(hex: "8F9E94")
+                                            )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .clipShape(Capsule())
+                            .overlay(Capsule().stroke(Color(hex: "DEDAD2"), lineWidth: 1))
+                        }
 
-                Spacer()
+                        periodToggle
+                    }
+                    .padding(.bottom, 3)
+                } else {
+                    HStack(spacing: 7) {
+                        Text("Total Spent")
+                            .font(.system(size: 13, weight: .regular))
+                            .foregroundStyle(Color(hex: "8F9E94"))
+                        periodToggle
+                    }
+                    .padding(.bottom, 3)
+                }
+
+                HStack(alignment: .top, spacing: 2) {
+                    Text("$")
+                        .font(Font.custom("Fraunces9pt-Regular", size: 22))
+                        .foregroundStyle(Color(hex: "BFBAB3"))
+                        .padding(.top, 10)
+
+                    Text(formatAnimatedTotal())
+                        .font(Font.custom("Fraunces9pt-Regular", size: 48))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                        .kerning(-3)
+                }
+
+                if invoicingState.homeMode == .invoices,
+                   let company = invoicingState.activeCompany {
+                    let unpaid = company.invoices.filter { $0.status == .sent || $0.status == .overdue }.count
+                    Text("\(company.name)\(unpaid > 0 ? " · \(unpaid) unpaid" : "")")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Color(hex: "8F9E94"))
+                        .padding(.top, 3)
+                }
             }
 
-            HStack(alignment: .top, spacing: 2) {
-                Text("$")
-                    .font(Font.custom("Fraunces9pt-LightItalic", size: 28))
-                    .foregroundStyle(Color(hex: "BFBAB3"))
-                    .padding(.top, 10)
+            Spacer()
 
-                Text(formatAnimatedTotal())
-                    .font(Font.custom("Fraunces9pt-LightItalic", size: 64))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-                    .kerning(-3)
+            if invoicingState.hasCompany {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(invoicingState.homeMode == .expenses ? "Expenses" : "Invoices")
+                        .font(Font.custom("Georgia", size: 19).weight(.bold))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            invoicingState.homeMode = invoicingState.homeMode == .expenses ? .invoices : .expenses
+                        }
+                    } label: {
+                        HStack(spacing: 3) {
+                            Text(invoicingState.homeMode == .expenses ? "Invoices" : "Expenses")
+                                .font(.custom("Georgia", size: 14))
+                                .foregroundStyle(Color(hex: "B5AC9E"))
+                            Text("↩")
+                                .font(.system(size: 13))
+                                .foregroundStyle(Color(hex: "B5AC9E"))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.top, 14)
             }
         }
         .padding(.horizontal, Spacing.lg)
@@ -642,21 +778,7 @@ struct HomeView: View {
             .frame(maxWidth: .infinity)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 0) {
-                if !isSelecting {
-                    HStack {
-                        Spacer()
-                        fabButton
-                        Spacer()
-                    }
-                    .padding(.top, 12)
-                    .padding(.bottom, adManager.shouldShowBannerAd ? 12 : 28)
-                }
-                if adManager.shouldShowBannerAd {
-                    BannerAdView()
-                }
-            }
-            .background(Color.clear)
+            fabAndAdBottomInset
         }
         .scrollContentBackground(.hidden)
         .background(Color(hex: "F6F5F3"))
@@ -787,21 +909,7 @@ struct HomeView: View {
 
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            VStack(spacing: 0) {
-                if !isSelecting {
-                    HStack {
-                        Spacer()
-                        fabButton
-                        Spacer()
-                    }
-                    .padding(.top, 12)
-                    .padding(.bottom, adManager.shouldShowBannerAd ? 12 : 28)
-                }
-                if adManager.shouldShowBannerAd {
-                    BannerAdView()
-                }
-            }
-            .background(Color.clear)
+            fabAndAdBottomInset
         }
         .listStyle(.plain)
         .environment(\.defaultMinListRowHeight, 0)

@@ -24,6 +24,7 @@ targets:
           - "**/.gitkeep"
     resources:
       - Tally/Resources/Fonts/Fraunces_9pt-LightItalic.ttf
+      - Tally/Resources/Fonts/Fraunces_9pt-Regular.ttf
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.asimplelife.tally

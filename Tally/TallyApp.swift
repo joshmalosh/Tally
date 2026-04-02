@@ -7,6 +7,7 @@ import RevenueCat
 struct TallyApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var appState = AppState()
+    @StateObject private var invoicingState = InvoicingState()
     @State private var syncEngine = SyncEngine()
     @State private var adManager = AdManager()
 
@@ -17,7 +18,16 @@ struct TallyApp: App {
     static let cloudKitEnabled = false
 
     init() {
-        let schema = Schema([ExpenseModel.self, TagModel.self])
+        let schema = Schema([
+            ExpenseModel.self,
+            TagModel.self,
+            Company.self,
+            Client.self,
+            Product.self,
+            Invoice.self,
+            LineItem.self,
+            InvoiceFee.self,
+        ])
         do {
             let config: ModelConfiguration
             if Self.cloudKitEnabled {
@@ -51,6 +61,7 @@ struct TallyApp: App {
         WindowGroup {
             ContentView()
                 .environment(appState)
+                .environmentObject(invoicingState)
                 .environment(syncEngine)
                 .environment(adManager)
         }

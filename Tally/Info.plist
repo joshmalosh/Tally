@@ -45,6 +45,7 @@
 	<key>UIAppFonts</key>
 	<array>
 		<string>Fraunces_9pt-LightItalic.ttf</string>
+		<string>Fraunces_9pt-Regular.ttf</string>
 	</array>
 </dict>
 </plist>
