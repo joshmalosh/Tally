@@ -171,7 +171,6 @@ struct AddExpenseView: View {
         NavigationStack {
             addExpenseNavigationRoot
         }
-        .keyboardDoneToolbar()
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             withAnimation(.easeInOut(duration: 0.2)) { keyboardVisible = true }
         }
@@ -526,10 +525,10 @@ struct AddExpenseView: View {
                 .focused($focusedField, equals: .merchant)
                 .textInputAutocapitalization(.words)
                 .tint(Color(hex: "2F402E"))
+                .keyboardDoneToolbar()
 
             merchantSuggestionInlineList()
         }
-        .keyboardDoneToolbar()
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -963,6 +962,7 @@ struct AddExpenseView: View {
                         .scrollContentBackground(.hidden)
                         .frame(minHeight: 72)
                         .focused($focusedField, equals: .notes)
+                        .keyboardDoneToolbar()
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -1198,8 +1198,9 @@ struct AddExpenseView: View {
                 .foregroundStyle(Color(hex: "1C1C1E"))
                 .focused($focusedField, equals: .merchant)
                 .textInputAutocapitalization(.words)
+                .tint(Color(hex: "2F402E"))
+                .keyboardDoneToolbar()
         }
-        .keyboardDoneToolbar()
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
