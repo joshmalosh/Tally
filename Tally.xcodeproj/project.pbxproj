@@ -41,7 +41,6 @@
 		9C4EA2BB4743FB5C5ED3DEF7 /* TagModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25B338B02BFED8F0EDE29E3B /* TagModel.swift */; };
 		AD0E32D865CD5781D3BE7E29 /* TagPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E6C66AC70ED7811D106770C /* TagPickerSheet.swift */; };
 		AD8DE95ACB8257BF617E243E /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D6B7193795721ECE292D29C /* DesignSystem.swift */; };
-		E8F0EA11BEEF000000000002 /* KeyboardDoneToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8F0EA11BEEF000000000003 /* KeyboardDoneToolbar.swift */; };
 		B8KACC111111111111111102 /* KeyboardAccessoryBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8KACC111111111111111101 /* KeyboardAccessoryBar.swift */; };
 		B8KACC222222222222222202 /* SubscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8KACC222222222222222201 /* SubscriptionService.swift */; };
 		FEEDRC050000000000000001 /* RevenueCatConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEEDRC040000000000000001 /* RevenueCatConfig.swift */; };
@@ -127,7 +126,6 @@
 		BF8ADCE89F2C2027BC34AC3D /* APIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIService.swift; sourceTree = "<group>"; };
 		DCB500AF673FBDF6CA909FE4 /* AttachmentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentService.swift; sourceTree = "<group>"; };
 		E8F0EA11BEEF000000000001 /* UIApplication+ResignFirstResponder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIApplication+ResignFirstResponder.swift"; sourceTree = "<group>"; };
-		E8F0EA11BEEF000000000003 /* KeyboardDoneToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardDoneToolbar.swift; sourceTree = "<group>"; };
 		B8KACC111111111111111101 /* KeyboardAccessoryBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardAccessoryBar.swift; sourceTree = "<group>"; };
 		B8KACC222222222222222201 /* SubscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionService.swift; sourceTree = "<group>"; };
 		FEEDRC040000000000000001 /* RevenueCatConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RevenueCatConfig.swift; sourceTree = "<group>"; };
@@ -410,7 +408,6 @@
 				10266D569ECBE8A79CC58494 /* Components.swift */,
 				6B23719619830D783B4A5D67 /* CurrencyFormatter.swift */,
 				5D6B7193795721ECE292D29C /* DesignSystem.swift */,
-				E8F0EA11BEEF000000000003 /* KeyboardDoneToolbar.swift */,
 				B8KACC111111111111111101 /* KeyboardAccessoryBar.swift */,
 				E8F0EA11BEEF000000000001 /* UIApplication+ResignFirstResponder.swift */,
 			);
@@ -553,7 +550,6 @@
 				10CAB43B5234C4E0602F2CE9 /* CurrencySetupView.swift in Sources */,
 				AD8DE95ACB8257BF617E243E /* DesignSystem.swift in Sources */,
 				45A5AB7C880C24FB7FA80A49 /* DocumentPicker.swift in Sources */,
-				E8F0EA11BEEF000000000002 /* KeyboardDoneToolbar.swift in Sources */,
 				B8KACC111111111111111102 /* KeyboardAccessoryBar.swift in Sources */,
 				52910AB1BC5CB254670B23FB /* ExpenseCalculations.swift in Sources */,
 				82AC84BF50866B4FB8446F6D /* ExpenseDetailView.swift in Sources */,

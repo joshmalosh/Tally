@@ -76,7 +76,6 @@ struct TagCreationView: View {
         } message: {
             Text("This will remove the tag from all expenses. This cannot be undone.")
         }
-        .keyboardDoneToolbar()
     }
 
     var body: some View {

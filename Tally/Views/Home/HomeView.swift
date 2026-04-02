@@ -305,7 +305,6 @@ struct HomeView: View {
                     .background(Color(hex: "F6F5F3").ignoresSafeArea())
                     .toolbar(.hidden, for: .navigationBar)
                     .toolbarBackground(Color(hex: "F6F5F3"), for: .navigationBar)
-                    .keyboardDoneToolbar()
             }
             .background(Color(hex: "F6F5F3").ignoresSafeArea())
 

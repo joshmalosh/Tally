@@ -74,7 +74,6 @@ struct CurrencySetupView: View {
             }
             .background(Color.bgPrimary)
             .toolbar(.hidden, for: .navigationBar)
-            .keyboardDoneToolbar()
         }
     }
 

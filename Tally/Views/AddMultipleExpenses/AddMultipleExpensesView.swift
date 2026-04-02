@@ -76,7 +76,6 @@ struct AddMultipleExpensesView: View {
                     }
                 }
             }
-            .keyboardDoneToolbar()
         }
         .confirmationDialog("Add from photo", isPresented: $showingPhotoSourcePicker) {
             Button("Take Photo") { showingCamera = true }
@@ -282,7 +281,6 @@ struct AddMultipleExpensesView: View {
                 }
             }
             .onAppear { isPasteFieldFocused = true }
-            .keyboardDoneToolbar()
         }
     }
 
@@ -780,7 +778,6 @@ struct TagLinkPickerSheet: View {
                     dismiss()
                 }
             }
-            .keyboardDoneToolbar()
         }
     }
 
@@ -938,7 +935,6 @@ private struct BulkExpenseRowEditSheet: View {
                     }
                 )
             }
-            .keyboardDoneToolbar()
         }
     }
 

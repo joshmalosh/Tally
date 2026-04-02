@@ -525,7 +525,6 @@ struct AddExpenseView: View {
                 .focused($focusedField, equals: .merchant)
                 .textInputAutocapitalization(.words)
                 .tint(Color(hex: "2F402E"))
-                .keyboardDoneToolbar()
 
             merchantSuggestionInlineList()
         }
@@ -962,7 +961,6 @@ struct AddExpenseView: View {
                         .scrollContentBackground(.hidden)
                         .frame(minHeight: 72)
                         .focused($focusedField, equals: .notes)
-                        .keyboardDoneToolbar()
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
@@ -1199,7 +1197,6 @@ struct AddExpenseView: View {
                 .focused($focusedField, equals: .merchant)
                 .textInputAutocapitalization(.words)
                 .tint(Color(hex: "2F402E"))
-                .keyboardDoneToolbar()
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 16)
