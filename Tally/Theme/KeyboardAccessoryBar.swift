@@ -8,20 +8,13 @@ import UIKit
 /// that commonly appears above `UIToolbar` when used as `inputAccessoryView`.
 final class KeyboardAccessoryBar: UIView {
     private let doneGreen = UIColor(red: 0.184, green: 0.251, blue: 0.180, alpha: 1.0)
-    private let barHeight: CGFloat = 44
 
     override var intrinsicContentSize: CGSize {
-        CGSize(width: UIView.noIntrinsicMetric, height: barHeight)
+        CGSize(width: UIView.noIntrinsicMetric, height: 44)
     }
 
     init(target: Any?, action: Selector) {
         super.init(frame: .zero)
-        commonInit(target: target, action: action)
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-
-    private func commonInit(target: Any?, action: Selector) {
         backgroundColor = .white
         isOpaque = true
 
@@ -36,44 +29,13 @@ final class KeyboardAccessoryBar: UIView {
 
         NSLayoutConstraint.activate([
             button.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            button.topAnchor.constraint(equalTo: topAnchor),
-            button.bottomAnchor.constraint(equalTo: bottomAnchor),
+            button.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
 
         autoresizingMask = [.flexibleWidth, .flexibleHeight]
     }
 
-    /// iOS often wraps `inputAccessoryView` in a taller container with a default grey top; painting
-    /// the host chain removes the neutral strip above the Done row (Add Expense amount field).
-    override func didMoveToSuperview() {
-        super.didMoveToSuperview()
-        paintKeyboardAccessoryHostBackgroundsWhite()
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        backgroundColor = .white
-        paintKeyboardAccessoryHostBackgroundsWhite()
-    }
-
-    override func willMove(toWindow newWindow: UIWindow?) {
-        super.willMove(toWindow: newWindow)
-        if newWindow != nil {
-            DispatchQueue.main.async { [weak self] in
-                self?.paintKeyboardAccessoryHostBackgroundsWhite()
-            }
-        }
-    }
-
-    private func paintKeyboardAccessoryHostBackgroundsWhite() {
-        var view: UIView? = superview
-        for _ in 0 ..< 5 {
-            guard let v = view else { break }
-            v.backgroundColor = .white
-            v.isOpaque = true
-            view = v.superview
-        }
-    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }
 
 // MARK: - Numeric field + Done (inputAccessoryView)
@@ -110,7 +72,6 @@ struct NumericFieldWithDone: UIViewRepresentable {
         tf.addTarget(context.coordinator, action: #selector(Coordinator.textChanged(_:)), for: .editingChanged)
         tf.addTarget(context.coordinator, action: #selector(Coordinator.editingDidBegin), for: .editingDidBegin)
         tf.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        Self.configureNumberPadKeyboardChrome(tf)
         return tf
     }
 
@@ -143,20 +104,6 @@ struct NumericFieldWithDone: UIViewRepresentable {
         if !focusRequested {
             context.coordinator.hasFocused = false
         }
-        Self.configureNumberPadKeyboardChrome(uiView)
-        if let accessory = uiView.inputAccessoryView {
-            accessory.setNeedsLayout()
-            accessory.layoutIfNeeded()
-        }
-    }
-
-    /// Hides the system shortcuts/assistant strip that can render as an empty grey bar above the
-    /// numeric keyboard (separate from our `inputAccessoryView` Done row).
-    private static func configureNumberPadKeyboardChrome(_ tf: UITextField) {
-        tf.autocorrectionType = .no
-        tf.spellCheckingType = .no
-        tf.inputAssistantItem.leadingBarButtonGroups = []
-        tf.inputAssistantItem.trailingBarButtonGroups = []
     }
 
     final class Coordinator: NSObject {
