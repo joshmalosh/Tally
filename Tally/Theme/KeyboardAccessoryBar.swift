@@ -7,13 +7,24 @@ final class KeyboardAccessoryBar: UIToolbar {
     init(target: Any?, action: Selector) {
         super.init(frame: .zero)
         barStyle = .default
-        isTranslucent = true
+        isTranslucent = false
+        barTintColor = .white
+        backgroundColor = .white
+        let appearance = UIToolbarAppearance()
+        appearance.configureWithOpaqueBackground()
+        appearance.backgroundColor = .white
+        standardAppearance = appearance
+        scrollEdgeAppearance = appearance
         let spacer = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
         let done = UIBarButtonItem(title: "Done", style: .plain, target: target, action: action)
-        done.setTitleTextAttributes([
-            .foregroundColor: UIColor(red: 0x34 / 255, green: 0x60 / 255, blue: 0x49 / 255, alpha: 1),
-            .font: UIFont.systemFont(ofSize: 16, weight: .medium),
-        ], for: .normal)
+        done.tintColor = UIColor(red: 0.184, green: 0.251, blue: 0.180, alpha: 1.0)
+        done.setTitleTextAttributes(
+            [
+                .foregroundColor: UIColor(red: 0.184, green: 0.251, blue: 0.180, alpha: 1.0),
+                .font: UIFont.systemFont(ofSize: 16, weight: .medium),
+            ],
+            for: .normal
+        )
         items = [spacer, done]
         sizeToFit()
     }

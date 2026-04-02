@@ -517,8 +517,8 @@ struct HomeView: View {
                             Text(invoicingState.homeMode == .expenses ? "Invoices" : "Expenses")
                                 .font(.custom("Georgia", size: 14))
                                 .foregroundStyle(Color(hex: "B5AC9E"))
-                            Text("↩")
-                                .font(.system(size: 13))
+                            Image(systemName: "repeat")
+                                .font(.system(size: 11))
                                 .foregroundStyle(Color(hex: "B5AC9E"))
                         }
                     }
