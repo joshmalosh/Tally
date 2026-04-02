@@ -19,33 +19,32 @@ struct InvoicesListView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Status filter tabs
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
-                    ForEach(InvoiceStatusFilter.allCases, id: \.self) { filter in
-                        Button {
-                            invoicingState.statusFilter = filter
-                        } label: {
-                            Text(filter.rawValue)
-                                .font(.system(size: 11, weight: .medium))
-                                .padding(.horizontal, 9)
-                                .padding(.vertical, 4)
-                                .background(
-                                    invoicingState.statusFilter == filter
-                                    ? Color(hex: "2F402E")
-                                    : Color.clear
-                                )
-                                .foregroundStyle(
-                                    invoicingState.statusFilter == filter
-                                    ? Color.white
-                                    : Color(hex: "8F9E94")
-                                )
-                                .clipShape(Capsule())
-                        }
+            HStack(spacing: 0) {
+                ForEach(InvoiceStatusFilter.allCases, id: \.self) { filter in
+                    Button {
+                        invoicingState.statusFilter = filter
+                    } label: {
+                        Text(filter.rawValue)
+                            .font(.system(size: 12, weight: .medium))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 7)
+                            .background(
+                                invoicingState.statusFilter == filter
+                                ? Color(hex: "2F402E")
+                                : Color.clear
+                            )
+                            .foregroundStyle(
+                                invoicingState.statusFilter == filter
+                                ? Color.white
+                                : Color(hex: "8F9E94")
+                            )
+                            .clipShape(Capsule())
                     }
+                    .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 8)
             }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
 
             // Divider shadow
             Rectangle()

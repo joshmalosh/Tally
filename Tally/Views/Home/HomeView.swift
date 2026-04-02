@@ -464,14 +464,14 @@ struct HomeView: View {
 
                 HStack(alignment: .top, spacing: 2) {
                     Text("$")
-                        .font(Font.custom("Fraunces9pt-Regular", size: 22))
+                        .font(Fonts.brand(22))
                         .foregroundStyle(Color(hex: "BFBAB3"))
-                        .padding(.top, 10)
+                        .padding(.top, 8)
 
                     Text(formatAnimatedTotal())
-                        .font(Font.custom("Fraunces9pt-Regular", size: 48))
+                        .font(Fonts.brand(38))
                         .foregroundStyle(Color(hex: "1C1C1E"))
-                        .kerning(-3)
+                        .kerning(-1)
                 }
 
                 if invoicingState.homeMode == .invoices,
