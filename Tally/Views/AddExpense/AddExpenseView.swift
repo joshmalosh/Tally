@@ -443,11 +443,9 @@ struct AddExpenseView: View {
 
     private var amountHeroView: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("AMOUNT")
-                .font(.system(size: 11, weight: .semibold, design: .default))
-                .foregroundStyle(Color(hex: "2F402E").opacity(0.7))
-                .tracking(0.8)
-                .textCase(.uppercase)
+            Text("Amount")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color(hex: "8F9E94"))
 
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Button {
@@ -489,15 +487,11 @@ struct AddExpenseView: View {
                         .allowsHitTesting(false)
                 }
             }
-
-            Text("Tap to enter amount")
-                .font(.system(size: 13))
-                .foregroundStyle(Color(hex: "8F9E94"))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 18)
         .padding(.vertical, 20)
-        .background(Color(hex: "2F402E").opacity(0.06))
+        .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
@@ -522,11 +516,9 @@ struct AddExpenseView: View {
 
     private func merchantRowShape(radiusTop: CGFloat, radiusBottom: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("MERCHANT")
-                .font(.system(size: 11, weight: .regular))
+            Text("Merchant")
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(Color(hex: "8F9E94"))
-                .tracking(0.6)
-                .textCase(.uppercase)
 
             TextField("Where did you pay?", text: $merchant)
                 .font(.system(size: 16))
@@ -586,10 +578,9 @@ struct AddExpenseView: View {
             showingDatePickerSheet = true
         } label: {
             VStack(alignment: .leading, spacing: 8) {
-                Text("DATE OF TRANSACTION")
-                    .font(.system(size: 11, weight: .regular))
+                Text("Date of transaction")
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Color(hex: "8F9E94"))
-                    .textCase(.uppercase)
 
                 HStack(spacing: 10) {
                     Text(Calendar.current.isDateInToday(date) ? "Today" : Self.shortDateString(date))
@@ -1140,11 +1131,9 @@ struct AddExpenseView: View {
 
     private var receiptAmountRow: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("AMOUNT")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color(hex: "2F402E").opacity(0.7))
-                .tracking(0.8)
-                .textCase(.uppercase)
+            Text("Amount")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(Color(hex: "8F9E94"))
 
             HStack(spacing: 6) {
                 Button { showingCurrencyPicker = true } label: {
@@ -1187,7 +1176,7 @@ struct AddExpenseView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(hex: "2F402E").opacity(0.06))
+        .background(Color.white)
         .clipShape(unevenRect(topLeading: 14, topTrailing: 14, bottomLeading: 4, bottomTrailing: 4))
         .overlay(
             unevenRect(topLeading: 14, topTrailing: 14, bottomLeading: 4, bottomTrailing: 4)
@@ -1200,11 +1189,9 @@ struct AddExpenseView: View {
 
     private var receiptMerchantRow: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("MERCHANT")
-                .font(.system(size: 11, weight: .regular))
+            Text("Merchant")
+                .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(Color(hex: "8F9E94"))
-                .tracking(0.6)
-                .textCase(.uppercase)
 
             TextField("Where did you pay?", text: $merchant)
                 .font(.system(size: 16, weight: .medium))
@@ -1231,10 +1218,9 @@ struct AddExpenseView: View {
             showingDatePickerSheet = true
         } label: {
             VStack(alignment: .leading, spacing: 8) {
-                Text("DATE OF TRANSACTION")
-                    .font(.system(size: 11, weight: .regular))
+                Text("Date of transaction")
+                    .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Color(hex: "8F9E94"))
-                    .textCase(.uppercase)
 
                 HStack(spacing: 10) {
                     Text(Calendar.current.isDateInToday(date) ? "Today" : Self.shortDateString(date))
