@@ -1,32 +1,38 @@
 import SwiftUI
 import UIKit
 
-// MARK: - Accessory toolbar
+// MARK: - Accessory bar (plain UIView — avoids UIToolbar extra grey strip above Done)
 
-final class KeyboardAccessoryBar: UIToolbar {
+/// Full-width accessory above the keyboard with a trailing Done control.
+/// Uses `UIView` instead of `UIToolbar` so iOS does not draw the extra neutral/grey layer
+/// that commonly appears above `UIToolbar` when used as `inputAccessoryView`.
+final class KeyboardAccessoryBar: UIView {
+    private let doneGreen = UIColor(red: 0.184, green: 0.251, blue: 0.180, alpha: 1.0)
+
+    override var intrinsicContentSize: CGSize {
+        CGSize(width: UIView.noIntrinsicMetric, height: 44)
+    }
+
     init(target: Any?, action: Selector) {
         super.init(frame: .zero)
-        barStyle = .default
-        isTranslucent = false
-        barTintColor = .white
         backgroundColor = .white
-        let appearance = UIToolbarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = .white
-        standardAppearance = appearance
-        scrollEdgeAppearance = appearance
-        let spacer = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
-        let done = UIBarButtonItem(title: "Done", style: .plain, target: target, action: action)
-        done.tintColor = UIColor(red: 0.184, green: 0.251, blue: 0.180, alpha: 1.0)
-        done.setTitleTextAttributes(
-            [
-                .foregroundColor: UIColor(red: 0.184, green: 0.251, blue: 0.180, alpha: 1.0),
-                .font: UIFont.systemFont(ofSize: 16, weight: .medium),
-            ],
-            for: .normal
-        )
-        items = [spacer, done]
-        sizeToFit()
+        isOpaque = true
+
+        let button = UIButton(type: .system)
+        button.setTitle("Done", for: .normal)
+        button.titleLabel?.font = UIFont.systemFont(ofSize: 16, weight: .medium)
+        button.setTitleColor(doneGreen, for: .normal)
+        button.tintColor = doneGreen
+        button.addTarget(target, action: action, for: .touchUpInside)
+        button.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(button)
+
+        NSLayoutConstraint.activate([
+            button.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            button.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+
+        autoresizingMask = [.flexibleWidth, .flexibleHeight]
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
