@@ -1,14 +1,12 @@
 import SwiftUI
 import SwiftData
 
-/// Shared tag picker: expense multi-select (non-group tags, A–Z) or home row visibility (root tags & groups, A–Z).
+/// Shared tag picker: expense multi-select (non-group tags, A–Z).
 struct SharedTagPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
 
     @Binding private var selectedTagIds: [String]
-    private let isHomeVisibilityMode: Bool
 
     @State private var workingIds: [String] = []
     @State private var showingNewTag = false
@@ -18,13 +16,6 @@ struct SharedTagPickerSheet: View {
 
     init(selectedTagIds: Binding<[String]>) {
         _selectedTagIds = selectedTagIds
-        isHomeVisibilityMode = false
-    }
-
-    /// Home: toggles `showOnHome` for root-level tags and groups (`parentId == nil`).
-    init(homeVisibilityMode: Void) {
-        _selectedTagIds = .constant([])
-        isHomeVisibilityMode = true
     }
 
     private var standaloneTags: [TagModel] {
@@ -149,16 +140,7 @@ struct SharedTagPickerSheet: View {
                 }
             }
             .onAppear {
-                if isHomeVisibilityMode {
-                    let ids = Set(
-                        standaloneTags.map(\.id)
-                            + groups.map(\.id)
-                            + groups.flatMap { childTags(of: $0).map(\.id) }
-                    )
-                    workingIds = tags.filter { $0.showOnHome && ids.contains($0.id) }.map(\.id)
-                } else {
-                    workingIds = selectedTagIds
-                }
+                workingIds = selectedTagIds
             }
             .sheet(isPresented: $showingNewTag) {
                 TagCreationView(onSave: { newId in
@@ -198,24 +180,12 @@ struct SharedTagPickerSheet: View {
         return HStack(spacing: 0) {
             // Left: folder icon + name + badge — tapping selects/deselects all children
             Button {
-                if isHomeVisibilityMode {
-                    // Home mode: toggle the group itself
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        if workingIds.contains(group.id) {
-                            workingIds.removeAll { $0 == group.id }
-                        } else {
-                            workingIds.append(group.id)
-                        }
-                    }
-                } else {
-                    // Standard mode: select/deselect all child tags
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        if allSelected {
-                            workingIds.removeAll { id in children.contains { $0.id == id } }
-                        } else {
-                            for child in children where !workingIds.contains(child.id) {
-                                workingIds.append(child.id)
-                            }
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    if allSelected {
+                        workingIds.removeAll { id in children.contains { $0.id == id } }
+                    } else {
+                        for child in children where !workingIds.contains(child.id) {
+                            workingIds.append(child.id)
                         }
                     }
                 }
@@ -230,7 +200,7 @@ struct SharedTagPickerSheet: View {
                         .font(Fonts.body(16))
                         .foregroundStyle(Color.textPrimary)
 
-                    if !isHomeVisibilityMode && selectedChildCount > 0 && !allSelected {
+                    if selectedChildCount > 0 && !allSelected {
                         // Partial selection badge
                         Text("\(selectedChildCount)")
                             .font(.system(size: 12, weight: .semibold))
@@ -243,18 +213,10 @@ struct SharedTagPickerSheet: View {
 
                     Spacer(minLength: 0)
 
-                    if isHomeVisibilityMode {
-                        if workingIds.contains(group.id) {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Color(hex: "2F402E"))
-                        }
-                    } else {
-                        if allSelected {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Color(hex: "2F402E"))
-                        }
+                    if allSelected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color(hex: "2F402E"))
                     }
                 }
                 .padding(.leading, Spacing.md)
@@ -282,7 +244,7 @@ struct SharedTagPickerSheet: View {
             }
             .buttonStyle(.plain)
         }
-        .background(allSelected && !isHomeVisibilityMode ? group.tagColor.primaryColor.opacity(0.06) : Color.clear)
+        .background(allSelected ? group.tagColor.primaryColor.opacity(0.06) : Color.clear)
         .clipShape(RoundedRectangle(cornerRadius: Radius.md))
     }
 
@@ -325,25 +287,7 @@ struct SharedTagPickerSheet: View {
     }
 
     private func confirmDone() {
-        if isHomeVisibilityMode {
-            let selectableIds = Set(
-                standaloneTags.map(\.id)
-                    + groups.map(\.id)
-                    + groups.flatMap { childTags(of: $0).map(\.id) }
-            )
-            for tag in tags where selectableIds.contains(tag.id) {
-                tag.showOnHome = workingIds.contains(tag.id)
-            }
-            do {
-                try modelContext.save()
-            } catch {
-                #if DEBUG
-                print("[Tally] ERROR saving home tag visibility: \(error)")
-                #endif
-            }
-        } else {
-            selectedTagIds = workingIds
-        }
+        selectedTagIds = workingIds
         dismiss()
     }
 }

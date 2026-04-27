@@ -75,6 +75,7 @@
 		A1B2C3D4010203040506070D /* ReportsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4010203040506070C /* ReportsView.swift */; };
 		A1B2C3D4010203040506070F /* TagsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4010203040506070E /* TagsTabView.swift */; };
 		A1B2C3D40102030405060711 /* TallyTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40102030405060710 /* TallyTabBar.swift */; };
+		A1B2C3D40102030405060715 /* ActiveFiltersRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40102030405060714 /* ActiveFiltersRow.swift */; };
 		A1B2C3D40102030405060713 /* TagsAndGroupsManagementRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40102030405060712 /* TagsAndGroupsManagementRows.swift */; };
 /* End PBXBuildFile section */
 
@@ -159,6 +160,7 @@
 		A1B2C3D4010203040506070C /* ReportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportsView.swift; sourceTree = "<group>"; };
 		A1B2C3D4010203040506070E /* TagsTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagsTabView.swift; sourceTree = "<group>"; };
 		A1B2C3D40102030405060710 /* TallyTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TallyTabBar.swift; sourceTree = "<group>"; };
+		A1B2C3D40102030405060714 /* ActiveFiltersRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveFiltersRow.swift; sourceTree = "<group>"; };
 		A1B2C3D40102030405060712 /* TagsAndGroupsManagementRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagsAndGroupsManagementRows.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -399,6 +401,7 @@
 				E4F69CD0974425FA739BD547 /* Export */,
 				DC39752DA1AA31D3495721DE /* Home */,
 				5F43D64A94A88B54A0F9FD37 /* Onboarding */,
+				A1B2C3D40102030405060714 /* ActiveFiltersRow.swift */,
 				A1B2C3D4010203040506070C /* ReportsView.swift */,
 				9E9A2F775987CC22F862F9A2 /* Settings */,
 				6A5125905C2BDA585E759115 /* Tags */,
@@ -607,6 +610,7 @@
 				A1B2C3D40102030405060713 /* TagsAndGroupsManagementRows.swift in Sources */,
 				A1B2C3D4010203040506070F /* TagsTabView.swift in Sources */,
 				A1B2C3D40102030405060711 /* TallyTabBar.swift in Sources */,
+				A1B2C3D40102030405060715 /* ActiveFiltersRow.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

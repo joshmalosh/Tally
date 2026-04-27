@@ -16,14 +16,12 @@ struct HomeView: View {
     @State private var selectedEntryMode: AddEntryMode?
     @State private var thumbnailCache: [String: UIImage] = [:]
     @State private var periodFilter: PeriodFilter = .allTime
-    @State private var showingSharedTagPicker = false
     @State private var isHeaderCollapsed = false
     @State private var showingGlobalExport = false
     @State private var showingFilteredExport = false
     @State private var isSelecting = false
     @State private var selectedExpenseIds: Set<String> = []
     @State private var exportWithSelectionItem: ExportWithSelectionItem?
-    @State private var expandedGroupId: String?
     @State private var expenseToDelete: ExpenseModel?
     @FocusState private var isSearchFocused: Bool
     @State private var selectedTab: TallyTab = .home
@@ -126,12 +124,12 @@ struct HomeView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
 
+            // Active filter chips — only renders when filters are active
+            ActiveFiltersRow(periodFilter: $periodFilter)
+                .animation(.easeOut(duration: 0.2), value: appState.activeFilterIds)
+                .animation(.easeOut(duration: 0.2), value: periodFilter)
+
             if invoicingState.homeMode == .expenses {
-                tagRow
-                    .padding(.top, 4)
-
-                divider
-
                 if filteredExpenses.isEmpty && !isSelecting {
                     emptyState
                 } else {
@@ -233,11 +231,6 @@ struct HomeView: View {
                 expenses: filteredExpenses,
                 filterLabel: activeFilterLabel
             )
-        }
-        .sheet(isPresented: $showingSharedTagPicker) {
-            SharedTagPickerSheet(homeVisibilityMode: ())
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
         }
         .sheet(item: $exportWithSelectionItem) { item in
             GlobalExportSheet(initialSelection: item.expenses)
@@ -418,176 +411,6 @@ struct HomeView: View {
             .buttonStyle(.plain)
         }
         .padding(.horizontal, Spacing.lg)
-    }
-
-    // MARK: - Tag Row
-
-    /// Standalone tags and groups with `showOnHome`, A–Z (same pill row).
-    private var homeVisibleTags: [TagModel] {
-        tags
-            .filter { $0.showOnHome && $0.parentId == nil }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-    }
-
-    private func childrenOf(_ group: TagModel) -> [TagModel] {
-        tags.filter { $0.parentId == group.id }
-    }
-
-    private func groupIsActive(_ group: TagModel) -> Bool {
-        if appState.activeFilterIds.contains(group.id) { return true }
-        return childrenOf(group).contains { appState.activeFilterIds.contains($0.id) }
-    }
-
-    private func groupActiveCount(_ group: TagModel) -> Int {
-        var count = 0
-        if appState.activeFilterIds.contains(group.id) { count += 1 }
-        count += childrenOf(group).filter { appState.activeFilterIds.contains($0.id) }.count
-        return count
-    }
-
-    private func groupPillLabel(_ group: TagModel) -> String {
-        let activeChildren = childrenOf(group).filter { appState.activeFilterIds.contains($0.id) }
-        if appState.activeFilterIds.contains(group.id) {
-            return activeChildren.isEmpty ? group.name : "\(group.name) +\(activeChildren.count)"
-        }
-        if activeChildren.count == 1, let child = activeChildren.first {
-            return child.name
-        }
-        if activeChildren.count > 1, let first = activeChildren.first {
-            return "\(first.name) +\(activeChildren.count - 1)"
-        }
-        return group.name
-    }
-
-    private var tagRow: some View {
-        VStack(spacing: 0) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: Spacing.sm) {
-                    Button {
-                        appState.clearFilters()
-                        withAnimation(.easeInOut(duration: 0.2)) { expandedGroupId = nil }
-                    } label: {
-                        TagPill(
-                            name: "All",
-                            tagColor: TagColors.forId("primaryGreen"),
-                            isActive: !appState.hasTagFilters
-                        )
-                    }
-                    .buttonStyle(.plain)
-
-                    ForEach(homeVisibleTags) { tag in
-                        if tag.isGroup {
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    if expandedGroupId == tag.id {
-                                        expandedGroupId = nil
-                                    } else {
-                                        expandedGroupId = tag.id
-                                    }
-                                }
-                            } label: {
-                                TagPill(
-                                    name: groupPillLabel(tag),
-                                    tagColor: tag.tagColor,
-                                    isActive: groupIsActive(tag),
-                                    isGroup: true,
-                                    isExpanded: expandedGroupId == tag.id
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        } else {
-                            Button {
-                                appState.toggleFilter(id: tag.id, isGroup: false)
-                            } label: {
-                                TagPill(
-                                    name: tag.name,
-                                    tagColor: tag.tagColor,
-                                    isActive: appState.activeFilterIds.contains(tag.id)
-                                )
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-
-                    Button { showingSharedTagPicker = true } label: {
-                        AddTagPill()
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, Spacing.lg)
-                .padding(.vertical, Spacing.sm)
-            }
-            .scrollDismissesKeyboard(.immediately)
-            .onTapGesture { isSearchFocused = false }
-
-            if let groupId = expandedGroupId,
-               let group = homeVisibleTags.first(where: { $0.id == groupId }) {
-                groupChildrenRow(group)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-    }
-
-    private func groupChildrenRow(_ group: TagModel) -> some View {
-        let groupAllActive = appState.activeFilterIds.contains(group.id)
-
-        return ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Spacing.sm) {
-                Button {
-                    appState.toggleFilter(id: group.id, isGroup: true)
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "folder.fill")
-                            .font(.system(size: 10))
-                            .foregroundStyle(groupAllActive ? .white : Color.textSecondary)
-                        Text("All")
-                            .font(.system(size: 13, weight: groupAllActive ? .semibold : .regular))
-                    }
-                    .foregroundStyle(groupAllActive ? Color.chipActiveText : Color.chipInactiveText)
-                    .padding(.horizontal, 10)
-                    .frame(height: 28)
-                    .background(
-                        RoundedRectangle(cornerRadius: Radius.pill)
-                            .fill(groupAllActive ? Color.chipActiveBg : Color.chipInactiveBg)
-                    )
-                }
-                .buttonStyle(.plain)
-
-                ForEach(childrenOf(group)) { child in
-                    let isChildActive = appState.activeFilterIds.contains(child.id)
-                    Button {
-                        appState.toggleFilter(id: child.id, isGroup: false)
-                    } label: {
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(isChildActive ? .white : child.tagColor.primaryColor)
-                                .frame(width: 7, height: 7)
-                            Text(child.name)
-                                .font(.system(size: 13, weight: isChildActive ? .semibold : .regular))
-                        }
-                        .foregroundStyle(isChildActive ? Color.chipActiveText : Color.chipInactiveText)
-                        .padding(.horizontal, 10)
-                        .frame(height: 28)
-                        .background(
-                            RoundedRectangle(cornerRadius: Radius.pill)
-                                .fill(isChildActive ? Color.chipActiveBg : Color.chipInactiveBg)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, Spacing.lg)
-            .padding(.bottom, Spacing.sm)
-        }
-        .scrollDismissesKeyboard(.immediately)
-    }
-
-    // MARK: - Divider
-
-    private var divider: some View {
-        Rectangle()
-            .fill(Color.borderColor)
-            .frame(height: 1)
     }
 
     // MARK: - Empty State
@@ -1009,7 +832,6 @@ struct HomeView: View {
         withAnimation(.easeInOut(duration: 0.25)) {
             isSelecting = true
             selectedExpenseIds.removeAll()
-            expandedGroupId = nil
             if let id { selectedExpenseIds.insert(id) }
         }
     }
