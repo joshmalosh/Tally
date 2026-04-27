@@ -9,10 +9,13 @@ struct TagsTabView: View {
                     TagsAndGroupsManagementRows()
                 }
             }
-            .navigationTitle("Tags & Groups")
-            .navigationBarTitleDisplayMode(.large)
             .scrollContentBackground(.hidden)
-            .background(Color(hex: "F6F5F3"))
+            .background(Color(hex: "F6F5F3").ignoresSafeArea())
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear.frame(height: 90)
+            }
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
         }
         .background(Color(hex: "F6F5F3").ignoresSafeArea())
     }

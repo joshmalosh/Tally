@@ -27,6 +27,16 @@ struct TagsAndGroupsManagementRows: View {
 
     var body: some View {
         Group {
+            Text("Tags & Groups")
+                .font(.system(size: 28, weight: .bold))
+                .foregroundStyle(Color(hex: "1C1C1E"))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+
             HStack(spacing: 10) {
                 Button {
                     showingTagCreation = true
