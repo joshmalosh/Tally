@@ -27,6 +27,49 @@ struct TagsAndGroupsManagementRows: View {
 
     var body: some View {
         Group {
+            HStack(spacing: 10) {
+                Button {
+                    showingTagCreation = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus.circle")
+                            .font(.system(size: 14))
+                        Text("Add tag")
+                            .font(.system(size: 14, weight: .medium))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(Color.white)
+                    .foregroundStyle(Color(hex: "2F402E"))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    showingGroupCreation = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "folder.badge.plus")
+                            .font(.system(size: 14))
+                        Text("Add folder")
+                            .font(.system(size: 14, weight: .medium))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(Color.white)
+                    .foregroundStyle(Color(hex: "2F402E"))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 8)
+            .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 0, trailing: 0))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+
             ForEach(allTagsSorted) { tag in
                 HStack(spacing: Spacing.smd) {
                     Button {
@@ -59,18 +102,6 @@ struct TagsAndGroupsManagementRows: View {
                 }
             }
 
-            Button {
-                showingTagCreation = true
-            } label: {
-                HStack {
-                    Image(systemName: "plus.circle")
-                        .font(.system(size: 20))
-                        .foregroundStyle(Color.brandPrimary)
-                    Text("Add tag")
-                        .foregroundStyle(Color.brandPrimary)
-                }
-            }
-
             ForEach(groupsSorted) { group in
                 HStack(spacing: Spacing.smd) {
                     NavigationLink {
@@ -84,12 +115,8 @@ struct TagsAndGroupsManagementRows: View {
                             Text(group.name)
                                 .foregroundStyle(Color.textPrimary)
                             Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Color.textMuted)
                         }
                     }
-                    .buttonStyle(.plain)
 
                     Toggle("", isOn: Binding(
                         get: { group.showOnHome },
@@ -102,18 +129,6 @@ struct TagsAndGroupsManagementRows: View {
                     Button(role: .destructive) { deleteTag(group) } label: {
                         Label("Delete", systemImage: "trash")
                     }
-                }
-            }
-
-            Button {
-                showingGroupCreation = true
-            } label: {
-                HStack {
-                    Image(systemName: "folder.badge.plus")
-                        .font(.system(size: 20))
-                        .foregroundStyle(Color.brandPrimary)
-                    Text("Add group")
-                        .foregroundStyle(Color.brandPrimary)
                 }
             }
         }

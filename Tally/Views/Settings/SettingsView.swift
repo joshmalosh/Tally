@@ -50,19 +50,6 @@ struct SettingsView: View {
                     }
                 }
 
-                Section {
-                    TagsAndGroupsManagementRows()
-                } header: {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Tags & Groups")
-                        Text("Toggle tags to show them as filters on your home screen.")
-                            .font(Fonts.caption(13))
-                            .foregroundStyle(Color.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
                 Section("Preferences") {
                     Button { showingCurrencyPicker = true } label: {
                         HStack {

@@ -14,28 +14,36 @@ struct TallyTabBar: View {
     var body: some View {
         ZStack(alignment: .top) {
 
-            // MARK: Bar background
-            HStack(spacing: 0) {
-                tabItem(tab: .home, icon: "house", label: "Home")
-                tabItem(tab: .reports, icon: "chart.line.uptrend.xyaxis", label: "Reports")
-                Spacer().frame(maxWidth: .infinity) // centre space for FAB
-                tabItem(tab: .tags, icon: "tag", label: "Tags")
-                moreItem
+            // MARK: White background — extends through home indicator to screen bottom
+            VStack(spacing: 0) {
+                Color.white
+                    .frame(height: 60)
+                Color.white
             }
-            .frame(height: 60)
-            .background(Color.white)
+            .ignoresSafeArea(edges: .bottom)
             .overlay(alignment: .top) {
                 Rectangle()
                     .fill(Color(hex: "DEDAD2"))
                     .frame(height: 0.5)
             }
 
-            // MARK: FAB — sits above the bar, centred
+            // MARK: Tab items — sit within the 60pt bar height
+            HStack(spacing: 0) {
+                tabItem(tab: .home, icon: "house", label: "Home")
+                tabItem(tab: .reports, icon: "chart.line.uptrend.xyaxis", label: "Reports")
+                Spacer().frame(maxWidth: .infinity) // centre space reserved for FAB
+                tabItem(tab: .tags, icon: "tag", label: "Tags")
+                moreItem
+            }
+            .frame(height: 60)
+
+            // MARK: FAB — centred, sitting above the bar
             Button(action: onFABTap) {
                 ZStack {
                     Circle()
                         .fill(Color(hex: "2F402E"))
                         .frame(width: 73, height: 73)
+                        .shadow(color: Color(hex: "2F402E").opacity(0.35), radius: 12, x: 0, y: 6)
                     Image(systemName: "plus")
                         .font(.system(size: 27, weight: .medium))
                         .foregroundStyle(.white)
@@ -47,7 +55,7 @@ struct TallyTabBar: View {
         .frame(height: 60)
     }
 
-    // MARK: Tab item
+    // MARK: Regular tab item
     private func tabItem(tab: TallyTab, icon: String, label: String) -> some View {
         Button {
             selectedTab = tab
@@ -65,7 +73,7 @@ struct TallyTabBar: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: More — opens Settings
+    // MARK: More item — opens Settings
     private var moreItem: some View {
         Button {
             appState.showingSettings = true
