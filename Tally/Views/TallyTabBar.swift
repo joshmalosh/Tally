@@ -11,14 +11,14 @@ struct TallyTabBar: View {
     @Environment(AppState.self) private var appState
     let onFABTap: () -> Void
 
-    private let fabDiameter: CGFloat = 99        // 73 × 1.35 ≈ 99
-    private let fabOverlapBelowBar: CGFloat = 33  // lower third of 99pt FAB
+    private let fabDiameter: CGFloat = 99
+    private let fabOverlapBelowBar: CGFloat = 33
     private var fabOffset: CGFloat { -(fabDiameter - fabOverlapBelowBar) }
 
     var body: some View {
         ZStack(alignment: .top) {
 
-            // White background — fills bar + home indicator area fully
+            // White background — extends through home indicator to screen bottom
             VStack(spacing: 0) {
                 Color.white.frame(height: 54)
                 Color.white
@@ -40,23 +40,11 @@ struct TallyTabBar: View {
             }
             .frame(height: 54)
 
-            // FAB
-            Button(action: onFABTap) {
-                ZStack {
-                    Circle()
-                        .fill(Color(hex: "2F402E"))
-                        .frame(width: fabDiameter, height: fabDiameter)
-                        .shadow(color: Color(hex: "2F402E").opacity(0.35), radius: 14, x: 0, y: 6)
-                    Image(systemName: "plus")
-                        .font(.system(size: 34, weight: .medium))
-                        .foregroundStyle(.white)
-                }
-            }
-            .buttonStyle(.plain)
-            .offset(y: fabOffset)
+            // FAB — satisfying press animation, haptics, sound
+            TallyFAB(diameter: fabDiameter, action: onFABTap)
+                .offset(y: fabOffset)
         }
         .frame(height: 54)
-        // Shift the entire bar down — reduces whitespace beneath it
         .padding(.bottom, -16)
     }
 
