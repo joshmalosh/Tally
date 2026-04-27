@@ -26,14 +26,8 @@ struct HomeView: View {
     @State private var expandedGroupId: String?
     @State private var expenseToDelete: ExpenseModel?
     @FocusState private var isSearchFocused: Bool
-    @State private var previousScrollOffset: CGFloat = 0
-    @State private var fabScrollScale: CGFloat = 1.0
-    @State private var fabPressScale: CGFloat = 1.0
-    @State private var fabIsPressed: Bool = false
-    @State private var fabRippling: Bool = false
-    @State private var animatedTotal: Double = 0
-    @State private var totalAnimationTrigger: Int = 0
-    @State private var totalCountUpTimer: Timer?
+    @State private var selectedTab: TallyTab = .home
+    @State private var showingFilterSheet = false
 
     private var periodExpenses: [ExpenseModel] {
         switch periodFilter {
@@ -88,28 +82,6 @@ struct HomeView: View {
         return result
     }
 
-    private var displayTotalCents: Int {
-        periodExpenses.reduce(0) { $0 + $1.amountCents }
-    }
-
-    private var invoiceDisplayTotal: Double {
-        guard let company = invoicingState.activeCompany else { return 0.0 }
-        switch invoicingState.totalsMode {
-        case .invoiced:
-            return company.invoices.reduce(0.0) { $0 + $1.grandTotal }
-        case .received:
-            return company.invoices.filter { $0.status == .paid }.reduce(0.0) { $0 + $1.grandTotal }
-        }
-    }
-
-    private func formatDouble(_ value: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.minimumFractionDigits = 2
-        formatter.maximumFractionDigits = 2
-        return formatter.string(from: NSNumber(value: value)) ?? "0.00"
-    }
-
     private func tagsFor(_ expense: ExpenseModel) -> [TagModel] {
         expense.resolvedTagIds.compactMap { id in tags.first { $0.id == id } }
     }
@@ -134,9 +106,6 @@ struct HomeView: View {
         return n > 1 ? n - 1 : 0
     }
 
-    private let fabCircleDimension: CGFloat = 73
-    private let fabPlusFontSize: CGFloat = 27
-
     private var homeScrollableColumn: some View {
         VStack(spacing: 0) {
             if !isHeaderCollapsed {
@@ -147,10 +116,12 @@ struct HomeView: View {
                     .frame(height: 8)
             }
 
-            headerSection
-                .allowsHitTesting(!isSelecting)
+            if invoicingState.hasCompany {
+                modeToggle
+                    .allowsHitTesting(!isSelecting)
+            }
 
-            if !isHeaderCollapsed && invoicingState.homeMode == .expenses {
+            if !isHeaderCollapsed {
                 searchBar
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
@@ -170,7 +141,7 @@ struct HomeView: View {
                 InvoicesListView()
                     .environmentObject(invoicingState)
                     .safeAreaInset(edge: .bottom, spacing: 0) {
-                        fabAndAdBottomInset
+                        Color.clear.frame(height: 90)
                     }
                     .background(Color(hex: "F6F5F3"))
             }
@@ -185,121 +156,12 @@ struct HomeView: View {
                 exitSelectionMode()
             }
         }
-        .onAppear {
-            animateTotal()
-        }
-        .onChange(of: activeExpenses.count) { _, _ in
-            animateTotal()
-        }
-    }
-
-    private func formatAnimatedTotal() -> String {
-        let val = animatedTotal / 100.0
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.minimumFractionDigits = 2
-        formatter.maximumFractionDigits = 2
-        return formatter.string(from: NSNumber(value: val)) ?? "0.00"
-    }
-
-    private func animateTotal() {
-        totalCountUpTimer?.invalidate()
-        animatedTotal = 0
-        let target = Double(displayTotalCents)
-        let duration: Double = 0.9
-        let startTime = Date()
-        let timer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60.0, repeats: true) { t in
-            let elapsed = Date().timeIntervalSince(startTime)
-            let progress = min(elapsed / duration, 1.0)
-            let eased = 1.0 - pow(2.0, -10.0 * progress)
-            DispatchQueue.main.async {
-                animatedTotal = eased * target
-                if progress >= 1.0 {
-                    animatedTotal = target
-                    totalAnimationTrigger += 1
-                    t.invalidate()
-                    totalCountUpTimer = nil
-                }
-            }
-        }
-        totalCountUpTimer = timer
-        RunLoop.main.add(timer, forMode: .common)
-    }
-
-    private var fabButton: some View {
-        Button(action: {}) {
-            ZStack {
-                if fabRippling {
-                    Circle()
-                        .stroke(Color.brandPrimary, lineWidth: 2)
-                        .frame(width: fabCircleDimension, height: fabCircleDimension)
-                        .scaleEffect(fabRippling ? 2.1 : 1.0)
-                        .opacity(fabRippling ? 0 : 0.65)
-                        .animation(.easeOut(duration: 0.5), value: fabRippling)
-                }
-                Image(systemName: "plus")
-                    .font(.system(size: fabPlusFontSize, weight: .medium))
-                    .foregroundStyle(.white)
-                    .frame(width: fabCircleDimension, height: fabCircleDimension)
-                    .background(Circle().fill(Color.brandPrimary))
-                    .shadow(color: Color.brandPrimary.opacity(0.45), radius: 16, x: 0, y: 8)
-            }
-        }
-        .buttonStyle(.plain)
-        .scaleEffect(fabScrollScale * fabPressScale)
-        .animation(.easeInOut(duration: 0.2), value: fabScrollScale)
-        .animation(.spring(response: 0.4, dampingFraction: 0.5), value: fabPressScale)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in
-                    if !fabIsPressed {
-                        fabIsPressed = true
-                        withAnimation(.easeIn(duration: 0.07)) {
-                            fabPressScale = 0.86
-                        }
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    }
-                }
-                .onEnded { _ in
-                    fabIsPressed = false
-                    withAnimation(.spring(response: 0.4, dampingFraction: 0.5)) {
-                        fabPressScale = 1.0
-                    }
-                    fabRippling = false
-                    fabRippling = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
-                        fabRippling = false
-                    }
-                    withAnimation(.spring(response: 0.46, dampingFraction: 0.72)) {
-                        showingEntryPicker = true
-                    }
-                }
-        )
-    }
-
-    @ViewBuilder
-    private var fabAndAdBottomInset: some View {
-        VStack(spacing: 0) {
-            if !isSelecting {
-                HStack {
-                    Spacer()
-                    fabButton
-                    Spacer()
-                }
-                .padding(.top, 12)
-                .padding(.bottom, adManager.shouldShowBannerAd ? 12 : 28)
-            }
-            if adManager.shouldShowBannerAd {
-                BannerAdView()
-            }
-        }
-        .background(Color.clear)
     }
 
     var body: some View {
         @Bindable var appState = appState
 
-        ZStack {
+        ZStack(alignment: .bottom) {
             NavigationStack {
                 homeScrollableColumn
                     .background(Color(hex: "F6F5F3").ignoresSafeArea())
@@ -308,12 +170,40 @@ struct HomeView: View {
             }
             .background(Color(hex: "F6F5F3").ignoresSafeArea())
 
+            if selectedTab == .reports {
+                ReportsView()
+                    .background(Color(hex: "F6F5F3").ignoresSafeArea())
+                    .transition(.opacity)
+                    .zIndex(50)
+            }
+
+            if selectedTab == .tags {
+                TagsTabView()
+                    .background(Color(hex: "F6F5F3").ignoresSafeArea())
+                    .transition(.opacity)
+                    .zIndex(50)
+            }
+
             if invoicingState.isProfilePanelOpen {
                 ProfilePanelView()
                     .environmentObject(invoicingState)
                     .transition(.move(edge: .trailing))
                     .zIndex(100)
             }
+
+            VStack(spacing: 0) {
+                if adManager.shouldShowBannerAd {
+                    BannerAdView()
+                }
+                TallyTabBar(selectedTab: $selectedTab) {
+                    guard invoicingState.homeMode == .expenses else { return }
+                    withAnimation(.spring(response: 0.46, dampingFraction: 0.72)) {
+                        showingEntryPicker = true
+                    }
+                }
+            }
+            .ignoresSafeArea(edges: .bottom)
+            .zIndex(60)
         }
         .background(Color(hex: "F6F5F3").ignoresSafeArea())
         .sheet(isPresented: $showingEntryPicker) {
@@ -351,6 +241,9 @@ struct HomeView: View {
         }
         .sheet(item: $exportWithSelectionItem) { item in
             GlobalExportSheet(initialSelection: item.expenses)
+        }
+        .sheet(isPresented: $showingFilterSheet) {
+            FilterSheet(periodFilter: $periodFilter)
         }
         .alert("Delete expense?", isPresented: Binding(
             get: { expenseToDelete != nil },
@@ -427,159 +320,103 @@ struct HomeView: View {
         .padding(.bottom, 4)
     }
 
-    // MARK: - Header
+    // MARK: - Mode toggle
 
-    private var headerSection: some View {
-        HStack(alignment: .top, spacing: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                if invoicingState.hasCompany {
-                    HStack(alignment: .firstTextBaseline, spacing: 10) {
-                        Text(invoicingState.homeMode == .expenses ? "Total Spent" : "")
-                            .font(.system(size: 13))
-                            .foregroundStyle(Color(hex: "4A5E50"))
-
-                        if invoicingState.homeMode == .invoices {
-                            HStack(spacing: 0) {
-                                ForEach([InvoiceTotalsMode.invoiced, InvoiceTotalsMode.received], id: \.self) { mode in
-                                    Button {
-                                        invoicingState.totalsMode = mode
-                                    } label: {
-                                        Text(mode == .invoiced ? "Invoiced" : "Received")
-                                            .font(.system(size: 12, weight: .medium))
-                                            .padding(.horizontal, 10)
-                                            .padding(.vertical, 3)
-                                            .background(
-                                                invoicingState.totalsMode == mode
-                                                ? Color(hex: "2F402E")
-                                                : Color.white
-                                            )
-                                            .foregroundStyle(
-                                                invoicingState.totalsMode == mode
-                                                ? Color.white
-                                                : Color(hex: "8F9E94")
-                                            )
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                            .clipShape(Capsule())
-                            .overlay(Capsule().stroke(Color(hex: "DEDAD2"), lineWidth: 1))
-                        }
-
-                        periodToggle
-                    }
-                    .padding(.bottom, 3)
-                } else {
-                    HStack(spacing: 7) {
-                        Text("Total Spent")
-                            .font(.system(size: 13, weight: .regular))
-                            .foregroundStyle(Color(hex: "8F9E94"))
-                        periodToggle
-                    }
-                    .padding(.bottom, 3)
-                }
-
-                HStack(alignment: .top, spacing: 2) {
-                    Text("$")
-                        .font(Fonts.brand(22))
-                        .foregroundStyle(Color(hex: "BFBAB3"))
-                        .padding(.top, 8)
-
-                    if invoicingState.homeMode == .invoices {
-                        Text(formatDouble(invoiceDisplayTotal))
-                            .font(Fonts.brand(38))
-                            .foregroundStyle(Color(hex: "1C1C1E"))
-                            .kerning(-1)
-                    } else {
-                        Text(formatAnimatedTotal())
-                            .font(Fonts.brand(38))
-                            .foregroundStyle(Color(hex: "1C1C1E"))
-                            .kerning(-1)
-                    }
-                }
-            }
-
-            Spacer()
-
-            if invoicingState.hasCompany {
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(invoicingState.homeMode == .expenses ? "Expenses" : "Invoices")
-                        .font(Font.custom("Georgia", size: 19).weight(.bold))
-                        .foregroundStyle(Color(hex: "1C1C1E"))
-
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            invoicingState.homeMode = invoicingState.homeMode == .expenses ? .invoices : .expenses
-                        }
-                    } label: {
-                        HStack(spacing: 3) {
-                            Text(invoicingState.homeMode == .expenses ? "Invoices" : "Expenses")
-                                .font(.custom("Georgia", size: 14))
-                                .foregroundStyle(Color(hex: "B5AC9E"))
-                            Image(systemName: "repeat")
-                                .font(.system(size: 11))
-                                .foregroundStyle(Color(hex: "B5AC9E"))
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-        .padding(.horizontal, Spacing.lg)
-        .padding(.top, 16)
-        .padding(.bottom, Spacing.smd)
-    }
-
-    private var periodToggle: some View {
-        Menu {
-            ForEach([PeriodFilter.allTime, .thisFinancialYear, .thisYear, .thisMonth], id: \.label) { filter in
+    private var modeToggle: some View {
+        HStack(spacing: 3) {
+            ForEach([HomeMode.expenses, HomeMode.invoices], id: \.self) { mode in
                 Button {
-                    withAnimation(nil) { periodFilter = filter }
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        invoicingState.homeMode = mode
+                    }
                 } label: {
-                    Label(filter.label, systemImage: periodFilter == filter ? "checkmark" : "")
+                    HStack(spacing: 5) {
+                        Image(systemName: mode == .expenses ? "wallet.bifold" : "doc.text")
+                            .font(.system(size: 13))
+                        Text(mode == .expenses ? "Expenses" : "Invoices")
+                            .font(.system(size: 13, weight: .medium))
+                    }
+                    .padding(.vertical, 9)
+                    .frame(maxWidth: .infinity)
+                    .background(invoicingState.homeMode == mode ? Color(hex: "2F402E") : Color.clear)
+                    .foregroundStyle(invoicingState.homeMode == mode ? Color.white : Color(hex: "8F9E94"))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
-            }
-        } label: {
-            HStack(spacing: 4) {
-                Text(periodFilter.label)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color(hex: "4A5E50"))
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(Color(hex: "4A5E50").opacity(0.6))
+                .buttonStyle(.plain)
             }
         }
+        .padding(3)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 13))
+        .overlay(RoundedRectangle(cornerRadius: 13).stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
+        .padding(.horizontal, Spacing.lg)
+        .padding(.bottom, 10)
     }
 
     // MARK: - Search
 
     private var searchBar: some View {
-        HStack(spacing: Spacing.sm) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 15))
-                .foregroundStyle(Color.textMuted)
+        HStack(spacing: 8) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 15))
+                    .foregroundStyle(Color.textMuted)
 
-            TextField("Search expenses...", text: $searchText)
-                .font(Fonts.body(14))
-                .foregroundStyle(Color.textPrimary)
-                .focused($isSearchFocused)
+                TextField("Search expenses...", text: $searchText)
+                    .font(Fonts.body(14))
+                    .foregroundStyle(Color.textPrimary)
+                    .focused($isSearchFocused)
 
-            if !searchText.isEmpty {
-                Button { searchText = "" } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 15))
-                        .foregroundStyle(Color.textMuted)
+                if !searchText.isEmpty {
+                    Button { searchText = "" } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color.textMuted)
+                    }
                 }
             }
+            .padding(.horizontal, Spacing.md)
+            .frame(height: 40)
+            .background(Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+            .overlay(
+                RoundedRectangle(cornerRadius: Radius.sm)
+                    .stroke(
+                        isSearchFocused ? Color.brandPrimary : Color.borderColor,
+                        lineWidth: isSearchFocused ? 1 : 0.5
+                    )
+            )
+
+            Button {
+                showingFilterSheet = true
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "line.3.horizontal.decrease")
+                        .font(.system(size: 13))
+                    Text("Filter")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .foregroundStyle(
+                    appState.hasTagFilters || periodFilter != .allTime
+                        ? Color(hex: "2F402E")
+                        : Color(hex: "4A5E50")
+                )
+                .padding(.horizontal, 12)
+                .frame(height: 40)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Radius.sm)
+                        .stroke(
+                            appState.hasTagFilters || periodFilter != .allTime
+                                ? Color(hex: "2F402E")
+                                : Color(hex: "DEDAD2"),
+                            lineWidth: appState.hasTagFilters || periodFilter != .allTime ? 1 : 0.5
+                        )
+                )
+            }
+            .buttonStyle(.plain)
         }
-        .padding(.horizontal, Spacing.md)
-        .frame(height: 40)
-        .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
-        .overlay(
-            RoundedRectangle(cornerRadius: Radius.sm)
-                .stroke(isSearchFocused ? Color.brandPrimary : Color.borderColor, lineWidth: isSearchFocused ? 1 : 0.5)
-        )
         .padding(.horizontal, Spacing.lg)
     }
 
@@ -788,7 +625,7 @@ struct HomeView: View {
             .frame(maxWidth: .infinity)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            fabAndAdBottomInset
+            Color.clear.frame(height: 90)
         }
         .scrollContentBackground(.hidden)
         .background(Color(hex: "F6F5F3"))
@@ -919,7 +756,7 @@ struct HomeView: View {
 
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            fabAndAdBottomInset
+            Color.clear.frame(height: 90)
         }
         .listStyle(.plain)
         .environment(\.defaultMinListRowHeight, 0)
@@ -943,17 +780,6 @@ struct HomeView: View {
                     }
                 }
             }
-
-            let newOffset = minY
-            if previousScrollOffset != 0 {
-                let delta = newOffset - previousScrollOffset
-                if delta > 2 {
-                    fabScrollScale = 0.9
-                } else if delta < -2 {
-                    fabScrollScale = 1.0
-                }
-            }
-            previousScrollOffset = newOffset
         }
     }
 
