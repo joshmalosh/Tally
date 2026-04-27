@@ -11,8 +11,8 @@ struct TallyTabBar: View {
     @Environment(AppState.self) private var appState
     let onFABTap: () -> Void
 
-    private let fabDiameter: CGFloat = 99
-    private let fabOverlapBelowBar: CGFloat = 33
+    private let fabDiameter: CGFloat = 69        // 99 × 0.70 ≈ 69
+    private let fabOverlapBelowBar: CGFloat = 23  // lower third of 69pt FAB
     private var fabOffset: CGFloat { -(fabDiameter - fabOverlapBelowBar) }
 
     var body: some View {
@@ -40,7 +40,7 @@ struct TallyTabBar: View {
             }
             .frame(height: 54)
 
-            // FAB — satisfying press animation, haptics, sound
+            // FAB
             TallyFAB(diameter: fabDiameter, action: onFABTap)
                 .offset(y: fabOffset)
         }
