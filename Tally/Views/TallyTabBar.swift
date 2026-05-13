@@ -11,16 +11,22 @@ struct TallyTabBar: View {
     @Environment(AppState.self) private var appState
     let onFABTap: () -> Void
 
-    private let fabDiameter: CGFloat = 69        // 99 × 0.70 ≈ 69
-    private let fabOverlapBelowBar: CGFloat = 23  // lower third of 69pt FAB
-    private var fabOffset: CGFloat { -(fabDiameter - fabOverlapBelowBar) }
+    private let fabDiameter: CGFloat = 69
+    // Centre the FAB vertically with the 54pt bar.
+    // FAB diameter is 69pt, bar is 54pt.
+    // To centre: offset = -(fabDiameter / 2) + (barHeight / 2) = -34.5 + 27 = -7.5
+    // Then shift up slightly so it sits above the bar: subtract another 14pt
+    private let barHeight: CGFloat = 54
+    private var fabOffset: CGFloat {
+        -((fabDiameter / 2) + (barHeight / 2) - barHeight + 6)
+    }
 
     var body: some View {
         ZStack(alignment: .top) {
 
-            // White background — extends through home indicator to screen bottom
+            // White background extends to bottom of screen
             VStack(spacing: 0) {
-                Color.white.frame(height: 54)
+                Color.white.frame(height: barHeight)
                 Color.white
             }
             .ignoresSafeArea(edges: .bottom)
@@ -30,30 +36,31 @@ struct TallyTabBar: View {
                     .frame(height: 0.5)
             }
 
-            // Tab items
-            HStack(spacing: 0) {
-                tabItem(tab: .home, icon: "house", label: "Home")
-                tabItem(tab: .reports, icon: "chart.line.uptrend.xyaxis", label: "Reports")
+            // Tab items — all bottom-aligned using .bottom alignment on HStack
+            HStack(alignment: .bottom, spacing: 0) {
+                tabItem(tab: .home, icon: "house", filledIcon: "house.fill", label: "Home")
+                tabItem(tab: .reports, icon: "chart.line.uptrend.xyaxis", filledIcon: "chart.line.uptrend.xyaxis", label: "Reports")
                 Spacer().frame(maxWidth: .infinity)
-                tabItem(tab: .tags, icon: "tag", label: "Tags")
+                tabItem(tab: .tags, icon: "tag", filledIcon: "tag.fill", label: "Tags")
                 moreItem
             }
-            .frame(height: 54)
+            .frame(height: barHeight)
+            .padding(.bottom, 8)
 
             // FAB
             TallyFAB(diameter: fabDiameter, action: onFABTap)
                 .offset(y: fabOffset)
         }
-        .frame(height: 54)
+        .frame(height: barHeight)
         .padding(.bottom, -16)
     }
 
-    private func tabItem(tab: TallyTab, icon: String, label: String) -> some View {
+    private func tabItem(tab: TallyTab, icon: String, filledIcon: String, label: String) -> some View {
         Button {
             selectedTab = tab
         } label: {
-            VStack(spacing: 4) {
-                Image(systemName: selectedTab == tab ? "\(icon).fill" : icon)
+            VStack(spacing: 3) {
+                Image(systemName: selectedTab == tab ? filledIcon : icon)
                     .font(.system(size: 20))
                     .foregroundStyle(selectedTab == tab ? Color(hex: "2F402E") : Color(hex: "8F9E94"))
                 Text(label)
@@ -69,7 +76,7 @@ struct TallyTabBar: View {
         Button {
             appState.showingSettings = true
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: 3) {
                 Image(systemName: "ellipsis")
                     .font(.system(size: 20))
                     .foregroundStyle(Color(hex: "8F9E94"))

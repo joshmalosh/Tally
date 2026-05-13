@@ -44,6 +44,7 @@ struct InvoicesListView: View {
                 }
             }
             .padding(.horizontal, 16)
+            .padding(.top, 10)
             .padding(.bottom, 8)
 
             // Divider shadow

@@ -13,6 +13,9 @@ struct TagCreationView: View {
     @State private var selectedParentId: String?
     @State private var showingGroupPicker = false
     @State private var showingNewGroup = false
+    @State private var isColorExpanded: Bool = false
+    @State private var selectedIcon: String? = nil
+    @State private var isIconExpanded: Bool = false
 
     var editingTag: TagModel? = nil
     var initialParentId: String? = nil
@@ -37,6 +40,7 @@ struct TagCreationView: View {
                 nameField
                 if !isGroupMode { groupPicker }
                 colorGrid
+                iconPickerSection
                 if isEditing && !isGroupMode { deleteTagButton }
             }
             .frame(maxWidth: .infinity)
@@ -45,6 +49,9 @@ struct TagCreationView: View {
             .padding(.bottom, Spacing.xl)
         }
         .ignoresSafeArea(.keyboard)
+        .onTapGesture {
+            isNameFieldFocused = false
+        }
         .background(Color.bgPrimary)
         .navigationTitle(navigationTitle)
         .navigationBarTitleDisplayMode(.inline)
@@ -66,6 +73,7 @@ struct TagCreationView: View {
                 name = tag.name
                 selectedColorId = tag.colorId
                 selectedParentId = tag.parentId
+                selectedIcon = tag.icon
             } else {
                 selectedParentId = initialParentId
             }
@@ -242,27 +250,135 @@ struct TagCreationView: View {
 
     private var colorGrid: some View {
         VStack(alignment: .leading, spacing: Spacing.smd) {
-            Text("Color")
-                .font(Fonts.caption(13))
-                .foregroundStyle(Color.textSecondary)
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isColorExpanded.toggle()
+                }
+            } label: {
+                HStack {
+                    Text("Color")
+                        .font(Fonts.caption(13))
+                        .foregroundStyle(Color.textSecondary)
+                    Spacer()
+                    Circle()
+                        .fill(TagColors.forId(selectedColorId).primaryColor)
+                        .frame(width: 22, height: 22)
+                    Image(systemName: isColorExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.textMuted)
+                }
+                .padding(.horizontal, Spacing.md)
+                .frame(height: 48)
+                .background(Color.surface)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.borderColor, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
 
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Spacing.smd), count: 6), spacing: Spacing.smd) {
-                ForEach(TagColors.palette) { color in
-                    Button { selectedColorId = color.id } label: {
+            if isColorExpanded {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Spacing.smd), count: 6), spacing: Spacing.smd) {
+                    ForEach(TagColors.palette) { color in
+                        Button { selectedColorId = color.id } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(color.primaryColor)
+                                    .frame(width: 40, height: 40)
+                                if selectedColorId == color.id {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 14, weight: .bold))
+                                        .foregroundStyle(.white)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    private var iconPickerSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.smd) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isIconExpanded.toggle()
+                }
+            } label: {
+                HStack {
+                    Text("Icon")
+                        .font(Fonts.caption(13))
+                        .foregroundStyle(Color.textSecondary)
+                    Spacer()
+                    if let icon = selectedIcon {
+                        Image(systemName: icon)
+                            .font(.system(size: 16))
+                            .foregroundStyle(TagColors.forId(selectedColorId).primaryColor)
+                    } else {
+                        Text("None")
+                            .font(.system(size: 14))
+                            .foregroundStyle(Color.textMuted)
+                    }
+                    Image(systemName: isIconExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.textMuted)
+                }
+                .padding(.horizontal, Spacing.md)
+                .frame(height: 48)
+                .background(Color.surface)
+                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.borderColor, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+
+            if isIconExpanded {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Spacing.smd), count: 6), spacing: Spacing.smd) {
+                    // "None" option
+                    Button {
+                        selectedIcon = nil
+                    } label: {
                         ZStack {
                             Circle()
-                                .fill(color.primaryColor)
+                                .fill(Color(hex: "F0EDEA"))
                                 .frame(width: 40, height: 40)
-
-                            if selectedColorId == color.id {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 14, weight: .bold))
-                                    .foregroundStyle(.white)
+                            Image(systemName: "xmark")
+                                .font(.system(size: 14))
+                                .foregroundStyle(Color(hex: "8F9E94"))
+                            if selectedIcon == nil {
+                                Circle()
+                                    .stroke(Color(hex: "2F402E"), lineWidth: 2)
+                                    .frame(width: 40, height: 40)
                             }
                         }
                     }
                     .buttonStyle(.plain)
+
+                    ForEach(TagIconPicker.icons, id: \.self) { iconName in
+                        Button {
+                            selectedIcon = iconName
+                        } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(selectedIcon == iconName
+                                        ? TagColors.forId(selectedColorId).primaryColor.opacity(0.15)
+                                        : Color(hex: "F0EDEA"))
+                                    .frame(width: 40, height: 40)
+                                Image(systemName: iconName)
+                                    .font(.system(size: 16))
+                                    .foregroundStyle(selectedIcon == iconName
+                                        ? TagColors.forId(selectedColorId).primaryColor
+                                        : Color(hex: "4A5E50"))
+                                if selectedIcon == iconName {
+                                    Circle()
+                                        .stroke(TagColors.forId(selectedColorId).primaryColor, lineWidth: 2)
+                                        .frame(width: 40, height: 40)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
     }
@@ -274,6 +390,7 @@ struct TagCreationView: View {
         if let tag = editingTag {
             tag.name = trimmed
             tag.colorId = selectedColorId
+            tag.icon = selectedIcon
             if !isGroupMode { tag.parentId = selectedParentId }
             do {
                 try modelContext.save()
@@ -287,11 +404,12 @@ struct TagCreationView: View {
             }
             dismiss()
         } else {
-            let count = (try? modelContext.fetchCount(FetchDescriptor<TagModel>())) ?? 0
+            let count = (try? modelContext.fetch(FetchDescriptor<TagModel>()))?.count ?? 0
             let tag = TagModel(
                 userId: nil,
                 name: trimmed,
                 colorId: selectedColorId,
+                icon: selectedIcon,
                 sortOrder: count,
                 parentId: isGroupMode ? nil : selectedParentId,
                 isGroup: isGroupMode

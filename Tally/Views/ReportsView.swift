@@ -6,6 +6,8 @@ struct ReportsView: View {
            sort: \ExpenseModel.date, order: .reverse) private var expenses: [ExpenseModel]
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
     @State private var selectedPeriod: ReportPeriod = .sixMonths
+    @State private var selectedMonthOffset: Int = 0   // 0 = current month
+    @State private var expandedTagId: String? = nil
 
     enum ReportPeriod: String, CaseIterable {
         case threeMonths = "3M"
@@ -19,24 +21,22 @@ struct ReportsView: View {
         let now = Date()
         switch selectedPeriod {
         case .threeMonths:
-            let start = calendar.date(byAdding: .month, value: -3, to: now)!
-            return expenses.filter { $0.date >= start }
+            return expenses.filter { $0.date >= calendar.date(byAdding: .month, value: -3, to: now)! }
         case .sixMonths:
-            let start = calendar.date(byAdding: .month, value: -6, to: now)!
-            return expenses.filter { $0.date >= start }
+            return expenses.filter { $0.date >= calendar.date(byAdding: .month, value: -6, to: now)! }
         case .oneYear:
-            let start = calendar.date(byAdding: .year, value: -1, to: now)!
-            return expenses.filter { $0.date >= start }
+            return expenses.filter { $0.date >= calendar.date(byAdding: .year, value: -1, to: now)! }
         case .allTime:
             return expenses
         }
     }
 
     private var totalSpent: Double {
-        Double(filteredExpenses.reduce(0) { $0 + $1.amountCents }) / 100.0
+        Double(selectedMonthExpenses.reduce(0) { $0 + $1.amountCents }) / 100.0
     }
 
     private var monthlyAverage: Double {
+        let total = Double(filteredExpenses.reduce(0) { $0 + $1.amountCents }) / 100.0
         let months: Double
         switch selectedPeriod {
         case .threeMonths: months = 3
@@ -44,28 +44,30 @@ struct ReportsView: View {
         case .oneYear: months = 12
         case .allTime:
             let oldest = expenses.last?.date ?? Date()
-            let monthsElapsed = Calendar.current.dateComponents([.month], from: oldest, to: Date()).month ?? 1
-            months = max(1, Double(monthsElapsed))
+            months = max(1, Double(Calendar.current.dateComponents([.month], from: oldest, to: Date()).month ?? 1))
         }
-        return totalSpent / months
+        return total / months
     }
 
     private struct MonthData {
         let label: String
         let total: Double
         let isCurrent: Bool
+        let offset: Int  // 0 = current month, 1 = last month, etc.
+    }
+
+    private var monthCount: Int {
+        switch selectedPeriod {
+        case .threeMonths: return 3
+        case .sixMonths: return 6
+        case .oneYear: return 12
+        case .allTime: return 6
+        }
     }
 
     private var monthlyData: [MonthData] {
         let calendar = Calendar.current
         let now = Date()
-        let monthCount: Int
-        switch selectedPeriod {
-        case .threeMonths: monthCount = 3
-        case .sixMonths: monthCount = 6
-        case .oneYear: monthCount = 12
-        case .allTime: monthCount = 6
-        }
         return (0..<monthCount).reversed().map { offset in
             let date = calendar.date(byAdding: .month, value: -offset, to: now)!
             let comps = calendar.dateComponents([.year, .month], from: date)
@@ -74,7 +76,19 @@ struct ReportsView: View {
                 return ec.year == comps.year && ec.month == comps.month
             }.reduce(0.0) { $0 + Double($1.amountCents) / 100.0 }
             let label = date.formatted(.dateTime.month(.abbreviated))
-            return MonthData(label: label, total: monthTotal, isCurrent: offset == 0)
+            return MonthData(label: label, total: monthTotal, isCurrent: offset == 0, offset: offset)
+        }
+    }
+
+    // Expenses for the currently selected month
+    private var selectedMonthExpenses: [ExpenseModel] {
+        let calendar = Calendar.current
+        let now = Date()
+        let targetDate = calendar.date(byAdding: .month, value: -selectedMonthOffset, to: now)!
+        let comps = calendar.dateComponents([.year, .month], from: targetDate)
+        return filteredExpenses.filter {
+            let ec = calendar.dateComponents([.year, .month], from: $0.date)
+            return ec.year == comps.year && ec.month == comps.month
         }
     }
 
@@ -83,33 +97,40 @@ struct ReportsView: View {
         let name: String
         let color: Color
         let total: Double
+        let expenses: [ExpenseModel]
     }
 
     private var tagBreakdown: [TagSpend] {
-        var result: [String: Double] = [:]
-        for expense in filteredExpenses {
-            if let tagId = expense.resolvedTagIds.first {
-                result[tagId, default: 0] += Double(expense.amountCents) / 100.0
-            } else {
-                result["untagged", default: 0] += Double(expense.amountCents) / 100.0
-            }
+        var result: [String: [ExpenseModel]] = [:]
+        for expense in selectedMonthExpenses {
+            let tagId = expense.resolvedTagIds.first ?? "untagged"
+            result[tagId, default: []].append(expense)
         }
-        return result.map { id, total in
+        return result.map { id, expList in
+            let total = expList.reduce(0.0) { $0 + Double($1.amountCents) / 100.0 }
             if id == "untagged" {
-                return TagSpend(id: id, name: "Untagged", color: Color(hex: "8F9E94"), total: total)
+                return TagSpend(id: id, name: "Untagged", color: Color(hex: "8F9E94"), total: total, expenses: expList)
             }
             let tag = tags.first { $0.id == id }
             return TagSpend(
                 id: id,
                 name: tag?.name ?? "Unknown",
                 color: tag?.tagColor.primaryColor ?? Color(hex: "8F9E94"),
-                total: total
+                total: total,
+                expenses: expList.sorted { $0.date > $1.date }
             )
         }.sorted { $0.total > $1.total }
     }
 
     private var maxMonthlyTotal: Double {
         monthlyData.map(\.total).max() ?? 1
+    }
+
+    private var selectedMonthLabel: String {
+        let calendar = Calendar.current
+        let now = Date()
+        let date = calendar.date(byAdding: .month, value: -selectedMonthOffset, to: now)!
+        return date.formatted(.dateTime.month(.wide).year())
     }
 
     var body: some View {
@@ -126,6 +147,7 @@ struct ReportsView: View {
                         ForEach(ReportPeriod.allCases, id: \.self) { period in
                             Button {
                                 selectedPeriod = period
+                                selectedMonthOffset = 0
                             } label: {
                                 Text(period.rawValue)
                                     .font(.system(size: 11, weight: .medium))
@@ -151,7 +173,7 @@ struct ReportsView: View {
                     summaryCard(
                         label: "Total spent",
                         value: "$\(formatAmount(totalSpent))",
-                        sub: selectedPeriod == .allTime ? "All time" : "Last \(selectedPeriod.rawValue)"
+                        sub: selectedMonthLabel
                     )
                     summaryCard(
                         label: "Monthly avg",
@@ -161,84 +183,141 @@ struct ReportsView: View {
                 }
                 .padding(.horizontal, 16)
 
-                // MARK: Bar chart
+                // MARK: Bar chart — tappable months
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Spending by month")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Color(hex: "4A5E50"))
                         .padding(.horizontal, 16)
 
-                    HStack(alignment: .bottom, spacing: 6) {
-                        ForEach(Array(monthlyData.enumerated()), id: \.offset) { _, month in
-                            VStack(spacing: 4) {
-                                GeometryReader { geo in
-                                    VStack {
-                                        Spacer()
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(alignment: .bottom, spacing: 8) {
+                            ForEach(Array(monthlyData.enumerated()), id: \.offset) { _, month in
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        selectedMonthOffset = month.offset
+                                        expandedTagId = nil
+                                    }
+                                } label: {
+                                    VStack(spacing: 4) {
+                                        // Amount label above bar
+                                        if month.total > 0 {
+                                            Text("$\(formatAmount(month.total))")
+                                                .font(.system(size: 8))
+                                                .foregroundStyle(selectedMonthOffset == month.offset ? Color(hex: "2F402E") : Color(hex: "8F9E94"))
+                                        } else {
+                                            Text("")
+                                                .font(.system(size: 8))
+                                        }
+                                        // Bar
                                         RoundedRectangle(cornerRadius: 4)
-                                            .fill(month.isCurrent ? Color(hex: "2F402E") : Color(hex: "E8F0EA"))
+                                            .fill(selectedMonthOffset == month.offset ? Color(hex: "2F402E") : Color(hex: "E8F0EA"))
                                             .frame(
+                                                width: 28,
                                                 height: maxMonthlyTotal > 0
-                                                    ? max(4, geo.size.height * CGFloat(month.total / maxMonthlyTotal))
+                                                    ? max(4, 80 * CGFloat(month.total / maxMonthlyTotal))
                                                     : 4
                                             )
+                                        // Month label
+                                        Text(month.label)
+                                            .font(.system(size: 9))
+                                            .foregroundStyle(selectedMonthOffset == month.offset ? Color(hex: "2F402E") : Color(hex: "8F9E94"))
+                                            .fontWeight(selectedMonthOffset == month.offset ? .semibold : .regular)
                                     }
                                 }
-                                Text(month.label)
-                                    .font(.system(size: 9))
-                                    .foregroundStyle(month.isCurrent ? Color(hex: "2F402E") : Color(hex: "8F9E94"))
-                                    .fontWeight(month.isCurrent ? .semibold : .regular)
+                                .buttonStyle(.plain)
                             }
                         }
+                        .frame(height: 110)
+                        .padding(.horizontal, 16)
                     }
-                    .frame(height: 100)
-                    .padding(.horizontal, 16)
                 }
                 .padding(.vertical, 14)
                 .background(Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .padding(.horizontal, 16)
 
-                // MARK: Tag breakdown
+                // MARK: Tag breakdown — expandable
                 if !tagBreakdown.isEmpty {
                     VStack(alignment: .leading, spacing: 0) {
-                        Text("By tag")
+                        Text("By tag — \(selectedMonthLabel)")
                             .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(Color(hex: "4A5E50"))
                             .padding(.horizontal, 16)
                             .padding(.bottom, 10)
 
                         VStack(spacing: 0) {
-                            ForEach(Array(tagBreakdown.prefix(6).enumerated()), id: \.element.id) { index, item in
-                                HStack(spacing: 10) {
-                                    Circle()
-                                        .fill(item.color)
-                                        .frame(width: 10, height: 10)
-                                    Text(item.name)
-                                        .font(.system(size: 14))
-                                        .foregroundStyle(Color(hex: "1C1C1E"))
-                                    GeometryReader { geo in
-                                        ZStack(alignment: .leading) {
-                                            RoundedRectangle(cornerRadius: 2)
-                                                .fill(Color(hex: "F0EDEA"))
-                                                .frame(height: 4)
-                                            RoundedRectangle(cornerRadius: 2)
-                                                .fill(item.color.opacity(0.5))
-                                                .frame(
-                                                    width: totalSpent > 0
-                                                        ? geo.size.width * CGFloat(item.total / totalSpent)
-                                                        : 0,
-                                                    height: 4
-                                                )
+                            ForEach(Array(tagBreakdown.prefix(8).enumerated()), id: \.element.id) { index, item in
+                                VStack(spacing: 0) {
+                                    // Tag row — tappable to expand
+                                    Button {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            expandedTagId = expandedTagId == item.id ? nil : item.id
                                         }
+                                    } label: {
+                                        HStack(spacing: 10) {
+                                            Circle()
+                                                .fill(item.color)
+                                                .frame(width: 10, height: 10)
+                                            Text(item.name)
+                                                .font(.system(size: 14))
+                                                .foregroundStyle(Color(hex: "1C1C1E"))
+                                            GeometryReader { geo in
+                                                ZStack(alignment: .leading) {
+                                                    RoundedRectangle(cornerRadius: 2)
+                                                        .fill(Color(hex: "F0EDEA"))
+                                                        .frame(height: 4)
+                                                    RoundedRectangle(cornerRadius: 2)
+                                                        .fill(item.color.opacity(0.5))
+                                                        .frame(
+                                                            width: totalSpent > 0
+                                                                ? geo.size.width * CGFloat(item.total / totalSpent)
+                                                                : 0,
+                                                            height: 4
+                                                        )
+                                                }
+                                            }
+                                            .frame(height: 4)
+                                            Text("$\(formatAmount(item.total))")
+                                                .font(.system(size: 13, weight: .semibold).monospaced())
+                                                .foregroundStyle(Color(hex: "1C1C1E"))
+                                            Image(systemName: expandedTagId == item.id ? "chevron.up" : "chevron.down")
+                                                .font(.system(size: 10, weight: .medium))
+                                                .foregroundStyle(Color(hex: "8F9E94"))
+                                        }
+                                        .padding(.horizontal, 16)
+                                        .padding(.vertical, 11)
                                     }
-                                    .frame(height: 4)
-                                    Text("$\(formatAmount(item.total))")
-                                        .font(.system(size: 13, weight: .semibold).monospaced())
-                                        .foregroundStyle(Color(hex: "1C1C1E"))
+                                    .buttonStyle(.plain)
+
+                                    // Expanded expense list for this tag
+                                    if expandedTagId == item.id {
+                                        VStack(spacing: 0) {
+                                            ForEach(item.expenses.prefix(10), id: \.id) { expense in
+                                                HStack {
+                                                    VStack(alignment: .leading, spacing: 2) {
+                                                        Text(expense.merchant ?? expense.expenseDescription ?? "Expense")
+                                                            .font(.system(size: 13, weight: .medium))
+                                                            .foregroundStyle(Color(hex: "1C1C1E"))
+                                                        Text(expense.date.formatted(date: .abbreviated, time: .omitted))
+                                                            .font(.system(size: 11))
+                                                            .foregroundStyle(Color(hex: "8F9E94"))
+                                                    }
+                                                    Spacer()
+                                                    Text("$\(formatAmount(Double(expense.amountCents) / 100.0))")
+                                                        .font(.system(size: 13, weight: .semibold).monospaced())
+                                                        .foregroundStyle(Color(hex: "1C1C1E"))
+                                                }
+                                                .padding(.horizontal, 16)
+                                                .padding(.vertical, 8)
+                                                .background(Color(hex: "F8F6F3"))
+                                            }
+                                        }
+                                        .transition(.opacity.combined(with: .move(edge: .top)))
+                                    }
                                 }
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 11)
-                                if index < min(5, tagBreakdown.count - 1) {
+
+                                if index < min(7, tagBreakdown.count - 1) {
                                     Divider().padding(.horizontal, 16)
                                 }
                             }

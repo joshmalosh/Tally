@@ -280,32 +280,17 @@ struct HomeView: View {
                 }
 
                 if invoicingState.hasCompany {
-                    HStack(spacing: 10) {
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                invoicingState.isProfilePanelOpen = true
-                            }
-                        } label: {
-                            if let company = invoicingState.activeCompany {
-                                CompanyAvatarView(company: company, size: 28)
-                            }
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            invoicingState.isProfilePanelOpen = true
                         }
-                        .buttonStyle(.plain)
-
-                        Rectangle()
-                            .fill(Color(hex: "DEDAD2"))
-                            .frame(width: 1, height: 18)
+                    } label: {
+                        if let company = invoicingState.activeCompany {
+                            CompanyAvatarView(company: company, size: 28)
+                        }
                     }
+                    .buttonStyle(.plain)
                 }
-
-                Button {
-                    appState.showingSettings = true
-                } label: {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: invoicingState.hasCompany ? 17 : 18))
-                        .foregroundStyle(invoicingState.hasCompany ? Color(hex: "1C1C1E").opacity(0.55) : Color.textSecondary)
-                }
-                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, Spacing.lg)
