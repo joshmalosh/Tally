@@ -1,7 +1,8 @@
 import SwiftUI
 import SwiftData
 
-/// Shared tags & groups list rows + sheets (used from Settings and Tags tab).
+/// Shared tags & groups list rows + sheets (used from Tags tab).
+/// Toggle removed — tags are no longer filtered by showOnHome.
 struct TagsAndGroupsManagementRows: View {
     @Environment(AppState.self) private var appState
     @Environment(\.modelContext) private var modelContext
@@ -37,6 +38,7 @@ struct TagsAndGroupsManagementRows: View {
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
 
+            // Add tag / Add folder buttons
             HStack(spacing: 10) {
                 Button {
                     showingTagCreation = true
@@ -80,31 +82,24 @@ struct TagsAndGroupsManagementRows: View {
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
 
+            // Tags — no toggle
             ForEach(allTagsSorted) { tag in
-                HStack(spacing: Spacing.smd) {
-                    Button {
-                        editingTag = tag
-                    } label: {
-                        HStack(spacing: Spacing.smd) {
-                            Circle()
-                                .fill(tag.tagColor.primaryColor)
-                                .frame(width: 12, height: 12)
-                            Text(tag.name)
-                                .foregroundStyle(Color.textPrimary)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Color.textMuted)
-                        }
+                Button {
+                    editingTag = tag
+                } label: {
+                    HStack(spacing: Spacing.smd) {
+                        Circle()
+                            .fill(tag.tagColor.primaryColor)
+                            .frame(width: 12, height: 12)
+                        Text(tag.name)
+                            .foregroundStyle(Color.textPrimary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.textMuted)
                     }
-                    .buttonStyle(.plain)
-                    Toggle("", isOn: Binding(
-                        get: { tag.showOnHome },
-                        set: { tag.showOnHome = $0 }
-                    ))
-                    .labelsHidden()
-                    .tint(Color.brandPrimary)
                 }
+                .buttonStyle(.plain)
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) { deleteTag(tag) } label: {
                         Label("Delete", systemImage: "trash")
@@ -112,28 +107,20 @@ struct TagsAndGroupsManagementRows: View {
                 }
             }
 
+            // Folders — no toggle
             ForEach(groupsSorted) { group in
-                HStack(spacing: Spacing.smd) {
-                    NavigationLink {
-                        GroupDetailView(group: group)
-                    } label: {
-                        HStack(spacing: Spacing.smd) {
-                            Image(systemName: "folder.fill")
-                                .font(.system(size: 12))
-                                .foregroundStyle(group.tagColor.primaryColor)
-                                .frame(width: 12, height: 12)
-                            Text(group.name)
-                                .foregroundStyle(Color.textPrimary)
-                            Spacer()
-                        }
+                NavigationLink {
+                    GroupDetailView(group: group)
+                } label: {
+                    HStack(spacing: Spacing.smd) {
+                        Image(systemName: "folder.fill")
+                            .font(.system(size: 12))
+                            .foregroundStyle(group.tagColor.primaryColor)
+                            .frame(width: 12, height: 12)
+                        Text(group.name)
+                            .foregroundStyle(Color.textPrimary)
+                        Spacer()
                     }
-
-                    Toggle("", isOn: Binding(
-                        get: { group.showOnHome },
-                        set: { group.showOnHome = $0 }
-                    ))
-                    .labelsHidden()
-                    .tint(Color.brandPrimary)
                 }
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button(role: .destructive) { deleteTag(group) } label: {
@@ -143,19 +130,18 @@ struct TagsAndGroupsManagementRows: View {
             }
         }
         .sheet(isPresented: $showingTagCreation) {
-            TagCreationView()
+            TagCreationView(suppressNameFieldAutofocus: true)
         }
         .sheet(isPresented: $showingGroupCreation) {
-            TagCreationView(isGroupMode: true)
+            TagCreationView(isGroupMode: true, suppressNameFieldAutofocus: true)
         }
         .sheet(item: $editingTag) { tag in
-            TagCreationView(editingTag: tag)
+            TagCreationView(editingTag: tag, suppressNameFieldAutofocus: true)
         }
     }
 
     private func deleteTag(_ tag: TagModel) {
         appState.removeFilter(id: tag.id)
-
         if tag.isGroup {
             for child in childrenOf(tag) {
                 appState.removeFilter(id: child.id)

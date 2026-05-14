@@ -5,7 +5,26 @@ struct FilterSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var periodFilter: PeriodFilter
     @Environment(AppState.self) private var appState
+    // All tags — no showOnHome filter
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
+
+    private var standaloneTags: [TagModel] {
+        tags
+            .filter { !$0.isGroup && $0.parentId == nil }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private var groups: [TagModel] {
+        tags
+            .filter { $0.isGroup }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    private func childTags(of group: TagModel) -> [TagModel] {
+        tags
+            .filter { $0.parentId == group.id }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
 
     var body: some View {
         NavigationStack {
@@ -49,12 +68,8 @@ struct FilterSheet: View {
                         .padding(.horizontal, 16)
                     }
 
-                    // MARK: Tags & Groups
-                    let visibleTags = tags
-                        .filter { $0.showOnHome && $0.parentId == nil }
-                        .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
-
-                    if !visibleTags.isEmpty {
+                    // MARK: All tags & groups — no showOnHome filter
+                    if !tags.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Tags & groups")
                                 .font(.system(size: 13, weight: .semibold))
@@ -62,20 +77,29 @@ struct FilterSheet: View {
                                 .padding(.horizontal, 20)
 
                             VStack(spacing: 0) {
-                                ForEach(Array(visibleTags.enumerated()), id: \.element.id) { index, tag in
-                                    let isActive = appState.activeFilterIds.contains(tag.id)
+                                // Standalone tags
+                                ForEach(Array(standaloneTags.enumerated()), id: \.element.id) { index, tag in
+                                    tagFilterRow(tag: tag)
+                                    if index < standaloneTags.count - 1 || !groups.isEmpty {
+                                        Divider().padding(.horizontal, 20)
+                                    }
+                                }
+
+                                // Groups and their children
+                                ForEach(Array(groups.enumerated()), id: \.element.id) { gIndex, group in
+                                    // Group row
                                     Button {
-                                        appState.toggleFilter(id: tag.id, isGroup: tag.isGroup)
+                                        appState.toggleFilter(id: group.id, isGroup: true)
                                     } label: {
                                         HStack(spacing: 10) {
-                                            Circle()
-                                                .fill(tag.tagColor.primaryColor)
-                                                .frame(width: 10, height: 10)
-                                            Text(tag.name)
+                                            Image(systemName: "folder.fill")
+                                                .font(.system(size: 12))
+                                                .foregroundStyle(group.tagColor.primaryColor)
+                                            Text(group.name)
                                                 .font(.system(size: 16))
                                                 .foregroundStyle(Color(hex: "1C1C1E"))
                                             Spacer()
-                                            if isActive {
+                                            if appState.activeFilterIds.contains(group.id) {
                                                 Image(systemName: "checkmark")
                                                     .font(.system(size: 14, weight: .semibold))
                                                     .foregroundStyle(Color(hex: "2F402E"))
@@ -85,7 +109,36 @@ struct FilterSheet: View {
                                         .padding(.vertical, 13)
                                     }
                                     .buttonStyle(.plain)
-                                    if index < visibleTags.count - 1 {
+
+                                    // Child tags indented
+                                    let children = childTags(of: group)
+                                    ForEach(Array(children.enumerated()), id: \.element.id) { _, child in
+                                        Divider().padding(.horizontal, 20)
+                                        Button {
+                                            appState.toggleFilter(id: child.id, isGroup: false)
+                                        } label: {
+                                            HStack(spacing: 10) {
+                                                Circle()
+                                                    .fill(child.tagColor.primaryColor)
+                                                    .frame(width: 8, height: 8)
+                                                    .padding(.leading, 16)
+                                                Text(child.name)
+                                                    .font(.system(size: 15))
+                                                    .foregroundStyle(Color(hex: "4A5E50"))
+                                                Spacer()
+                                                if appState.activeFilterIds.contains(child.id) {
+                                                    Image(systemName: "checkmark")
+                                                        .font(.system(size: 13, weight: .semibold))
+                                                        .foregroundStyle(Color(hex: "2F402E"))
+                                                }
+                                            }
+                                            .padding(.horizontal, 20)
+                                            .padding(.vertical, 11)
+                                        }
+                                        .buttonStyle(.plain)
+                                    }
+
+                                    if gIndex < groups.count - 1 {
                                         Divider().padding(.horizontal, 20)
                                     }
                                 }
@@ -119,5 +172,29 @@ struct FilterSheet: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+
+    private func tagFilterRow(tag: TagModel) -> some View {
+        Button {
+            appState.toggleFilter(id: tag.id, isGroup: false)
+        } label: {
+            HStack(spacing: 10) {
+                Circle()
+                    .fill(tag.tagColor.primaryColor)
+                    .frame(width: 10, height: 10)
+                Text(tag.name)
+                    .font(.system(size: 16))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+                Spacer()
+                if appState.activeFilterIds.contains(tag.id) {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color(hex: "2F402E"))
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 13)
+        }
+        .buttonStyle(.plain)
     }
 }

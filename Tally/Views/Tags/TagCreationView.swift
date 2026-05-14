@@ -23,7 +23,7 @@ struct TagCreationView: View {
     var embeddedInNavigation: Bool = false  // when true, no NavigationStack, Back shows automatically
     var onSave: ((String) -> Void)? = nil
     /// When true (e.g. nested sheet from tag picker), do not auto-activate the name field — avoids keyboard resizing the parent sheet.
-    var suppressNameFieldAutofocus: Bool = false
+    var suppressNameFieldAutofocus: Bool = true
 
     @FocusState private var isNameFieldFocused: Bool
 

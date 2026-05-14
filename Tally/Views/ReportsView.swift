@@ -324,8 +324,14 @@ struct ReportsView: View {
                         }
                     }
                     .padding(.top, 4)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color.white)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color(hex: "EDEAE4"), lineWidth: 0.5)
+                    )
                     .padding(.horizontal, 16)
                 }
 
