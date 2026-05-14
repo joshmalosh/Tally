@@ -63,17 +63,6 @@
 		F919CD4EEAC20BEF60F2F638 /* CurrencyPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A88FA9B2D102A4E24B128E8 /* CurrencyPickerSheet.swift */; };
 		FB5CBE84CE58C8CE626274B4 /* CurrencyFormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD3BF55B40B696430484FB34 /* CurrencyFormatterTests.swift */; };
 		FF6C3E328548A7270D83C745 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0438430608549D75B2F651AE /* SettingsView.swift */; };
-		C0FFEE00010203040506070A /* InvoicingConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000102030405060709 /* InvoicingConfig.swift */; };
-		C0FFEE00010203040506070C /* Company.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE00010203040506070B /* Company.swift */; };
-		C0FFEE00010203040506070E /* Client.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE00010203040506070D /* Client.swift */; };
-		C0FFEE000102030405060710 /* Product.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE00010203040506070F /* Product.swift */; };
-		C0FFEE000102030405060712 /* Invoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000102030405060711 /* Invoice.swift */; };
-		C0FFEE000102030405060714 /* LineItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000102030405060713 /* LineItem.swift */; };
-		C0FFEE000102030405060716 /* InvoiceFee.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000102030405060715 /* InvoiceFee.swift */; };
-		C0FFEE000102030405060722 /* InvoicingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000102030405060721 /* InvoicingState.swift */; };
-		C0FFEE000102030405060724 /* ProfilePanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000102030405060723 /* ProfilePanelView.swift */; };
-		C0FFEE000102030405060726 /* CompanyAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000102030405060725 /* CompanyAvatarView.swift */; };
-		C0FFEE000102030405060728 /* InvoicesListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE000102030405060727 /* InvoicesListView.swift */; };
 		A1B2C3D4010203040506070B /* FilterSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4010203040506070A /* FilterSheet.swift */; };
 		A1B2C3D4010203040506070D /* ReportsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4010203040506070C /* ReportsView.swift */; };
 		A1B2C3D4010203040506070F /* TagsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4010203040506070E /* TagsTabView.swift */; };
@@ -148,17 +137,6 @@
 		A2B3C4D5E6F7A8B9C0D1E2F3 /* ReceiptOCRService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptOCRService.swift; sourceTree = "<group>"; };
 		B2C3D4E5F6A7B8C9D0E1F2A3B /* BulkExpenseParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BulkExpenseParser.swift; sourceTree = "<group>"; };
 		D4E5F6A7B8C9D0E1F2A3B4C5 /* AddMultipleExpensesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddMultipleExpensesView.swift; sourceTree = "<group>"; };
-		C0FFEE000102030405060709 /* InvoicingConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvoicingConfig.swift; sourceTree = "<group>"; };
-		C0FFEE00010203040506070B /* Company.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Company.swift; sourceTree = "<group>"; };
-		C0FFEE00010203040506070D /* Client.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Client.swift; sourceTree = "<group>"; };
-		C0FFEE00010203040506070F /* Product.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Product.swift; sourceTree = "<group>"; };
-		C0FFEE000102030405060711 /* Invoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Invoice.swift; sourceTree = "<group>"; };
-		C0FFEE000102030405060713 /* LineItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineItem.swift; sourceTree = "<group>"; };
-		C0FFEE000102030405060715 /* InvoiceFee.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvoiceFee.swift; sourceTree = "<group>"; };
-		C0FFEE000102030405060721 /* InvoicingState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvoicingState.swift; sourceTree = "<group>"; };
-		C0FFEE000102030405060723 /* ProfilePanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfilePanelView.swift; sourceTree = "<group>"; };
-		C0FFEE000102030405060725 /* CompanyAvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompanyAvatarView.swift; sourceTree = "<group>"; };
-		C0FFEE000102030405060727 /* InvoicesListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InvoicesListView.swift; sourceTree = "<group>"; };
 		A1B2C3D4010203040506070A /* FilterSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterSheet.swift; sourceTree = "<group>"; };
 		A1B2C3D4010203040506070C /* ReportsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReportsView.swift; sourceTree = "<group>"; };
 		A1B2C3D4010203040506070E /* TagsTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagsTabView.swift; sourceTree = "<group>"; };
@@ -233,9 +211,8 @@
 				1FBCC93C895D5DAAF35E7E33 /* Tally.entitlements */,
 				952D829F4BE8048607324226 /* TallyApp.swift */,
 				7D8DD856D43F9283A08ED83D /* AppState */,
-				7983FAE776012A1964B0602D /* Domain */,
-				C0FFEE000102030405060717 /* Invoicing */,
-				F08AE960B56D6B900010977D /* Models */,
+			7983FAE776012A1964B0602D /* Domain */,
+			F08AE960B56D6B900010977D /* Models */,
 				ECEB24006E2846FD81D965AB /* Services */,
 				F2A4EA308E72BC51F0AFC6F5 /* Theme */,
 				F0363684916D4FF2A1BC20AC /* Views */,
@@ -279,33 +256,6 @@
 				BA94FB06EC4D089A3526389E /* Types */,
 			);
 			path = Domain;
-			sourceTree = "<group>";
-		};
-		C0FFEE000102030405060717 /* Invoicing */ = {
-			isa = PBXGroup;
-			children = (
-				C0FFEE000102030405060709 /* InvoicingConfig.swift */,
-				C0FFEE000102030405060721 /* InvoicingState.swift */,
-				C0FFEE00010203040506070B /* Company.swift */,
-				C0FFEE00010203040506070D /* Client.swift */,
-				C0FFEE00010203040506070F /* Product.swift */,
-				C0FFEE000102030405060711 /* Invoice.swift */,
-				C0FFEE000102030405060713 /* LineItem.swift */,
-				C0FFEE000102030405060715 /* InvoiceFee.swift */,
-				C0FFEE000102030405060729 /* Views */,
-			);
-			path = Invoicing;
-			sourceTree = "<group>";
-		};
-		C0FFEE000102030405060729 /* Views */ = {
-			isa = PBXGroup;
-			children = (
-				A1B2C3D4010203040506070A /* FilterSheet.swift */,
-				C0FFEE000102030405060723 /* ProfilePanelView.swift */,
-				C0FFEE000102030405060725 /* CompanyAvatarView.swift */,
-				C0FFEE000102030405060727 /* InvoicesListView.swift */,
-			);
-			path = Views;
 			sourceTree = "<group>";
 		};
 		7D8DD856D43F9283A08ED83D /* AppState */ = {
@@ -603,17 +553,6 @@
 				AD0E32D865CD5781D3BE7E29 /* TagPickerSheet.swift in Sources */,
 				35BBEA0B07AD308B03814152 /* TallyApp.swift in Sources */,
 				676E578C3319877F4C45D34D /* UploadLimitView.swift in Sources */,
-				C0FFEE00010203040506070A /* InvoicingConfig.swift in Sources */,
-				C0FFEE00010203040506070C /* Company.swift in Sources */,
-				C0FFEE00010203040506070E /* Client.swift in Sources */,
-				C0FFEE000102030405060710 /* Product.swift in Sources */,
-				C0FFEE000102030405060712 /* Invoice.swift in Sources */,
-				C0FFEE000102030405060714 /* LineItem.swift in Sources */,
-				C0FFEE000102030405060716 /* InvoiceFee.swift in Sources */,
-				C0FFEE000102030405060722 /* InvoicingState.swift in Sources */,
-				C0FFEE000102030405060724 /* ProfilePanelView.swift in Sources */,
-				C0FFEE000102030405060726 /* CompanyAvatarView.swift in Sources */,
-				C0FFEE000102030405060728 /* InvoicesListView.swift in Sources */,
 				A1B2C3D4010203040506070B /* FilterSheet.swift in Sources */,
 				A1B2C3D4010203040506070D /* ReportsView.swift in Sources */,
 				A1B2C3D40102030405060713 /* TagsAndGroupsManagementRows.swift in Sources */,

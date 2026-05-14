@@ -237,7 +237,7 @@ struct ReportsView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .padding(.horizontal, 16)
 
-                // MARK: Tag breakdown — expandable
+                // MARK: Tag breakdown — expandable, per-tag cards
                 if !tagBreakdown.isEmpty {
                     VStack(alignment: .leading, spacing: 0) {
                         Text("By tag — \(selectedMonthLabel)")
@@ -246,93 +246,90 @@ struct ReportsView: View {
                             .padding(.horizontal, 16)
                             .padding(.bottom, 10)
 
-                        VStack(spacing: 0) {
-                            ForEach(Array(tagBreakdown.prefix(8).enumerated()), id: \.element.id) { index, item in
-                                VStack(spacing: 0) {
-                                    // Tag row — tappable to expand
-                                    Button {
-                                        withAnimation(.easeInOut(duration: 0.2)) {
-                                            expandedTagId = expandedTagId == item.id ? nil : item.id
-                                        }
-                                    } label: {
-                                        HStack(spacing: 10) {
-                                            Circle()
-                                                .fill(item.color)
-                                                .frame(width: 10, height: 10)
-                                            Text(item.name)
-                                                .font(.system(size: 14))
-                                                .foregroundStyle(Color(hex: "1C1C1E"))
-                                            GeometryReader { geo in
-                                                ZStack(alignment: .leading) {
-                                                    RoundedRectangle(cornerRadius: 2)
-                                                        .fill(Color(hex: "F0EDEA"))
-                                                        .frame(height: 4)
-                                                    RoundedRectangle(cornerRadius: 2)
-                                                        .fill(item.color.opacity(0.5))
-                                                        .frame(
-                                                            width: totalSpent > 0
-                                                                ? geo.size.width * CGFloat(item.total / totalSpent)
-                                                                : 0,
-                                                            height: 4
-                                                        )
-                                                }
-                                            }
-                                            .frame(height: 4)
-                                            Text("$\(formatAmount(item.total))")
-                                                .font(.system(size: 13, weight: .semibold).monospaced())
-                                                .foregroundStyle(Color(hex: "1C1C1E"))
-                                            Image(systemName: expandedTagId == item.id ? "chevron.up" : "chevron.down")
-                                                .font(.system(size: 10, weight: .medium))
-                                                .foregroundStyle(Color(hex: "8F9E94"))
-                                        }
-                                        .padding(.horizontal, 16)
-                                        .padding(.vertical, 11)
+                        // Each tag gets its own card — no shared outer card
+                        ForEach(Array(tagBreakdown.prefix(8).enumerated()), id: \.element.id) { _, item in
+                            VStack(spacing: 0) {
+                                // Tag summary row
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        expandedTagId = expandedTagId == item.id ? nil : item.id
                                     }
-                                    .buttonStyle(.plain)
-
-                                    // Expanded expense list for this tag
-                                    if expandedTagId == item.id {
-                                        VStack(spacing: 0) {
-                                            ForEach(item.expenses.prefix(10), id: \.id) { expense in
-                                                HStack {
-                                                    VStack(alignment: .leading, spacing: 2) {
-                                                        Text(expense.merchant ?? expense.expenseDescription ?? "Expense")
-                                                            .font(.system(size: 13, weight: .medium))
-                                                            .foregroundStyle(Color(hex: "1C1C1E"))
-                                                        Text(expense.date.formatted(date: .abbreviated, time: .omitted))
-                                                            .font(.system(size: 11))
-                                                            .foregroundStyle(Color(hex: "8F9E94"))
-                                                    }
-                                                    Spacer()
-                                                    Text("$\(formatAmount(Double(expense.amountCents) / 100.0))")
-                                                        .font(.system(size: 13, weight: .semibold).monospaced())
-                                                        .foregroundStyle(Color(hex: "1C1C1E"))
-                                                }
-                                                .padding(.horizontal, 16)
-                                                .padding(.vertical, 8)
-                                                .background(Color(hex: "F8F6F3"))
+                                } label: {
+                                    HStack(spacing: 10) {
+                                        Circle()
+                                            .fill(item.color)
+                                            .frame(width: 10, height: 10)
+                                        Text(item.name)
+                                            .font(.system(size: 14))
+                                            .foregroundStyle(Color(hex: "1C1C1E"))
+                                        GeometryReader { geo in
+                                            ZStack(alignment: .leading) {
+                                                RoundedRectangle(cornerRadius: 2)
+                                                    .fill(Color(hex: "F0EDEA"))
+                                                    .frame(height: 4)
+                                                RoundedRectangle(cornerRadius: 2)
+                                                    .fill(item.color.opacity(0.5))
+                                                    .frame(
+                                                        width: totalSpent > 0
+                                                            ? geo.size.width * CGFloat(item.total / totalSpent)
+                                                            : 0,
+                                                        height: 4
+                                                    )
                                             }
                                         }
-                                        .transition(.opacity.combined(with: .move(edge: .top)))
+                                        .frame(height: 4)
+                                        Text("$\(formatAmount(item.total))")
+                                            .font(.system(size: 13, weight: .semibold).monospaced())
+                                            .foregroundStyle(Color(hex: "1C1C1E"))
+                                        Image(systemName: expandedTagId == item.id ? "chevron.up" : "chevron.down")
+                                            .font(.system(size: 10, weight: .medium))
+                                            .foregroundStyle(Color(hex: "8F9E94"))
                                     }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 12)
+                                    .background(Color.white)
+                                    .contentShape(Rectangle())
                                 }
+                                .buttonStyle(.plain)
 
-                                if index < min(7, tagBreakdown.count - 1) {
-                                    Divider().padding(.horizontal, 16)
+                                // Expanded expense rows — separate background, no clipping
+                                if expandedTagId == item.id {
+                                    VStack(spacing: 0) {
+                                        Divider().padding(.horizontal, 16)
+                                        ForEach(item.expenses.prefix(10), id: \.id) { expense in
+                                            HStack {
+                                                VStack(alignment: .leading, spacing: 2) {
+                                                    Text(expense.merchant ?? expense.expenseDescription ?? "Expense")
+                                                        .font(.system(size: 13, weight: .medium))
+                                                        .foregroundStyle(Color(hex: "1C1C1E"))
+                                                    Text(expense.date.formatted(date: .abbreviated, time: .omitted))
+                                                        .font(.system(size: 11))
+                                                        .foregroundStyle(Color(hex: "8F9E94"))
+                                                }
+                                                Spacer()
+                                                Text("$\(formatAmount(Double(expense.amountCents) / 100.0))")
+                                                    .font(.system(size: 13, weight: .semibold).monospaced())
+                                                    .foregroundStyle(Color(hex: "1C1C1E"))
+                                            }
+                                            .padding(.horizontal, 16)
+                                            .padding(.vertical, 9)
+                                            .background(Color(hex: "F8F6F3"))
+                                            if expense.id != item.expenses.prefix(10).last?.id {
+                                                Divider().padding(.horizontal, 16)
+                                            }
+                                        }
+                                    }
                                 }
                             }
+                            // Each tag section is its own card
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(hex: "EDEAE4"), lineWidth: 0.5))
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 8)
                         }
                     }
                     .padding(.top, 4)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.white)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(Color(hex: "EDEAE4"), lineWidth: 0.5)
-                    )
-                    .padding(.horizontal, 16)
                 }
 
                 Spacer(minLength: 100)

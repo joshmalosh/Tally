@@ -98,6 +98,7 @@ struct TagsAndGroupsManagementRows: View {
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(Color.textMuted)
                     }
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {

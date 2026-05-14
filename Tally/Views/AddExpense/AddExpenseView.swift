@@ -31,6 +31,7 @@ struct AddExpenseView: View {
     @State private var showingCamera = false
     @State private var showingPhotoPicker = false
     @State private var showingDocumentPicker = false
+    @State private var lastImageSource: ExpenseSource = .manual
     @State private var showingTagPicker = false
     @State private var showingCurrencyPicker = false
     @State private var showingFullImage = false
@@ -197,7 +198,7 @@ struct AddExpenseView: View {
                         showingError = true
                         return
                     }
-                    source = showingCamera ? .camera : .upload
+                    source = lastImageSource
                     ocrPopulatedAnyField = false
                     focusedField = nil
                     amountFocusRequested = false
@@ -207,6 +208,7 @@ struct AddExpenseView: View {
                 }
             }
             .onChange(of: showingCamera) { _, showing in
+                if showing { lastImageSource = .camera }
                 if !showing && !formReady {
                     withAnimation(.easeIn(duration: 0.2)) { formReady = true }
                 }
@@ -217,6 +219,7 @@ struct AddExpenseView: View {
                 }
             }
             .onChange(of: showingPhotoPicker) { _, showing in
+                if showing { lastImageSource = .upload }
                 if !showing && !formReady {
                     withAnimation(.easeIn(duration: 0.2)) { formReady = true }
                 }
@@ -1342,16 +1345,19 @@ struct AddExpenseView: View {
         switch initialMode {
         case .camera:
             source = .camera
+            lastImageSource = .camera
             enteredViaPhotoFlow = true
             formReady = false
             showingCamera = true
         case .photoLibrary:
             source = .upload
+            lastImageSource = .upload
             enteredViaPhotoFlow = true
             formReady = false
             showingPhotoPicker = true
         case .uploadFile:
             source = .upload
+            lastImageSource = .upload
             enteredViaPhotoFlow = true
             formReady = false
             showingDocumentPicker = true

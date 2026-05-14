@@ -3,7 +3,6 @@ import SwiftData
 import UIKit
 
 struct HomeView: View {
-    @EnvironmentObject private var invoicingState: InvoicingState
     @Environment(AppState.self) private var appState
     @Environment(SyncEngine.self) private var syncEngine
     @Environment(AdManager.self) private var adManager
@@ -26,6 +25,7 @@ struct HomeView: View {
     @FocusState private var isSearchFocused: Bool
     @State private var selectedTab: TallyTab = .home
     @State private var showingFilterSheet = false
+    @State private var isKeyboardVisible = false
 
     private var periodExpenses: [ExpenseModel] {
         switch periodFilter {
@@ -114,11 +114,6 @@ struct HomeView: View {
                     .frame(height: 8)
             }
 
-            if invoicingState.hasCompany {
-                modeToggle
-                    .allowsHitTesting(!isSelecting)
-            }
-
             if !isHeaderCollapsed {
                 searchBar
                     .transition(.move(edge: .top).combined(with: .opacity))
@@ -129,19 +124,10 @@ struct HomeView: View {
                 .animation(.easeOut(duration: 0.2), value: appState.activeFilterIds)
                 .animation(.easeOut(duration: 0.2), value: periodFilter)
 
-            if invoicingState.homeMode == .expenses {
-                if filteredExpenses.isEmpty && !isSelecting {
-                    emptyState
-                } else {
-                    expenseList
-                }
+            if filteredExpenses.isEmpty && !isSelecting {
+                emptyState
             } else {
-                InvoicesListView()
-                    .environmentObject(invoicingState)
-                    .safeAreaInset(edge: .bottom, spacing: 0) {
-                        Color.clear.frame(height: 90)
-                    }
-                    .background(Color(hex: "F6F5F3"))
+                expenseList
             }
 
             if isSelecting && !selectedExpenseIds.isEmpty {
@@ -182,26 +168,26 @@ struct HomeView: View {
                     .zIndex(50)
             }
 
-            if invoicingState.isProfilePanelOpen {
-                ProfilePanelView()
-                    .environmentObject(invoicingState)
-                    .transition(.move(edge: .trailing))
-                    .zIndex(100)
-            }
-
-            VStack(spacing: 0) {
-                if adManager.shouldShowBannerAd {
-                    BannerAdView()
-                }
-                TallyTabBar(selectedTab: $selectedTab) {
-                    guard invoicingState.homeMode == .expenses else { return }
-                    withAnimation(.spring(response: 0.46, dampingFraction: 0.72)) {
-                        showingEntryPicker = true
+            if !isKeyboardVisible {
+                VStack(spacing: 0) {
+                    if adManager.shouldShowBannerAd {
+                        BannerAdView()
+                    }
+                    TallyTabBar(selectedTab: $selectedTab) {
+                        withAnimation(.spring(response: 0.46, dampingFraction: 0.72)) {
+                            showingEntryPicker = true
+                        }
                     }
                 }
+                .ignoresSafeArea(edges: .bottom)
+                .zIndex(60)
             }
-            .ignoresSafeArea(edges: .bottom)
-            .zIndex(60)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) { isKeyboardVisible = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) { isKeyboardVisible = false }
         }
         .background(Color(hex: "F6F5F3").ignoresSafeArea())
         .sheet(isPresented: $showingEntryPicker) {
@@ -278,57 +264,11 @@ struct HomeView: View {
                         .font(.system(size: 14))
                         .foregroundStyle(Color.danger)
                 }
-
-                if invoicingState.hasCompany {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            invoicingState.isProfilePanelOpen = true
-                        }
-                    } label: {
-                        if let company = invoicingState.activeCompany {
-                            CompanyAvatarView(company: company, size: 28)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
             }
         }
         .padding(.horizontal, Spacing.lg)
         .padding(.top, Spacing.sm)
         .padding(.bottom, 4)
-    }
-
-    // MARK: - Mode toggle
-
-    private var modeToggle: some View {
-        HStack(spacing: 3) {
-            ForEach([HomeMode.expenses, HomeMode.invoices], id: \.self) { mode in
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        invoicingState.homeMode = mode
-                    }
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: mode == .expenses ? "wallet.bifold" : "doc.text")
-                            .font(.system(size: 13))
-                        Text(mode == .expenses ? "Expenses" : "Invoices")
-                            .font(.system(size: 13, weight: .medium))
-                    }
-                    .padding(.vertical, 9)
-                    .frame(maxWidth: .infinity)
-                    .background(invoicingState.homeMode == mode ? Color(hex: "2F402E") : Color.clear)
-                    .foregroundStyle(invoicingState.homeMode == mode ? Color.white : Color(hex: "8F9E94"))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(3)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 13))
-        .overlay(RoundedRectangle(cornerRadius: 13).stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
-        .padding(.horizontal, Spacing.lg)
-        .padding(.bottom, 10)
     }
 
     // MARK: - Search

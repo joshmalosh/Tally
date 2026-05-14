@@ -4,7 +4,6 @@ import UIKit
 
 struct ContentView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
-    @EnvironmentObject private var invoicingState: InvoicingState
     @Environment(AppState.self) private var appState
     @Environment(SyncEngine.self) private var syncEngine
     @Environment(AdManager.self) private var adManager
@@ -66,30 +65,6 @@ struct ContentView: View {
                 Task { await SubscriptionService.refreshProStatus(appState: appState) }
             }
             seedDefaultTags()
-            if invoicingState.activeCompany == nil {
-                let descriptor = FetchDescriptor<Company>(sortBy: [SortDescriptor(\.createdAt)])
-                if let first = try? modelContext.fetch(descriptor).first {
-                    invoicingState.activeCompany = first
-                }
-            }
-            #if DEBUG
-            let companyDescriptor = FetchDescriptor<Company>()
-            let allCompanies = (try? modelContext.fetch(companyDescriptor)) ?? []
-            if allCompanies.isEmpty {
-                let testCompany = Company(
-                    name: "A Simple Studio",
-                    abn: "21 687 108 318",
-                    taxRate: 0.0,
-                    bankDetails: "BSB: 067-873 · Account: 1834 9036 · Commonwealth Bank",
-                    defaultFeeEnabled: true,
-                    defaultFeeName: "Credit card surcharge",
-                    defaultFeePercent: 0.035
-                )
-                modelContext.insert(testCompany)
-                try? modelContext.save()
-                invoicingState.activeCompany = testCompany
-            }
-            #endif
             adManager.configure(isPro: appState.isPro)
             if !hasCompletedOnboarding {
                 taglineTimerTask?.cancel()
@@ -281,17 +256,10 @@ struct ContentView: View {
             for: [
                 ExpenseModel.self,
                 TagModel.self,
-                Company.self,
-                Client.self,
-                Product.self,
-                Invoice.self,
-                LineItem.self,
-                InvoiceFee.self,
             ],
             inMemory: true
         )
         .environment(AppState())
-        .environmentObject(InvoicingState())
         .environment(SyncEngine())
         .environment(AdManager())
 }
