@@ -29,6 +29,7 @@
 		6E6E89F7E052EAF1FE08322F /* ExpenseTypesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE580A1A003072AD757B48A2 /* ExpenseTypesTests.swift */; };
 		7B5BBDDCD13BA9F47FA80BC2 /* ExportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA158A21249AC0F22E9E802E /* ExportView.swift */; };
 		A1B2C3D40102030405060717 /* TallyFAB.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40102030405060716 /* TallyFAB.swift */; };
+		TAGICNPKR0000000BILD0001 /* TagIconPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = TAGICNPKR0000000FILE0001 /* TagIconPicker.swift */; };
 		C0A1D10B000C0A1D10B001 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C0A1D10B000C0A1D10B002 /* AudioToolbox.framework */; };
 		7EE695B64A5CC257108CDFF2 /* GoogleMobileAds in Frameworks */ = {isa = PBXBuildFile; productRef = BFF08990EEDB2C3914850C17 /* GoogleMobileAds */; };
 		FEEDRC010000000000000001 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = FEEDRC020000000000000001 /* RevenueCat */; };
@@ -166,6 +167,7 @@
 		C0A1D10B000C0A1D10B002 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		A1B2C3D40102030405060714 /* ActiveFiltersRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActiveFiltersRow.swift; sourceTree = "<group>"; };
 		A1B2C3D40102030405060712 /* TagsAndGroupsManagementRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagsAndGroupsManagementRows.swift; sourceTree = "<group>"; };
+		TAGICNPKR0000000FILE0001 /* TagIconPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagIconPicker.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -433,6 +435,7 @@
 				6B23719619830D783B4A5D67 /* CurrencyFormatter.swift */,
 				5D6B7193795721ECE292D29C /* DesignSystem.swift */,
 				B8KACC111111111111111101 /* KeyboardAccessoryBar.swift */,
+				TAGICNPKR0000000FILE0001 /* TagIconPicker.swift */,
 				E8F0EA11BEEF000000000001 /* UIApplication+ResignFirstResponder.swift */,
 			);
 			path = Theme;
@@ -616,8 +619,9 @@
 				A1B2C3D40102030405060713 /* TagsAndGroupsManagementRows.swift in Sources */,
 				A1B2C3D4010203040506070F /* TagsTabView.swift in Sources */,
 				A1B2C3D40102030405060711 /* TallyTabBar.swift in Sources */,
-				A1B2C3D40102030405060717 /* TallyFAB.swift in Sources */,
-				A1B2C3D40102030405060715 /* ActiveFiltersRow.swift in Sources */,
+			A1B2C3D40102030405060717 /* TallyFAB.swift in Sources */,
+			A1B2C3D40102030405060715 /* ActiveFiltersRow.swift in Sources */,
+			TAGICNPKR0000000BILD0001 /* TagIconPicker.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
