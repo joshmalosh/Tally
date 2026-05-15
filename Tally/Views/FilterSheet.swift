@@ -5,7 +5,6 @@ struct FilterSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var periodFilter: PeriodFilter
     @Environment(AppState.self) private var appState
-    // All tags — no showOnHome filter
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
 
     private var standaloneTags: [TagModel] {
@@ -31,7 +30,7 @@ struct FilterSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
 
-                    // MARK: Period
+                    // Period
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Time period")
                             .font(.system(size: 13, weight: .semibold))
@@ -68,7 +67,7 @@ struct FilterSheet: View {
                         .padding(.horizontal, 16)
                     }
 
-                    // MARK: All tags & groups — no showOnHome filter
+                    // All tags & groups
                     if !tags.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Tags & groups")
@@ -77,7 +76,6 @@ struct FilterSheet: View {
                                 .padding(.horizontal, 20)
 
                             VStack(spacing: 0) {
-                                // Standalone tags
                                 ForEach(Array(standaloneTags.enumerated()), id: \.element.id) { index, tag in
                                     tagFilterRow(tag: tag)
                                     if index < standaloneTags.count - 1 || !groups.isEmpty {
@@ -85,9 +83,7 @@ struct FilterSheet: View {
                                     }
                                 }
 
-                                // Groups and their children
                                 ForEach(Array(groups.enumerated()), id: \.element.id) { gIndex, group in
-                                    // Group row
                                     Button {
                                         appState.toggleFilter(id: group.id, isGroup: true)
                                     } label: {
@@ -110,9 +106,8 @@ struct FilterSheet: View {
                                     }
                                     .buttonStyle(.plain)
 
-                                    // Child tags indented
                                     let children = childTags(of: group)
-                                    ForEach(Array(children.enumerated()), id: \.element.id) { _, child in
+                                    ForEach(children, id: \.id) { child in
                                         Divider().padding(.horizontal, 20)
                                         Button {
                                             appState.toggleFilter(id: child.id, isGroup: false)
