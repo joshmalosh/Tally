@@ -1169,6 +1169,25 @@ struct AddExpenseView: View {
             return
         }
 
+        // Reset all form fields to blank for a new expense
+        amountText = ""
+        merchant = ""
+        descriptionText = ""
+        notes = ""
+        selectedTagIds = []
+        date = Date()
+        attachedImage = nil
+        attachedFileURL = nil
+        attachmentKey = nil
+        ocrPopulatedAnyField = false
+        isRunningOCR = false
+        notesExpanded = false
+        showingGoProFromOcrBanner = false
+        source = .manual
+        lastImageSource = .manual
+        enteredViaPhotoFlow = false
+        formReady = true
+
         currency = appState.defaultCurrency
 
         switch initialMode {
