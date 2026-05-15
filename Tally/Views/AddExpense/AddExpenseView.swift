@@ -392,7 +392,6 @@ struct AddExpenseView: View {
         VStack(spacing: 8) {
             if receiptImageAttached {
                 receiptImageAttachedFormBlock
-                suggestedTagChipsRow
                 tagsRowView
 
                 notesRowView
@@ -431,8 +430,6 @@ struct AddExpenseView: View {
         if attachedFileURL != nil {
             pdfAttachmentCard
         }
-
-        suggestedTagChipsRow
 
         tagsRowView
 
@@ -584,16 +581,8 @@ struct AddExpenseView: View {
                     .foregroundStyle(Color(hex: "8F9E94"))
 
                 HStack(spacing: 10) {
-                    Text(Calendar.current.isDateInToday(date) ? "Today" : Self.shortDateString(date))
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color(hex: "2F402E"))
-                        .padding(.vertical, 4)
-                        .padding(.horizontal, 12)
-                        .background(Color(hex: "E8F0EA"))
-                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-
                     Text(Self.datePillFormatter.string(from: date))
-                        .font(.system(size: 15, weight: .regular))
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(Color(hex: "1C1C1E"))
 
                     Spacer(minLength: 0)
@@ -620,158 +609,6 @@ struct AddExpenseView: View {
         let f = DateFormatter()
         f.dateFormat = "MMM d"
         return f.string(from: d)
-    }
-
-    // MARK: - Suggested tags
-
-    private var merchantTrimmedForSuggestions: String {
-        merchant.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    private var suggestedTagsForChips: [TagModel] {
-        suggestedTags(
-            merchantName: merchant,
-            existingTagIds: selectedTagIds,
-            allTags: tags,
-            recentExpenses: allExpenses
-        )
-    }
-
-    private var suggestedChipsAnimationToken: String {
-        let ids = suggestedTagsForChips.map(\.id).sorted().joined(separator: ",")
-        let sel = selectedTagIds.sorted().joined(separator: ",")
-        return "\(merchantTrimmedForSuggestions)|\(ids)|\(sel)"
-    }
-
-    @ViewBuilder
-    private var suggestedTagChipsRow: some View {
-        if !suggestedTagsForChips.isEmpty, merchantTrimmedForSuggestions.count >= 2 {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(suggestedTagsForChips, id: \.id) { tag in
-                        Button {
-                            selectedTagIds.append(tag.id)
-                        } label: {
-                            Text("+ \(tag.name)")
-                                .font(Fonts.caption(13).weight(.medium))
-                                .foregroundStyle(Color.brandPrimary)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 7)
-                                .background(Color.brandTint)
-                                .clipShape(Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 16)
-            }
-            .transition(.opacity.combined(with: .move(edge: .top)))
-            .animation(.easeInOut(duration: 0.2), value: suggestedChipsAnimationToken)
-        }
-    }
-
-    private func suggestedTags(
-        merchantName: String,
-        existingTagIds: [String],
-        allTags: [TagModel],
-        recentExpenses: [ExpenseModel]
-    ) -> [TagModel] {
-        let existing = Set(existingTagIds)
-        var result: [TagModel] = []
-        var resultIds = Set<String>()
-
-        func appendIfPossible(_ tag: TagModel?) {
-            guard result.count < 3, let tag, !existing.contains(tag.id), !resultIds.contains(tag.id) else { return }
-            result.append(tag)
-            resultIds.insert(tag.id)
-        }
-
-        func appendNamed(_ name: String) {
-            guard let t = allTags.first(where: { $0.name.caseInsensitiveCompare(name) == .orderedSame }) else { return }
-            appendIfPossible(t)
-        }
-
-        let lowered = merchantName.lowercased()
-
-        let keywordRules: [(keywords: [String], tagName: String)] = [
-            (["coffee", "cafe", "latte", "brunch"], "Meals"),
-            (["groceries", "woolworths", "coles", "aldi", "supermarket", "iga"], "Groceries"),
-            (["uber", "lyft", "taxi", "tram", "train", "bus", "opal", "transit"], "Transport"),
-            (["fuel", "petrol", "shell", "bp", "ampol", "caltex"], "Transport"),
-            (["qantas", "jetstar", "virgin", "flight", "airfare"], "Travel"),
-            (["hotel", "airbnb", "accommodation", "marriott", "hilton"], "Travel"),
-            (["netflix", "spotify", "apple", "google", "microsoft", "adobe", "cursor", "chatgpt", "openai", "amazon prime"], "Subscriptions"),
-            (["gym", "fitness", "crossfit", "f45", "anytime"], "Health"),
-            (["chemist", "priceline", "pharmacy", "amcal"], "Health"),
-            (["restaurant", "cafe", "bar", "chicken", "pizza", "burger", "sushi", "thai", "indian", "chinese", "italian", "kebab", "noodle"], "Meals"),
-            (["amazon", "ebay", "kogan", "catch", "myer", "david jones"], "Shopping"),
-            (["mechanic", "tyres", "tyre", "rego", "service", "roadside", "autobarn"], "Car"),
-        ]
-
-        for rule in keywordRules {
-            if rule.keywords.contains(where: { lowered.contains($0) }) {
-                appendNamed(rule.tagName)
-                if result.count >= 3 { return result }
-            }
-        }
-
-        if result.count < 3 {
-            let trimmed = merchantName.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.count >= 3 {
-                let recent30 = Array(recentExpenses.sorted { $0.date > $1.date }.prefix(30))
-                let key = trimmed.lowercased()
-                let matching = recent30.filter { expense in
-                    guard let m = expense.merchant?.trimmingCharacters(in: .whitespacesAndNewlines), m.count >= 3 else { return false }
-                    return m.lowercased() == key
-                }
-                var freq: [String: Int] = [:]
-                for expense in matching {
-                    for id in expense.resolvedTagIds {
-                        freq[id, default: 0] += 1
-                    }
-                }
-                let orderedIds = freq.sorted { a, b in
-                    if a.value != b.value { return a.value > b.value }
-                    return a.key < b.key
-                }.map(\.key)
-                for id in orderedIds {
-                    guard result.count < 3 else { break }
-                    if let tag = allTags.first(where: { $0.id == id }) {
-                        appendIfPossible(tag)
-                    }
-                }
-            }
-        }
-
-        if result.isEmpty {
-            let hour = Calendar.current.component(.hour, from: Date())
-            let mealWindow = (6...10).contains(hour) || (11...14).contains(hour) || (17...21).contains(hour)
-            if mealWindow {
-                appendNamed("Meals")
-            }
-        }
-
-        if result.isEmpty {
-            let last10 = Array(recentExpenses.sorted { $0.date > $1.date }.prefix(10))
-            var freq: [String: Int] = [:]
-            for expense in last10 {
-                for id in expense.resolvedTagIds {
-                    freq[id, default: 0] += 1
-                }
-            }
-            let orderedIds = freq.sorted { a, b in
-                if a.value != b.value { return a.value > b.value }
-                return a.key < b.key
-            }.map(\.key)
-            for id in orderedIds {
-                guard result.count < 3 else { break }
-                if let tag = allTags.first(where: { $0.id == id }) {
-                    appendIfPossible(tag)
-                }
-            }
-        }
-
-        return result
     }
 
     // MARK: - Tags row
@@ -1224,16 +1061,8 @@ struct AddExpenseView: View {
                     .foregroundStyle(Color(hex: "8F9E94"))
 
                 HStack(spacing: 10) {
-                    Text(Calendar.current.isDateInToday(date) ? "Today" : Self.shortDateString(date))
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color(hex: "2F402E"))
-                        .padding(.vertical, 4)
-                        .padding(.horizontal, 12)
-                        .background(Color(hex: "E8F0EA"))
-                        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-
                     Text(Self.datePillFormatter.string(from: date))
-                        .font(.system(size: 15, weight: .regular))
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(Color(hex: "1C1C1E"))
 
                     Spacer(minLength: 0)
