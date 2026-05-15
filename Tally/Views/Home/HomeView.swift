@@ -472,7 +472,7 @@ struct HomeView: View {
     private var expenseList: some View {
         List {
             Color.clear
-                .frame(height: 1)
+                .frame(height: 8)
                 .listRowInsets(EdgeInsets())
                 .listRowSeparator(.hidden)
                 .background(

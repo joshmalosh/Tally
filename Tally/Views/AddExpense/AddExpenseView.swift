@@ -364,24 +364,18 @@ struct AddExpenseView: View {
     }
 
     private var addExpenseFormZStack: some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
             Color.bgPrimary.ignoresSafeArea()
 
-            Group {
-                if formReady {
-                    ScrollView {
-                        formScrollStack
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .scrollDismissesKeyboard(.interactively)
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
             if formReady {
-                stickySaveChrome
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .zIndex(1)
+                ScrollView {
+                    formScrollStack
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .scrollDismissesKeyboard(.interactively)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    stickySaveChrome
+                }
             }
         }
     }
@@ -400,7 +394,7 @@ struct AddExpenseView: View {
             }
         }
         .padding(.top, 12)
-        .padding(.bottom, formBottomChromeClearance)
+        .padding(.bottom, 16)
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: receiptImageAttached)
     }
 
@@ -1113,8 +1107,6 @@ struct AddExpenseView: View {
                 .padding(.horizontal, 16)
                 .padding(.bottom, 10)
                 .disabled(!canSave)
-                .opacity(keyboardVisible ? 0 : 1)
-                .allowsHitTesting(!keyboardVisible)
             }
             .background(Color(hex: "F6F5F3"))
 
@@ -1122,7 +1114,6 @@ struct AddExpenseView: View {
                 BannerAdView()
             }
         }
-        .ignoresSafeArea(.keyboard, edges: .bottom)
     }
 
     // MARK: - Helpers
