@@ -88,20 +88,6 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("Data") {
-                    Button {
-                        appState.showingExport = true
-                        dismiss()
-                    } label: {
-                        HStack {
-                            Image(systemName: "square.and.arrow.up")
-                                .foregroundStyle(Color.brandPrimary)
-                            Text("Export your expenses")
-                                .foregroundStyle(Color.textPrimary)
-                        }
-                    }
-                }
-
                 Section("iCloud") {
                     HStack {
                         Image(systemName: appState.isOffline ? "wifi.slash" : "checkmark.icloud")

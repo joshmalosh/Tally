@@ -16,7 +16,6 @@ struct HomeView: View {
     @State private var thumbnailCache: [String: UIImage] = [:]
     @State private var periodFilter: PeriodFilter = .allTime
     @State private var isHeaderCollapsed = false
-    @State private var showingGlobalExport = false
     @State private var showingFilteredExport = false
     @State private var isSelecting = false
     @State private var selectedExpenseIds: Set<String> = []
@@ -209,7 +208,7 @@ struct HomeView: View {
         .sheet(item: $appState.selectedExpenseId) { id in
             ExpenseDetailView(expenseId: id)
         }
-        .sheet(isPresented: $showingGlobalExport) {
+        .sheet(isPresented: $appState.showingExport) {
             GlobalExportSheet()
         }
         .sheet(isPresented: $showingFilteredExport) {
@@ -264,6 +263,18 @@ struct HomeView: View {
                         .font(.system(size: 14))
                         .foregroundStyle(Color.danger)
                 }
+
+                Button {
+                    appState.showingSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 18))
+                        .foregroundStyle(Color(hex: "4A5E50"))
+                        .frame(width: 36, height: 36)
+                        .background(Color(hex: "EDEAE4"))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(.horizontal, Spacing.lg)

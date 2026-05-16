@@ -42,7 +42,7 @@ struct TallyTabBar: View {
                 tabItem(tab: .reports, icon: "chart.line.uptrend.xyaxis", filledIcon: "chart.line.uptrend.xyaxis", label: "Reports")
                 Spacer().frame(maxWidth: .infinity)
                 tabItem(tab: .tags, icon: "tag", filledIcon: "tag.fill", label: "Tags")
-                moreItem
+                exportItem
             }
             .frame(height: barHeight)
             .padding(.bottom, 8)
@@ -72,15 +72,15 @@ struct TallyTabBar: View {
         .buttonStyle(.plain)
     }
 
-    private var moreItem: some View {
+    private var exportItem: some View {
         Button {
-            appState.showingSettings = true
+            appState.showingExport = true
         } label: {
             VStack(spacing: 3) {
-                Image(systemName: "ellipsis")
+                Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 20))
                     .foregroundStyle(Color(hex: "8F9E94"))
-                Text("More")
+                Text("Export")
                     .font(.system(size: 10))
                     .foregroundStyle(Color(hex: "8F9E94"))
             }
