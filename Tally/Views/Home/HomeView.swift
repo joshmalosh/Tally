@@ -123,6 +123,9 @@ struct HomeView: View {
                 .animation(.easeOut(duration: 0.2), value: appState.activeFilterIds)
                 .animation(.easeOut(duration: 0.2), value: periodFilter)
 
+            Color(hex: "F6F5F3")
+                .frame(height: 10)
+
             if filteredExpenses.isEmpty && !isSelecting {
                 emptyState
             } else {

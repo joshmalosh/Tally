@@ -258,7 +258,7 @@ struct ExpenseDetailView: View {
                         .resizable()
                         .scaledToFill()
                         .frame(maxWidth: .infinity)
-                        .frame(height: 200)
+                        .frame(height: 260)
                         .clipped()
                 }
                 .buttonStyle(.plain)
@@ -270,13 +270,13 @@ struct ExpenseDetailView: View {
                         startPoint: .top,
                         endPoint: .bottom
                     )
-                    .frame(height: 200 / 3)
+                    .frame(height: 260 / 3)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                 .allowsHitTesting(false)
             }
         }
-        .frame(height: 200)
+        .frame(height: 260)
         .overlay(alignment: .bottomTrailing) {
             if attachmentImage != nil, isEditingMode {
                 HStack(spacing: 14) {
