@@ -145,13 +145,8 @@ struct HomeView: View {
         @Bindable var appState = appState
 
         ZStack(alignment: .bottom) {
-            NavigationStack {
-                homeScrollableColumn
-                    .background(Color(hex: "F6F5F3").ignoresSafeArea())
-                    .toolbar(.hidden, for: .navigationBar)
-                    .toolbarBackground(Color(hex: "F6F5F3"), for: .navigationBar)
-            }
-            .background(Color(hex: "F6F5F3").ignoresSafeArea())
+            homeScrollableColumn
+                .background(Color(hex: "F6F5F3").ignoresSafeArea())
 
             if selectedTab == .reports {
                 ReportsView()
