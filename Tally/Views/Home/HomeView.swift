@@ -481,6 +481,7 @@ struct HomeView: View {
                 .frame(height: 8)
                 .listRowInsets(EdgeInsets())
                 .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
                 .background(
                     GeometryReader { proxy in
                         Color.clear.preference(
