@@ -11,7 +11,8 @@ enum ExpenseExportService {
     static func buildCSVExport(
         expenses: [ExpenseModel],
         tags: [Tag],
-        filenamePrefix: String
+        filenamePrefix: String,
+        includeReceipts: Bool = false
     ) -> URL? {
         let fm = FileManager.default
         let dateFormatter = DateFormatter()
@@ -21,6 +22,26 @@ enum ExpenseExportService {
         let sorted = expenses
             .filter { $0.deletedAt == nil }
             .sorted { $0.date < $1.date }
+
+        // Build receipt manifest only when the caller opts in
+        var receiptFilenames: [String: String] = [:]
+        var receiptSources: [(filename: String, model: ExpenseModel)] = []
+
+        if includeReceipts {
+            for (index, model) in sorted.enumerated() {
+                let hasAttachment = model.attachmentKey != nil || model.attachmentData != nil
+                guard hasAttachment else { continue }
+                let ext = model.attachmentKey?.components(separatedBy: ".").last ?? "jpg"
+                let label = (model.merchant ?? model.expenseDescription ?? "expense")
+                    .lowercased()
+                    .replacingOccurrences(of: "[^a-z0-9]+", with: "_", options: .regularExpression)
+                    .trimmingCharacters(in: CharacterSet(charactersIn: "_"))
+                    .prefix(40)
+                let filename = "\(String(format: "%03d", index + 1))_\(label).\(ext)"
+                receiptFilenames[model.id] = "receipts/\(filename)"
+                receiptSources.append((filename: filename, model: model))
+            }
+        }
 
         let domainExpenses: [Expense] = sorted.map { model in
             Expense(
@@ -44,17 +65,57 @@ enum ExpenseExportService {
         let csv = ExpenseCalculations.generateCSV(
             expenses: domainExpenses,
             tags: tags,
-            receiptFilenames: [:]
+            receiptFilenames: receiptFilenames
         )
 
-        let fileURL = fm.temporaryDirectory.appendingPathComponent("\(filenamePrefix)_\(dateSuffix).csv")
-        try? fm.removeItem(at: fileURL)
-        do {
-            try csv.write(to: fileURL, atomically: true, encoding: .utf8)
-            return fileURL
-        } catch {
-            return nil
+        // Plain CSV when no receipts are being bundled
+        if receiptSources.isEmpty {
+            let fileURL = fm.temporaryDirectory.appendingPathComponent("\(filenamePrefix)_\(dateSuffix).csv")
+            try? fm.removeItem(at: fileURL)
+            do {
+                try csv.write(to: fileURL, atomically: true, encoding: .utf8)
+                return fileURL
+            } catch {
+                return nil
+            }
         }
+
+        // ZIP: CSV + receipts/ folder
+        let exportDir = fm.temporaryDirectory.appendingPathComponent("tally_export_\(UUID().uuidString)")
+        let receiptsDir = exportDir.appendingPathComponent("receipts")
+        do {
+            try fm.createDirectory(at: receiptsDir, withIntermediateDirectories: true)
+        } catch { return nil }
+
+        let csvURL = exportDir.appendingPathComponent("\(filenamePrefix)_\(dateSuffix).csv")
+        do {
+            try csv.write(to: csvURL, atomically: true, encoding: .utf8)
+        } catch { return nil }
+
+        for item in receiptSources {
+            let destURL = receiptsDir.appendingPathComponent(item.filename)
+            if let key = item.model.attachmentKey,
+               let image = AttachmentService.shared.loadImage(key: key),
+               let data = image.jpegData(compressionQuality: 0.85) {
+                try? data.write(to: destURL)
+            } else if let data = item.model.attachmentData {
+                try? data.write(to: destURL)
+            }
+        }
+
+        let zipURL = fm.temporaryDirectory.appendingPathComponent("\(filenamePrefix)_\(dateSuffix).zip")
+        try? fm.removeItem(at: zipURL)
+
+        var resultURL: URL?
+        var coordinatorError: NSError?
+        let coordinator = NSFileCoordinator()
+        coordinator.coordinate(readingItemAt: exportDir, options: .forUploading, error: &coordinatorError) { tempZipURL in
+            try? fm.copyItem(at: tempZipURL, to: zipURL)
+            resultURL = zipURL
+        }
+
+        try? fm.removeItem(at: exportDir)
+        return resultURL
     }
 
     // MARK: - Plain Text

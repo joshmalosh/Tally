@@ -31,6 +31,11 @@ struct GlobalExportSheet: View {
     @State private var showingProUpsell = false
     @State private var proFeatureName = ""
     @State private var showingTagExportPicker = false
+    @State private var includeReceipts = false
+
+    private var periodHasReceipts: Bool {
+        periodExpenses.contains { $0.attachmentKey != nil || $0.attachmentData != nil }
+    }
 
     private var periodExpenses: [ExpenseModel] {
         switch periodFilter {
@@ -121,6 +126,10 @@ struct GlobalExportSheet: View {
                                     proOnly: true
                                 ) {
                                     showingTagExportPicker = true
+                                }
+
+                                if periodHasReceipts {
+                                    receiptToggleRow
                                 }
                             }
                         }
@@ -331,6 +340,34 @@ struct GlobalExportSheet: View {
         .opacity(locked ? 0.6 : 1)
     }
 
+    // MARK: - Receipt toggle
+
+    private var receiptToggleRow: some View {
+        HStack(spacing: Spacing.smd) {
+            Image(systemName: "photo.on.rectangle")
+                .font(.system(size: 18))
+                .foregroundStyle(Color.brandPrimary)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Include receipt photos")
+                    .font(Fonts.body(16))
+                    .foregroundStyle(Color.textPrimary)
+                Text(includeReceipts ? "Exports as a ZIP with the CSV and photos" : "CSV only")
+                    .font(Fonts.caption(13))
+                    .foregroundStyle(Color.textSecondary)
+            }
+
+            Spacer()
+
+            Toggle("", isOn: $includeReceipts)
+                .labelsHidden()
+                .tint(Color.brandPrimary)
+        }
+        .padding(.horizontal, Spacing.md)
+        .frame(height: 56)
+    }
+
     // MARK: - Export Actions
 
     private func exportCSV(expenses: [ExpenseModel]) {
@@ -349,7 +386,8 @@ struct GlobalExportSheet: View {
         guard let fileURL = ExpenseExportService.buildCSVExport(
             expenses: expenses,
             tags: domainTags,
-            filenamePrefix: "tally_expenses"
+            filenamePrefix: "tally_expenses",
+            includeReceipts: includeReceipts
         ) else {
             isExporting = false
             showToast("Export failed")
@@ -423,6 +461,11 @@ struct SelectedExportSheet: View {
     @State private var toastMessage = ""
     @State private var showingProUpsell = false
     @State private var proFeatureName = ""
+    @State private var includeReceipts = false
+
+    private var hasReceipts: Bool {
+        expenses.contains { $0.attachmentKey != nil || $0.attachmentData != nil }
+    }
 
     private var expenseCount: Int { expenses.count }
 
@@ -455,6 +498,10 @@ struct SelectedExportSheet: View {
                                 proOnly: true
                             ) {
                                 exportPDF()
+                            }
+
+                            if hasReceipts {
+                                selectedReceiptToggleRow
                             }
                         }
                     }
@@ -589,6 +636,34 @@ struct SelectedExportSheet: View {
         .opacity(locked ? 0.6 : 1)
     }
 
+    // MARK: - Receipt toggle
+
+    private var selectedReceiptToggleRow: some View {
+        HStack(spacing: Spacing.smd) {
+            Image(systemName: "photo.on.rectangle")
+                .font(.system(size: 18))
+                .foregroundStyle(Color.brandPrimary)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Include receipt photos")
+                    .font(Fonts.body(16))
+                    .foregroundStyle(Color.textPrimary)
+                Text(includeReceipts ? "Exports as a ZIP with the CSV and photos" : "CSV only")
+                    .font(Fonts.caption(13))
+                    .foregroundStyle(Color.textSecondary)
+            }
+
+            Spacer()
+
+            Toggle("", isOn: $includeReceipts)
+                .labelsHidden()
+                .tint(Color.brandPrimary)
+        }
+        .padding(.horizontal, Spacing.md)
+        .frame(height: 56)
+    }
+
     // MARK: - Export Actions
 
     private func exportCSV() {
@@ -607,7 +682,8 @@ struct SelectedExportSheet: View {
         guard let fileURL = ExpenseExportService.buildCSVExport(
             expenses: expenses,
             tags: domainTags,
-            filenamePrefix: "tally_selected"
+            filenamePrefix: "tally_selected",
+            includeReceipts: includeReceipts
         ) else {
             isExporting = false
             showToast("Export failed")
