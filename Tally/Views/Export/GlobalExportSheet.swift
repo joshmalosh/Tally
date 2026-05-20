@@ -252,7 +252,11 @@ struct GlobalExportSheet: View {
                 Button {
                     withAnimation(nil) { periodFilter = filter }
                 } label: {
-                    Label(periodLabel(for: filter), systemImage: periodFilter == filter ? "checkmark" : "")
+                    if periodFilter == filter {
+                        Label(periodLabel(for: filter), systemImage: "checkmark")
+                    } else {
+                        Text(periodLabel(for: filter))
+                    }
                 }
             }
         } label: {

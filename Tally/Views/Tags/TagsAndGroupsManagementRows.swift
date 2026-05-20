@@ -8,9 +8,18 @@ struct TagsAndGroupsManagementRows: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
 
-    @State private var showingTagCreation = false
-    @State private var showingGroupCreation = false
-    @State private var editingTag: TagModel?
+    private enum TagSheet: Identifiable {
+        case newTag, newGroup, edit(TagModel)
+        var id: String {
+            switch self {
+            case .newTag: return "newTag"
+            case .newGroup: return "newGroup"
+            case .edit(let t): return t.id
+            }
+        }
+    }
+
+    @State private var activeSheet: TagSheet?
 
     private var allTagsSorted: [TagModel] {
         tags.filter { !$0.isGroup }
@@ -41,7 +50,7 @@ struct TagsAndGroupsManagementRows: View {
             // Add tag / Add folder buttons
             HStack(spacing: 10) {
                 Button {
-                    showingTagCreation = true
+                    activeSheet = .newTag
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "plus.circle")
@@ -59,7 +68,7 @@ struct TagsAndGroupsManagementRows: View {
                 .buttonStyle(.plain)
 
                 Button {
-                    showingGroupCreation = true
+                    activeSheet = .newGroup
                 } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "folder.badge.plus")
@@ -85,7 +94,7 @@ struct TagsAndGroupsManagementRows: View {
             // Tags — no toggle
             ForEach(allTagsSorted) { tag in
                 Button {
-                    editingTag = tag
+                    activeSheet = .edit(tag)
                 } label: {
                     HStack(spacing: Spacing.smd) {
                         Circle()
@@ -130,14 +139,15 @@ struct TagsAndGroupsManagementRows: View {
                 }
             }
         }
-        .sheet(isPresented: $showingTagCreation) {
-            TagCreationView(suppressNameFieldAutofocus: true)
-        }
-        .sheet(isPresented: $showingGroupCreation) {
-            TagCreationView(isGroupMode: true, suppressNameFieldAutofocus: true)
-        }
-        .sheet(item: $editingTag) { tag in
-            TagCreationView(editingTag: tag, suppressNameFieldAutofocus: true)
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .newTag:
+                TagCreationView(suppressNameFieldAutofocus: true)
+            case .newGroup:
+                TagCreationView(isGroupMode: true, suppressNameFieldAutofocus: true)
+            case .edit(let tag):
+                TagCreationView(editingTag: tag, suppressNameFieldAutofocus: true)
+            }
         }
     }
 
