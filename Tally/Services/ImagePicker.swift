@@ -35,6 +35,9 @@ struct CameraPicker: UIViewControllerRepresentable {
 struct PhotosPicker: UIViewControllerRepresentable {
     @Binding var image: UIImage?
     var onCancel: (() -> Void)?
+    /// Called instead of setting `image` when the user picks more than one photo.
+    /// When nil, extra photos are discarded (backward-compatible behaviour).
+    var onMultipleImages: (([UIImage]) -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
 
     func makeUIViewController(context: Context) -> PHPickerViewController {
@@ -56,6 +59,40 @@ struct PhotosPicker: UIViewControllerRepresentable {
         init(_ parent: PhotosPicker) { self.parent = parent }
 
         func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+            guard !results.isEmpty else {
+                parent.onCancel?()
+                parent.dismiss()
+                return
+            }
+
+            // Multiple photos selected and caller supports it → route to batch handler
+            if results.count > 1, let multiHandler = parent.onMultipleImages {
+                let lock = NSLock()
+                var orderedImages = [Int: UIImage]()
+                let group = DispatchGroup()
+
+                for (index, result) in results.enumerated() {
+                    guard result.itemProvider.canLoadObject(ofClass: UIImage.self) else { continue }
+                    group.enter()
+                    result.itemProvider.loadObject(ofClass: UIImage.self) { object, _ in
+                        if let uiImage = object as? UIImage {
+                            lock.lock()
+                            orderedImages[index] = uiImage
+                            lock.unlock()
+                        }
+                        group.leave()
+                    }
+                }
+
+                group.notify(queue: .main) {
+                    let sorted = orderedImages.sorted { $0.key < $1.key }.map(\.value)
+                    if !sorted.isEmpty { multiHandler(sorted) }
+                    self.parent.dismiss()
+                }
+                return
+            }
+
+            // Single image (or multi not handled) — original behaviour
             guard let provider = results.first?.itemProvider,
                   provider.canLoadObject(ofClass: UIImage.self) else {
                 parent.onCancel?()

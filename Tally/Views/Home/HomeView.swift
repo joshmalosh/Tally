@@ -33,6 +33,8 @@ struct HomeView: View {
     @State private var homeBarTagId: String? = nil
     @State private var selectedHeroPeriod: HeroPeriod = .month
     @State private var showingPeriodDetail = false
+    @State private var multipleReceiptImages: [UIImage] = []
+    @State private var showingMultiReceiptsReview = false
 
     private var periodExpenses: [ExpenseModel] {
         switch periodFilter {
@@ -251,8 +253,22 @@ struct HomeView: View {
             if mode == .bulkImport {
                 AddMultipleExpensesView()
             } else {
-                AddExpenseView(initialMode: mode)
+                AddExpenseView(
+                    initialMode: mode,
+                    onMultipleImages: mode == .photoLibrary ? { images in
+                        // User picked multiple photos from the library.
+                        // Dismiss AddExpenseView, then open the batch review screen.
+                        multipleReceiptImages = images
+                        selectedEntryMode = nil
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+                            showingMultiReceiptsReview = true
+                        }
+                    } : nil
+                )
             }
+        }
+        .fullScreenCover(isPresented: $showingMultiReceiptsReview) {
+            MultiReceiptReviewView(images: multipleReceiptImages)
         }
         .sheet(item: $appState.selectedExpenseId) { id in
             ExpenseDetailView(expenseId: id)

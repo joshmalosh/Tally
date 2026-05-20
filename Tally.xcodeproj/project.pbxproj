@@ -56,6 +56,7 @@
 		CFA7B0D7E0E131B68534D8CD /* ExportExpenseSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F0868032465E139554DB8D2 /* ExportExpenseSheet.swift */; };
 		D9118E63AC4F413995C5400D /* AttachmentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCB500AF673FBDF6CA909FE4 /* AttachmentService.swift */; };
 		DB1F48D628A150958EA48685 /* AddEntryPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89108F3F19E4B1E39A0F0925 /* AddEntryPicker.swift */; };
+		AA000008CAFEBABE00000001 /* MultiReceiptReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000007CAFEBABE00000001 /* MultiReceiptReviewView.swift */; };
 		B1C2D3E4F5A6B7C8D9E0F1A2 /* BulkExpenseParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7B8C9D0E1F2A3B /* BulkExpenseParser.swift */; };
 		C3D4E5F6A7B8C9D0E1F2A3B4 /* AddMultipleExpensesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4E5F6A7B8C9D0E1F2A3B4C5 /* AddMultipleExpensesView.swift */; };
 		E62148A42197D4CB99E2BEAA /* TagCreationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A580A9627AF63E6E23124DD /* TagCreationView.swift */; };
@@ -136,6 +137,7 @@
 		DD3BF55B40B696430484FB34 /* CurrencyFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrencyFormatterTests.swift; sourceTree = "<group>"; };
 		DE580A1A003072AD757B48A2 /* ExpenseTypesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpenseTypesTests.swift; sourceTree = "<group>"; };
 		EC95D4C0DD04387ED1975A4C /* AddExpenseView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddExpenseView.swift; sourceTree = "<group>"; };
+		AA000007CAFEBABE00000001 /* MultiReceiptReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiReceiptReviewView.swift; sourceTree = "<group>"; };
 		F9AB2A709AB5FC124DE83CDB /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePicker.swift; sourceTree = "<group>"; };
 		FA158A21249AC0F22E9E802E /* ExportView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportView.swift; sourceTree = "<group>"; };
 		FA760FF7DABACC4706C0F32A /* UploadLimitView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UploadLimitView.swift; sourceTree = "<group>"; };
@@ -297,6 +299,7 @@
 			children = (
 				89108F3F19E4B1E39A0F0925 /* AddEntryPicker.swift */,
 				EC95D4C0DD04387ED1975A4C /* AddExpenseView.swift */,
+				AA000007CAFEBABE00000001 /* MultiReceiptReviewView.swift */,
 				1A88FA9B2D102A4E24B128E8 /* CurrencyPickerSheet.swift */,
 			);
 			path = AddExpense;
@@ -526,6 +529,7 @@
 				1082EE58C63258DCBD5CE112 /* AdManager.swift in Sources */,
 				DB1F48D628A150958EA48685 /* AddEntryPicker.swift in Sources */,
 				508992FEB05634F72D2539B5 /* AddExpenseView.swift in Sources */,
+				AA000008CAFEBABE00000001 /* MultiReceiptReviewView.swift in Sources */,
 				C7B0A146A50B69C007E4EE0A /* AppDelegate.swift in Sources */,
 				5A69146139E526666C5D9D7A /* AppState.swift in Sources */,
 				D9118E63AC4F413995C5400D /* AttachmentService.swift in Sources */,

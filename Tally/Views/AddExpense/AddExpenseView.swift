@@ -2,6 +2,14 @@ import SwiftUI
 import SwiftData
 import UIKit
 
+/// Pre-filled values applied when `AddExpenseView` is opened from `MultiReceiptReviewView`.
+struct BatchDraftPrefill {
+    var amountText: String = ""
+    var merchant: String = ""
+    var date: Date = Date()
+    var notes: String = ""
+}
+
 struct AddExpenseView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -13,6 +21,14 @@ struct AddExpenseView: View {
     var initialImage: UIImage? = nil
     var initialFileURL: URL? = nil
     var editingExpense: ExpenseModel? = nil
+
+    /// Called instead of the normal dismiss when the user picks multiple photos
+    /// (only wired up when presented from HomeView).
+    var onMultipleImages: (([UIImage]) -> Void)? = nil
+    /// Pre-fills form fields when opened from MultiReceiptReviewView.
+    var batchPrefill: BatchDraftPrefill? = nil
+    /// Called just before dismiss when saving succeeds in batch mode.
+    var onSaved: (() -> Void)? = nil
 
     @State private var amountText = ""
     @State private var currency = ""
@@ -281,13 +297,17 @@ struct AddExpenseView: View {
                     .ignoresSafeArea()
             }
             .sheet(isPresented: $showingPhotoPicker) {
-                PhotosPicker(image: $attachedImage, onCancel: {
-                    if enteredViaPhotoFlow && attachedImage == nil {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                            dismiss()
+                PhotosPicker(
+                    image: $attachedImage,
+                    onCancel: {
+                        if enteredViaPhotoFlow && attachedImage == nil {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                                dismiss()
+                            }
                         }
-                    }
-                })
+                    },
+                    onMultipleImages: onMultipleImages
+                )
             }
             .sheet(isPresented: $showingDocumentPicker) {
                 DocumentPicker(selectedFileURL: $attachedFileURL, selectedImage: $attachedImage)
@@ -1195,8 +1215,23 @@ struct AddExpenseView: View {
         case .manual, .bulkImport:
             source = .manual
         }
-        if let img = initialImage { attachedImage = img }
+        if let img = initialImage {
+            attachedImage = img
+            // Image was pre-supplied (batch mode) — treat as uploaded, not manual
+            if source == .manual { source = .upload }
+        }
         if let url = initialFileURL { attachedFileURL = url }
+
+        // Apply OCR-derived prefill from the review screen (only sets non-empty values)
+        if let prefill = batchPrefill {
+            if !prefill.amountText.isEmpty { amountText = prefill.amountText }
+            if !prefill.merchant.isEmpty   { merchant   = prefill.merchant }
+            date = prefill.date
+            if !prefill.notes.isEmpty {
+                notes = prefill.notes
+                notesExpanded = true
+            }
+        }
     }
 
     private func runOCR(on image: UIImage) {
@@ -1351,7 +1386,8 @@ struct AddExpenseView: View {
                     } catch {}
                     appState.clearFilters()
 
-                    if !appState.isPro {
+                    // Skip the pro upsell mid-batch — it would be jarring 3 times in a row
+                    if !appState.isPro && onSaved == nil {
                         let newCount = countBeforeInsert + 1
                         let triggerCounts = [3, 6, 9]
                         if triggerCounts.contains(newCount) && appState.proPromptShownThisMonth < 3 {
@@ -1363,6 +1399,7 @@ struct AddExpenseView: View {
                     }
                 }
                 isSaving = false
+                onSaved?()
                 dismiss()
             }
         }
