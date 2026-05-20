@@ -41,7 +41,7 @@ struct TallyTabBar: View {
                 exportItem
             }
             .frame(height: barHeight)
-            .padding(.bottom, 8)
+            .padding(.bottom, 2)
 
             // FAB
             TallyFAB(diameter: fabDiameter, action: onFABTap)
