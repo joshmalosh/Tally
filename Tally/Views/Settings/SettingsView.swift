@@ -129,7 +129,7 @@ struct SettingsView: View {
                             .foregroundStyle(Color.textMuted)
                     }
 
-                    if let privacyURL = URL(string: "https://tally.app/privacy") {
+                    if let privacyURL = URL(string: "https://asimplelife.app/tally/privacy") {
                         Link(destination: privacyURL) {
                             HStack {
                                 Text("Privacy Policy")
