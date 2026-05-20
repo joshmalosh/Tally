@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 enum TallyTab {
     case home
@@ -53,6 +54,7 @@ struct TallyTabBar: View {
 
     private func tabItem(tab: TallyTab, icon: String, filledIcon: String, label: String) -> some View {
         Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
             selectedTab = tab
         } label: {
             VStack(spacing: 3) {
@@ -70,6 +72,7 @@ struct TallyTabBar: View {
 
     private var exportItem: some View {
         Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
             appState.showingExport = true
         } label: {
             VStack(spacing: 3) {

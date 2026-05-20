@@ -11,6 +11,7 @@ struct TallyFAB: View {
     var body: some View {
         Button {
             action()
+            // Ripple runs alongside balloon — no delay on action
             isRippling = false
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) {
                 isRippling = true
@@ -54,6 +55,7 @@ private struct FABButtonBody: View {
     let configuration: ButtonStyleConfiguration
     @State private var shadowRadius: CGFloat = 14
     @State private var shadowY: CGFloat = 6
+    @State private var scale: CGFloat = 1.0
 
     var body: some View {
         configuration.label
@@ -63,22 +65,29 @@ private struct FABButtonBody: View {
                 x: 0,
                 y: shadowY
             )
-            .scaleEffect(configuration.isPressed ? 0.84 : 1.0)
-            .animation(
-                configuration.isPressed
-                    ? .easeIn(duration: 0.08)
-                    : .spring(response: 0.38, dampingFraction: 0.35),
-                value: configuration.isPressed
-            )
+            .scaleEffect(scale)
             .onChange(of: configuration.isPressed) { _, pressed in
-                withAnimation(pressed ? .easeIn(duration: 0.08) : .spring(response: 0.38, dampingFraction: 0.35)) {
-                    shadowRadius = pressed ? 4 : 14
-                    shadowY = pressed ? 2 : 6
-                }
                 if pressed {
+                    withAnimation(.easeIn(duration: 0.08)) {
+                        scale = 0.84
+                        shadowRadius = 4
+                        shadowY = 2
+                    }
                     UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
                     AudioServicesPlaySystemSound(1104)
                 } else {
+                    // Phase 1: inflate (balloon puffs up)
+                    withAnimation(.spring(response: 0.2, dampingFraction: 0.35)) {
+                        scale = 1.18
+                        shadowRadius = 14
+                        shadowY = 6
+                    }
+                    // Phase 2: pop (balloon snaps back to rest)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
+                            scale = 1.0
+                        }
+                    }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     }
