@@ -171,9 +171,7 @@ struct HomeView: View {
                         BannerAdView()
                     }
                     TallyTabBar(selectedTab: $selectedTab) {
-                        withAnimation(.spring(response: 0.46, dampingFraction: 0.72)) {
-                            showingEntryPicker = true
-                        }
+                        showingEntryPicker = true
                     }
                 }
                 .ignoresSafeArea(edges: .bottom)
@@ -591,18 +589,20 @@ struct HomeView: View {
                 appState.selectedExpenseId = expense.id
             }
         }
-        .onLongPressGesture(minimumDuration: 0.2) {
-            if !isSelecting {
-                let gen = UIImpactFeedbackGenerator(style: .heavy)
-                gen.prepare()
-                if #available(iOS 17.0, *) {
-                    gen.impactOccurred(intensity: 1.0)
-                } else {
-                    gen.impactOccurred()
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.5)
+                .onEnded { _ in
+                    guard !isSelecting else { return }
+                    let gen = UIImpactFeedbackGenerator(style: .heavy)
+                    gen.prepare()
+                    if #available(iOS 17.0, *) {
+                        gen.impactOccurred(intensity: 1.0)
+                    } else {
+                        gen.impactOccurred()
+                    }
+                    enterSelectionMode(preselecting: expense.id)
                 }
-                enterSelectionMode(preselecting: expense.id)
-            }
-        }
+        )
         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
         .listRowSeparator(.hidden)
         .listRowBackground(groupCardRowBackground(index: index, count: group.items.count))
