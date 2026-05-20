@@ -46,8 +46,8 @@ struct AddEntryPicker: View {
                 )
                 entryOption(
                     icon: "photo.fill",
-                    title: "Upload image",
-                    subtitle: "Choose a photo from your library",
+                    title: "Upload photos",
+                    subtitle: "Select one or more receipts from your library",
                     mode: .photoLibrary
                 )
                 entryOption(
