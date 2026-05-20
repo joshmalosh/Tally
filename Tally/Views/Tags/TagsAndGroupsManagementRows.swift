@@ -38,7 +38,7 @@ struct TagsAndGroupsManagementRows: View {
     var body: some View {
         Group {
             Text("Tags & Groups")
-                .font(.system(size: 28, weight: .bold))
+                .font(.dmSerifDisplay(28))
                 .foregroundStyle(Color(hex: "1C1C1E"))
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16)
@@ -103,6 +103,11 @@ struct TagsAndGroupsManagementRows: View {
                         Text(tag.name)
                             .foregroundStyle(Color.textPrimary)
                         Spacer()
+                        if tag.showOnHome {
+                            Image(systemName: "house.fill")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Color(hex: "346049").opacity(0.7))
+                        }
                         Image(systemName: "chevron.right")
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(Color.textMuted)

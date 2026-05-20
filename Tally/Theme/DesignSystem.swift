@@ -65,6 +65,21 @@ extension Color {
     }
 }
 
+// MARK: - Custom Fonts
+
+extension Font {
+    /// DM Serif Display Regular — editorial display font for date headers and section titles.
+    ///
+    /// XCODE SETUP REQUIRED (one-time):
+    /// 1. Download DMSerifDisplay-Regular.ttf from fonts.google.com/specimen/DM+Serif+Display
+    /// 2. Drag the .ttf into the Tally Xcode target (tick "Add to target: Tally")
+    /// 3. In Info.plist add key "Fonts provided by application" (UIAppFonts) → item "DMSerifDisplay-Regular.ttf"
+    /// Until the file is added, SwiftUI falls back to the system default font gracefully.
+    static func dmSerifDisplay(_ size: CGFloat) -> Font {
+        .custom("DMSerifDisplay-Regular", size: size)
+    }
+}
+
 // MARK: - Typography
 
 struct Fonts {

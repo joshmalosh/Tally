@@ -140,7 +140,7 @@ struct ReportsView: View {
                 // MARK: Header + period toggle
                 HStack {
                     Text("Reports")
-                        .font(Fonts.brand(24))
+                        .font(.dmSerifDisplay(28))
                         .foregroundStyle(Color(hex: "1C1C1E"))
                     Spacer()
                     HStack(spacing: 2) {

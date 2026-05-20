@@ -30,6 +30,9 @@ struct HomeView: View {
     @State private var selectedTab: TallyTab = .home
     @State private var showingFilterSheet = false
     @State private var isKeyboardVisible = false
+    @State private var homeBarTagId: String? = nil
+    @State private var selectedHeroPeriod: HeroPeriod = .month
+    @State private var showingPeriodDetail = false
 
     private var periodExpenses: [ExpenseModel] {
         switch periodFilter {
@@ -53,6 +56,12 @@ struct HomeView: View {
 
     private var filteredExpenses: [ExpenseModel] {
         var result = periodExpenses
+
+        // Home bar quick-filter (single tag, independent of the advanced filter)
+        if let tagId = homeBarTagId {
+            result = result.filter { $0.resolvedTagIds.contains(tagId) }
+        }
+
         if appState.hasTagFilters {
             result = result.filter { expense in
                 for filterId in appState.activeFilterIds {
@@ -79,6 +88,20 @@ struct HomeView: View {
                 || (expense.notes?.lowercased().contains(query) ?? false)
                 || expense.resolvedTagIds.contains { tagNames[$0]?.contains(query) == true }
             }
+        }
+        return result
+    }
+
+    private var homeTagName: String? {
+        guard let id = homeBarTagId else { return nil }
+        return tags.first(where: { $0.id == id })?.name
+    }
+
+    private func periodExpensesForHero(_ period: HeroPeriod) -> [ExpenseModel] {
+        let range = period.dateRange()
+        var result = activeExpenses.filter { $0.date >= range.start && $0.date <= range.end }
+        if let tagId = homeBarTagId {
+            result = result.filter { $0.resolvedTagIds.contains(tagId) }
         }
         return result
     }
@@ -125,6 +148,28 @@ struct HomeView: View {
 
             if !isHeaderCollapsed {
                 searchBar
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            // Hero spending card — collapses with header, hidden during search
+            if !isHeaderCollapsed && searchText.isEmpty {
+                HeroSpendingCard(
+                    allExpenses: activeExpenses,
+                    homeBarTagId: homeBarTagId,
+                    homeBarTagName: homeTagName,
+                    onTap: { period in
+                        selectedHeroPeriod = period
+                        showingPeriodDetail = true
+                    }
+                )
+                .padding(.top, 10)
+                .padding(.bottom, 2)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            // Home tag bar — collapses with header
+            if !isHeaderCollapsed {
+                HomeTagBar(selectedTagId: $homeBarTagId)
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
 
@@ -228,6 +273,14 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showingFilterSheet) {
             FilterSheet(periodFilter: $periodFilter)
+        }
+        .sheet(isPresented: $showingPeriodDetail) {
+            PeriodDetailView(
+                period: selectedHeroPeriod,
+                expenses: periodExpensesForHero(selectedHeroPeriod),
+                tags: Array(tags)
+            )
+            .presentationDragIndicator(.visible)
         }
         .alert("Delete expense?", isPresented: Binding(
             get: { expenseToDelete != nil },
@@ -508,13 +561,13 @@ struct HomeView: View {
 
             ForEach(dayGroups) { group in
                 Group {
-                    Text(daySectionTitle(for: group.dayStart).uppercased())
-                        .font(Fonts.caption(11))
-                        .foregroundStyle(Color.textMuted)
-                        .tracking(0.55)
+                    Text(daySectionTitle(for: group.dayStart))
+                        .font(.dmSerifDisplay(20))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading, Spacing.lg)
-                        .listRowInsets(EdgeInsets(top: Spacing.sm, leading: 0, bottom: Spacing.xs, trailing: 0))
+                        .padding(.bottom, 4)
+                        .listRowInsets(EdgeInsets(top: Spacing.md, leading: 0, bottom: Spacing.xs, trailing: 0))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
 
@@ -578,7 +631,6 @@ struct HomeView: View {
                     merchant: expense.merchant,
                     amountCents: expense.amountCents,
                     currency: expense.currency,
-                    date: expense.date,
                     primaryTagLabel: primaryTagDisplayLabel(for: expense),
                     primaryTagColor: tag?.tagColor,
                     additionalTagCount: additionalTagCount(for: expense)

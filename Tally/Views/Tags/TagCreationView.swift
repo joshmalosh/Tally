@@ -16,6 +16,7 @@ struct TagCreationView: View {
     @State private var isColorExpanded: Bool = false
     @State private var selectedIcon: String? = nil
     @State private var isIconExpanded: Bool = false
+    @State private var showOnHome: Bool = false
 
     var editingTag: TagModel? = nil
     var initialParentId: String? = nil
@@ -34,11 +35,37 @@ struct TagCreationView: View {
         allTags.filter { $0.isGroup && $0.id != editingTag?.id }
     }
 
+    private var showInHomeBarRow: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Show in home bar")
+                    .font(Fonts.body(15))
+                    .foregroundStyle(Color.textPrimary)
+                Text("Quick-access filter on the home screen")
+                    .font(Fonts.caption(12))
+                    .foregroundStyle(Color.textMuted)
+            }
+            Spacer()
+            Toggle("", isOn: $showOnHome)
+                .tint(Color.brandPrimary)
+                .labelsHidden()
+        }
+        .padding(.horizontal, Spacing.md)
+        .frame(minHeight: 60)
+        .background(Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.md)
+                .stroke(Color.borderColor, lineWidth: 1)
+        )
+    }
+
     private var formContent: some View {
         ScrollView {
             VStack(spacing: Spacing.lg) {
                 nameField
                 if !isGroupMode { groupPicker }
+                if !isGroupMode { showInHomeBarRow }
                 colorGrid
                 iconPickerSection
                 if isEditing && !isGroupMode { deleteTagButton }
@@ -74,6 +101,7 @@ struct TagCreationView: View {
                 selectedColorId = tag.colorId
                 selectedParentId = tag.parentId
                 selectedIcon = tag.icon
+                showOnHome = tag.showOnHome
             } else {
                 selectedParentId = initialParentId
             }
@@ -391,7 +419,10 @@ struct TagCreationView: View {
             tag.name = trimmed
             tag.colorId = selectedColorId
             tag.icon = selectedIcon
-            if !isGroupMode { tag.parentId = selectedParentId }
+            if !isGroupMode {
+                tag.parentId = selectedParentId
+                tag.showOnHome = showOnHome
+            }
             do {
                 try modelContext.save()
                 #if DEBUG
@@ -411,6 +442,7 @@ struct TagCreationView: View {
                 colorId: selectedColorId,
                 icon: selectedIcon,
                 sortOrder: count,
+                showOnHome: isGroupMode ? false : showOnHome,
                 parentId: isGroupMode ? nil : selectedParentId,
                 isGroup: isGroupMode
             )

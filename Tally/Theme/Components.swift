@@ -156,17 +156,10 @@ struct ExpenseCard: View {
     let merchant: String?
     let amountCents: Int
     let currency: String
-    let date: Date
     /// First tag’s display label; `nil` when expense has no tags (no row tag UI).
     let primaryTagLabel: String?
     let primaryTagColor: TagColor?
     let additionalTagCount: Int
-
-    private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateStyle = .medium
-        return f
-    }()
 
     private var displayTitle: String {
         if let merchant = merchant, !merchant.isEmpty {
@@ -234,14 +227,9 @@ struct ExpenseCard: View {
 
             Spacer(minLength: 8)
 
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(CurrencyFormatter.shared.format(cents: amountCents, currencyCode: currency))
-                    .font(.system(size: 16, weight: .semibold).monospacedDigit())
-                    .foregroundStyle(Color.textPrimary)
-                Text(Self.dateFormatter.string(from: date))
-                    .font(.system(size: 12, weight: .regular))
-                    .foregroundStyle(Color.textMuted)
-            }
+            Text(CurrencyFormatter.shared.format(cents: amountCents, currencyCode: currency))
+                .font(.system(size: 16, weight: .semibold).monospacedDigit())
+                .foregroundStyle(Color.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Self.rowHorizontalPadding)
