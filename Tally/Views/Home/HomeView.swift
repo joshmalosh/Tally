@@ -72,20 +72,25 @@ struct HomeView: View {
         }
         if !searchText.isEmpty {
             let query = searchText.lowercased()
+            let tagNames = tagById.mapValues { $0.name.lowercased() }
             result = result.filter { expense in
                 (expense.expenseDescription?.lowercased().contains(query) ?? false)
                 || (expense.merchant?.lowercased().contains(query) ?? false)
                 || (expense.notes?.lowercased().contains(query) ?? false)
-                || expense.resolvedTagIds.contains { id in
-                    tags.first { $0.id == id }?.name.lowercased().contains(query) ?? false
-                }
+                || expense.resolvedTagIds.contains { tagNames[$0]?.contains(query) == true }
             }
         }
         return result
     }
 
+    // Built once per render; all per-row tag lookups use this instead of linear scans.
+    private var tagById: [String: TagModel] {
+        Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0) })
+    }
+
     private func tagsFor(_ expense: ExpenseModel) -> [TagModel] {
-        expense.resolvedTagIds.compactMap { id in tags.first { $0.id == id } }
+        let map = tagById
+        return expense.resolvedTagIds.compactMap { map[$0] }
     }
 
     private func primaryTag(for expense: ExpenseModel) -> TagModel? {
@@ -94,17 +99,17 @@ struct HomeView: View {
 
     /// Label for the first tag only (used in list row pill).
     private func primaryTagDisplayLabel(for expense: ExpenseModel) -> String? {
-        let resolved = tagsFor(expense)
-        guard let first = resolved.first else { return nil }
-        if let parentId = first.parentId,
-           let group = tags.first(where: { $0.id == parentId }) {
+        let map = tagById
+        guard let first = expense.resolvedTagIds.first.flatMap({ map[$0] }) else { return nil }
+        if let parentId = first.parentId, let group = map[parentId] {
             return "\(group.name) › \(first.name)"
         }
         return first.name
     }
 
     private func additionalTagCount(for expense: ExpenseModel) -> Int {
-        let n = tagsFor(expense).count
+        let map = tagById
+        let n = expense.resolvedTagIds.filter { map[$0] != nil }.count
         return n > 1 ? n - 1 : 0
     }
 
@@ -417,13 +422,17 @@ struct HomeView: View {
         }
     }
 
+    private static let daySectionFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEE d MMM"
+        return f
+    }()
+
     private func daySectionTitle(for dayStart: Date) -> String {
         let cal = Calendar.current
         if cal.isDateInToday(dayStart) { return "Today" }
         if cal.isDateInYesterday(dayStart) { return "Yesterday" }
-        let f = DateFormatter()
-        f.dateFormat = "EEE d MMM"
-        return f.string(from: dayStart)
+        return Self.daySectionFormatter.string(from: dayStart)
     }
 
     @ViewBuilder

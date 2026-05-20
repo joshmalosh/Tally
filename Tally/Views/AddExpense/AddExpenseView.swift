@@ -599,12 +599,6 @@ struct AddExpenseView: View {
         )
     }
 
-    private static func shortDateString(_ d: Date) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "MMM d"
-        return f.string(from: d)
-    }
-
     // MARK: - Tags row
 
     private var tagsRowView: some View {

@@ -208,6 +208,6 @@ struct SettingsView: View {
     }
 
     private func monthName(_ month: Int) -> String {
-        DateFormatter().monthSymbols[month - 1]
+        Calendar.current.monthSymbols[month - 1]
     }
 }

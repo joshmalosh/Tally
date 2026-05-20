@@ -576,10 +576,14 @@ struct ExpenseDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private static func shortDateString(_ d: Date) -> String {
+    private static let shortDateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "MMM d"
-        return f.string(from: d)
+        return f
+    }()
+
+    private static func shortDateString(_ d: Date) -> String {
+        shortDateFormatter.string(from: d)
     }
 
     // MARK: - PDF card
