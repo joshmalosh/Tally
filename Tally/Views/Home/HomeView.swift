@@ -163,9 +163,13 @@ struct HomeView: View {
                     }
                 )
                 .padding(.top, 10)
-                .padding(.bottom, 2)
+                .padding(.bottom, 4)
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
+
+            // Home tag bar — always visible (sticky above the list, does not collapse with header)
+            HomeTagBar(selectedTagId: $homeBarTagId)
+                .padding(.vertical, 4)
 
             // Active filter chips — only renders when filters are active
             ActiveFiltersRow(periodFilter: $periodFilter)
@@ -218,16 +222,6 @@ struct HomeView: View {
                 VStack(spacing: 0) {
                     if adManager.shouldShowBannerAd {
                         BannerAdView()
-                    }
-                    // Home tag bar pinned above the tab bar (home tab only)
-                    if selectedTab == .home {
-                        HomeTagBar(selectedTagId: $homeBarTagId)
-                            .background(Color.surface)
-                            .overlay(alignment: .top) {
-                                Rectangle()
-                                    .fill(Color(hex: "DEDAD2").opacity(0.6))
-                                    .frame(height: 0.5)
-                            }
                     }
                     TallyTabBar(selectedTab: $selectedTab) {
                         showingEntryPicker = true
@@ -447,7 +441,7 @@ struct HomeView: View {
             .frame(maxWidth: .infinity)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Color.clear.frame(height: 140)
+            Color.clear.frame(height: 90)
         }
         .scrollContentBackground(.hidden)
         .background(Color(hex: "F6F5F3"))
@@ -583,7 +577,7 @@ struct HomeView: View {
 
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Color.clear.frame(height: 140)
+            Color.clear.frame(height: 90)
         }
         .listStyle(.plain)
         .environment(\.defaultMinListRowHeight, 0)

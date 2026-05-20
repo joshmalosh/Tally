@@ -64,7 +64,7 @@ struct HeroSpendingCard: View {
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(height: 96)
+            .frame(height: 82)
 
             // Page indicator
             HStack(spacing: 6) {
@@ -81,7 +81,7 @@ struct HeroSpendingCard: View {
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: pageIndex)
-            .padding(.bottom, 14)
+            .padding(.bottom, 10)
         }
         .contentShape(Rectangle())
         .onTapGesture {
@@ -140,24 +140,24 @@ private struct HeroPeriodPage: View {
 
             HStack(alignment: .top, spacing: 0) {
                 Text("$")
-                    .font(.system(size: 20, weight: .regular, design: .monospaced))
+                    .font(.system(size: 18, weight: .regular, design: .monospaced))
                     .foregroundStyle(Color(hex: "1C1C1E"))
-                    .padding(.top, 5)
+                    .padding(.top, 4)
                     .padding(.trailing, 1)
 
                 Text(dollarPart)
-                    .font(.system(size: 38, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 34, weight: .semibold, design: .monospaced))
                     .foregroundStyle(Color(hex: "1C1C1E"))
                     .tracking(-1.5)
 
                 Text(".\(centsPart)")
-                    .font(.system(size: 20, weight: .regular, design: .monospaced))
+                    .font(.system(size: 18, weight: .regular, design: .monospaced))
                     .foregroundStyle(Color(hex: "1C1C1E"))
-                    .padding(.top, 5)
+                    .padding(.top, 4)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
-        .padding(.top, 14)
+        .padding(.top, 10)
     }
 }
