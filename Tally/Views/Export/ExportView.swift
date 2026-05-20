@@ -277,19 +277,8 @@ struct ExportView: View {
         isExporting = false
     }
 
-    private func presentShareSheet(items: [Any]) {
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let rootVC = windowScene.windows.first(where: \.isKeyWindow)?.rootViewController else { return }
-
-        var topVC = rootVC
-        while let presented = topVC.presentedViewController {
-            topVC = presented
-        }
-
-        let vc = UIActivityViewController(activityItems: items, applicationActivities: nil)
-        topVC.present(vc, animated: true)
-    }
 }
+
 
 enum ExportFormat {
     case csv, pdf

@@ -13,7 +13,12 @@ struct HomeView: View {
     @State private var searchText = ""
     @State private var showingEntryPicker = false
     @State private var selectedEntryMode: AddEntryMode?
-    @State private var thumbnailCache: [String: UIImage] = [:]
+    @State private var thumbnailVersion: Int = 0
+    private static let thumbnailCache: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        cache.countLimit = 150
+        return cache
+    }()
     @State private var periodFilter: PeriodFilter = .allTime
     @State private var isHeaderCollapsed = false
     @State private var showingFilteredExport = false
@@ -623,8 +628,9 @@ struct HomeView: View {
     // MARK: - Thumbnails
 
     private func thumbnailImage(for expense: ExpenseModel) -> Image? {
+        _ = thumbnailVersion
         let cacheKey = expense.attachmentKey ?? expense.id
-        guard let uiImage = thumbnailCache[cacheKey] else { return nil }
+        guard let uiImage = Self.thumbnailCache.object(forKey: cacheKey as NSString) else { return nil }
         return Image(uiImage: uiImage)
     }
 
@@ -643,25 +649,20 @@ struct HomeView: View {
         }
     }
 
-    private static let maxCachedThumbnails = 150
-
     private func loadThumbnail(for expense: ExpenseModel) async {
         let cacheKey = expense.attachmentKey ?? expense.id
-        guard thumbnailCache[cacheKey] == nil else { return }
-
-        if thumbnailCache.count > Self.maxCachedThumbnails {
-            let keysToRemove = Array(thumbnailCache.keys.prefix(thumbnailCache.count / 3))
-            for key in keysToRemove { thumbnailCache.removeValue(forKey: key) }
-        }
+        guard Self.thumbnailCache.object(forKey: cacheKey as NSString) == nil else { return }
 
         if let key = expense.attachmentKey,
            let thumb = await AttachmentService.shared.loadThumbnail(key: key) {
-            thumbnailCache[cacheKey] = thumb
+            Self.thumbnailCache.setObject(thumb, forKey: cacheKey as NSString)
+            thumbnailVersion += 1
             return
         }
 
         if let data = expense.attachmentData, let image = UIImage(data: data) {
-            thumbnailCache[cacheKey] = image
+            Self.thumbnailCache.setObject(image, forKey: cacheKey as NSString)
+            thumbnailVersion += 1
         }
     }
 
@@ -840,18 +841,6 @@ struct HomeView: View {
         if isSelecting { exitSelectionMode() }
     }
 
-    private func presentShareSheet(items: [Any]) {
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let rootVC = windowScene.windows.first(where: \.isKeyWindow)?.rootViewController else { return }
-
-        var topVC = rootVC
-        while let presented = topVC.presentedViewController {
-            topVC = presented
-        }
-
-        let vc = UIActivityViewController(activityItems: items, applicationActivities: nil)
-        topVC.present(vc, animated: true)
-    }
 }
 
 // MARK: - Expense icon resolver (keywords → SF Symbol + tint category)

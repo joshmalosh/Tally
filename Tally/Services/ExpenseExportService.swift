@@ -31,7 +31,8 @@ enum ExpenseExportService {
             for (index, model) in sorted.enumerated() {
                 let hasAttachment = model.attachmentKey != nil || model.attachmentData != nil
                 guard hasAttachment else { continue }
-                let ext = model.attachmentKey?.components(separatedBy: ".").last ?? "jpg"
+                let rawExt = model.attachmentKey?.components(separatedBy: ".").last ?? "jpg"
+                let ext = rawExt.allSatisfy(\.isLetter) && (1...4).contains(rawExt.count) ? rawExt : "jpg"
                 let label = (model.merchant ?? model.expenseDescription ?? "expense")
                     .lowercased()
                     .replacingOccurrences(of: "[^a-z0-9]+", with: "_", options: .regularExpression)

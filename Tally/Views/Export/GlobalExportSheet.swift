@@ -129,7 +129,7 @@ struct GlobalExportSheet: View {
                                 }
 
                                 if periodHasReceipts {
-                                    receiptToggleRow
+                                    ReceiptToggleRow(includeReceipts: $includeReceipts)
                                 }
                             }
                         }
@@ -340,34 +340,6 @@ struct GlobalExportSheet: View {
         .opacity(locked ? 0.6 : 1)
     }
 
-    // MARK: - Receipt toggle
-
-    private var receiptToggleRow: some View {
-        HStack(spacing: Spacing.smd) {
-            Image(systemName: "photo.on.rectangle")
-                .font(.system(size: 18))
-                .foregroundStyle(Color.brandPrimary)
-                .frame(width: 24)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Include receipt photos")
-                    .font(Fonts.body(16))
-                    .foregroundStyle(Color.textPrimary)
-                Text(includeReceipts ? "Exports as a ZIP with the CSV and photos" : "CSV only")
-                    .font(Fonts.caption(13))
-                    .foregroundStyle(Color.textSecondary)
-            }
-
-            Spacer()
-
-            Toggle("", isOn: $includeReceipts)
-                .labelsHidden()
-                .tint(Color.brandPrimary)
-        }
-        .padding(.horizontal, Spacing.md)
-        .frame(height: 56)
-    }
-
     // MARK: - Export Actions
 
     private func exportCSV(expenses: [ExpenseModel]) {
@@ -406,19 +378,6 @@ struct GlobalExportSheet: View {
             return
         }
         showToast("PDF export coming soon")
-    }
-
-    private func presentShareSheet(items: [Any]) {
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let rootVC = windowScene.windows.first(where: \.isKeyWindow)?.rootViewController else { return }
-
-        var topVC = rootVC
-        while let presented = topVC.presentedViewController {
-            topVC = presented
-        }
-
-        let vc = UIActivityViewController(activityItems: items, applicationActivities: nil)
-        topVC.present(vc, animated: true)
     }
 
     // MARK: - Toast
@@ -501,7 +460,7 @@ struct SelectedExportSheet: View {
                             }
 
                             if hasReceipts {
-                                selectedReceiptToggleRow
+                                ReceiptToggleRow(includeReceipts: $includeReceipts)
                             }
                         }
                     }
@@ -636,34 +595,6 @@ struct SelectedExportSheet: View {
         .opacity(locked ? 0.6 : 1)
     }
 
-    // MARK: - Receipt toggle
-
-    private var selectedReceiptToggleRow: some View {
-        HStack(spacing: Spacing.smd) {
-            Image(systemName: "photo.on.rectangle")
-                .font(.system(size: 18))
-                .foregroundStyle(Color.brandPrimary)
-                .frame(width: 24)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Include receipt photos")
-                    .font(Fonts.body(16))
-                    .foregroundStyle(Color.textPrimary)
-                Text(includeReceipts ? "Exports as a ZIP with the CSV and photos" : "CSV only")
-                    .font(Fonts.caption(13))
-                    .foregroundStyle(Color.textSecondary)
-            }
-
-            Spacer()
-
-            Toggle("", isOn: $includeReceipts)
-                .labelsHidden()
-                .tint(Color.brandPrimary)
-        }
-        .padding(.horizontal, Spacing.md)
-        .frame(height: 56)
-    }
-
     // MARK: - Export Actions
 
     private func exportCSV() {
@@ -702,19 +633,6 @@ struct SelectedExportSheet: View {
             return
         }
         showToast("PDF export coming soon")
-    }
-
-    private func presentShareSheet(items: [Any]) {
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let rootVC = windowScene.windows.first(where: \.isKeyWindow)?.rootViewController else { return }
-
-        var topVC = rootVC
-        while let presented = topVC.presentedViewController {
-            topVC = presented
-        }
-
-        let vc = UIActivityViewController(activityItems: items, applicationActivities: nil)
-        topVC.present(vc, animated: true)
     }
 
     // MARK: - Toast
@@ -1011,17 +929,47 @@ struct TagExportPickerSheet: View {
         isExporting = false
         presentShareSheet(items: [fileURL])
     }
+}
 
-    private func presentShareSheet(items: [Any]) {
-        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-              let rootVC = windowScene.windows.first(where: \.isKeyWindow)?.rootViewController else { return }
+// MARK: - Shared Receipt Toggle Row
 
-        var topVC = rootVC
-        while let presented = topVC.presentedViewController {
-            topVC = presented
+private struct ReceiptToggleRow: View {
+    @Binding var includeReceipts: Bool
+
+    var body: some View {
+        HStack(spacing: Spacing.smd) {
+            Image(systemName: "photo.on.rectangle")
+                .font(.system(size: 18))
+                .foregroundStyle(Color.brandPrimary)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Include receipt photos")
+                    .font(Fonts.body(16))
+                    .foregroundStyle(Color.textPrimary)
+                Text(includeReceipts ? "Exports as a ZIP with the CSV and photos" : "CSV only")
+                    .font(Fonts.caption(13))
+                    .foregroundStyle(Color.textSecondary)
+            }
+
+            Spacer()
+
+            Toggle("", isOn: $includeReceipts)
+                .labelsHidden()
+                .tint(Color.brandPrimary)
         }
-
-        let vc = UIActivityViewController(activityItems: items, applicationActivities: nil)
-        topVC.present(vc, animated: true)
+        .padding(.horizontal, Spacing.md)
+        .frame(height: 56)
     }
+}
+
+// MARK: - Share Sheet Presenter
+
+func presentShareSheet(items: [Any]) {
+    guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+          let rootVC = windowScene.windows.first(where: \.isKeyWindow)?.rootViewController else { return }
+    var topVC = rootVC
+    while let presented = topVC.presentedViewController { topVC = presented }
+    let vc = UIActivityViewController(activityItems: items, applicationActivities: nil)
+    topVC.present(vc, animated: true)
 }
