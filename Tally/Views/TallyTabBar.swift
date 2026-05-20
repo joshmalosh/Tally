@@ -11,11 +11,7 @@ struct TallyTabBar: View {
     @Environment(AppState.self) private var appState
     let onFABTap: () -> Void
 
-    private let fabDiameter: CGFloat = 69
-    // Centre the FAB vertically with the 54pt bar.
-    // FAB diameter is 69pt, bar is 54pt.
-    // To centre: offset = -(fabDiameter / 2) + (barHeight / 2) = -34.5 + 27 = -7.5
-    // Then shift up slightly so it sits above the bar: subtract another 14pt
+    private let fabDiameter: CGFloat = 79
     private let barHeight: CGFloat = 54
     private var fabOffset: CGFloat {
         -((fabDiameter / 2) + (barHeight / 2) - barHeight + 6)
@@ -52,7 +48,7 @@ struct TallyTabBar: View {
                 .offset(y: fabOffset)
         }
         .frame(height: barHeight)
-        .padding(.bottom, -16)
+        .padding(.bottom, -8)
     }
 
     private func tabItem(tab: TallyTab, icon: String, filledIcon: String, label: String) -> some View {
