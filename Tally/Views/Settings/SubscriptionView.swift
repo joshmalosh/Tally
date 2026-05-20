@@ -35,9 +35,9 @@ struct SubscriptionView: View {
                 }
             }
         }
-        .presentCustomerCenter(isPresented: $presentingCustomerCenter) {
+        .presentCustomerCenter(isPresented: $presentingCustomerCenter, onDismiss: {
             presentingCustomerCenter = false
-        }
+        })
     }
 
     // MARK: - Pro (manage)

@@ -235,7 +235,7 @@ struct ExpenseDetailView: View {
                         syncFromExpense(expense)
                     }
                 }
-                .task(id: expense.updatedAt) { await loadAttachment(expense) }
+                .task(id: expense.updatedAt) { loadAttachment(expense) }
             } else {
                 EmptyStateView(
                     icon: "exclamationmark.triangle",
@@ -870,9 +870,9 @@ struct ExpenseDetailView: View {
         dismiss()
     }
 
-    private func loadAttachment(_ expense: ExpenseModel) async {
+    private func loadAttachment(_ expense: ExpenseModel) {
         if let key = expense.attachmentKey,
-           let image = await AttachmentService.shared.loadImage(key: key) {
+           let image = AttachmentService.shared.loadImage(key: key) {
             attachmentImage = image
             return
         }

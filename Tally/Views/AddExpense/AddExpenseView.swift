@@ -1143,12 +1143,10 @@ struct AddExpenseView: View {
             attachmentKey = expense.attachmentKey
 
             if let key = expense.attachmentKey {
-                Task {
-                    if let img = await AttachmentService.shared.loadImage(key: key) {
-                        attachedImage = img
-                    } else if let data = expense.attachmentData, let img = UIImage(data: data) {
-                        attachedImage = img
-                    }
+                if let img = AttachmentService.shared.loadImage(key: key) {
+                    attachedImage = img
+                } else if let data = expense.attachmentData, let img = UIImage(data: data) {
+                    attachedImage = img
                 }
             }
             return

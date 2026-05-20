@@ -105,10 +105,10 @@ enum BulkExpenseParser {
     }
 
     private static func parseAmount(_ text: String) -> Double? {
-        var s = text
+        let cleaned = text
             .replacingOccurrences(of: "[$£€¥\\s]", with: "", options: .regularExpression)
             .replacingOccurrences(of: ",", with: "")
-        return Double(s)
+        return Double(cleaned)
     }
 
     /// Fuzzy match suggested tag name to existing tag. Case-insensitive, minor spelling differences allowed.

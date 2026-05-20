@@ -682,7 +682,7 @@ struct HomeView: View {
             }
         }
         .task {
-            await loadThumbnail(for: expense)
+            loadThumbnail(for: expense)
         }
     }
 
@@ -710,12 +710,13 @@ struct HomeView: View {
         }
     }
 
-    private func loadThumbnail(for expense: ExpenseModel) async {
+    // nonisolated — no await needed; .task wrapper keeps it off the call chain.
+    private func loadThumbnail(for expense: ExpenseModel) {
         let cacheKey = expense.attachmentKey ?? expense.id
         guard Self.thumbnailCache.object(forKey: cacheKey as NSString) == nil else { return }
 
         if let key = expense.attachmentKey,
-           let thumb = await AttachmentService.shared.loadThumbnail(key: key) {
+           let thumb = AttachmentService.shared.loadThumbnail(key: key) {
             Self.thumbnailCache.setObject(thumb, forKey: cacheKey as NSString)
             thumbnailVersion += 1
             return
