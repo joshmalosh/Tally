@@ -171,15 +171,12 @@ struct HomeView: View {
 
             // Home tag bar — always visible (sticky above the list, does not collapse with header)
             HomeTagBar(selectedTagId: $homeBarTagId)
-                .padding(.vertical, 4)
+                .padding(.top, 4)
 
             // Active filter chips — only renders when filters are active
             ActiveFiltersRow(periodFilter: $periodFilter)
                 .animation(.easeOut(duration: 0.2), value: appState.activeFilterIds)
                 .animation(.easeOut(duration: 0.2), value: periodFilter)
-
-            Color(hex: "F6F5F3")
-                .frame(height: 1)
 
             if filteredExpenses.isEmpty && !isSelecting {
                 emptyState
@@ -229,6 +226,7 @@ struct HomeView: View {
                         showingEntryPicker = true
                     }
                 }
+                .ignoresSafeArea(edges: .bottom)
                 .zIndex(60)
             }
         }
@@ -580,7 +578,7 @@ struct HomeView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading, Spacing.lg)
                         .padding(.bottom, 4)
-                        .listRowInsets(EdgeInsets(top: Spacing.xs, leading: 0, bottom: Spacing.xs, trailing: 0))
+                        .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: Spacing.xs, trailing: 0))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
 
