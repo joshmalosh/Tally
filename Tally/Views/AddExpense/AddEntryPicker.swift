@@ -24,22 +24,20 @@ struct AddEntryPicker: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Spacer()
-                Capsule()
-                    .fill(Color(hex: "DEDAD2"))
-                    .frame(width: 36, height: 4)
-                Spacer()
-            }
-            .padding(.top, 10)
-            .padding(.bottom, 20)
+            Capsule()
+                .fill(Color(hex: "DEDAD2"))
+                .frame(width: 36, height: 4)
+                .padding(.top, 12)
+                .padding(.bottom, 24)
 
             Text("Add expense")
-                .font(Fonts.headline(18))
+                .font(Fonts.headline(20))
                 .foregroundStyle(Color.textPrimary)
-                .padding(.bottom, Spacing.lg)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, Spacing.lg)
+                .padding(.bottom, 20)
 
-            VStack(spacing: Spacing.sm) {
+            VStack(spacing: 10) {
                 entryOption(
                     icon: "camera.fill",
                     title: "Snap receipt",
@@ -71,10 +69,9 @@ struct AddEntryPicker: View {
                     mode: .bulkImport
                 )
             }
-            .padding(.horizontal, Spacing.md)
+            .padding(.horizontal, Spacing.lg)
             .padding(.bottom, Spacing.xl)
         }
-        .padding(.top, 20)
         .background(Color.bgPrimary)
     }
 
@@ -83,32 +80,48 @@ struct AddEntryPicker: View {
             dismiss()
             onSelect(mode)
         } label: {
-            HStack(spacing: Spacing.md) {
+            HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 20))
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(Color(hex: "2F402E"))
                     .frame(width: 44, height: 44)
                     .background(Color(hex: "E8F0EA"))
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Color(hex: "1C1C1E"))
                     Text(subtitle)
-                        .font(.system(size: 13, weight: .regular))
+                        .font(.system(size: 13))
                         .foregroundStyle(Color(hex: "8F9E94"))
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(Color.textMuted)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color(hex: "C5C5C7"))
             }
-            .padding(.vertical, 13)
-            .padding(.horizontal, 24)
+            .padding(.vertical, 14)
+            .padding(.horizontal, 16)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 2)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(EntryOptionButtonStyle())
+    }
+}
+
+private struct EntryOptionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .opacity(configuration.isPressed ? 0.88 : 1.0)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
     }
 }

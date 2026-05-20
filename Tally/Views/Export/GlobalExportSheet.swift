@@ -31,7 +31,7 @@ struct GlobalExportSheet: View {
     @State private var showingProUpsell = false
     @State private var proFeatureName = ""
     @State private var showingTagExportPicker = false
-    @State private var showingReceiptConfirm = false
+    @State private var showingReceiptSheet = false
 
     private var periodHasReceipts: Bool {
         periodExpenses.contains { $0.attachmentKey != nil || $0.attachmentData != nil }
@@ -108,7 +108,7 @@ struct GlobalExportSheet: View {
                                     proOnly: true
                                 ) {
                                     if periodHasReceipts {
-                                        showingReceiptConfirm = true
+                                        showingReceiptSheet = true
                                     } else {
                                         exportCSV(expenses: periodExpenses, includeReceipts: false)
                                     }
@@ -162,10 +162,11 @@ struct GlobalExportSheet: View {
                     periodLabel: periodFilter.label
                 )
             }
-            .confirmationDialog("Include receipt photos?", isPresented: $showingReceiptConfirm, titleVisibility: .visible) {
-                Button("CSV only") { exportCSV(expenses: periodExpenses, includeReceipts: false) }
-                Button("Include receipt photos") { exportCSV(expenses: periodExpenses, includeReceipts: true) }
-                Button("Cancel", role: .cancel) { }
+            .sheet(isPresented: $showingReceiptSheet) {
+                ReceiptExportConfirmSheet(
+                    onCSVOnly: { exportCSV(expenses: periodExpenses, includeReceipts: false) },
+                    onWithPhotos: { exportCSV(expenses: periodExpenses, includeReceipts: true) }
+                )
             }
             .overlay(alignment: .bottom) {
                 if showingToast {
@@ -425,7 +426,7 @@ struct SelectedExportSheet: View {
     @State private var toastMessage = ""
     @State private var showingProUpsell = false
     @State private var proFeatureName = ""
-    @State private var showingReceiptConfirm = false
+    @State private var showingReceiptSheet = false
 
     private var hasReceipts: Bool {
         expenses.contains { $0.attachmentKey != nil || $0.attachmentData != nil }
@@ -453,7 +454,7 @@ struct SelectedExportSheet: View {
                                 proOnly: true
                             ) {
                                 if hasReceipts {
-                                    showingReceiptConfirm = true
+                                    showingReceiptSheet = true
                                 } else {
                                     exportCSV(includeReceipts: false)
                                 }
@@ -487,10 +488,11 @@ struct SelectedExportSheet: View {
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
             }
-            .confirmationDialog("Include receipt photos?", isPresented: $showingReceiptConfirm, titleVisibility: .visible) {
-                Button("CSV only") { exportCSV(includeReceipts: false) }
-                Button("Include receipt photos") { exportCSV(includeReceipts: true) }
-                Button("Cancel", role: .cancel) { }
+            .sheet(isPresented: $showingReceiptSheet) {
+                ReceiptExportConfirmSheet(
+                    onCSVOnly: { exportCSV(includeReceipts: false) },
+                    onWithPhotos: { exportCSV(includeReceipts: true) }
+                )
             }
             .overlay(alignment: .bottom) {
                 if showingToast {
@@ -682,7 +684,7 @@ struct TagExportPickerSheet: View {
 
     @State private var selectedIds: Set<String> = []
     @State private var isExporting = false
-    @State private var showingReceiptConfirm = false
+    @State private var showingReceiptSheet = false
 
     private var matchingHasReceipts: Bool {
         matchingExpenses.contains { $0.attachmentKey != nil || $0.attachmentData != nil }
@@ -879,7 +881,7 @@ struct TagExportPickerSheet: View {
                             : "Export \(matchingExpenses.count) expenses",
                         action: {
                             if matchingHasReceipts {
-                                showingReceiptConfirm = true
+                                showingReceiptSheet = true
                             } else {
                                 exportFiltered(includeReceipts: false)
                             }
@@ -912,10 +914,11 @@ struct TagExportPickerSheet: View {
                     }
                 }
             }
-            .confirmationDialog("Include receipt photos?", isPresented: $showingReceiptConfirm, titleVisibility: .visible) {
-                Button("CSV only") { exportFiltered(includeReceipts: false) }
-                Button("Include receipt photos") { exportFiltered(includeReceipts: true) }
-                Button("Cancel", role: .cancel) { }
+            .sheet(isPresented: $showingReceiptSheet) {
+                ReceiptExportConfirmSheet(
+                    onCSVOnly: { exportFiltered(includeReceipts: false) },
+                    onWithPhotos: { exportFiltered(includeReceipts: true) }
+                )
             }
             .animation(.easeInOut(duration: 0.2), value: selectedIds)
         }
@@ -955,6 +958,81 @@ struct TagExportPickerSheet: View {
         appState.recordCSVExport()
         isExporting = false
         presentShareSheet(items: [fileURL])
+    }
+}
+
+// MARK: - Receipt Export Confirm Sheet
+
+struct ReceiptExportConfirmSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let onCSVOnly: () -> Void
+    let onWithPhotos: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Capsule()
+                .fill(Color(hex: "DEDAD2"))
+                .frame(width: 36, height: 4)
+                .padding(.top, 12)
+                .padding(.bottom, 24)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Include receipt photos?")
+                    .font(Fonts.headline(20))
+                    .foregroundStyle(Color.textPrimary)
+                Text("Photos will be bundled alongside the CSV in a ZIP file.")
+                    .font(Fonts.body(14))
+                    .foregroundStyle(Color.textSecondary)
+                    .lineSpacing(3)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, Spacing.lg)
+            .padding(.bottom, Spacing.lg)
+
+            VStack(spacing: 10) {
+                Button {
+                    dismiss()
+                    onWithPhotos()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "photo.on.rectangle.angled")
+                            .font(.system(size: 15, weight: .medium))
+                        Text("Include receipt photos")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Color(hex: "2F402E"))
+                    .foregroundStyle(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    dismiss()
+                    onCSVOnly()
+                } label: {
+                    Text("CSV only")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Color.textSecondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 16)
+                        .background(Color.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.bottom, Spacing.lg)
+        }
+        .background(Color.bgPrimary)
+        .presentationDetents([.height(290)])
+        .presentationDragIndicator(.hidden)
+        .presentationCornerRadius(24)
     }
 }
 
