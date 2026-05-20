@@ -31,7 +31,7 @@ struct GlobalExportSheet: View {
     @State private var showingProUpsell = false
     @State private var proFeatureName = ""
     @State private var showingTagExportPicker = false
-    @State private var includeReceipts = false
+    @State private var showingReceiptConfirm = false
 
     private var periodHasReceipts: Bool {
         periodExpenses.contains { $0.attachmentKey != nil || $0.attachmentData != nil }
@@ -107,7 +107,11 @@ struct GlobalExportSheet: View {
                                     subtitle: "\(expenseCount) expenses \u{2022} \(periodFilter.label)",
                                     proOnly: true
                                 ) {
-                                    exportCSV(expenses: periodExpenses)
+                                    if periodHasReceipts {
+                                        showingReceiptConfirm = true
+                                    } else {
+                                        exportCSV(expenses: periodExpenses, includeReceipts: false)
+                                    }
                                 }
 
                                 exportOption(
@@ -126,10 +130,6 @@ struct GlobalExportSheet: View {
                                     proOnly: true
                                 ) {
                                     showingTagExportPicker = true
-                                }
-
-                                if periodHasReceipts {
-                                    ReceiptToggleRow(includeReceipts: $includeReceipts)
                                 }
                             }
                         }
@@ -161,6 +161,11 @@ struct GlobalExportSheet: View {
                     tags: Array(allTags),
                     periodLabel: periodFilter.label
                 )
+            }
+            .confirmationDialog("Include receipt photos?", isPresented: $showingReceiptConfirm, titleVisibility: .visible) {
+                Button("CSV only") { exportCSV(expenses: periodExpenses, includeReceipts: false) }
+                Button("Include receipt photos") { exportCSV(expenses: periodExpenses, includeReceipts: true) }
+                Button("Cancel", role: .cancel) { }
             }
             .overlay(alignment: .bottom) {
                 if showingToast {
@@ -342,7 +347,7 @@ struct GlobalExportSheet: View {
 
     // MARK: - Export Actions
 
-    private func exportCSV(expenses: [ExpenseModel]) {
+    private func exportCSV(expenses: [ExpenseModel], includeReceipts: Bool) {
         guard appState.isPro else {
             proFeatureName = "CSV export"
             showingProUpsell = true
@@ -420,7 +425,7 @@ struct SelectedExportSheet: View {
     @State private var toastMessage = ""
     @State private var showingProUpsell = false
     @State private var proFeatureName = ""
-    @State private var includeReceipts = false
+    @State private var showingReceiptConfirm = false
 
     private var hasReceipts: Bool {
         expenses.contains { $0.attachmentKey != nil || $0.attachmentData != nil }
@@ -447,7 +452,11 @@ struct SelectedExportSheet: View {
                                 subtitle: "\(expenseCount) expense\(expenseCount == 1 ? "" : "s") \u{2022} \(filterLabel)",
                                 proOnly: true
                             ) {
-                                exportCSV()
+                                if hasReceipts {
+                                    showingReceiptConfirm = true
+                                } else {
+                                    exportCSV(includeReceipts: false)
+                                }
                             }
 
                             exportOption(
@@ -457,10 +466,6 @@ struct SelectedExportSheet: View {
                                 proOnly: true
                             ) {
                                 exportPDF()
-                            }
-
-                            if hasReceipts {
-                                ReceiptToggleRow(includeReceipts: $includeReceipts)
                             }
                         }
                     }
@@ -481,6 +486,11 @@ struct SelectedExportSheet: View {
                 ProFeatureSheet(featureName: proFeatureName)
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
+            }
+            .confirmationDialog("Include receipt photos?", isPresented: $showingReceiptConfirm, titleVisibility: .visible) {
+                Button("CSV only") { exportCSV(includeReceipts: false) }
+                Button("Include receipt photos") { exportCSV(includeReceipts: true) }
+                Button("Cancel", role: .cancel) { }
             }
             .overlay(alignment: .bottom) {
                 if showingToast {
@@ -597,7 +607,7 @@ struct SelectedExportSheet: View {
 
     // MARK: - Export Actions
 
-    private func exportCSV() {
+    private func exportCSV(includeReceipts: Bool) {
         guard appState.isPro else {
             proFeatureName = "CSV export"
             showingProUpsell = true
@@ -672,6 +682,11 @@ struct TagExportPickerSheet: View {
 
     @State private var selectedIds: Set<String> = []
     @State private var isExporting = false
+    @State private var showingReceiptConfirm = false
+
+    private var matchingHasReceipts: Bool {
+        matchingExpenses.contains { $0.attachmentKey != nil || $0.attachmentData != nil }
+    }
 
     private var standaloneTags: [TagModel] {
         tags.filter { $0.parentId == nil && !$0.isGroup }
@@ -862,7 +877,13 @@ struct TagExportPickerSheet: View {
                         title: selectedIds.isEmpty
                             ? "Select tags or groups"
                             : "Export \(matchingExpenses.count) expenses",
-                        action: { exportFiltered() },
+                        action: {
+                            if matchingHasReceipts {
+                                showingReceiptConfirm = true
+                            } else {
+                                exportFiltered(includeReceipts: false)
+                            }
+                        },
                         isLoading: isExporting
                     )
                     .disabled(selectedIds.isEmpty || matchingExpenses.isEmpty)
@@ -891,6 +912,11 @@ struct TagExportPickerSheet: View {
                     }
                 }
             }
+            .confirmationDialog("Include receipt photos?", isPresented: $showingReceiptConfirm, titleVisibility: .visible) {
+                Button("CSV only") { exportFiltered(includeReceipts: false) }
+                Button("Include receipt photos") { exportFiltered(includeReceipts: true) }
+                Button("Cancel", role: .cancel) { }
+            }
             .animation(.easeInOut(duration: 0.2), value: selectedIds)
         }
     }
@@ -903,7 +929,7 @@ struct TagExportPickerSheet: View {
         }
     }
 
-    private func exportFiltered() {
+    private func exportFiltered(includeReceipts: Bool) {
         guard !matchingExpenses.isEmpty else { return }
         guard appState.canExportCSV else { return }
 
@@ -919,7 +945,8 @@ struct TagExportPickerSheet: View {
         guard let fileURL = ExpenseExportService.buildCSVExport(
             expenses: matchingExpenses,
             tags: domainTags,
-            filenamePrefix: "tally_\(tagSuffix)"
+            filenamePrefix: "tally_\(tagSuffix)",
+            includeReceipts: includeReceipts
         ) else {
             isExporting = false
             return
@@ -928,38 +955,6 @@ struct TagExportPickerSheet: View {
         appState.recordCSVExport()
         isExporting = false
         presentShareSheet(items: [fileURL])
-    }
-}
-
-// MARK: - Shared Receipt Toggle Row
-
-private struct ReceiptToggleRow: View {
-    @Binding var includeReceipts: Bool
-
-    var body: some View {
-        HStack(spacing: Spacing.smd) {
-            Image(systemName: "photo.on.rectangle")
-                .font(.system(size: 18))
-                .foregroundStyle(Color.brandPrimary)
-                .frame(width: 24)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Include receipt photos")
-                    .font(Fonts.body(16))
-                    .foregroundStyle(Color.textPrimary)
-                Text(includeReceipts ? "Exports as a ZIP with the CSV and photos" : "CSV only")
-                    .font(Fonts.caption(13))
-                    .foregroundStyle(Color.textSecondary)
-            }
-
-            Spacer()
-
-            Toggle("", isOn: $includeReceipts)
-                .labelsHidden()
-                .tint(Color.brandPrimary)
-        }
-        .padding(.horizontal, Spacing.md)
-        .frame(height: 56)
     }
 }
 
