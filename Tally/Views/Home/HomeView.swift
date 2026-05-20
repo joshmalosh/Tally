@@ -229,7 +229,6 @@ struct HomeView: View {
                         showingEntryPicker = true
                     }
                 }
-                .ignoresSafeArea(edges: .bottom)
                 .zIndex(60)
             }
         }
