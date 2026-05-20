@@ -37,6 +37,9 @@
 		7F8B2FFD0AD8A575BDCB2CBC /* SubscriptionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF2E9A9CCBD037A89B382C47 /* SubscriptionView.swift */; };
 		82AC84BF50866B4FB8446F6D /* ExpenseDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B9419A97620F3D6F9E5C932 /* ExpenseDetailView.swift */; };
 		917D462F542D8E7FAA3F9473 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6342E892EBE5BEB778A07EE4 /* HomeView.swift */; };
+		AA000002CAFEBABE00000001 /* HeroSpendingCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000001CAFEBABE00000001 /* HeroSpendingCard.swift */; };
+		AA000004CAFEBABE00000001 /* HomeTagBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000003CAFEBABE00000001 /* HomeTagBar.swift */; };
+		AA000006CAFEBABE00000001 /* PeriodDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000005CAFEBABE00000001 /* PeriodDetailView.swift */; };
 		93293ED9425338E08C4FFE9E /* ExpenseExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65CC7BBBCB475E2A14A52332 /* ExpenseExportService.swift */; };
 		97D3C8979D3C0A75D88D603A /* SyncEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 939C697035562CAAE48774F8 /* SyncEngine.swift */; };
 		B3C4D5E6F7A8B9C0D1E2F3A4 /* ReceiptOCRService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2B3C4D5E6F7A8B9C0D1E2F3 /* ReceiptOCRService.swift */; };
@@ -107,6 +110,9 @@
 		5748F6BB81ECAC7C9BD5D567 /* AdManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdManager.swift; sourceTree = "<group>"; };
 		5D6B7193795721ECE292D29C /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 		6342E892EBE5BEB778A07EE4 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		AA000001CAFEBABE00000001 /* HeroSpendingCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeroSpendingCard.swift; sourceTree = "<group>"; };
+		AA000003CAFEBABE00000001 /* HomeTagBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeTagBar.swift; sourceTree = "<group>"; };
+		AA000005CAFEBABE00000001 /* PeriodDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeriodDetailView.swift; sourceTree = "<group>"; };
 		65CC7BBBCB475E2A14A52332 /* ExpenseExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpenseExportService.swift; sourceTree = "<group>"; };
 		6B23719619830D783B4A5D67 /* CurrencyFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrencyFormatter.swift; sourceTree = "<group>"; };
 		6C469C53D5B07DC050FB92B7 /* GlobalExportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalExportSheet.swift; sourceTree = "<group>"; };
@@ -317,6 +323,9 @@
 			isa = PBXGroup;
 			children = (
 				6342E892EBE5BEB778A07EE4 /* HomeView.swift */,
+				AA000001CAFEBABE00000001 /* HeroSpendingCard.swift */,
+				AA000003CAFEBABE00000001 /* HomeTagBar.swift */,
+				AA000005CAFEBABE00000001 /* PeriodDetailView.swift */,
 			);
 			path = Home;
 			sourceTree = "<group>";
@@ -538,6 +547,9 @@
 				7B5BBDDCD13BA9F47FA80BC2 /* ExportView.swift in Sources */,
 				E97A9C090D7461FB66CF7E61 /* GlobalExportSheet.swift in Sources */,
 				917D462F542D8E7FAA3F9473 /* HomeView.swift in Sources */,
+				AA000002CAFEBABE00000001 /* HeroSpendingCard.swift in Sources */,
+				AA000004CAFEBABE00000001 /* HomeTagBar.swift in Sources */,
+				AA000006CAFEBABE00000001 /* PeriodDetailView.swift in Sources */,
 				BA0D71051486DDABBAB9A118 /* ImagePicker.swift in Sources */,
 				29BB7E25372852B4C86200FB /* OnboardingView.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* GroupDetailView.swift in Sources */,
