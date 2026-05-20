@@ -50,6 +50,7 @@ struct HomeTagBar: View {
                     .background(Color.white)
                     .clipShape(Circle())
                     .overlay(Circle().stroke(Color(hex: "DEDAD2"), lineWidth: 1))
+                    .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
             }
             .buttonStyle(.plain)
             .padding(.trailing, 24)

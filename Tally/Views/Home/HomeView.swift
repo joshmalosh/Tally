@@ -179,7 +179,7 @@ struct HomeView: View {
                 .animation(.easeOut(duration: 0.2), value: periodFilter)
 
             Color(hex: "F6F5F3")
-                .frame(height: 4)
+                .frame(height: 1)
 
             if filteredExpenses.isEmpty && !isSelecting {
                 emptyState
@@ -560,7 +560,7 @@ struct HomeView: View {
     private var expenseList: some View {
         List {
             Color.clear
-                .frame(height: 8)
+                .frame(height: 2)
                 .listRowInsets(EdgeInsets())
                 .listRowSeparator(.hidden)
                 .listRowBackground(Color.clear)
@@ -581,7 +581,7 @@ struct HomeView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading, Spacing.lg)
                         .padding(.bottom, 4)
-                        .listRowInsets(EdgeInsets(top: Spacing.sm, leading: 0, bottom: Spacing.xs, trailing: 0))
+                        .listRowInsets(EdgeInsets(top: Spacing.xs, leading: 0, bottom: Spacing.xs, trailing: 0))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
 
