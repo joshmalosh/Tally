@@ -93,6 +93,7 @@ struct HeroSpendingCard: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
         )
+        .shadow(color: .black.opacity(0.08), radius: 12, x: 0, y: 4)
         .padding(.horizontal, 24)
     }
 }

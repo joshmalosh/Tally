@@ -140,10 +140,34 @@ struct PeriodDetailView: View {
 
     // MARK: - Body
 
+    // MARK: - Empty state
+
+    private var emptyStateContent: some View {
+        VStack(spacing: 16) {
+            Text("🎉")
+                .font(.system(size: 52))
+            Text("Nothing spent here")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(Color(hex: "1C1C1E"))
+            Text("No expenses logged for this period.\nEnjoy the quiet!")
+                .font(.system(size: 15))
+                .foregroundStyle(Color(hex: "8F9E94"))
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.top, 80)
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+
+                    if expenses.isEmpty {
+                        emptyStateContent
+                            .frame(maxWidth: .infinity)
+                            .padding(.horizontal, 24)
+                    } else {
 
                     // Running total
                     VStack(alignment: .leading, spacing: 4) {
@@ -248,6 +272,7 @@ struct PeriodDetailView: View {
                     }
 
                     Spacer(minLength: 60)
+                    } // end else (expenses not empty)
                 }
             }
             .scrollContentBackground(.hidden)

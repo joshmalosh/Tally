@@ -167,19 +167,13 @@ struct HomeView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
 
-            // Home tag bar — collapses with header
-            if !isHeaderCollapsed {
-                HomeTagBar(selectedTagId: $homeBarTagId)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
-
             // Active filter chips — only renders when filters are active
             ActiveFiltersRow(periodFilter: $periodFilter)
                 .animation(.easeOut(duration: 0.2), value: appState.activeFilterIds)
                 .animation(.easeOut(duration: 0.2), value: periodFilter)
 
             Color(hex: "F6F5F3")
-                .frame(height: 10)
+                .frame(height: 4)
 
             if filteredExpenses.isEmpty && !isSelecting {
                 emptyState
@@ -206,24 +200,34 @@ struct HomeView: View {
             homeScrollableColumn
                 .background(Color(hex: "F6F5F3").ignoresSafeArea())
 
-            if selectedTab == .reports {
-                ReportsView()
-                    .background(Color(hex: "F6F5F3").ignoresSafeArea())
-                    .transition(.opacity)
-                    .zIndex(50)
-            }
+            // Keep both views alive in memory — opacity-based switching prevents
+            // the "closes on first open" bug that occurs when views are destroyed/recreated.
+            ReportsView()
+                .background(Color(hex: "F6F5F3").ignoresSafeArea())
+                .opacity(selectedTab == .reports ? 1 : 0)
+                .allowsHitTesting(selectedTab == .reports)
+                .zIndex(50)
 
-            if selectedTab == .tags {
-                TagsTabView()
-                    .background(Color(hex: "F6F5F3").ignoresSafeArea())
-                    .transition(.opacity)
-                    .zIndex(50)
-            }
+            TagsTabView()
+                .background(Color(hex: "F6F5F3").ignoresSafeArea())
+                .opacity(selectedTab == .tags ? 1 : 0)
+                .allowsHitTesting(selectedTab == .tags)
+                .zIndex(50)
 
             if !isKeyboardVisible {
                 VStack(spacing: 0) {
                     if adManager.shouldShowBannerAd {
                         BannerAdView()
+                    }
+                    // Home tag bar pinned above the tab bar (home tab only)
+                    if selectedTab == .home {
+                        HomeTagBar(selectedTagId: $homeBarTagId)
+                            .background(Color.surface)
+                            .overlay(alignment: .top) {
+                                Rectangle()
+                                    .fill(Color(hex: "DEDAD2").opacity(0.6))
+                                    .frame(height: 0.5)
+                            }
                     }
                     TallyTabBar(selectedTab: $selectedTab) {
                         showingEntryPicker = true
@@ -443,7 +447,7 @@ struct HomeView: View {
             .frame(maxWidth: .infinity)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Color.clear.frame(height: 90)
+            Color.clear.frame(height: 140)
         }
         .scrollContentBackground(.hidden)
         .background(Color(hex: "F6F5F3"))
@@ -562,12 +566,12 @@ struct HomeView: View {
             ForEach(dayGroups) { group in
                 Group {
                     Text(daySectionTitle(for: group.dayStart))
-                        .font(.dmSerifDisplay(20))
-                        .foregroundStyle(Color(hex: "1C1C1E"))
+                        .font(.dmSerifDisplay(15))
+                        .foregroundStyle(Color(hex: "6B7280"))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading, Spacing.lg)
                         .padding(.bottom, 4)
-                        .listRowInsets(EdgeInsets(top: Spacing.md, leading: 0, bottom: Spacing.xs, trailing: 0))
+                        .listRowInsets(EdgeInsets(top: Spacing.sm, leading: 0, bottom: Spacing.xs, trailing: 0))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
 
@@ -579,7 +583,7 @@ struct HomeView: View {
 
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Color.clear.frame(height: 90)
+            Color.clear.frame(height: 140)
         }
         .listStyle(.plain)
         .environment(\.defaultMinListRowHeight, 0)
@@ -682,7 +686,7 @@ struct HomeView: View {
             }
         }
         .task {
-            loadThumbnail(for: expense)
+            await loadThumbnail(for: expense)
         }
     }
 
@@ -710,19 +714,29 @@ struct HomeView: View {
         }
     }
 
-    // nonisolated — no await needed; .task wrapper keeps it off the call chain.
-    private func loadThumbnail(for expense: ExpenseModel) {
+    // Runs file I/O on a utility-priority background thread so the main thread
+    // is never blocked. The .task modifier cancels this automatically on row disappear.
+    @MainActor
+    private func loadThumbnail(for expense: ExpenseModel) async {
         let cacheKey = expense.attachmentKey ?? expense.id
         guard Self.thumbnailCache.object(forKey: cacheKey as NSString) == nil else { return }
 
-        if let key = expense.attachmentKey,
-           let thumb = AttachmentService.shared.loadThumbnail(key: key) {
-            Self.thumbnailCache.setObject(thumb, forKey: cacheKey as NSString)
-            thumbnailVersion += 1
-            return
-        }
+        // Capture value-type copies before jumping off the main actor
+        let attachmentKey = expense.attachmentKey
+        let attachmentData = expense.attachmentData
 
-        if let data = expense.attachmentData, let image = UIImage(data: data) {
+        let image: UIImage? = await Task.detached(priority: .utility) {
+            if let key = attachmentKey,
+               let thumb = AttachmentService.shared.loadThumbnail(key: key) {
+                return thumb
+            }
+            if let data = attachmentData {
+                return UIImage(data: data)
+            }
+            return nil
+        }.value
+
+        if let image {
             Self.thumbnailCache.setObject(image, forKey: cacheKey as NSString)
             thumbnailVersion += 1
         }

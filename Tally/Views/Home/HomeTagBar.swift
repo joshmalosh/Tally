@@ -82,6 +82,7 @@ private struct HomeTagPill: View {
                     Capsule()
                         .stroke(isSelected ? Color.clear : Color(hex: "DEDAD2"), lineWidth: 1)
                 )
+                .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
         }
         .buttonStyle(.plain)
         .animation(.easeInOut(duration: 0.15), value: isSelected)
