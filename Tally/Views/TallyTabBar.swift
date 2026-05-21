@@ -13,7 +13,7 @@ struct TallyTabBar: View {
     let onFABTap: () -> Void
 
     private let fabDiameter: CGFloat = 79
-    private let barHeight: CGFloat = 54
+    private let barHeight: CGFloat = 44
     private var fabOffset: CGFloat {
         -((fabDiameter / 2) + (barHeight / 2) - barHeight + 6)
     }
@@ -49,7 +49,7 @@ struct TallyTabBar: View {
                 .offset(y: fabOffset)
         }
         .frame(height: barHeight)
-        .padding(.bottom, -8)
+        .padding(.bottom, -12)
     }
 
     private func tabItem(tab: TallyTab, icon: String, filledIcon: String, label: String) -> some View {
