@@ -22,9 +22,6 @@ struct AddExpenseView: View {
     var initialFileURL: URL? = nil
     var editingExpense: ExpenseModel? = nil
 
-    /// Called instead of the normal dismiss when the user picks multiple photos
-    /// (only wired up when presented from HomeView).
-    var onMultipleImages: (([UIImage]) -> Void)? = nil
     /// Pre-fills form fields when opened from MultiReceiptReviewView.
     var batchPrefill: BatchDraftPrefill? = nil
     /// Called just before dismiss when saving succeeds in batch mode.
@@ -43,6 +40,8 @@ struct AddExpenseView: View {
     @State private var attachedFileURL: URL?
     @State private var attachmentKey: String?
     @State private var enteredViaPhotoFlow = false
+
+    @State private var pendingMultiReview: MultiReviewItem? = nil
 
     @State private var showingCamera = false
     @State private var showingPhotoPicker = false
@@ -306,8 +305,17 @@ struct AddExpenseView: View {
                             }
                         }
                     },
-                    onMultipleImages: onMultipleImages
+                    onMultipleImages: { images in
+                        pendingMultiReview = MultiReviewItem(images: images)
+                    }
                 )
+            }
+            .fullScreenCover(item: $pendingMultiReview, onDismiss: {
+                // MultiReceiptReviewView was dismissed (Done or Cancel).
+                // Dismiss AddExpenseView too so the user lands back on HomeView.
+                dismiss()
+            }) { item in
+                MultiReceiptReviewView(images: item.images)
             }
             .sheet(isPresented: $showingDocumentPicker) {
                 DocumentPicker(selectedFileURL: $attachedFileURL, selectedImage: $attachedImage)

@@ -1,5 +1,13 @@
 import SwiftUI
 
+// MARK: - Item wrapper (used by AddExpenseView to present this screen)
+
+/// Wraps the selected images so they can be passed via fullScreenCover(item:).
+struct MultiReviewItem: Identifiable {
+    let id = UUID()
+    let images: [UIImage]
+}
+
 // MARK: - Draft model
 
 struct ReceiptDraft: Identifiable {
