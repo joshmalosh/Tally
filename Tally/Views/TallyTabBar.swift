@@ -33,7 +33,8 @@ struct TallyTabBar: View {
                     .frame(height: 0.5)
             }
 
-            // Tab items — all bottom-aligned using .bottom alignment on HStack
+            // Tab items — extend frame into safe area so icons are vertically
+            // centred in the full white zone (bar height + safe area inset).
             HStack(alignment: .bottom, spacing: 0) {
                 tabItem(tab: .home, icon: "house", filledIcon: "house.fill", label: "Home")
                 tabItem(tab: .reports, icon: "chart.line.uptrend.xyaxis", filledIcon: "chart.line.uptrend.xyaxis", label: "Reports")
@@ -41,7 +42,8 @@ struct TallyTabBar: View {
                 tabItem(tab: .tags, icon: "tag", filledIcon: "tag.fill", label: "Tags")
                 exportItem
             }
-            .frame(height: barHeight)
+            .frame(height: barHeight + 13)   // +13 ≈ half safe-area, centres icons in visible white zone
+            .ignoresSafeArea(edges: .bottom) // allow frame to extend into safe-area region
             .padding(.bottom, 2)
 
             // FAB

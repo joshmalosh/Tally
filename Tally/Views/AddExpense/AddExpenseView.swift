@@ -42,6 +42,9 @@ struct AddExpenseView: View {
     @State private var enteredViaPhotoFlow = false
 
     @State private var pendingMultiReview: MultiReviewItem? = nil
+    /// Images selected in multi-pick mode — staged here until the picker sheet
+    /// has fully dismissed before we present MultiReceiptReviewView.
+    @State private var stagedMultiImages: [UIImage] = []
 
     @State private var showingCamera = false
     @State private var showingPhotoPicker = false
@@ -235,8 +238,18 @@ struct AddExpenseView: View {
             }
             .onChange(of: showingPhotoPicker) { _, showing in
                 if showing { lastImageSource = .upload }
-                if !showing && !formReady {
-                    withAnimation(.easeIn(duration: 0.2)) { formReady = true }
+                if !showing {
+                    if !stagedMultiImages.isEmpty {
+                        // Sheet is now dismissed — safe to present the full-screen cover.
+                        // A brief delay lets the dismissal animation fully settle first.
+                        let images = stagedMultiImages
+                        stagedMultiImages = []
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            pendingMultiReview = MultiReviewItem(images: images)
+                        }
+                    } else if !formReady {
+                        withAnimation(.easeIn(duration: 0.2)) { formReady = true }
+                    }
                 }
             }
             .onChange(of: showingDocumentPicker) { _, showing in
@@ -306,7 +319,9 @@ struct AddExpenseView: View {
                         }
                     },
                     onMultipleImages: { images in
-                        pendingMultiReview = MultiReviewItem(images: images)
+                        // Stage the images; present the review view only AFTER
+                        // the sheet has fully dismissed (see onChange below).
+                        stagedMultiImages = images
                     }
                 )
             }
