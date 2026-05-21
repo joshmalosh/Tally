@@ -49,7 +49,7 @@ struct TallyTabBar: View {
                 .offset(y: fabOffset)
         }
         .frame(height: barHeight)
-        .padding(.bottom, 0)
+        .padding(.bottom, -8)
     }
 
     private func tabItem(tab: TallyTab, icon: String, filledIcon: String, label: String) -> some View {

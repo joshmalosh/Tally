@@ -165,13 +165,13 @@ struct HomeView: View {
                     }
                 )
                 .padding(.top, 10)
-                .padding(.bottom, 4)
+                .padding(.bottom, 2)
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
 
             // Home tag bar — always visible (sticky above the list, does not collapse with header)
             HomeTagBar(selectedTagId: $homeBarTagId)
-                .padding(.top, 4)
+                .padding(.top, 2)
 
             // Active filter chips — only renders when filters are active
             ActiveFiltersRow(periodFilter: $periodFilter)
