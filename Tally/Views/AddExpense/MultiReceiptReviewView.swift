@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Item wrapper (used by AddExpenseView to present this screen)
 
-/// Wraps the selected images so they can be passed via fullScreenCover(item:).
+/// Wraps the selected images so they can be passed via the ZStack overlay.
 struct MultiReviewItem: Identifiable {
     let id = UUID()
     let images: [UIImage]
@@ -29,13 +29,27 @@ struct ReceiptDraft: Identifiable {
 // MARK: - Review view
 
 struct MultiReceiptReviewView: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
 
     let images: [UIImage]
+    /// Called by the Cancel button — the parent hides the overlay without
+    /// dismissing AddExpenseView.
+    let onCancel: () -> Void
+    /// Called by the Done button — the parent hides the overlay AND dismisses
+    /// AddExpenseView back to HomeView.
+    let onDone: () -> Void
 
-    @State private var drafts: [ReceiptDraft] = []
+    @State private var drafts: [ReceiptDraft]
     @State private var editingDraft: ReceiptDraft? = nil
+
+    /// Drafts are created eagerly in init so receipt cards render immediately
+    /// (in shimmer state) — no dependency on onAppear or task timing.
+    init(images: [UIImage], onCancel: @escaping () -> Void, onDone: @escaping () -> Void) {
+        self.images = images
+        self.onCancel = onCancel
+        self.onDone = onDone
+        _drafts = State(initialValue: images.map { ReceiptDraft(image: $0) })
+    }
 
     private var savedCount: Int  { drafts.filter(\.isSaved).count }
     private var totalCount: Int  { drafts.count }
@@ -63,17 +77,23 @@ struct MultiReceiptReviewView: View {
 
                 bottomBar
             }
+            // Force the ZStack to fill the NavigationStack's content area.
+            // Without this, ScrollView collapses to content size inside a ZStack
+            // and the Done button floats directly below the nav bar.
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color(hex: "F6F5F3").ignoresSafeArea())
             .navigationTitle("Review receipts")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") { onCancel() }
                         .foregroundStyle(Color(hex: "8F9E94"))
                 }
             }
         }
-        .onAppear { setupDrafts() }
+        // .task fires when the view is inserted — kicks off OCR for each draft.
+        // Even if it fires late, cards are already visible (shimmer state from init).
+        .task { await runAllOCR() }
         .sheet(item: $editingDraft) { draft in
             AddExpenseView(
                 initialImage: draft.image,
@@ -156,7 +176,7 @@ struct MultiReceiptReviewView: View {
             .frame(height: 36)
             .allowsHitTesting(false)
 
-            Button { dismiss() } label: {
+            Button { onDone() } label: {
                 Text(doneLabel)
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(.white)
@@ -177,16 +197,14 @@ struct MultiReceiptReviewView: View {
     }
 
     private var doneLabel: String {
-        if allSaved      { return "Done · All \(totalCount) saved ✓" }
+        if allSaved       { return "Done · All \(totalCount) saved ✓" }
         if savedCount > 0 { return "Done · \(savedCount) of \(totalCount) saved" }
         return "Done"
     }
 
-    // MARK: - Logic
+    // MARK: - OCR
 
-    private func setupDrafts() {
-        drafts = images.map { ReceiptDraft(image: $0) }
-
+    private func runAllOCR() async {
         for i in drafts.indices {
             let image   = drafts[i].image
             let draftId = drafts[i].id
@@ -213,6 +231,8 @@ struct MultiReceiptReviewView: View {
             }
         }
     }
+
+    // MARK: - Logic
 
     private func markSaved(draftId: UUID) {
         guard let idx = drafts.firstIndex(where: { $0.id == draftId }) else { return }

@@ -205,9 +205,23 @@ struct AddExpenseView: View {
             }
 
             if let item = pendingMultiReview {
-                MultiReceiptReviewView(images: item.images)
-                    .ignoresSafeArea()
-                    .zIndex(100)
+                MultiReceiptReviewView(
+                    images: item.images,
+                    onCancel: {
+                        // Hide the overlay — leave AddExpenseView open so the
+                        // user can still add a single expense or just cancel.
+                        pendingMultiReview = nil
+                        if !formReady { formReady = true }
+                    },
+                    onDone: {
+                        // All receipts saved — hide the overlay then dismiss
+                        // AddExpenseView back to HomeView.
+                        pendingMultiReview = nil
+                        dismiss()
+                    }
+                )
+                .ignoresSafeArea()
+                .zIndex(100)
             }
         }
     }
