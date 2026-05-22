@@ -42,9 +42,9 @@ struct AddExpenseView: View {
     @State private var enteredViaPhotoFlow = false
 
     @State private var pendingMultiReview: MultiReviewItem? = nil
-    /// Images selected in multi-pick mode — staged here until the picker sheet
-    /// has fully dismissed before we present MultiReceiptReviewView.
-    @State private var stagedMultiImages: [UIImage] = []
+    /// True while we are waiting for the multi-image review overlay to appear —
+    /// suppresses the formReady restore that would flash the form briefly.
+    @State private var multiImagesInProgress = false
 
     @State private var showingCamera = false
     @State private var showingPhotoPicker = false
@@ -249,20 +249,10 @@ struct AddExpenseView: View {
             }
             .onChange(of: showingPhotoPicker) { _, showing in
                 if showing { lastImageSource = .upload }
-                if !showing {
-                    if !stagedMultiImages.isEmpty {
-                        // Sheet is now dismissed — safe to present the full-screen cover.
-                        // A brief delay lets the dismissal animation fully settle first.
-                        let images = stagedMultiImages
-                        stagedMultiImages = []
-                        // Tiny defer so the picker sheet finishes its
-                        // dismissal before the review overlay appears.
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            pendingMultiReview = MultiReviewItem(images: images)
-                        }
-                    } else if !formReady {
-                        withAnimation(.easeIn(duration: 0.2)) { formReady = true }
-                    }
+                // Only restore formReady when NOT entering multi-image review;
+                // multiImagesInProgress suppresses the flash of the form.
+                if !showing && !formReady && !multiImagesInProgress {
+                    withAnimation(.easeIn(duration: 0.2)) { formReady = true }
                 }
             }
             .onChange(of: showingDocumentPicker) { _, showing in
@@ -332,9 +322,15 @@ struct AddExpenseView: View {
                         }
                     },
                     onMultipleImages: { images in
-                        // Stage the images; present the review view only AFTER
-                        // the sheet has fully dismissed (see onChange below).
-                        stagedMultiImages = images
+                        // `images` is a local constant captured here — never
+                        // touches @State, so iOS 26 render-cycle ordering cannot
+                        // corrupt it.  The flag prevents a formReady flash; the
+                        // 0.4 s delay lets the picker sheet finish dismissing.
+                        multiImagesInProgress = true
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            multiImagesInProgress = false
+                            pendingMultiReview = MultiReviewItem(images: images)
+                        }
                     }
                 )
             }
