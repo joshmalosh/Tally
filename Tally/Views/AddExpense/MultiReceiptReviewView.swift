@@ -1,8 +1,7 @@
 import SwiftUI
 
-// MARK: - Item wrapper (used by AddExpenseView to present this screen)
+// MARK: - Item wrapper
 
-/// Wraps the selected images so they can be passed via the ZStack overlay.
 struct MultiReviewItem: Identifiable {
     let id = UUID()
     let images: [UIImage]
@@ -13,16 +12,12 @@ struct MultiReviewItem: Identifiable {
 struct ReceiptDraft: Identifiable {
     let id: UUID = UUID()
     let image: UIImage
-
-    // OCR state
     var isProcessing: Bool = true
     var amountText: String = ""
     var amountCents: Int? = nil
     var merchant: String = ""
     var date: Date = Date()
     var notes: String = ""
-
-    // Save state
     var isSaved: Bool = false
 }
 
@@ -32,81 +27,34 @@ struct MultiReceiptReviewView: View {
     @Environment(AppState.self) private var appState
 
     let images: [UIImage]
-    /// Called by Cancel — parent hides the overlay without dismissing AddExpenseView.
     let onCancel: () -> Void
-    /// Called by Done — parent hides the overlay and dismisses AddExpenseView.
     let onDone: () -> Void
 
     @State private var drafts: [ReceiptDraft]
     @State private var editingDraft: ReceiptDraft? = nil
 
-    /// Drafts initialised eagerly in init so receipt cards render immediately
-    /// in shimmer state, with no dependency on onAppear / task timing.
+    /// Drafts are built in init so cards render immediately — no dependency
+    /// on onAppear or task timing.
     init(images: [UIImage], onCancel: @escaping () -> Void, onDone: @escaping () -> Void) {
-        self.images = images
+        self.images   = images
         self.onCancel = onCancel
-        self.onDone = onDone
+        self.onDone   = onDone
         _drafts = State(initialValue: images.map { ReceiptDraft(image: $0) })
     }
 
-    private var savedCount: Int  { drafts.filter(\.isSaved).count }
-    private var totalCount: Int  { drafts.count }
-    private var allSaved: Bool   { totalCount > 0 && savedCount == totalCount }
-
-    // Safe-area top inset so the custom header sits below the status bar when
-    // the view is shown with .ignoresSafeArea() from AddExpenseView.
-    private var topInset: CGFloat {
-        UIApplication.shared.connectedScenes
-            .compactMap { $0 as? UIWindowScene }
-            .first?.windows.first(where: { $0.isKeyWindow })?
-            .safeAreaInsets.top ?? 47
-    }
+    private var savedCount: Int { drafts.filter(\.isSaved).count }
+    private var totalCount: Int { drafts.count }
+    private var allSaved: Bool  { totalCount > 0 && savedCount == totalCount }
 
     // MARK: - Body
-    //
-    // No NavigationStack here. Having two NavigationStacks as ZStack siblings
-    // in iOS 26 / SwiftUI 6 causes the inner one to receive a zero or minimal
-    // height proposal, collapsing the ScrollView and floating the Done button
-    // directly below the nav bar. Using a plain ZStack + custom header avoids
-    // the sizing conflict entirely.
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            // Background fills the entire screen including safe areas.
-            Color(hex: "F6F5F3").ignoresSafeArea()
-
-            // Content column: status-bar spacer → header → scroll list.
-            VStack(spacing: 0) {
-                // Push header below the status bar.
-                Color(hex: "F6F5F3").frame(height: topInset)
-
-                // Custom navigation-bar replacement.
-                ZStack {
-                    Text("Review receipts")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(Color(hex: "1C1C1E"))
-                    HStack {
-                        Button("Cancel") { onCancel() }
-                            .font(.system(size: 17))
-                            .foregroundStyle(Color(hex: "8F9E94"))
-                        Spacer()
-                    }
-                    .padding(.horizontal, 20)
-                }
-                .frame(height: 44)
-                .background(Color(hex: "F6F5F3"))
-                .overlay(alignment: .bottom) {
-                    Rectangle()
-                        .fill(Color(hex: "DEDAD2"))
-                        .frame(height: 0.5)
-                }
-
-                // Receipt list — ScrollView expands to fill remaining height.
+        NavigationStack {
+            ZStack(alignment: .bottom) {
                 ScrollView {
                     VStack(spacing: 10) {
                         progressCard
                             .padding(.top, 4)
-
                         ForEach(drafts) { draft in
                             DraftReceiptCard(draft: draft) {
                                 editingDraft = draft
@@ -116,15 +64,20 @@ struct MultiReceiptReviewView: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 120)
                 }
-            }
-            // Force VStack to fill the full ZStack frame so the ScrollView
-            // actually expands rather than collapsing to content size.
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // Sticky Done button pinned to the bottom of the ZStack.
-            bottomBar
+                bottomBar
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(hex: "F6F5F3").ignoresSafeArea())
+            .navigationTitle("Review receipts")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { onCancel() }
+                        .foregroundStyle(Color(hex: "8F9E94"))
+                }
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task { await runAllOCR() }
         .sheet(item: $editingDraft) { draft in
             AddExpenseView(
@@ -135,9 +88,7 @@ struct MultiReceiptReviewView: View {
                     date: draft.date,
                     notes: draft.notes
                 ),
-                onSaved: {
-                    markSaved(draftId: draft.id)
-                }
+                onSaved: { markSaved(draftId: draft.id) }
             )
         }
     }
@@ -155,9 +106,7 @@ struct MultiReceiptReviewView: View {
                     .foregroundStyle(Color(hex: "8F9E94"))
                     .animation(.easeInOut, value: savedCount)
             }
-
             Spacer(minLength: 0)
-
             if allSaved {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 24))
@@ -241,20 +190,16 @@ struct MultiReceiptReviewView: View {
             let image   = drafts[i].image
             let draftId = drafts[i].id
             let isPro   = appState.isPro
-
             Task {
                 let result = await ReceiptOCRService.extract(from: image)
                 await MainActor.run {
                     guard let idx = drafts.firstIndex(where: { $0.id == draftId }) else { return }
                     drafts[idx].isProcessing = false
-
                     if let amount = result.amount {
                         drafts[idx].amountCents = Int(round(amount * 100))
                         drafts[idx].amountText  = String(format: "%.2f", amount)
                     }
-                    if let extractedDate = result.date {
-                        drafts[idx].date = extractedDate
-                    }
+                    if let extractedDate = result.date { drafts[idx].date = extractedDate }
                     if isPro {
                         if let name = result.merchant { drafts[idx].merchant = name }
                         if let notes = result.notes   { drafts[idx].notes    = notes }
@@ -264,13 +209,9 @@ struct MultiReceiptReviewView: View {
         }
     }
 
-    // MARK: - Logic
-
     private func markSaved(draftId: UUID) {
         guard let idx = drafts.firstIndex(where: { $0.id == draftId }) else { return }
-        withAnimation(.spring(response: 0.3)) {
-            drafts[idx].isSaved = true
-        }
+        withAnimation(.spring(response: 0.3)) { drafts[idx].isSaved = true }
     }
 }
 
@@ -281,23 +222,17 @@ private struct DraftReceiptCard: View {
     let onEdit: () -> Void
 
     private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateStyle = .medium
-        f.timeStyle = .none
-        return f
+        let f = DateFormatter(); f.dateStyle = .medium; f.timeStyle = .none; return f
     }()
 
     private var formattedAmount: String {
         guard let cents = draft.amountCents else { return "Set amount" }
-        let whole = cents / 100
-        let frac  = cents % 100
-        return "$\(whole).\(String(format: "%02d", frac))"
+        return "$\(cents / 100).\(String(format: "%02d", cents % 100))"
     }
 
     var body: some View {
         Button(action: onEdit) {
             HStack(spacing: 14) {
-                // Receipt thumbnail
                 Image(uiImage: draft.image)
                     .resizable()
                     .scaledToFill()
@@ -307,45 +242,28 @@ private struct DraftReceiptCard: View {
                         RoundedRectangle(cornerRadius: 10, style: .continuous)
                             .stroke(Color(hex: "DEDAD2"), lineWidth: 0.5)
                     )
-
-                // Details
                 VStack(alignment: .leading, spacing: 5) {
                     if draft.isProcessing {
                         HStack(spacing: 8) {
                             shimmerBar(width: 72, height: 16)
-                            ProgressView()
-                                .scaleEffect(0.65)
-                                .tint(Color(hex: "8F9E94"))
+                            ProgressView().scaleEffect(0.65).tint(Color(hex: "8F9E94"))
                         }
                         shimmerBar(width: 110, height: 12)
                     } else {
                         Text(formattedAmount)
                             .font(.system(size: 18, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(
-                                draft.amountCents == nil
-                                    ? Color(hex: "C4BFB9")
-                                    : Color(hex: "1C1C1E")
-                            )
-
+                            .foregroundStyle(draft.amountCents == nil ? Color(hex: "C4BFB9") : Color(hex: "1C1C1E"))
                         HStack(spacing: 4) {
                             if !draft.merchant.isEmpty {
-                                Text(draft.merchant)
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(Color(hex: "8F9E94"))
-                                    .lineLimit(1)
-                                Text("·")
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(Color(hex: "C4BFB9"))
+                                Text(draft.merchant).font(.system(size: 13)).foregroundStyle(Color(hex: "8F9E94")).lineLimit(1)
+                                Text("·").font(.system(size: 13)).foregroundStyle(Color(hex: "C4BFB9"))
                             }
                             Text(Self.dateFormatter.string(from: draft.date))
-                                .font(.system(size: 13))
-                                .foregroundStyle(Color(hex: "8F9E94"))
+                                .font(.system(size: 13)).foregroundStyle(Color(hex: "8F9E94"))
                         }
                     }
                 }
-
                 Spacer(minLength: 0)
-
                 statusBadge
             }
             .padding(14)
@@ -367,32 +285,22 @@ private struct DraftReceiptCard: View {
         .animation(.spring(response: 0.3), value: draft.isSaved)
     }
 
-    @ViewBuilder
-    private var statusBadge: some View {
+    @ViewBuilder private var statusBadge: some View {
         if draft.isSaved {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 22))
-                .foregroundStyle(Color(hex: "346049"))
+            Image(systemName: "checkmark.circle.fill").font(.system(size: 22)).foregroundStyle(Color(hex: "346049"))
                 .transition(.scale.combined(with: .opacity))
         } else if !draft.isProcessing {
-            Text("Review")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Color(hex: "346049"))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(Color(hex: "E8F0EA"))
-                .clipShape(Capsule())
+            Text("Review").font(.system(size: 12, weight: .medium)).foregroundStyle(Color(hex: "346049"))
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .background(Color(hex: "E8F0EA")).clipShape(Capsule())
         }
     }
 
     private func shimmerBar(width: CGFloat, height: CGFloat) -> some View {
         RoundedRectangle(cornerRadius: height / 2, style: .continuous)
-            .fill(Color(hex: "EEEDEB"))
-            .frame(width: width, height: height)
+            .fill(Color(hex: "EEEDEB")).frame(width: width, height: height)
     }
 }
-
-// MARK: - Card press style
 
 private struct DraftCardButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {

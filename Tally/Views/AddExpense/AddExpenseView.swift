@@ -42,9 +42,12 @@ struct AddExpenseView: View {
     @State private var enteredViaPhotoFlow = false
 
     @State private var pendingMultiReview: MultiReviewItem? = nil
-    /// True while we are waiting for the multi-image review overlay to appear —
+    /// True while we are waiting for the multi-image review to appear —
     /// suppresses the formReady restore that would flash the form briefly.
     @State private var multiImagesInProgress = false
+    /// Prevents applyInitialState() re-running when the if/else body switches
+    /// back from MultiReceiptReviewView to the NavigationStack form.
+    @State private var hasInitialized = false
 
     @State private var showingCamera = false
     @State private var showingPhotoPicker = false
@@ -187,10 +190,24 @@ struct AddExpenseView: View {
     // MARK: - Body
 
     var body: some View {
-        // ZStack so MultiReceiptReviewView can overlay the form as a plain
-        // child view instead of a chained fullScreenCover — avoids iOS 26
-        // presentation-system conflicts that produce a blank review screen.
-        ZStack {
+        // When multi-image review is pending, swap the entire body to
+        // MultiReceiptReviewView so it is the sole content of this
+        // fullScreenCover — no NavigationStack nesting, no ZStack sizing
+        // issues, guaranteed full-screen frame on iOS 26.
+        if let item = pendingMultiReview {
+            MultiReceiptReviewView(
+                images: item.images,
+                onCancel: {
+                    pendingMultiReview = nil
+                    if !formReady { formReady = true }
+                },
+                onDone: {
+                    // All receipts saved — dismiss AddExpenseView (and the
+                    // review screen with it) back to HomeView.
+                    dismiss()
+                }
+            )
+        } else {
             NavigationStack {
                 addExpenseNavigationRoot
             }
@@ -202,26 +219,6 @@ struct AddExpenseView: View {
             }
             .onTapGesture {
                 UIApplication.shared.endEditing()
-            }
-
-            if let item = pendingMultiReview {
-                MultiReceiptReviewView(
-                    images: item.images,
-                    onCancel: {
-                        // Hide the overlay — leave AddExpenseView open so the
-                        // user can still add a single expense or just cancel.
-                        pendingMultiReview = nil
-                        if !formReady { formReady = true }
-                    },
-                    onDone: {
-                        // All receipts saved — hide the overlay then dismiss
-                        // AddExpenseView back to HomeView.
-                        pendingMultiReview = nil
-                        dismiss()
-                    }
-                )
-                .ignoresSafeArea()
-                .zIndex(100)
             }
         }
     }
@@ -285,7 +282,12 @@ struct AddExpenseView: View {
                 if !newVal.isEmpty { notesExpanded = true }
             }
             .onAppear {
-                applyInitialState()
+                // Guard prevents applyInitialState() firing a second time when
+                // the if/else body switches back from MultiReceiptReviewView.
+                if !hasInitialized {
+                    hasInitialized = true
+                    applyInitialState()
+                }
                 loadExpenses()
                 if !receiptImageAttached, !notes.isEmpty {
                     notesExpanded = true
