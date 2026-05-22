@@ -32,18 +32,16 @@ struct MultiReceiptReviewView: View {
     @Environment(AppState.self) private var appState
 
     let images: [UIImage]
-    /// Called by the Cancel button — the parent hides the overlay without
-    /// dismissing AddExpenseView.
+    /// Called by Cancel — parent hides the overlay without dismissing AddExpenseView.
     let onCancel: () -> Void
-    /// Called by the Done button — the parent hides the overlay AND dismisses
-    /// AddExpenseView back to HomeView.
+    /// Called by Done — parent hides the overlay and dismisses AddExpenseView.
     let onDone: () -> Void
 
     @State private var drafts: [ReceiptDraft]
     @State private var editingDraft: ReceiptDraft? = nil
 
-    /// Drafts are created eagerly in init so receipt cards render immediately
-    /// (in shimmer state) — no dependency on onAppear or task timing.
+    /// Drafts initialised eagerly in init so receipt cards render immediately
+    /// in shimmer state, with no dependency on onAppear / task timing.
     init(images: [UIImage], onCancel: @escaping () -> Void, onDone: @escaping () -> Void) {
         self.images = images
         self.onCancel = onCancel
@@ -55,11 +53,55 @@ struct MultiReceiptReviewView: View {
     private var totalCount: Int  { drafts.count }
     private var allSaved: Bool   { totalCount > 0 && savedCount == totalCount }
 
+    // Safe-area top inset so the custom header sits below the status bar when
+    // the view is shown with .ignoresSafeArea() from AddExpenseView.
+    private var topInset: CGFloat {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?.windows.first(where: { $0.isKeyWindow })?
+            .safeAreaInsets.top ?? 47
+    }
+
     // MARK: - Body
+    //
+    // No NavigationStack here. Having two NavigationStacks as ZStack siblings
+    // in iOS 26 / SwiftUI 6 causes the inner one to receive a zero or minimal
+    // height proposal, collapsing the ScrollView and floating the Done button
+    // directly below the nav bar. Using a plain ZStack + custom header avoids
+    // the sizing conflict entirely.
 
     var body: some View {
-        NavigationStack {
-            ZStack(alignment: .bottom) {
+        ZStack(alignment: .bottom) {
+            // Background fills the entire screen including safe areas.
+            Color(hex: "F6F5F3").ignoresSafeArea()
+
+            // Content column: status-bar spacer → header → scroll list.
+            VStack(spacing: 0) {
+                // Push header below the status bar.
+                Color(hex: "F6F5F3").frame(height: topInset)
+
+                // Custom navigation-bar replacement.
+                ZStack {
+                    Text("Review receipts")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                    HStack {
+                        Button("Cancel") { onCancel() }
+                            .font(.system(size: 17))
+                            .foregroundStyle(Color(hex: "8F9E94"))
+                        Spacer()
+                    }
+                    .padding(.horizontal, 20)
+                }
+                .frame(height: 44)
+                .background(Color(hex: "F6F5F3"))
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(Color(hex: "DEDAD2"))
+                        .frame(height: 0.5)
+                }
+
+                // Receipt list — ScrollView expands to fill remaining height.
                 ScrollView {
                     VStack(spacing: 10) {
                         progressCard
@@ -74,25 +116,15 @@ struct MultiReceiptReviewView: View {
                     .padding(.horizontal, 16)
                     .padding(.bottom, 120)
                 }
-
-                bottomBar
             }
-            // Force the ZStack to fill the NavigationStack's content area.
-            // Without this, ScrollView collapses to content size inside a ZStack
-            // and the Done button floats directly below the nav bar.
+            // Force VStack to fill the full ZStack frame so the ScrollView
+            // actually expands rather than collapsing to content size.
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(hex: "F6F5F3").ignoresSafeArea())
-            .navigationTitle("Review receipts")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { onCancel() }
-                        .foregroundStyle(Color(hex: "8F9E94"))
-                }
-            }
+
+            // Sticky Done button pinned to the bottom of the ZStack.
+            bottomBar
         }
-        // .task fires when the view is inserted — kicks off OCR for each draft.
-        // Even if it fires late, cards are already visible (shimmer state from init).
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task { await runAllOCR() }
         .sheet(item: $editingDraft) { draft in
             AddExpenseView(
@@ -279,7 +311,6 @@ private struct DraftReceiptCard: View {
                 // Details
                 VStack(alignment: .leading, spacing: 5) {
                     if draft.isProcessing {
-                        // Shimmer placeholders
                         HStack(spacing: 8) {
                             shimmerBar(width: 72, height: 16)
                             ProgressView()
@@ -315,7 +346,6 @@ private struct DraftReceiptCard: View {
 
                 Spacer(minLength: 0)
 
-                // Status badge
                 statusBadge
             }
             .padding(14)
