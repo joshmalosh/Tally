@@ -187,17 +187,28 @@ struct AddExpenseView: View {
     // MARK: - Body
 
     var body: some View {
-        NavigationStack {
-            addExpenseNavigationRoot
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
-            withAnimation(.easeInOut(duration: 0.2)) { keyboardVisible = true }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-            withAnimation(.easeInOut(duration: 0.2)) { keyboardVisible = false }
-        }
-        .onTapGesture {
-            UIApplication.shared.endEditing()
+        // ZStack so MultiReceiptReviewView can overlay the form as a plain
+        // child view instead of a chained fullScreenCover — avoids iOS 26
+        // presentation-system conflicts that produce a blank review screen.
+        ZStack {
+            NavigationStack {
+                addExpenseNavigationRoot
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+                withAnimation(.easeInOut(duration: 0.2)) { keyboardVisible = true }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+                withAnimation(.easeInOut(duration: 0.2)) { keyboardVisible = false }
+            }
+            .onTapGesture {
+                UIApplication.shared.endEditing()
+            }
+
+            if let item = pendingMultiReview {
+                MultiReceiptReviewView(images: item.images)
+                    .ignoresSafeArea()
+                    .zIndex(100)
+            }
         }
     }
 
@@ -244,7 +255,9 @@ struct AddExpenseView: View {
                         // A brief delay lets the dismissal animation fully settle first.
                         let images = stagedMultiImages
                         stagedMultiImages = []
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        // Tiny defer so the picker sheet finishes its
+                        // dismissal before the review overlay appears.
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             pendingMultiReview = MultiReviewItem(images: images)
                         }
                     } else if !formReady {
@@ -325,13 +338,8 @@ struct AddExpenseView: View {
                     }
                 )
             }
-            .fullScreenCover(item: $pendingMultiReview, onDismiss: {
-                // MultiReceiptReviewView was dismissed (Done or Cancel).
-                // Dismiss AddExpenseView too so the user lands back on HomeView.
-                dismiss()
-            }) { item in
-                MultiReceiptReviewView(images: item.images)
-            }
+            // Note: MultiReceiptReviewView is presented via the ZStack overlay in
+            // body (not a fullScreenCover) to avoid iOS 26 chained-presentation bugs.
             .sheet(isPresented: $showingDocumentPicker) {
                 DocumentPicker(selectedFileURL: $attachedFileURL, selectedImage: $attachedImage)
             }
