@@ -39,7 +39,9 @@ struct MultiReceiptReviewView: View {
         self.images   = images
         self.onCancel = onCancel
         self.onDone   = onDone
-        _drafts = State(initialValue: images.map { ReceiptDraft(image: $0) })
+        let d = images.map { ReceiptDraft(image: $0) }
+        _drafts = State(initialValue: d)
+        print("[DEBUG][MultiReceiptReviewView.init] images.count=\(images.count) drafts.count=\(d.count)")
     }
 
     private var savedCount: Int { drafts.filter(\.isSaved).count }
@@ -49,7 +51,8 @@ struct MultiReceiptReviewView: View {
     // MARK: - Body
 
     var body: some View {
-        NavigationStack {
+        let _ = print("[DEBUG][MultiReceiptReviewView.body] drafts=\(drafts.count) totalCount=\(totalCount)")
+        return NavigationStack {
             ZStack(alignment: .bottom) {
                 ScrollView {
                     VStack(spacing: 10) {
@@ -68,6 +71,8 @@ struct MultiReceiptReviewView: View {
                 bottomBar
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // TEMP DEBUG: blue tint reveals whether content area has height
+            .background(Color.blue.opacity(0.08).ignoresSafeArea())
             .background(Color(hex: "F6F5F3").ignoresSafeArea())
             .navigationTitle("Review receipts")
             .navigationBarTitleDisplayMode(.inline)
@@ -75,6 +80,20 @@ struct MultiReceiptReviewView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { onCancel() }
                         .foregroundStyle(Color(hex: "8F9E94"))
+                }
+            }
+            .background {
+                GeometryReader { geo in
+                    Color.clear.onAppear {
+                        print("[DEBUG][MultiReceiptReviewView] nav content size=\(geo.size)")
+                    }
+                }
+            }
+        }
+        .background {
+            GeometryReader { geo in
+                Color.clear.onAppear {
+                    print("[DEBUG][MultiReceiptReviewView] NavigationStack size=\(geo.size)")
                 }
             }
         }

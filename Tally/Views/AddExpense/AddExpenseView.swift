@@ -338,12 +338,10 @@ struct AddExpenseView: View {
                         }
                     },
                     onMultipleImages: { images in
-                        // `images` is a local constant captured here — never
-                        // touches @State, so iOS 26 render-cycle ordering cannot
-                        // corrupt it.  The flag prevents a formReady flash; the
-                        // 0.4 s delay lets the picker sheet finish dismissing.
+                        print("[DEBUG][AddExpense.onMultipleImages] images.count=\(images.count)")
                         multiImagesInProgress = true
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            print("[DEBUG][AddExpense.asyncAfter] setting pendingMultiReview images.count=\(images.count)")
                             multiImagesInProgress = false
                             pendingMultiReview = MultiReviewItem(images: images)
                         }
