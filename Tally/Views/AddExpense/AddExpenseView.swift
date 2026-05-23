@@ -1171,12 +1171,11 @@ struct AddExpenseView: View {
                 }
             }
         )
-        let hc = UIHostingController(rootView: AnyView(
-            reviewView
-                .environment(appState)
-                .environment(adManager)
-                .modelContainer(modelContext.container)
-        ))
+        let rootView = reviewView
+            .environment(appState)
+            .environment(adManager)
+            .modelContainer(modelContext.container)
+        let hc = UIHostingController(rootView: rootView)
         hc.modalPresentationStyle = .fullScreen
         reviewHostingController = hc
 

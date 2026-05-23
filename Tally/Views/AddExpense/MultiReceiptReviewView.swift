@@ -76,6 +76,7 @@ struct MultiReceiptReviewView: View {
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.interactively)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Color(hex: "F6F5F3").ignoresSafeArea())
         .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
