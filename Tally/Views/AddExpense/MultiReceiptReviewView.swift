@@ -56,44 +56,40 @@ struct MultiReceiptReviewView: View {
     private var usesDecimals: Bool { CurrencyFormatter.shared.usesDecimals(for: currencyCode) }
 
     // MARK: - Body
+    // No NavigationStack — iOS 26 beta has a bug where NavigationStack silently
+    // proposes zero height to scroll content. Using a plain VStack + custom nav bar
+    // + List (UIKit-backed) bypasses the entire SwiftUI layout system for the content.
 
     var body: some View {
-        NavigationStack {
-            // ZStack with Color.ignoresSafeArea() as the base forces the container to
-            // fill the full frame that NavigationStack provides — mirrors the pattern
-            // used by AddExpenseView which renders correctly on iOS 26.
-            ZStack {
-                Color(hex: "F6F5F3").ignoresSafeArea()
-                ScrollView {
-                    VStack(spacing: 8) {
-                        ForEach(drafts.indices, id: \.self) { idx in
-                            accordionCard(idx: idx)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                }
-                .scrollDismissesKeyboard(.interactively)
-                .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
-            }
-            .navigationTitle("Review receipts")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { onCancel() }
-                        .foregroundStyle(Color(hex: "8F9E94"))
-                }
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") { focusedField = nil }
-                        .foregroundStyle(Color(hex: "2F402E"))
+        VStack(spacing: 0) {
+            navBar
+            Divider()
+
+            List {
+                ForEach(drafts.indices, id: \.self) { idx in
+                    accordionCard(idx: idx)
+                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                 }
             }
-            .alert("Missing amounts", isPresented: $showingAmountAlert) {
-                Button("OK") {}
-            } message: {
-                Text("All selected receipts need an amount. Fill in or uncheck any that are missing.")
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .scrollDismissesKeyboard(.interactively)
+        }
+        .background(Color(hex: "F6F5F3").ignoresSafeArea())
+        .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { focusedField = nil }
+                    .foregroundStyle(Color(hex: "2F402E"))
             }
+        }
+        .alert("Missing amounts", isPresented: $showingAmountAlert) {
+            Button("OK") {}
+        } message: {
+            Text("All selected receipts need an amount. Fill in or uncheck any that are missing.")
         }
         .task { await runAllOCR() }
         .sheet(isPresented: $showingTagPicker) {
@@ -125,23 +121,44 @@ struct MultiReceiptReviewView: View {
         }
     }
 
+    // MARK: - Custom nav bar
+
+    private var navBar: some View {
+        ZStack {
+            Text("Review receipts")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(Color(hex: "1C1C1E"))
+            HStack {
+                Button("Cancel") { onCancel() }
+                    .font(.system(size: 17))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color(hex: "EEEDEB"))
+                    .clipShape(Capsule())
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+        }
+        .frame(height: 52)
+        .background(Color(hex: "F6F5F3"))
+    }
+
     // MARK: - Accordion card
 
-    @ViewBuilder
     private func accordionCard(idx: Int) -> some View {
         let d = drafts[idx]
-        let draft = $drafts[idx]
         let isExpanded = expandedIds.contains(d.id)
 
-        VStack(spacing: 0) {
-            // Collapsed header — always visible
+        return VStack(spacing: 0) {
+            // Header row
             HStack(spacing: 12) {
                 Button {
-                    withAnimation(.spring(response: 0.2)) { draft.isChecked.wrappedValue.toggle() }
+                    drafts[idx].isChecked.toggle()
                 } label: {
-                    Image(systemName: d.isChecked ? "checkmark.circle.fill" : "circle")
+                    Image(systemName: drafts[idx].isChecked ? "checkmark.circle.fill" : "circle")
                         .font(.system(size: 22))
-                        .foregroundStyle(d.isChecked ? Color(hex: "346049") : Color(hex: "C4BFB9"))
+                        .foregroundStyle(drafts[idx].isChecked ? Color(hex: "346049") : Color(hex: "C4BFB9"))
                 }
                 .buttonStyle(.plain)
 
@@ -169,9 +186,7 @@ struct MultiReceiptReviewView: View {
                                     .font(.system(size: 13))
                                     .foregroundStyle(Color(hex: "8F9E94"))
                                     .lineLimit(1)
-                                Text("·")
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(Color(hex: "C4BFB9"))
+                                Text("·").font(.system(size: 13)).foregroundStyle(Color(hex: "C4BFB9"))
                             }
                             Text(Self.dateFmt.string(from: d.date))
                                 .font(.system(size: 13))
@@ -186,7 +201,6 @@ struct MultiReceiptReviewView: View {
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Color(hex: "C4BFB9"))
-                        .animation(.spring(response: 0.3), value: isExpanded)
                 }
             }
             .padding(14)
@@ -200,10 +214,9 @@ struct MultiReceiptReviewView: View {
                 }
             }
 
-            // Expanded inline fields
             if isExpanded {
-                Color(hex: "DEDAD2").frame(height: 1).padding(.horizontal, 14)
-                expandedFields(draft: draft)
+                Color(hex: "F0EFE9").frame(height: 1).padding(.horizontal, 14)
+                expandedFields(idx: idx)
                     .padding(.horizontal, 14)
                     .padding(.bottom, 14)
             }
@@ -218,32 +231,30 @@ struct MultiReceiptReviewView: View {
                 )
         )
         .opacity(d.isChecked ? 1 : 0.5)
-        .animation(.easeInOut(duration: 0.15), value: d.isChecked)
-        .id(d.id)
     }
 
     // MARK: - Expanded fields
 
-    @ViewBuilder
-    private func expandedFields(draft: Binding<ReceiptDraft>) -> some View {
-        let d = draft.wrappedValue
+    private func expandedFields(idx: Int) -> some View {
+        let d = drafts[idx]
+        let draftId = d.id
         let selectedTags = d.selectedTagIds.compactMap { id in tags.first { $0.id == id } }
 
-        VStack(alignment: .leading, spacing: 0) {
+        return VStack(alignment: .leading, spacing: 0) {
             // Amount
             fieldRow(label: "Amount") {
                 HStack(spacing: 4) {
                     Text(currencySymbol)
                         .font(.system(size: 20, weight: .regular, design: .monospaced))
                         .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
-                    TextField(usesDecimals ? "0.00" : "0", text: draft.amountText)
+                    TextField(usesDecimals ? "0.00" : "0", text: $drafts[idx].amountText)
                         .font(.system(size: 20, weight: .regular, design: .monospaced))
                         .keyboardType(usesDecimals ? .decimalPad : .numberPad)
-                        .focused($focusedField, equals: .amount(d.id))
-                        .onChange(of: draft.amountText.wrappedValue) { _, new in
+                        .focused($focusedField, equals: .amount(draftId))
+                        .onChange(of: drafts[idx].amountText) { _, new in
                             let clean = sanitizeAmount(new)
-                            if clean != new { draft.amountText.wrappedValue = clean }
-                            draft.amountCents.wrappedValue = parseCents(clean)
+                            if clean != new { drafts[idx].amountText = clean }
+                            drafts[idx].amountCents = parseCents(clean)
                         }
                 }
             }
@@ -252,10 +263,10 @@ struct MultiReceiptReviewView: View {
 
             // Merchant
             fieldRow(label: "Merchant") {
-                TextField("Where did you pay?", text: draft.merchant)
+                TextField("Where did you pay?", text: $drafts[idx].merchant)
                     .font(.system(size: 15))
                     .textInputAutocapitalization(.words)
-                    .focused($focusedField, equals: .merchant(d.id))
+                    .focused($focusedField, equals: .merchant(draftId))
             }
 
             rowDivider
@@ -269,7 +280,7 @@ struct MultiReceiptReviewView: View {
                     Spacer()
                     Button("Change") {
                         focusedField = nil
-                        datePickerDraftId = d.id
+                        datePickerDraftId = draftId
                         showingDatePicker = true
                     }
                     .font(.system(size: 13, weight: .medium))
@@ -285,7 +296,7 @@ struct MultiReceiptReviewView: View {
                 if selectedTags.isEmpty {
                     Button {
                         focusedField = nil
-                        tagPickerDraftId = d.id
+                        tagPickerDraftId = draftId
                         showingTagPicker = true
                     } label: {
                         HStack(spacing: 5) {
@@ -300,12 +311,12 @@ struct MultiReceiptReviewView: View {
                         HStack(spacing: 6) {
                             ForEach(selectedTags) { tag in
                                 tagChip(tag: tag) {
-                                    draft.selectedTagIds.wrappedValue.removeAll { $0 == tag.id }
+                                    drafts[idx].selectedTagIds.removeAll { $0 == tag.id }
                                 }
                             }
                             Button {
                                 focusedField = nil
-                                tagPickerDraftId = d.id
+                                tagPickerDraftId = draftId
                                 showingTagPicker = true
                             } label: {
                                 Text("+ Add")
@@ -327,10 +338,10 @@ struct MultiReceiptReviewView: View {
 
             // Notes
             fieldRow(label: "Notes") {
-                TextField("Add a note…", text: draft.notes, axis: .vertical)
+                TextField("Add a note…", text: $drafts[idx].notes, axis: .vertical)
                     .font(.system(size: 15))
                     .lineLimit(1...3)
-                    .focused($focusedField, equals: .notes(d.id))
+                    .focused($focusedField, equals: .notes(draftId))
             }
         }
         .padding(.top, 4)
@@ -353,15 +364,10 @@ struct MultiReceiptReviewView: View {
     private func tagChip(tag: TagModel, onRemove: @escaping () -> Void) -> some View {
         HStack(spacing: 4) {
             Circle().fill(tag.tagColor.primaryColor).frame(width: 7, height: 7)
-            Text(tag.name)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Color(hex: "2F402E"))
+            Text(tag.name).font(.system(size: 12, weight: .medium)).foregroundStyle(Color(hex: "2F402E"))
             Button(action: onRemove) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 9, weight: .bold))
-                    .foregroundStyle(Color(hex: "2F402E").opacity(0.6))
-            }
-            .buttonStyle(.plain)
+                Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(Color(hex: "2F402E").opacity(0.6))
+            }.buttonStyle(.plain)
         }
         .padding(.vertical, 5).padding(.leading, 9).padding(.trailing, 7)
         .background(Color(hex: "E8F0EA"))
@@ -372,13 +378,8 @@ struct MultiReceiptReviewView: View {
 
     private var bottomBar: some View {
         VStack(spacing: 0) {
-            LinearGradient(
-                colors: [.clear, Color(hex: "F6F5F3")],
-                startPoint: .top, endPoint: .bottom
-            )
-            .frame(height: 36)
-            .allowsHitTesting(false)
-
+            LinearGradient(colors: [.clear, Color(hex: "F6F5F3")], startPoint: .top, endPoint: .bottom)
+                .frame(height: 36).allowsHitTesting(false)
             Button { addExpenses() } label: {
                 Group {
                     if isSaving {
@@ -402,7 +403,6 @@ struct MultiReceiptReviewView: View {
             .buttonStyle(.plain)
             .disabled(checkedCount == 0 || isSaving)
             .padding(.bottom, 34)
-
             Color(hex: "F6F5F3")
         }
         .background(Color(hex: "F6F5F3"))
