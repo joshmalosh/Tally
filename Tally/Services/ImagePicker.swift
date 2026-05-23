@@ -86,7 +86,6 @@ struct PhotosPicker: UIViewControllerRepresentable {
 
                 group.notify(queue: .main) {
                     let sorted = orderedImages.sorted { $0.key < $1.key }.map(\.value)
-                    print("[DEBUG][ImagePicker] group.notify — sorted.count=\(sorted.count)")
                     if !sorted.isEmpty { multiHandler(sorted) }
                     self.parent.dismiss()
                 }

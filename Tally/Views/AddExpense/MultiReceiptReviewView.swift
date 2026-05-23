@@ -39,9 +39,7 @@ struct MultiReceiptReviewView: View {
         self.images   = images
         self.onCancel = onCancel
         self.onDone   = onDone
-        let d = images.map { ReceiptDraft(image: $0) }
-        _drafts = State(initialValue: d)
-        print("[DEBUG][MultiReceiptReviewView.init] images.count=\(images.count) drafts.count=\(d.count)")
+        _drafts = State(initialValue: images.map { ReceiptDraft(image: $0) })
     }
 
     private var savedCount: Int { drafts.filter(\.isSaved).count }
@@ -51,28 +49,27 @@ struct MultiReceiptReviewView: View {
     // MARK: - Body
 
     var body: some View {
-        let _ = print("[DEBUG][MultiReceiptReviewView.body] drafts=\(drafts.count) totalCount=\(totalCount)")
-        return NavigationStack {
-            ZStack(alignment: .bottom) {
-                ScrollView {
-                    VStack(spacing: 10) {
-                        progressCard
-                            .padding(.top, 4)
-                        ForEach(drafts) { draft in
-                            DraftReceiptCard(draft: draft) {
-                                editingDraft = draft
-                            }
+        // iOS 26 / SwiftUI 6 regression: ZStack with .frame(maxWidth/maxHeight: .infinity)
+        // inside NavigationStack collapses to content size (~125pt) despite the frame
+        // modifier. Fix: use ScrollView as the direct NavigationStack root (fills space
+        // naturally) with .safeAreaInset(edge: .bottom) for the sticky Done button.
+        NavigationStack {
+            ScrollView {
+                LazyVStack(spacing: 10) {
+                    progressCard
+                        .padding(.top, 4)
+                    ForEach(drafts) { draft in
+                        DraftReceiptCard(draft: draft) {
+                            editingDraft = draft
                         }
                     }
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 120)
                 }
-
+                .padding(.horizontal, 16)
+                .padding(.bottom, 16)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
                 bottomBar
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // TEMP DEBUG: blue tint reveals whether content area has height
-            .background(Color.blue.opacity(0.08).ignoresSafeArea())
             .background(Color(hex: "F6F5F3").ignoresSafeArea())
             .navigationTitle("Review receipts")
             .navigationBarTitleDisplayMode(.inline)
@@ -80,20 +77,6 @@ struct MultiReceiptReviewView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { onCancel() }
                         .foregroundStyle(Color(hex: "8F9E94"))
-                }
-            }
-            .background {
-                GeometryReader { geo in
-                    Color.clear.onAppear {
-                        print("[DEBUG][MultiReceiptReviewView] nav content size=\(geo.size)")
-                    }
-                }
-            }
-        }
-        .background {
-            GeometryReader { geo in
-                Color.clear.onAppear {
-                    print("[DEBUG][MultiReceiptReviewView] NavigationStack size=\(geo.size)")
                 }
             }
         }

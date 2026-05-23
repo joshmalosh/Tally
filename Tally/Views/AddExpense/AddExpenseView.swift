@@ -338,10 +338,8 @@ struct AddExpenseView: View {
                         }
                     },
                     onMultipleImages: { images in
-                        print("[DEBUG][AddExpense.onMultipleImages] images.count=\(images.count)")
                         multiImagesInProgress = true
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                            print("[DEBUG][AddExpense.asyncAfter] setting pendingMultiReview images.count=\(images.count)")
                             multiImagesInProgress = false
                             pendingMultiReview = MultiReviewItem(images: images)
                         }
