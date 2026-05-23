@@ -1,12 +1,5 @@
 import SwiftUI
 
-// MARK: - Item wrapper
-
-struct MultiReviewItem: Identifiable {
-    let id = UUID()
-    let images: [UIImage]
-}
-
 // MARK: - Draft model
 
 struct ReceiptDraft: Identifiable {

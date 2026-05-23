@@ -14,6 +14,7 @@ struct AddExpenseView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(AppState.self) private var appState
+    @Environment(AdManager.self) private var adManager
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
     @State private var allExpenses: [ExpenseModel] = []
 
@@ -41,13 +42,10 @@ struct AddExpenseView: View {
     @State private var attachmentKey: String?
     @State private var enteredViaPhotoFlow = false
 
-    @State private var pendingMultiReview: MultiReviewItem? = nil
     /// True while we are waiting for the multi-image review to appear —
     /// suppresses the formReady restore that would flash the form briefly.
     @State private var multiImagesInProgress = false
-    /// Prevents applyInitialState() re-running when the if/else body switches
-    /// back from MultiReceiptReviewView to the NavigationStack form.
-    @State private var hasInitialized = false
+    @State private var reviewHostingController: UIViewController? = nil
 
     @State private var showingCamera = false
     @State private var showingPhotoPicker = false
@@ -190,36 +188,17 @@ struct AddExpenseView: View {
     // MARK: - Body
 
     var body: some View {
-        // When multi-image review is pending, swap the entire body to
-        // MultiReceiptReviewView so it is the sole content of this
-        // fullScreenCover — no NavigationStack nesting, no ZStack sizing
-        // issues, guaranteed full-screen frame on iOS 26.
-        if let item = pendingMultiReview {
-            MultiReceiptReviewView(
-                images: item.images,
-                onCancel: {
-                    pendingMultiReview = nil
-                    if !formReady { formReady = true }
-                },
-                onDone: {
-                    // All receipts saved — dismiss AddExpenseView (and the
-                    // review screen with it) back to HomeView.
-                    dismiss()
-                }
-            )
-        } else {
-            NavigationStack {
-                addExpenseNavigationRoot
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
-                withAnimation(.easeInOut(duration: 0.2)) { keyboardVisible = true }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-                withAnimation(.easeInOut(duration: 0.2)) { keyboardVisible = false }
-            }
-            .onTapGesture {
-                UIApplication.shared.endEditing()
-            }
+        NavigationStack {
+            addExpenseNavigationRoot
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) { keyboardVisible = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            withAnimation(.easeInOut(duration: 0.2)) { keyboardVisible = false }
+        }
+        .onTapGesture {
+            UIApplication.shared.endEditing()
         }
     }
 
@@ -282,12 +261,7 @@ struct AddExpenseView: View {
                 if !newVal.isEmpty { notesExpanded = true }
             }
             .onAppear {
-                // Guard prevents applyInitialState() firing a second time when
-                // the if/else body switches back from MultiReceiptReviewView.
-                if !hasInitialized {
-                    hasInitialized = true
-                    applyInitialState()
-                }
+                applyInitialState()
                 loadExpenses()
                 if !receiptImageAttached, !notes.isEmpty {
                     notesExpanded = true
@@ -341,13 +315,11 @@ struct AddExpenseView: View {
                         multiImagesInProgress = true
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                             multiImagesInProgress = false
-                            pendingMultiReview = MultiReviewItem(images: images)
+                            presentReviewViaUIKit(images: images)
                         }
                     }
                 )
             }
-            // Note: MultiReceiptReviewView is presented via the ZStack overlay in
-            // body (not a fullScreenCover) to avoid iOS 26 chained-presentation bugs.
             .sheet(isPresented: $showingDocumentPicker) {
                 DocumentPicker(selectedFileURL: $attachedFileURL, selectedImage: $attachedImage)
             }
@@ -1179,6 +1151,43 @@ struct AddExpenseView: View {
             topTrailingRadius: topTrailing,
             style: .continuous
         )
+    }
+
+    // MARK: - UIKit presentation (bypasses SwiftUI layout regressions on iOS 26)
+
+    private func presentReviewViaUIKit(images: [UIImage]) {
+        let reviewView = MultiReceiptReviewView(
+            images: images,
+            onCancel: {
+                reviewHostingController?.dismiss(animated: true) {
+                    reviewHostingController = nil
+                    if !formReady { formReady = true }
+                }
+            },
+            onDone: {
+                reviewHostingController?.dismiss(animated: true) {
+                    reviewHostingController = nil
+                    dismiss()
+                }
+            }
+        )
+        let hc = UIHostingController(rootView: AnyView(
+            reviewView
+                .environment(appState)
+                .environment(adManager)
+                .modelContainer(modelContext.container)
+        ))
+        hc.modalPresentationStyle = .fullScreen
+        reviewHostingController = hc
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first(where: { $0.isKeyWindow }),
+           let rootVC = window.rootViewController {
+            var topVC = rootVC
+            while let presentedVC = topVC.presentedViewController {
+                topVC = presentedVC
+            }
+            topVC.present(hc, animated: true)
+        }
     }
 
     // MARK: - State / OCR / Save
