@@ -59,18 +59,21 @@ struct MultiReceiptReviewView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollViewReader { proxy in
+            // ZStack with Color.ignoresSafeArea() as the base forces the container to
+            // fill the full frame that NavigationStack provides — mirrors the pattern
+            // used by AddExpenseView which renders correctly on iOS 26.
+            ZStack {
+                Color(hex: "F6F5F3").ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: 8) {
-                        ForEach($drafts) { $draft in
-                            accordionCard(draft: $draft, proxy: proxy)
+                        ForEach(drafts.indices, id: \.self) { idx in
+                            accordionCard(idx: idx)
                         }
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                 }
                 .scrollDismissesKeyboard(.interactively)
-                .background(Color(hex: "F6F5F3").ignoresSafeArea())
                 .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
             }
             .navigationTitle("Review receipts")
@@ -125,8 +128,9 @@ struct MultiReceiptReviewView: View {
     // MARK: - Accordion card
 
     @ViewBuilder
-    private func accordionCard(draft: Binding<ReceiptDraft>, proxy: ScrollViewProxy) -> some View {
-        let d = draft.wrappedValue
+    private func accordionCard(idx: Int) -> some View {
+        let d = drafts[idx]
+        let draft = $drafts[idx]
         let isExpanded = expandedIds.contains(d.id)
 
         VStack(spacing: 0) {
@@ -191,14 +195,8 @@ struct MultiReceiptReviewView: View {
                 guard !d.isProcessing else { return }
                 focusedField = nil
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    if isExpanded {
-                        expandedIds.remove(d.id)
-                    } else {
-                        expandedIds.insert(d.id)
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            withAnimation { proxy.scrollTo(d.id, anchor: .top) }
-                        }
-                    }
+                    if isExpanded { expandedIds.remove(d.id) }
+                    else          { expandedIds.insert(d.id) }
                 }
             }
 
