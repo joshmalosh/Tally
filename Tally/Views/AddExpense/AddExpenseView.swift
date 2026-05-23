@@ -315,6 +315,7 @@ struct AddExpenseView: View {
                         multiImagesInProgress = true
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                             multiImagesInProgress = false
+                            formReady = true   // ensure form is visible even if UIKit present fails
                             presentReviewViaUIKit(images: images)
                         }
                     }
@@ -1161,7 +1162,6 @@ struct AddExpenseView: View {
             onCancel: {
                 reviewHostingController?.dismiss(animated: true) {
                     reviewHostingController = nil
-                    if !formReady { formReady = true }
                 }
             },
             onDone: {
@@ -1179,13 +1179,32 @@ struct AddExpenseView: View {
         ))
         hc.modalPresentationStyle = .fullScreen
         reviewHostingController = hc
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = windowScene.windows.first(where: { $0.isKeyWindow }),
-           let rootVC = window.rootViewController {
-            var topVC = rootVC
-            while let presentedVC = topVC.presentedViewController {
-                topVC = presentedVC
+
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+              let window = windowScene.windows.first(where: { $0.isKeyWindow }),
+              let rootVC = window.rootViewController else { return }
+
+        // Walk up to the topmost VC that is NOT mid-dismissal.
+        // iOS 26: the PHPicker sheet's PresentationHostingController may still be
+        // animating out — presenting on it yields "view is not in the window hierarchy".
+        var topVC = rootVC
+        while let child = topVC.presentedViewController, !child.isBeingDismissed {
+            topVC = child
+        }
+
+        if let dismissing = topVC.presentedViewController {
+            // A child is mid-dismissal. Hook into its transition coordinator so we
+            // present exactly when the animation ends; fall back to a fixed delay.
+            if let coordinator = dismissing.transitionCoordinator {
+                coordinator.animate(alongsideTransition: nil) { _ in
+                    topVC.present(hc, animated: true)
+                }
+            } else {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                    topVC.present(hc, animated: true)
+                }
             }
+        } else {
             topVC.present(hc, animated: true)
         }
     }
