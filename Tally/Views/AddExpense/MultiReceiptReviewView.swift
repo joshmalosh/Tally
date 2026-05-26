@@ -56,29 +56,33 @@ struct MultiReceiptReviewView: View {
     private var usesDecimals: Bool { CurrencyFormatter.shared.usesDecimals(for: currencyCode) }
 
     // MARK: - Body
-    // No NavigationStack — iOS 26 beta has a bug where NavigationStack silently
-    // proposes zero height to scroll content. Using a plain VStack + custom nav bar
-    // + List (UIKit-backed) bypasses the entire SwiftUI layout system for the content.
+    // No NavigationStack — iOS 26 beta proposes zero height to scroll content.
+    // ZStack layout: ScrollView fills the entire frame (no VStack height distribution),
+    // navBar overlays on top. UIHostingController must have sizingOptions = [] so
+    // UIKit (not intrinsic content size) determines the frame.
 
     var body: some View {
-        VStack(spacing: 0) {
-            navBar
-            Divider()
+        ZStack(alignment: .top) {
+            Color(hex: "F6F5F3").ignoresSafeArea()
 
-            List {
-                ForEach(drafts.indices, id: \.self) { idx in
-                    accordionCard(idx: idx)
-                        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
+            ScrollView {
+                LazyVStack(spacing: 8) {
+                    ForEach(drafts.indices, id: \.self) { idx in
+                        accordionCard(idx: idx)
+                            .padding(.horizontal, 16)
+                    }
                 }
+                .padding(.top, 8)
+                .padding(.bottom, 20)
             }
-            .listStyle(.plain)
-            .scrollContentBackground(.hidden)
             .scrollDismissesKeyboard(.interactively)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.top, 53) // navBar (52) + Divider (1)
+
+            VStack(spacing: 0) {
+                navBar
+                Divider()
+            }
         }
-        .background(Color(hex: "F6F5F3").ignoresSafeArea())
         .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {

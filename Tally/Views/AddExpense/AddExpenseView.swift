@@ -315,7 +315,6 @@ struct AddExpenseView: View {
                         multiImagesInProgress = true
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                             multiImagesInProgress = false
-                            formReady = true   // ensure form is visible even if UIKit present fails
                             presentReviewViaUIKit(images: images)
                         }
                     }
@@ -1154,7 +1153,7 @@ struct AddExpenseView: View {
         )
     }
 
-    // MARK: - UIKit presentation (bypasses SwiftUI layout regressions on iOS 26)
+    // MARK: - UIKit presentation
 
     private func presentReviewViaUIKit(images: [UIImage]) {
         let reviewView = MultiReceiptReviewView(
@@ -1162,6 +1161,7 @@ struct AddExpenseView: View {
             onCancel: {
                 reviewHostingController?.dismiss(animated: true) {
                     reviewHostingController = nil
+                    formReady = true
                 }
             },
             onDone: {
@@ -1173,27 +1173,28 @@ struct AddExpenseView: View {
         )
         let rootView = reviewView
             .environment(appState)
-            .environment(adManager)
             .modelContainer(modelContext.container)
         let hc = UIHostingController(rootView: rootView)
         hc.modalPresentationStyle = .fullScreen
+        // KEY FIX: default sizingOptions = .intrinsicContentSize causes the host to
+        // shrink-wrap its SwiftUI content (navBar+Divider = 53pt), leaving the
+        // ScrollView with 0pt height. Setting [] tells UIKit to size the view instead.
+        hc.sizingOptions = []
         reviewHostingController = hc
 
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let window = windowScene.windows.first(where: { $0.isKeyWindow }),
-              let rootVC = window.rootViewController else { return }
+              let rootVC = window.rootViewController else {
+            formReady = true
+            return
+        }
 
-        // Walk up to the topmost VC that is NOT mid-dismissal.
-        // iOS 26: the PHPicker sheet's PresentationHostingController may still be
-        // animating out — presenting on it yields "view is not in the window hierarchy".
         var topVC = rootVC
         while let child = topVC.presentedViewController, !child.isBeingDismissed {
             topVC = child
         }
 
         if let dismissing = topVC.presentedViewController {
-            // A child is mid-dismissal. Hook into its transition coordinator so we
-            // present exactly when the animation ends; fall back to a fixed delay.
             if let coordinator = dismissing.transitionCoordinator {
                 coordinator.animate(alongsideTransition: nil) { _ in
                     topVC.present(hc, animated: true)
