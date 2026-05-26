@@ -66,7 +66,7 @@ struct MultiReceiptReviewView: View {
             Color(hex: "F6F5F3").ignoresSafeArea()
 
             ScrollView {
-                LazyVStack(spacing: 8) {
+                VStack(spacing: 8) {
                     ForEach(drafts.indices, id: \.self) { idx in
                         accordionCard(idx: idx)
                             .padding(.horizontal, 16)
@@ -408,7 +408,6 @@ struct MultiReceiptReviewView: View {
             .buttonStyle(.plain)
             .disabled(checkedCount == 0 || isSaving)
             .padding(.bottom, 34)
-            Color(hex: "F6F5F3")
         }
         .background(Color(hex: "F6F5F3"))
     }
