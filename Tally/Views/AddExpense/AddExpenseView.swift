@@ -27,6 +27,9 @@ struct AddExpenseView: View {
     var batchPrefill: BatchDraftPrefill? = nil
     /// Called just before dismiss when saving succeeds in batch mode.
     var onSaved: (() -> Void)? = nil
+    /// When provided, multiple-image selections are handed off to the caller instead
+    /// of being handled internally. The caller is responsible for presentation.
+    var onMultiReceiptImages: (([UIImage]) -> Void)? = nil
 
     @State private var amountText = ""
     @State private var currency = ""
@@ -312,10 +315,16 @@ struct AddExpenseView: View {
                         }
                     },
                     onMultipleImages: { images in
-                        multiImagesInProgress = true
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                            multiImagesInProgress = false
-                            presentReviewViaUIKit(images: images)
+                        if let handler = onMultiReceiptImages {
+                            // Hand off to parent — it will present MultiReceiptReviewView
+                            // at its own level (not nested inside this fullScreenCover).
+                            handler(images)
+                        } else {
+                            multiImagesInProgress = true
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                multiImagesInProgress = false
+                                presentReviewViaUIKit(images: images)
+                            }
                         }
                     }
                 )

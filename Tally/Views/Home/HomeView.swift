@@ -33,6 +33,8 @@ struct HomeView: View {
     @State private var homeBarTagId: String? = nil
     @State private var selectedHeroPeriod: HeroPeriod = .month
     @State private var showingPeriodDetail = false
+    @State private var multiReceiptImages: [UIImage] = []
+    @State private var showingMultiReceipt = false
     private var periodExpenses: [ExpenseModel] {
         switch periodFilter {
         case .selected:
@@ -247,8 +249,28 @@ struct HomeView: View {
             if mode == .bulkImport {
                 AddMultipleExpensesView()
             } else {
-                AddExpenseView(initialMode: mode)
+                AddExpenseView(
+                    initialMode: mode,
+                    onMultiReceiptImages: { images in
+                        // Dismiss AddExpenseView, then present MultiReceiptReviewView
+                        // as a sibling fullScreenCover at this level — never nested.
+                        selectedEntryMode = nil
+                        multiReceiptImages = images
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
+                            showingMultiReceipt = true
+                        }
+                    }
+                )
             }
+        }
+        .fullScreenCover(isPresented: $showingMultiReceipt, onDismiss: {
+            multiReceiptImages = []
+        }) {
+            MultiReceiptReviewView(
+                images: multiReceiptImages,
+                onCancel: { showingMultiReceipt = false },
+                onDone: { showingMultiReceipt = false }
+            )
         }
         .sheet(item: $appState.selectedExpenseId) { id in
             ExpenseDetailView(expenseId: id)
