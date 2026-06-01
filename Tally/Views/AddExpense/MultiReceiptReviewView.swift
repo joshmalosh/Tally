@@ -41,6 +41,7 @@ struct MultiReceiptReviewView: View {
     @State private var datePickerDraftId: UUID? = nil
     @State private var isSaving = false
     @State private var showingAmountAlert = false
+    @State private var fullscreenImageDraft: ReceiptDraft? = nil
     @FocusState private var focusedField: DraftField?
 
     init(images: [UIImage], onCancel: @escaping () -> Void, onDone: @escaping () -> Void) {
@@ -124,6 +125,12 @@ struct MultiReceiptReviewView: View {
                 .presentationDetents([.medium])
             }
         }
+        .sheet(item: $fullscreenImageDraft) { draft in
+            ReceiptImageFullscreenView(image: draft.image) {
+                fullscreenImageDraft = nil
+            }
+            .presentationDragIndicator(.visible)
+        }
     }
 
     // MARK: - Custom nav bar
@@ -176,11 +183,11 @@ struct MultiReceiptReviewView: View {
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
                             .stroke(Color(hex: "DEDAD2"), lineWidth: 0.5)
                     )
+                    .onTapGesture { fullscreenImageDraft = d }
 
                 VStack(alignment: .leading, spacing: 4) {
                     if d.isProcessing {
-                        shimmerBar(width: 80, height: 17)
-                        shimmerBar(width: 110, height: 12)
+                        OCRProgressBar()
                     } else {
                         Text(amountDisplay(d))
                             .font(.system(size: 17, weight: .semibold, design: .monospaced))
@@ -522,6 +529,60 @@ struct MultiReceiptReviewView: View {
                 appState.clearFilters()
                 isSaving = false
                 onDone()
+            }
+        }
+    }
+}
+
+// MARK: - OCR Progress Bar
+
+private struct OCRProgressBar: View {
+    @State private var progress: CGFloat = 0.05
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Scanning…")
+                .font(.system(size: 13))
+                .foregroundStyle(Color(hex: "8F9E94"))
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color(hex: "EEEDEB"))
+                    Capsule()
+                        .fill(Color(hex: "346049"))
+                        .frame(width: geo.size.width * progress)
+                }
+            }
+            .frame(height: 6)
+        }
+        .onAppear {
+            withAnimation(.easeOut(duration: 3.0)) {
+                progress = 0.82
+            }
+        }
+    }
+}
+
+// MARK: - Receipt Image Fullscreen View
+
+private struct ReceiptImageFullscreenView: View {
+    let image: UIImage
+    let onDismiss: () -> Void
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Color.black.ignoresSafeArea()
+
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            Button(action: onDismiss) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 28))
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(.white, Color.white.opacity(0.3))
+                    .padding(16)
             }
         }
     }

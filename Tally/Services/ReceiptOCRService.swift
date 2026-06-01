@@ -122,7 +122,7 @@ enum ReceiptOCRService {
     /// Find the nearest amount block on the same horizontal line as a keyword block.
     /// Vision's bounding boxes use normalized coordinates (0-1), Y increases upward.
     private static func findAmountOnSameLine(as keywordBlock: TextBlock, in blocks: [TextBlock]) -> Double? {
-        let yTolerance = 0.015 // blocks within ~1.5% of image height are "same line"
+        let yTolerance = 0.03 // blocks within ~3% of image height are "same line"
         let keyY = keywordBlock.boundingBox.midY
 
         var candidates: [(Double, CGFloat)] = [] // (amount, horizontal distance)
@@ -426,7 +426,8 @@ enum ReceiptOCRService {
         "subtotal", "total", "change", "cash", "card", "visa", "mastercard", "eftpos", "amex",
         "date", "time", "thank", "welcome", "phone", "tel:", "fax", "email", "address",
         "qty", "price", "ticket", "terminal", "pos", "take away", "takeout", "dine in",
-        "table", "server", "www.", "http", ".com", "item"
+        "table", "server", "www.", "http", ".com", "item",
+        "amount", "description", "service", "docket", "balance", "payment"
     ]
 
     private static func extractMerchant(from blocks: [TextBlock]) -> String? {
