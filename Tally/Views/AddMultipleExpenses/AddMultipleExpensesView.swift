@@ -352,7 +352,7 @@ struct AddMultipleExpensesView: View {
             VStack(spacing: 0) {
                 ZStack(alignment: .bottom) {
                     LinearGradient(
-                        colors: [Color.clear, Color(hex: "F6F5F3")],
+                        colors: [Color.clear, Color(hex: "F0EDE6")],
                         startPoint: .top,
                         endPoint: .bottom
                     )
@@ -374,7 +374,7 @@ struct AddMultipleExpensesView: View {
                     .padding(.bottom, 10)
                     .disabled(!importEnabled)
                 }
-                .background(Color(hex: "F6F5F3"))
+                .background(Color(hex: "F0EDE6"))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
             .ignoresSafeArea(.keyboard, edges: .bottom)

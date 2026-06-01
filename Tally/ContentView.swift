@@ -65,6 +65,7 @@ struct ContentView: View {
                 Task { await SubscriptionService.refreshProStatus(appState: appState) }
             }
             seedDefaultTags()
+            seedSystemTags()
             adManager.configure(isPro: appState.isPro)
             if !hasCompletedOnboarding {
                 taglineTimerTask?.cancel()
@@ -221,6 +222,41 @@ struct ContentView: View {
             }
         } else {
             migrateDefaultTagColors(existingTags)
+        }
+    }
+
+    // MARK: - System tag seeding (Section 7)
+
+    private func seedSystemTags() {
+        guard !UserDefaults.standard.bool(forKey: "tally_has_seeded_default_tags") else { return }
+        UserDefaults.standard.set(true, forKey: "tally_has_seeded_default_tags")
+
+        let descriptor = FetchDescriptor<TagModel>()
+        let existingTags = (try? modelContext.fetch(descriptor)) ?? []
+        let existingNames = Set(existingTags.map { $0.name })
+
+        for def in TagModel.systemTags where !existingNames.contains(def.name) {
+            let tag = TagModel(
+                userId: nil,
+                name: def.name,
+                colorId: def.colorId,
+                symbolName: def.symbolName,
+                isSystemTag: true,
+                sortOrder: def.sortOrder,
+                showOnHome: def.showOnHome
+            )
+            modelContext.insert(tag)
+        }
+
+        do {
+            try modelContext.save()
+            #if DEBUG
+            print("[Tally] System tags seeded.")
+            #endif
+        } catch {
+            #if DEBUG
+            print("[Tally] ERROR seeding system tags: \(error)")
+            #endif
         }
     }
 

@@ -276,7 +276,7 @@ struct PeriodDetailView: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Color(hex: "F6F5F3").ignoresSafeArea())
+            .background(Color(hex: "F0EDE6").ignoresSafeArea())
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

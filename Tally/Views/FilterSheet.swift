@@ -146,7 +146,7 @@ struct FilterSheet: View {
                 }
                 .padding(.vertical, 20)
             }
-            .background(Color(hex: "F6F5F3").ignoresSafeArea())
+            .background(Color(hex: "F0EDE6").ignoresSafeArea())
             .navigationTitle("Filter")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

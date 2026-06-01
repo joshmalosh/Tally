@@ -383,7 +383,7 @@ struct AddExpenseView: View {
                 )
                 .presentationDetents([.height(280)])
                 .presentationDragIndicator(.hidden)
-                .presentationBackground(Color(hex: "F6F5F3"))
+                .presentationBackground(Color(hex: "F0EDE6"))
             }
             .sheet(isPresented: $showingReplaceReceiptSources) {
                 ReceiptSourcePickerSheet(
@@ -394,7 +394,7 @@ struct AddExpenseView: View {
                 )
                 .presentationDetents([.height(280)])
                 .presentationDragIndicator(.hidden)
-                .presentationBackground(Color(hex: "F6F5F3"))
+                .presentationBackground(Color(hex: "F0EDE6"))
             }
             .alert("Error", isPresented: $showingError) {
                 Button("OK") {}
@@ -988,7 +988,7 @@ struct AddExpenseView: View {
             .padding(.vertical, 8)
             .padding(.horizontal, 14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(hex: "F6F5F3"))
+            .background(Color(hex: "F0EDE6"))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -1120,7 +1120,7 @@ struct AddExpenseView: View {
         VStack(spacing: 0) {
             ZStack(alignment: .bottom) {
                 LinearGradient(
-                    colors: [Color.clear, Color(hex: "F6F5F3")],
+                    colors: [Color.clear, Color(hex: "F0EDE6")],
                     startPoint: .top,
                     endPoint: .bottom
                 )
@@ -1142,7 +1142,7 @@ struct AddExpenseView: View {
                 .padding(.bottom, 10)
                 .disabled(!canSave)
             }
-            .background(Color(hex: "F6F5F3"))
+            .background(Color(hex: "F0EDE6"))
 
             if !appState.isPro {
                 BannerAdView()
@@ -1519,7 +1519,7 @@ private struct ReceiptSourcePickerSheet: View {
             .padding(.horizontal, 16)
             .padding(.bottom, 32)
         }
-        .background(Color(hex: "F6F5F3"))
+        .background(Color(hex: "F0EDE6"))
     }
 
     private func sourceButton(icon: String, label: String, action: @escaping () -> Void) -> some View {

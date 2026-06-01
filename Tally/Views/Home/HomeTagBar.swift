@@ -2,58 +2,117 @@ import SwiftUI
 import SwiftData
 import UIKit
 
+// MARK: - SF Symbol mapping for default system tags
+
+enum TagSymbolMap {
+    static func symbol(for tagName: String) -> String {
+        switch tagName {
+        case "Groceries":           return "cart.fill"
+        case "Dining & Takeaway":   return "fork.knife"
+        case "Transport":           return "car.fill"
+        case "Home":                return "house.fill"
+        case "Shopping":            return "bag.fill"
+        case "Subscriptions":       return "creditcard.fill"
+        case "Health & Fitness":    return "heart.fill"
+        case "Travel":              return "airplane"
+        case "Work":                return "briefcase.fill"
+        case "Entertainment":       return "ticket.fill"
+        case "Bills & Utilities":   return "bolt.fill"
+        case "Gifts & Donations":   return "gift.fill"
+        case "Education":           return "book.fill"
+        case "Other":               return "ellipsis.circle.fill"
+        default:                    return "tag.fill"
+        }
+    }
+}
+
 // MARK: - Home Tag Bar
 
 struct HomeTagBar: View {
+    @Environment(AppState.self) private var appState
     @Query(sort: \TagModel.sortOrder) private var allTags: [TagModel]
+    @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil })
+    private var activeExpenses: [ExpenseModel]
     @Binding var selectedTagId: String?
     @State private var showingAddSheet = false
+
+    private var currency: String { appState.defaultCurrency }
 
     private var homeTags: [TagModel] {
         allTags.filter { $0.showOnHome && !$0.isGroup }
     }
 
+    /// Sum of this year's expenses for a given tag ID.
+    private func yearlyTotal(for tagId: String) -> Int {
+        let cal = Calendar.current
+        let now = Date()
+        let yearStart = cal.dateInterval(of: .year, for: now)?.start ?? now
+        return activeExpenses
+            .filter { $0.date >= yearStart && $0.date <= now }
+            .filter { $0.resolvedTagIds.contains(tagId) }
+            .reduce(0) { $0 + $1.amountCents }
+    }
+
+    /// Sum of this year's expenses across all tags.
+    private var yearlyTotalAll: Int {
+        let cal = Calendar.current
+        let now = Date()
+        let yearStart = cal.dateInterval(of: .year, for: now)?.start ?? now
+        return activeExpenses
+            .filter { $0.date >= yearStart && $0.date <= now }
+            .reduce(0) { $0 + $1.amountCents }
+    }
+
     var body: some View {
-        HStack(spacing: 0) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    HomeTagPill(label: "All", isSelected: selectedTagId == nil) {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                // "All" card — always first
+                TagFilterCard(
+                    icon: "square.grid.2x2",
+                    label: "All",
+                    amountCents: yearlyTotalAll,
+                    currency: currency,
+                    iconBg: Color(hex: "E8F0EA"),
+                    iconColor: Color(hex: "346049"),
+                    barColor: Color(hex: "346049"),
+                    isSelected: selectedTagId == nil
+                ) {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    withAnimation(.easeInOut(duration: 0.15)) { selectedTagId = nil }
+                }
+
+                // Tag cards
+                ForEach(homeTags) { tag in
+                    let symbol = tag.symbolName ?? TagSymbolMap.symbol(for: tag.name)
+                    let primary = tag.tagColor.primaryColor
+                    let iconBg  = primary.opacity(0.15)
+
+                    TagFilterCard(
+                        icon: symbol,
+                        label: tag.name,
+                        amountCents: yearlyTotal(for: tag.id),
+                        currency: currency,
+                        iconBg: iconBg,
+                        iconColor: primary,
+                        barColor: primary,
+                        isSelected: selectedTagId == tag.id
+                    ) {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         withAnimation(.easeInOut(duration: 0.15)) {
-                            selectedTagId = nil
-                        }
-                    }
-
-                    ForEach(homeTags) { tag in
-                        HomeTagPill(label: tag.name, isSelected: selectedTagId == tag.id) {
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                selectedTagId = selectedTagId == tag.id ? nil : tag.id
-                            }
+                            selectedTagId = selectedTagId == tag.id ? nil : tag.id
                         }
                     }
                 }
-                .padding(.leading, 24)
-                .padding(.trailing, 12)
-                .padding(.vertical, 6)
-            }
 
-            // + button pinned at trailing edge
-            Button {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                showingAddSheet = true
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-                    .frame(width: 32, height: 32)
-                    .background(Color.white)
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(Color(hex: "DEDAD2"), lineWidth: 1))
-                    .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
+                // "More" card — always last
+                MoreTagCard {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    showingAddSheet = true
+                }
             }
-            .buttonStyle(.plain)
-            .padding(.trailing, 24)
+            .padding(.leading, 16)
+            .padding(.trailing, 16)
+            .padding(.vertical, 8)
         }
         .sheet(isPresented: $showingAddSheet) {
             AddToHomeBarSheet()
@@ -63,34 +122,112 @@ struct HomeTagBar: View {
     }
 }
 
-// MARK: - Pill
+// MARK: - TagFilterCard
 
-private struct HomeTagPill: View {
+private struct TagFilterCard: View {
+    let icon: String
     let label: String
+    let amountCents: Int
+    let currency: String
+    let iconBg: Color
+    let iconColor: Color
+    let barColor: Color
     let isSelected: Bool
     let onTap: () -> Void
 
     var body: some View {
         Button(action: onTap) {
-            Text(label)
-                .font(.system(size: 14, weight: isSelected ? .medium : .regular))
-                .foregroundStyle(isSelected ? Color.white : Color(hex: "1C1C1E"))
-                .padding(.horizontal, 16)
-                .frame(height: 32)
-                .background(isSelected ? Color(hex: "346049") : Color.white)
-                .clipShape(Capsule())
-                .overlay(
-                    Capsule()
-                        .stroke(isSelected ? Color.clear : Color(hex: "DEDAD2"), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.06), radius: 4, x: 0, y: 2)
+            VStack(spacing: 6) {
+                // Icon square
+                ZStack {
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .fill(iconBg)
+                        .frame(width: 36, height: 36)
+                    Image(systemName: icon)
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(iconColor)
+                }
+
+                // Tag name
+                Text(label)
+                    .font(.system(size: 10, weight: .regular))
+                    .foregroundStyle(Color(hex: "6B7A6A"))
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .center)
+
+                // Amount
+                Text(CurrencyFormatter.shared.format(cents: amountCents, currencyCode: currency))
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .center)
+
+                // Coloured bar
+                Capsule()
+                    .fill(barColor)
+                    .frame(width: 28, height: 3)
+            }
+            .padding(.horizontal, 8)
+            .padding(.top, 11)
+            .padding(.bottom, 10)
+            .frame(minWidth: 74)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(
+                        isSelected ? Color(hex: "B8D4C0") : Color(hex: "DEDAD2").opacity(0.6),
+                        lineWidth: isSelected ? 2 : 0.5
+                    )
+            )
+            .shadow(color: .black.opacity(0.05), radius: 6, x: 0, y: 2)
         }
         .buttonStyle(.plain)
         .animation(.easeInOut(duration: 0.15), value: isSelected)
     }
 }
 
-// MARK: - Add to Home Bar sheet
+// MARK: - "More" card
+
+private struct MoreTagCard: View {
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 6) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .stroke(
+                            style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])
+                        )
+                        .foregroundStyle(Color(hex: "DEDAD2"))
+                        .frame(width: 36, height: 36)
+                    Image(systemName: "plus")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(Color(hex: "8F9E94"))
+                }
+
+                Text("More")
+                    .font(.system(size: 10, weight: .regular))
+                    .foregroundStyle(Color(hex: "6B7A6A"))
+            }
+            .padding(.horizontal, 8)
+            .padding(.top, 11)
+            .padding(.bottom, 10)
+            .frame(width: 54)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color(hex: "DEDAD2").opacity(0.6), lineWidth: 0.5)
+            )
+            .shadow(color: .black.opacity(0.05), radius: 6, x: 0, y: 2)
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Add to Home Bar sheet (unchanged)
 
 struct AddToHomeBarSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -164,7 +301,7 @@ struct AddToHomeBarSheet: View {
                         }
                     }
                     .scrollContentBackground(.hidden)
-                    .background(Color(hex: "F6F5F3").ignoresSafeArea())
+                    .background(Color(hex: "F0EDE6").ignoresSafeArea())
                 }
             }
             .searchable(text: $searchText, prompt: "Search tags")

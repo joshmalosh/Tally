@@ -64,7 +64,7 @@ struct MultiReceiptReviewView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            Color(hex: "F6F5F3").ignoresSafeArea()
+            Color(hex: "F0EDE6").ignoresSafeArea()
 
             ScrollView {
                 VStack(spacing: 8) {
@@ -153,7 +153,7 @@ struct MultiReceiptReviewView: View {
             .padding(.horizontal, 12)
         }
         .frame(height: 52)
-        .background(Color(hex: "F6F5F3"))
+        .background(Color(hex: "F0EDE6"))
     }
 
     // MARK: - Accordion card
@@ -390,7 +390,7 @@ struct MultiReceiptReviewView: View {
 
     private var bottomBar: some View {
         VStack(spacing: 0) {
-            LinearGradient(colors: [.clear, Color(hex: "F6F5F3")], startPoint: .top, endPoint: .bottom)
+            LinearGradient(colors: [.clear, Color(hex: "F0EDE6")], startPoint: .top, endPoint: .bottom)
                 .frame(height: 36).allowsHitTesting(false)
             Button { addExpenses() } label: {
                 Group {
@@ -416,7 +416,7 @@ struct MultiReceiptReviewView: View {
             .disabled(checkedCount == 0 || isSaving)
             .padding(.bottom, 34)
         }
-        .background(Color(hex: "F6F5F3"))
+        .background(Color(hex: "F0EDE6"))
     }
 
     // MARK: - Helpers

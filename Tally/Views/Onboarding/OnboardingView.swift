@@ -4,6 +4,7 @@ struct OnboardingView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompleted = false
     @Environment(AppState.self) private var appState
     @State private var currentPage = 0
+    @State private var showingNameCapture = false
     @State private var showingCurrencySetup = false
 
     private let pages: [OnboardingPage] = [
@@ -31,6 +32,10 @@ struct OnboardingView: View {
         if showingCurrencySetup {
             CurrencySetupView {
                 hasCompleted = true
+            }
+        } else if showingNameCapture {
+            NameCaptureView {
+                showingCurrencySetup = true
             }
         } else {
             VStack(spacing: 0) {
@@ -84,7 +89,12 @@ struct OnboardingView: View {
             if currentPage == pages.count - 1 {
                 PrimaryButton(title: "Get started") {
                     // No withAnimation: avoids a long layout transaction where currency rows ignore taps.
-                    showingCurrencySetup = true
+                    let hasCompletedName = UserDefaults.standard.bool(forKey: "tally_has_completed_name_onboarding")
+                    if hasCompletedName {
+                        showingCurrencySetup = true
+                    } else {
+                        showingNameCapture = true
+                    }
                 }
             } else {
                 PrimaryButton(title: "Next") {
@@ -114,4 +124,89 @@ private struct OnboardingPage {
     let title: String
     let subtitle: String
     let accentColor: Color
+}
+
+// MARK: - Name Capture Step
+
+struct NameCaptureView: View {
+    let onComplete: () -> Void
+
+    @State private var name = ""
+    @FocusState private var isNameFocused: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer()
+
+            VStack(spacing: Spacing.md) {
+                Text("What should we call you?")
+                    .font(Fonts.brand(24))
+                    .foregroundStyle(Color.textPrimary)
+                    .multilineTextAlignment(.center)
+
+                Text("We'll use this to personalise your experience.")
+                    .font(Fonts.body(16))
+                    .foregroundStyle(Color.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4)
+            }
+            .padding(.horizontal, Spacing.xl)
+
+            Spacer()
+
+            VStack(spacing: Spacing.md) {
+                TextField("Your name", text: $name)
+                    .font(Fonts.body(16))
+                    .foregroundStyle(Color.textPrimary)
+                    .padding(.horizontal, Spacing.md)
+                    .frame(height: 50)
+                    .background(Color.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Radius.md)
+                            .stroke(
+                                isNameFocused ? Color.brandPrimary : Color.borderColor,
+                                lineWidth: isNameFocused ? 1 : 0.5
+                            )
+                    )
+                    .focused($isNameFocused)
+                    .textInputAutocapitalization(.words)
+                    .submitLabel(.done)
+                    .onSubmit { continueTapped() }
+
+                PrimaryButton(title: "Continue") { continueTapped() }
+
+                Button("Skip") { skipTapped() }
+                    .font(Fonts.body(15))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+                    .padding(.top, Spacing.xs)
+            }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.bottom, Spacing.xl)
+        }
+        .background(Color.bgPrimary)
+        .onAppear {
+            // Small delay so the keyboard doesn't fight the transition animation
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                isNameFocused = true
+            }
+        }
+    }
+
+    private func continueTapped() {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty {
+            UserDefaults.standard.set(trimmed, forKey: "tally_user_name")
+        }
+        markComplete()
+    }
+
+    private func skipTapped() {
+        markComplete()
+    }
+
+    private func markComplete() {
+        UserDefaults.standard.set(true, forKey: "tally_has_completed_name_onboarding")
+        onComplete()
+    }
 }

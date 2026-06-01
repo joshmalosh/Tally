@@ -15,7 +15,7 @@ extension Color {
     static let actionGreenPressed = Color(hex: "2A4E3B")
 
     // Surfaces
-    static let bgPrimary = Color(hex: "F6F5F3")
+    static let bgPrimary = Color(hex: "F0EDE6")
     static let surface = Color.white
     static let borderColor = Color(hex: "E3E8E5")
 

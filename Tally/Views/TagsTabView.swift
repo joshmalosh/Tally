@@ -10,13 +10,13 @@ struct TagsTabView: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Color(hex: "F6F5F3").ignoresSafeArea())
+            .background(Color(hex: "F0EDE6").ignoresSafeArea())
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 Color.clear.frame(height: 90)
             }
             .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
         }
-        .background(Color(hex: "F6F5F3").ignoresSafeArea())
+        .background(Color(hex: "F0EDE6").ignoresSafeArea())
     }
 }

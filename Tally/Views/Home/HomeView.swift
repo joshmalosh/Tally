@@ -152,10 +152,11 @@ struct HomeView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
 
-            // Hero spending card — collapses with header, hidden during search
+            // Spending summary card — collapses with header, hidden during search
             if !isHeaderCollapsed && searchText.isEmpty {
-                HeroSpendingCard(
+                SpendingSummaryCard(
                     allExpenses: activeExpenses,
+                    allTags: Array(tags),
                     homeBarTagId: homeBarTagId,
                     homeBarTagName: homeTagName,
                     onTap: { period in
@@ -200,18 +201,18 @@ struct HomeView: View {
 
         ZStack(alignment: .bottom) {
             homeScrollableColumn
-                .background(Color(hex: "F6F5F3").ignoresSafeArea())
+                .background(Color(hex: "F0EDE6").ignoresSafeArea())
 
             // Keep both views alive in memory — opacity-based switching prevents
             // the "closes on first open" bug that occurs when views are destroyed/recreated.
             ReportsView()
-                .background(Color(hex: "F6F5F3").ignoresSafeArea())
+                .background(Color(hex: "F0EDE6").ignoresSafeArea())
                 .opacity(selectedTab == .reports ? 1 : 0)
                 .allowsHitTesting(selectedTab == .reports)
                 .zIndex(50)
 
             TagsTabView()
-                .background(Color(hex: "F6F5F3").ignoresSafeArea())
+                .background(Color(hex: "F0EDE6").ignoresSafeArea())
                 .opacity(selectedTab == .tags ? 1 : 0)
                 .allowsHitTesting(selectedTab == .tags)
                 .zIndex(50)
@@ -235,7 +236,7 @@ struct HomeView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             withAnimation(.easeInOut(duration: 0.2)) { isKeyboardVisible = false }
         }
-        .background(Color(hex: "F6F5F3").ignoresSafeArea())
+        .background(Color(hex: "F0EDE6").ignoresSafeArea())
         .sheet(isPresented: $showingEntryPicker) {
             AddEntryPicker { mode in
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -315,19 +316,23 @@ struct HomeView: View {
     // MARK: - App Bar
 
     private var appBar: some View {
-        HStack {
-            HStack(spacing: Spacing.sm) {
-                Image("TallyLogo")
-                    .renderingMode(.original)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(height: 34)
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: Spacing.sm) {
+                    Image("TallyLogo")
+                        .renderingMode(.original)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(height: 34)
 
-                if !syncEngine.isOnline {
-                    Image(systemName: "icloud.slash")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Color.textMuted)
+                    if !syncEngine.isOnline {
+                        Image(systemName: "icloud.slash")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color.textMuted)
+                    }
                 }
+
+                greetingLine
             }
 
             Spacer()
@@ -355,6 +360,36 @@ struct HomeView: View {
         .padding(.horizontal, Spacing.lg)
         .padding(.top, Spacing.sm)
         .padding(.bottom, 4)
+    }
+
+    // MARK: - Greeting Line
+
+    private var greetingLine: some View {
+        let hour = Calendar.current.component(.hour, from: Date())
+        let timeOfDay: String
+        switch hour {
+        case 5...11: timeOfDay = "morning"
+        case 12...17: timeOfDay = "afternoon"
+        default:     timeOfDay = "evening"
+        }
+
+        let name = UserDefaults.standard.string(forKey: "tally_user_name")
+        let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+        return Group {
+            if trimmedName.isEmpty {
+                Text("Good \(timeOfDay)")
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+            } else {
+                Text("Good \(timeOfDay), ")
+                    .font(.system(size: 14, weight: .regular))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+                + Text(trimmedName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color(hex: "346049"))
+            }
+        }
     }
 
     // MARK: - Search
@@ -462,7 +497,7 @@ struct HomeView: View {
             Color.clear.frame(height: 90)
         }
         .scrollContentBackground(.hidden)
-        .background(Color(hex: "F6F5F3"))
+        .background(Color(hex: "F0EDE6"))
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -578,10 +613,10 @@ struct HomeView: View {
             ForEach(dayGroups) { group in
                 Group {
                     Text(daySectionTitle(for: group.dayStart))
-                        .font(.dmSerifDisplay(15))
-                        .foregroundStyle(Color(hex: "6B7280"))
+                        .font(.system(size: 12, weight: .regular))
+                        .foregroundStyle(Color(hex: "8F9E94"))
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.leading, Spacing.lg)
+                        .padding(.leading, 20)
                         .padding(.bottom, 4)
                         .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: Spacing.xs, trailing: 0))
                         .listRowSeparator(.hidden)
@@ -600,7 +635,7 @@ struct HomeView: View {
         .listStyle(.plain)
         .environment(\.defaultMinListRowHeight, 0)
         .scrollContentBackground(.hidden)
-        .background(Color(hex: "F6F5F3"))
+        .background(Color(hex: "F0EDE6"))
         .contentMargins(.top, 0, for: .scrollContent)
         .contentMargins(.horizontal, 0, for: .scrollContent)
         .scrollDismissesKeyboard(.interactively)
@@ -627,7 +662,17 @@ struct HomeView: View {
         let tag = primaryTag(for: expense)
         let isSelected = selectedExpenseIds.contains(expense.id)
         let nameKey = keywordSearchText(for: expense)
-        let primaryTagName = primaryTag(for: expense)?.name
+        let primaryTagName = tag?.name
+
+        // Use the tag's stored SF Symbol, falling back to the name-mapping, then the keyword resolver.
+        let tagSymbol: String = {
+            if let stored = tag?.symbolName { return stored }
+            if let name = primaryTagName { return TagSymbolMap.symbol(for: name) }
+            let fallback = keywordSearchText(for: expense)
+            return HomeExpenseIconResolver.match(name: fallback, tag: primaryTagName).symbol
+        }()
+        let tagIconBg: Color = tag?.tagColor.primaryColor.opacity(0.15)
+            ?? resolveIconBackground(name: nameKey, tag: primaryTagName)
 
         VStack(spacing: 0) {
             HStack(spacing: 0) {
@@ -641,8 +686,8 @@ struct HomeView: View {
                 ExpenseCard(
                     thumbnailImage: thumbnailImage(for: expense),
                     hasReceiptAttachment: hasReceiptPhoto(expense),
-                    iconSystemName: resolveIcon(name: nameKey, tag: primaryTagName),
-                    iconBackground: resolveIconBackground(name: nameKey, tag: primaryTagName),
+                    iconSystemName: tagSymbol,
+                    iconBackground: tagIconBg,
                     description: expense.expenseDescription ?? "Expense",
                     merchant: expense.merchant,
                     amountCents: expense.amountCents,
@@ -656,8 +701,9 @@ struct HomeView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
 
             if index < group.items.count - 1 {
-                Divider()
-                    .padding(.leading, 58)
+                Color(hex: "F0EDE6")
+                    .frame(height: 0.5)
+                    .padding(.horizontal, 16)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -336,7 +336,7 @@ struct ReportsView: View {
             }
         }
         .scrollContentBackground(.hidden)
-        .background(Color(hex: "F6F5F3").ignoresSafeArea())
+        .background(Color(hex: "F0EDE6").ignoresSafeArea())
     }
 
     private func summaryCard(label: String, value: String, sub: String) -> some View {
