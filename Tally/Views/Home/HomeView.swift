@@ -142,31 +142,31 @@ struct HomeView: View {
             if !isHeaderCollapsed {
                 appBar
                     .transition(.move(edge: .top).combined(with: .opacity))
-
-                Spacer()
-                    .frame(height: 8)
             }
 
-            if !isHeaderCollapsed {
-                searchBar
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
-
-            // Spending summary card — collapses with header, hidden during search
+            // Spending summary card — directly below app bar, collapses on scroll
             if !isHeaderCollapsed && searchText.isEmpty {
                 SpendingSummaryCard(
                     allExpenses: activeExpenses,
                     allTags: Array(tags),
                     homeBarTagId: homeBarTagId,
                     homeBarTagName: homeTagName,
-                    onTap: { period in
-                        selectedHeroPeriod = period
-                        showingPeriodDetail = true
+                    onTap: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedTab = .reports
+                        }
                     }
                 )
-                .padding(.top, 10)
-                .padding(.bottom, 2)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
                 .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            if !isHeaderCollapsed {
+                searchBar
+                    .padding(.top, 6)
+                    .padding(.bottom, 2)
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
 
             // Home tag bar — always visible (sticky above the list, does not collapse with header)

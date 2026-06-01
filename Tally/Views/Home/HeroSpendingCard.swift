@@ -172,11 +172,13 @@ struct SpendingSummaryCard: View {
     let allTags: [TagModel]
     let homeBarTagId: String?
     let homeBarTagName: String?
-    let onTap: (HeroPeriod) -> Void
+    /// Called when the user taps the card — used to open the Reports tab.
+    let onTap: () -> Void
 
     @State private var pageIndex: Int = 0
 
     private var currency: String { appState.defaultCurrency }
+    private let periods = HeroPeriod.allCases
 
     // MARK: - Computed helpers
 
@@ -232,17 +234,21 @@ struct SpendingSummaryCard: View {
     // MARK: - Body
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(alignment: .top, spacing: 0) {
             leftPanel
+                .padding(16)
+
             Rectangle()
                 .fill(Color(hex: "E8E4DD"))
                 .frame(width: 0.5)
-                .padding(.vertical, 16)
+                .padding(.vertical, 12)
+
             rightPanel
                 .frame(width: 155)
+                .padding(.vertical, 12)
+                .padding(.trailing, 4)
         }
         .frame(maxWidth: .infinity)
-        .padding(16)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .shadow(color: .black.opacity(0.07), radius: 12, x: 0, y: 3)
@@ -250,20 +256,50 @@ struct SpendingSummaryCard: View {
     }
 
     // MARK: - Left panel
+    // Uses DragGesture instead of TabView — TabView(.page) ignores frame(height:)
+    // and expands to fill all available space, making the card massive.
 
     private var leftPanel: some View {
-        TabView(selection: $pageIndex) {
-            ForEach(HeroPeriod.allCases, id: \.rawValue) { period in
-                SpendingPeriodPage(
-                    period: period,
-                    totalCents: totalCents(for: period),
-                    onTap: { onTap(period) }
-                )
-                .tag(period.rawValue)
+        VStack(alignment: .leading, spacing: 6) {
+            SpendingPeriodPage(
+                period: periods[pageIndex],
+                totalCents: totalCents(for: periods[pageIndex])
+            )
+            .animation(.easeInOut(duration: 0.2), value: pageIndex)
+
+            // Page dots
+            HStack(spacing: 4) {
+                ForEach(0..<periods.count, id: \.self) { i in
+                    if i == pageIndex {
+                        Capsule()
+                            .fill(Color(hex: "346049"))
+                            .frame(width: 12, height: 4)
+                    } else {
+                        Circle()
+                            .fill(Color(hex: "DEDAD2"))
+                            .frame(width: 4, height: 4)
+                    }
+                }
             }
+            .animation(.easeInOut(duration: 0.15), value: pageIndex)
         }
-        .tabViewStyle(.page(indexDisplayMode: .never))
-        .frame(height: 110)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onTapGesture { onTap() }
+        .gesture(
+            DragGesture(minimumDistance: 20, coordinateSpace: .local)
+                .onEnded { value in
+                    // Only respond to predominantly horizontal swipes
+                    guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        if value.translation.width < 0 {
+                            pageIndex = min(pageIndex + 1, periods.count - 1)
+                        } else {
+                            pageIndex = max(pageIndex - 1, 0)
+                        }
+                    }
+                }
+        )
     }
 
     // MARK: - Right panel
@@ -273,7 +309,7 @@ struct SpendingSummaryCard: View {
             Text("Spending trend")
                 .font(.system(size: 10, weight: .regular))
                 .foregroundStyle(Color(hex: "8F9E94"))
-                .padding(.leading, 12)
+                .padding(.leading, 8)
 
             spendingChart
                 .padding(.horizontal, 8)
@@ -282,10 +318,7 @@ struct SpendingSummaryCard: View {
                 topCategoryRow(tag: top.tag, cents: top.cents)
                     .padding(.horizontal, 8)
             }
-
-            Spacer(minLength: 0)
         }
-        .padding(.vertical, 4)
     }
 
     // MARK: - Chart
@@ -369,6 +402,8 @@ struct SpendingSummaryCard: View {
             Text(CurrencyFormatter.shared.format(cents: cents, currencyCode: currency))
                 .font(.system(size: 11, weight: .bold, design: .monospaced))
                 .foregroundStyle(Color(hex: "346049"))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
     }
 }
@@ -378,7 +413,6 @@ struct SpendingSummaryCard: View {
 private struct SpendingPeriodPage: View {
     let period: HeroPeriod
     let totalCents: Int
-    let onTap: () -> Void
 
     private var periodLabel: String {
         switch period {
@@ -430,8 +464,6 @@ private struct SpendingPeriodPage: View {
                 .foregroundStyle(Color(hex: "8F9E94"))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-        .onTapGesture { onTap() }
     }
 }
 
