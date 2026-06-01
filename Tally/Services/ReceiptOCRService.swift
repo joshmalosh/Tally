@@ -73,18 +73,22 @@ enum ReceiptOCRService {
 
     private static func recognizeText(in cgImage: CGImage) async -> [VNRecognizedTextObservation] {
         await withCheckedContinuation { continuation in
-            let request = VNRecognizeTextRequest { request, _ in
-                let results = request.results as? [VNRecognizedTextObservation] ?? []
-                continuation.resume(returning: results)
-            }
-            request.recognitionLevel = .accurate
-            request.usesLanguageCorrection = true
+            // Dispatch to a background queue — handler.perform is synchronous and
+            // would block the main thread if called directly from an @MainActor context.
+            DispatchQueue.global(qos: .userInitiated).async {
+                let request = VNRecognizeTextRequest { request, _ in
+                    let results = request.results as? [VNRecognizedTextObservation] ?? []
+                    continuation.resume(returning: results)
+                }
+                request.recognitionLevel = .accurate
+                request.usesLanguageCorrection = true
 
-            let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
-            do {
-                try handler.perform([request])
-            } catch {
-                continuation.resume(returning: [])
+                let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+                do {
+                    try handler.perform([request])
+                } catch {
+                    continuation.resume(returning: [])
+                }
             }
         }
     }
