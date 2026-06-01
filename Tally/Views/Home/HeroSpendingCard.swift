@@ -235,20 +235,30 @@ struct SpendingSummaryCard: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
+            // Left: narrow amount panel — fixed slot, right panel takes remaining space
             leftPanel
-                .padding(16)
+                .padding(.leading, 14)
+                .padding(.vertical, 14)
+                .padding(.trailing, 10)
+                .frame(width: 148)   // ~40% of a 360pt card; right panel gets ~60%
 
+            // Vertical divider — no height constraint; fixedSize below keeps card compact
             Rectangle()
                 .fill(Color(hex: "E8E4DD"))
                 .frame(width: 0.5)
-                .padding(.vertical, 12)
 
+            // Right: chart takes all remaining space
             rightPanel
-                .frame(width: 155)
-                .padding(.vertical, 12)
-                .padding(.trailing, 4)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .padding(.leading, 10)
+                .padding(.trailing, 12)
         }
         .frame(maxWidth: .infinity)
+        // fixedSize(vertical: true) makes the HStack shrink to its tallest child's
+        // intrinsic height instead of accepting whatever height the parent offers.
+        // Without this the bare Rectangle() divider expands to fill the screen.
+        .fixedSize(horizontal: false, vertical: true)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .shadow(color: .black.opacity(0.07), radius: 12, x: 0, y: 3)
@@ -260,24 +270,24 @@ struct SpendingSummaryCard: View {
     // and expands to fill all available space, making the card massive.
 
     private var leftPanel: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 8) {
             SpendingPeriodPage(
                 period: periods[pageIndex],
                 totalCents: totalCents(for: periods[pageIndex])
             )
             .animation(.easeInOut(duration: 0.2), value: pageIndex)
 
-            // Page dots
-            HStack(spacing: 4) {
+            // Page indicators — larger and more spaced so they're clearly visible
+            HStack(spacing: 7) {
                 ForEach(0..<periods.count, id: \.self) { i in
                     if i == pageIndex {
                         Capsule()
                             .fill(Color(hex: "346049"))
-                            .frame(width: 12, height: 4)
+                            .frame(width: 22, height: 5)
                     } else {
-                        Circle()
+                        Capsule()
                             .fill(Color(hex: "DEDAD2"))
-                            .frame(width: 4, height: 4)
+                            .frame(width: 8, height: 5)
                     }
                 }
             }
@@ -289,7 +299,6 @@ struct SpendingSummaryCard: View {
         .gesture(
             DragGesture(minimumDistance: 20, coordinateSpace: .local)
                 .onEnded { value in
-                    // Only respond to predominantly horizontal swipes
                     guard abs(value.translation.width) > abs(value.translation.height) else { return }
                     withAnimation(.easeInOut(duration: 0.2)) {
                         if value.translation.width < 0 {
@@ -309,14 +318,11 @@ struct SpendingSummaryCard: View {
             Text("Spending trend")
                 .font(.system(size: 10, weight: .regular))
                 .foregroundStyle(Color(hex: "8F9E94"))
-                .padding(.leading, 8)
 
             spendingChart
-                .padding(.horizontal, 8)
 
             if let top = topTag {
                 topCategoryRow(tag: top.tag, cents: top.cents)
-                    .padding(.horizontal, 8)
             }
         }
     }
@@ -453,6 +459,8 @@ private struct SpendingPeriodPage: View {
                     .font(.system(size: 36, weight: .bold, design: .monospaced))
                     .foregroundStyle(Color(hex: "1C1C1E"))
                     .tracking(-1.5)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
                 Text(".\(centsPart)")
                     .font(.system(size: 18, weight: .regular, design: .monospaced))
                     .foregroundStyle(Color(hex: "1C1C1E"))
