@@ -139,12 +139,10 @@ struct HomeView: View {
 
     private var homeScrollableColumn: some View {
         VStack(spacing: 0) {
-            if !isHeaderCollapsed {
-                appBar
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
+            // App bar — always visible
+            appBar
 
-            // Spending summary card — directly below app bar, collapses on scroll
+            // Spending card — collapses when user scrolls down, reveals on scroll up
             if !isHeaderCollapsed && searchText.isEmpty {
                 SpendingSummaryCard(
                     allExpenses: activeExpenses,
@@ -157,17 +155,15 @@ struct HomeView: View {
                         }
                     }
                 )
-                .padding(.top, 8)
+                .padding(.top, 6)
                 .padding(.bottom, 4)
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
 
-            if !isHeaderCollapsed {
-                searchBar
-                    .padding(.top, 6)
-                    .padding(.bottom, 2)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
+            // Search bar — always visible
+            searchBar
+                .padding(.top, 6)
+                .padding(.bottom, 2)
 
             // Home tag bar — always visible (sticky above the list, does not collapse with header)
             HomeTagBar(selectedTagId: $homeBarTagId)
