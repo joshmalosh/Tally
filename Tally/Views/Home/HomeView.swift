@@ -592,19 +592,18 @@ struct HomeView: View {
 
     private var expenseList: some View {
         List {
-            Color.clear
-                .frame(height: 2)
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-                .background(
-                    GeometryReader { proxy in
-                        Color.clear.preference(
-                            key: HomeListScrollAnchorKey.self,
-                            value: proxy.frame(in: .named("homeScroll")).minY
-                        )
-                    }
-                )
+            // UIKit KVO-based detector — SwiftUI preference keys don't propagate
+            // reliably from inside List cells (UICollectionView) on iOS 16+.
+            ListScrollDetector { offset in
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    if offset > 30  { isHeaderCollapsed = true  }
+                    if offset < 10  { isHeaderCollapsed = false }
+                }
+            }
+            .frame(height: 0)
+            .listRowInsets(EdgeInsets())
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
 
             ForEach(dayGroups) { group in
                 Group {
@@ -635,22 +634,6 @@ struct HomeView: View {
         .contentMargins(.top, 0, for: .scrollContent)
         .contentMargins(.horizontal, 0, for: .scrollContent)
         .scrollDismissesKeyboard(.interactively)
-        .coordinateSpace(name: "homeScroll")
-        .onPreferenceChange(HomeListScrollAnchorKey.self) { minY in
-            if minY < -16 {
-                if !isHeaderCollapsed {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isHeaderCollapsed = true
-                    }
-                }
-            } else if minY > 2 {
-                if isHeaderCollapsed {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isHeaderCollapsed = false
-                    }
-                }
-            }
-        }
     }
 
     @ViewBuilder
@@ -1056,12 +1039,66 @@ private struct ExportWithSelectionItem: Identifiable {
     let expenses: [ExpenseModel]
 }
 
-// MARK: - List scroll (header collapse)
+// MARK: - UIKit scroll detector (replaces preference-key approach)
+// SwiftUI List uses UICollectionView internally; preference values set inside
+// List cells don't reliably propagate. KVO on UIScrollView.contentOffset works
+// regardless of SwiftUI version or internal implementation details.
 
-private struct HomeListScrollAnchorKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = nextValue()
+private struct ListScrollDetector: UIViewRepresentable {
+    var onScroll: (CGFloat) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(onScroll: onScroll) }
+
+    func makeUIView(context: Context) -> ScrollObserverUIView {
+        let view = ScrollObserverUIView()
+        view.coordinator = context.coordinator
+        return view
+    }
+
+    func updateUIView(_ uiView: ScrollObserverUIView, context: Context) {
+        uiView.coordinator = context.coordinator
+        context.coordinator.onScroll = onScroll
+    }
+
+    // MARK: Coordinator
+
+    final class Coordinator: NSObject {
+        var onScroll: (CGFloat) -> Void
+        private var observation: NSKeyValueObservation?
+
+        init(onScroll: @escaping (CGFloat) -> Void) { self.onScroll = onScroll }
+
+        func startObserving(_ scrollView: UIScrollView) {
+            observation?.invalidate()
+            observation = scrollView.observe(\.contentOffset, options: [.new]) { [weak self] sv, _ in
+                guard let self else { return }
+                DispatchQueue.main.async { self.onScroll(sv.contentOffset.y) }
+            }
+        }
+
+        deinit { observation?.invalidate() }
+    }
+}
+
+// UIView subclass so we can hook didMoveToWindow and walk the superview chain
+// to find the parent UIScrollView (UICollectionView is a UIScrollView subclass).
+final class ScrollObserverUIView: UIView {
+    weak var coordinator: ListScrollDetector.Coordinator?
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        guard window != nil else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            var view: UIView? = self.superview
+            while let v = view {
+                if let sv = v as? UIScrollView {
+                    self.coordinator?.startObserving(sv)
+                    return
+                }
+                view = v.superview
+            }
+        }
     }
 }
 
