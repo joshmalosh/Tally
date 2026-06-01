@@ -83,7 +83,7 @@ struct HomeTagBar: View {
 
                 // Tag cards
                 ForEach(homeTags) { tag in
-                    let symbol = tag.symbolName ?? TagSymbolMap.symbol(for: tag.name)
+                    let symbol = tag.symbolName ?? tag.icon ?? TagSymbolMap.symbol(for: tag.name)
                     let primary = tag.tagColor.primaryColor
                     let iconBg  = primary.opacity(0.15)
 

@@ -388,7 +388,7 @@ struct SpendingSummaryCard: View {
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(Color(hex: "FAEEDA"))
                     .frame(width: 22, height: 22)
-                Image(systemName: tag.symbolName ?? "tag.fill")
+                Image(systemName: tag.symbolName ?? tag.icon ?? "tag.fill")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(Color(hex: "854F0B"))
             }

@@ -667,7 +667,8 @@ struct HomeView: View {
         // Use the tag's stored SF Symbol, falling back to the name-mapping, then the keyword resolver.
         let tagSymbol: String = {
             if let stored = tag?.symbolName { return stored }
-            if let name = primaryTagName { return TagSymbolMap.symbol(for: name) }
+            if let icon  = tag?.icon        { return icon   }
+            if let name  = primaryTagName   { return TagSymbolMap.symbol(for: name) }
             let fallback = keywordSearchText(for: expense)
             return HomeExpenseIconResolver.match(name: fallback, tag: primaryTagName).symbol
         }()
