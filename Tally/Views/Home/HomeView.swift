@@ -438,7 +438,7 @@ struct HomeView: View {
                 )
                 .padding(.horizontal, 12)
                 .frame(height: 40)
-                .background(Color.white)
+                .background(Color.surface)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
                 .overlay(
                     RoundedRectangle(cornerRadius: Radius.sm)
@@ -630,7 +630,7 @@ struct HomeView: View {
         .listStyle(.plain)
         .environment(\.defaultMinListRowHeight, 0)
         .scrollContentBackground(.hidden)
-        .background(Color(hex: "F0EDE6"))
+        .background(Color(hex: "F0EDE6").ignoresSafeArea())
         .contentMargins(.top, 0, for: .scrollContent)
         .contentMargins(.horizontal, 0, for: .scrollContent)
         .scrollDismissesKeyboard(.interactively)
