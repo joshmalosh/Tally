@@ -200,9 +200,6 @@ struct AddExpenseView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             withAnimation(.easeInOut(duration: 0.2)) { keyboardVisible = false }
         }
-        .onTapGesture {
-            UIApplication.shared.endEditing()
-        }
     }
 
     /// Split from `body` so the type checker can infer `NavigationStack` without timing out.
@@ -426,9 +423,8 @@ struct AddExpenseView: View {
         VStack(spacing: 8) {
             if receiptImageAttached {
                 receiptImageAttachedFormBlock
-                tagsRowView
-
                 notesRowView
+                tagsRowView
             } else {
                 manualEntryFormBlock
             }
@@ -461,6 +457,8 @@ struct AddExpenseView: View {
 
         merchantDateView
 
+        notesRowView
+
         if attachedFileURL != nil {
             pdfAttachmentCard
         }
@@ -468,8 +466,6 @@ struct AddExpenseView: View {
         tagsRowView
 
         addReceiptView
-
-        notesRowView
     }
 
     // MARK: - State 1: Amount hero
@@ -830,12 +826,10 @@ struct AddExpenseView: View {
     private var notesRowView: some View {
         VStack(alignment: .leading, spacing: 0) {
             if notesExpanded {
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "square.and.pencil")
-                        .font(.system(size: 16))
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Expense details")
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(Color(hex: "8F9E94"))
-                        .padding(.top, 10)
-
                     TextEditor(text: $notes)
                         .font(.system(size: 15))
                         .foregroundStyle(Color(hex: "1C1C1E"))
@@ -843,8 +837,8 @@ struct AddExpenseView: View {
                         .frame(minHeight: 72)
                         .focused($focusedField, equals: .notes)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 14)
             } else {
                 Button {
                     notesExpanded = true
@@ -854,7 +848,7 @@ struct AddExpenseView: View {
                         Image(systemName: "square.and.pencil")
                             .font(.system(size: 16))
                             .foregroundStyle(Color(hex: "8F9E94"))
-                        Text("Add a note…")
+                        Text("Expense details…")
                             .font(.system(size: 15))
                             .foregroundStyle(Color(hex: "C4BFB9"))
                         Spacer()

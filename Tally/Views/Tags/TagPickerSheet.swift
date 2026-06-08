@@ -280,8 +280,9 @@ struct SharedTagPickerSheet: View {
             .padding(.horizontal, Spacing.md)
             .padding(.leading, indent ? 20 : 0)
             .frame(height: 44)
-            .background(selected ? tag.tagColor.primaryColor.opacity(0.06) : Color.clear)
+            .background(selected ? tag.tagColor.primaryColor.opacity(0.06) : Color.primary.opacity(0.0001))
             .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
