@@ -154,6 +154,8 @@ struct ExpenseCard: View {
     let iconBackground: Color
     let description: String
     let merchant: String?
+    /// User’s free-text note; shown as the row heading when present.
+    let notes: String?
     let amountCents: Int
     let currency: String
     /// First tag’s display label; `nil` when expense has no tags (no row tag UI).
@@ -161,11 +163,14 @@ struct ExpenseCard: View {
     let primaryTagColor: TagColor?
     let additionalTagCount: Int
 
+    /// "What" — note first, then description, then fallback.
     private var displayTitle: String {
-        if let merchant = merchant, !merchant.isEmpty {
-            return merchant
+        if let n = notes, !n.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return n.trimmingCharacters(in: .whitespacesAndNewlines)
         }
-        return description.isEmpty ? "Expense" : description
+        if !description.isEmpty { return description }
+        if let m = merchant, !m.isEmpty { return m }
+        return "Expense"
     }
 
     private static let rowHorizontalPadding: CGFloat = Spacing.md
@@ -196,10 +201,13 @@ struct ExpenseCard: View {
             .frame(width: Self.iconSlot, height: Self.iconSlot)
 
             VStack(alignment: .leading, spacing: 4) {
+                // Heading: What
                 Text(displayTitle)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Color.textPrimary)
                     .lineLimit(1)
+
+                // Tag pill row
                 if let label = primaryTagLabel, let tagColor = primaryTagColor {
                     HStack(alignment: .center, spacing: 6) {
                         HStack(spacing: 4) {
@@ -221,7 +229,24 @@ struct ExpenseCard: View {
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundStyle(Color.textMuted)
                         }
+
+                        // Who: merchant below tag on the same compact row
+                        if let m = merchant, !m.isEmpty {
+                            Text("·")
+                                .font(.system(size: 11))
+                                .foregroundStyle(Color.textMuted)
+                            Text(m)
+                                .font(.system(size: 12))
+                                .foregroundStyle(Color.textMuted)
+                                .lineLimit(1)
+                        }
                     }
+                } else if let m = merchant, !m.isEmpty {
+                    // No tag — show merchant on its own line
+                    Text(m)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.textMuted)
+                        .lineLimit(1)
                 }
             }
 

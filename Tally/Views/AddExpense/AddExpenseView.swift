@@ -676,24 +676,37 @@ struct AddExpenseView: View {
                     HStack(spacing: 8) {
                         ForEach(selectedTags) { tag in
                             HStack(spacing: 4) {
-                                Circle()
-                                    .fill(tag.tagColor.primaryColor)
-                                    .frame(width: 8, height: 8)
-                                Text(tag.name)
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundStyle(Color(hex: "2F402E"))
+                                // Tappable area — opens picker to change tags
+                                Button {
+                                    showingTagPicker = true
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Circle()
+                                            .fill(tag.tagColor.primaryColor)
+                                            .frame(width: 8, height: 8)
+                                        Text(tag.name)
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundStyle(Color(hex: "2F402E"))
+                                    }
+                                }
+                                .buttonStyle(.plain)
+
+                                // × to remove this specific tag
                                 Button {
                                     selectedTagIds.removeAll { $0 == tag.id }
                                 } label: {
                                     Image(systemName: "xmark")
                                         .font(.system(size: 10, weight: .bold))
-                                        .foregroundStyle(Color(hex: "2F402E").opacity(0.6))
+                                        .foregroundStyle(Color(hex: "2F402E").opacity(0.55))
+                                        .frame(width: 18, height: 18)
+                                        .background(Color(hex: "2F402E").opacity(0.08))
+                                        .clipShape(Circle())
                                 }
                                 .buttonStyle(.plain)
                             }
                             .padding(.vertical, 8)
                             .padding(.leading, 14)
-                            .padding(.trailing, 10)
+                            .padding(.trailing, 8)
                             .background(Color(hex: "E8F0EA"))
                             .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
                             .overlay(

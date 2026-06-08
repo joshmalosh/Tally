@@ -670,6 +670,7 @@ struct HomeView: View {
                     iconBackground: tagIconBg,
                     description: expense.expenseDescription ?? "Expense",
                     merchant: expense.merchant,
+                    notes: expense.notes,
                     amountCents: expense.amountCents,
                     currency: expense.currency,
                     primaryTagLabel: primaryTagDisplayLabel(for: expense),
