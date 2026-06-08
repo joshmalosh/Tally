@@ -1082,7 +1082,7 @@ private struct ListScrollDetector: UIViewRepresentable {
 
 // UIView subclass so we can hook didMoveToWindow and walk the superview chain
 // to find the parent UIScrollView (UICollectionView is a UIScrollView subclass).
-final class ScrollObserverUIView: UIView {
+private final class ScrollObserverUIView: UIView {
     weak var coordinator: ListScrollDetector.Coordinator?
 
     override func didMoveToWindow() {
