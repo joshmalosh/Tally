@@ -9,12 +9,13 @@ struct TagsAndGroupsManagementRows: View {
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
 
     private enum TagSheet: Identifiable {
-        case newTag, newGroup, edit(TagModel)
+        case newTag, newGroup, edit(TagModel), groupDetail(TagModel)
         var id: String {
             switch self {
             case .newTag: return "newTag"
             case .newGroup: return "newGroup"
-            case .edit(let t): return t.id
+            case .edit(let t): return "edit_\(t.id)"
+            case .groupDetail(let g): return "group_\(g.id)"
             }
         }
     }
@@ -122,10 +123,10 @@ struct TagsAndGroupsManagementRows: View {
                 }
             }
 
-            // Folders — no toggle
+            // Folders — present as sheet (no NavigationStack in parent overlay)
             ForEach(groupsSorted) { group in
-                NavigationLink {
-                    GroupDetailView(group: group)
+                Button {
+                    activeSheet = .groupDetail(group)
                 } label: {
                     HStack(spacing: Spacing.smd) {
                         Image(systemName: "folder.fill")
@@ -135,8 +136,13 @@ struct TagsAndGroupsManagementRows: View {
                         Text(group.name)
                             .foregroundStyle(Color.textPrimary)
                         Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color.textMuted)
                     }
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button(role: .destructive) { deleteTag(group) } label: {
                         Label("Delete", systemImage: "trash")
@@ -152,6 +158,12 @@ struct TagsAndGroupsManagementRows: View {
                 TagCreationView(isGroupMode: true, suppressNameFieldAutofocus: true)
             case .edit(let tag):
                 TagCreationView(editingTag: tag, suppressNameFieldAutofocus: true)
+            case .groupDetail(let group):
+                // GroupDetailView needs its own NavigationStack because it uses
+                // .navigationTitle and toolbar items (push-nav semantics via sheet).
+                NavigationStack {
+                    GroupDetailView(group: group)
+                }
             }
         }
     }
