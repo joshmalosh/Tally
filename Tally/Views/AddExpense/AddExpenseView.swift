@@ -76,6 +76,8 @@ struct AddExpenseView: View {
     @State private var ocrPopulatedAnyField = false
     @State private var amountFocusRequested: Bool = false
     @State private var keyboardVisible = false
+    @State private var quickAddPrompt: String = ""
+    @State private var showNoteInExtrasRow = false
 
     @FocusState private var focusedField: Field?
 
@@ -182,26 +184,40 @@ struct AddExpenseView: View {
 
     @State private var cachedKnownMerchants: [String] = []
 
-    private var filteredMerchantSuggestions: [String] {
-        let trimmed = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard focusedField == .merchant, !trimmed.isEmpty else { return [] }
-        let q = trimmed.lowercased()
-        return cachedKnownMerchants.filter { candidate in
-            let low = candidate.lowercased()
-            return low.contains(q) && low != q
-        }
-    }
-
-    private var topMerchantSuggestions: [String] {
-        Array(filteredMerchantSuggestions.prefix(3))
-    }
-
     private static let datePillFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateStyle = .medium
         f.timeStyle = .none
         return f
     }()
+
+    private static let compactDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "d MMM"
+        return f
+    }()
+
+    private var datePillLabel: String {
+        let cal = Calendar.current
+        if cal.isDateInToday(date) { return "Today · \(Self.compactDateFormatter.string(from: date))" }
+        if cal.isDateInYesterday(date) { return "Yesterday · \(Self.compactDateFormatter.string(from: date))" }
+        return Self.compactDateFormatter.string(from: date)
+    }
+
+    private var quickAddAmountParts: (whole: String, decimal: String?) {
+        let text = amountText
+        if text.isEmpty { return usesDecimalCurrency ? ("0", "00") : ("0", nil) }
+        if text.hasSuffix(".") {
+            let whole = String(text.dropLast())
+            return (whole.isEmpty ? "0" : whole, "")
+        }
+        if let dotIdx = text.firstIndex(of: ".") {
+            let whole = String(text[text.startIndex..<dotIdx])
+            let dec   = String(text[text.index(after: dotIdx)...])
+            return (whole.isEmpty ? "0" : whole, dec)
+        }
+        return (text, usesDecimalCurrency ? "00" : nil)
+    }
 
     // MARK: - Body
 
@@ -275,7 +291,7 @@ struct AddExpenseView: View {
                 }
             }
             .onChange(of: notes) { _, newVal in
-                if !newVal.isEmpty { notesExpanded = true }
+                if !newVal.isEmpty { notesExpanded = true; showNoteInExtrasRow = true }
                 updateTagSuggestion()
             }
             .onChange(of: merchant) { _, _ in
@@ -389,7 +405,7 @@ struct AddExpenseView: View {
 
     private var addExpenseFormChrome: some View {
         addExpenseFormZStack
-            .navigationTitle(isEditing && !receiptImageAttached ? "Edit expense" : "")
+            .navigationTitle("")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -399,9 +415,14 @@ struct AddExpenseView: View {
                             .foregroundStyle(Color(hex: "1C1C1E"))
                     }
                 }
-                if shouldShowOcrFilledBanner {
-                    ToolbarItem(placement: .principal) {
+                ToolbarItem(placement: .principal) {
+                    if shouldShowOcrFilledBanner {
                         autoScannedBadgeView
+                    } else if !receiptImageAttached {
+                        Text(isEditing ? "EDIT EXPENSE" : "QUICK ADD")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color(hex: "2F402E").opacity(0.6))
+                            .tracking(1.5)
                     }
                 }
                 if receiptImageAttached || isEditing {
@@ -503,312 +524,297 @@ struct AddExpenseView: View {
 
     @ViewBuilder
     private var manualEntryFormBlock: some View {
-        amountHeroView
+        quickAddHeroAmountBlock
             .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
 
-        manualDetailCard
+        quickAddMerchantCard
+
+        quickAddTagCard
+
+        quickAddExtrasRow
 
         if attachedFileURL != nil {
             pdfAttachmentCard
         }
 
         tallySuggestsCard
-
-        addReceiptView
     }
 
-    // MARK: - Manual detail card (merchant / date / note / tag — no amount, shown in hero above)
+    // MARK: - Quick Add: Merchant card with horizontal chip suggestions
 
-    private var manualDetailCard: some View {
-        VStack(spacing: 0) {
-            // MERCHANT
-            HStack(spacing: 10) {
-                ZStack {
-                    Circle().fill(Color(hex: "E8F0EA")).frame(width: 34, height: 34)
-                    Image(systemName: "storefront.fill")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color(hex: "4A5E50"))
-                }
+    private var quickAddMerchantCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
                 Text("MERCHANT")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-                    .tracking(0.8)
-                Spacer(minLength: 8)
-                VStack(alignment: .trailing, spacing: 0) {
-                    TextField("Name", text: $merchant)
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Color(hex: "1C1C1E"))
-                        .multilineTextAlignment(.trailing)
-                        .focused($focusedField, equals: .merchant)
-                        .textInputAutocapitalization(.words)
-                        .tint(Color(hex: "2F402E"))
-                        .frame(maxWidth: 180)
-                    merchantSuggestionInlineList()
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-
-            Divider().padding(.leading, 58)
-
-            // DATE
-            Button {
-                focusedField = nil
-                showingDatePickerSheet = true
-            } label: {
-                HStack(spacing: 10) {
-                    ZStack {
-                        Circle().fill(Color(hex: "E8F0EA")).frame(width: 34, height: 34)
-                        Image(systemName: "calendar")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(Color(hex: "4A5E50"))
-                    }
-                    Text("DATE")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
+                    .tracking(1.0)
+                Spacer()
+                if !merchant.isEmpty {
+                    Button("Clear") { merchant = ""; focusedField = nil }
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Color(hex: "8F9E94"))
-                        .tracking(0.8)
-                    Spacer(minLength: 8)
-                    Text(Self.datePillFormatter.string(from: date))
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Color(hex: "1C1C1E"))
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color(hex: "C4BFB9"))
+                        .foregroundStyle(Color(hex: "2F402E").opacity(0.4))
+                        .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 14)
+            .padding(.top, 14)
+            .padding(.bottom, 8)
 
-            Divider().padding(.leading, 58)
+            TextField("Tap or type…", text: $merchant)
+                .font(Font.dmSerifDisplay(22))
+                .foregroundStyle(merchant.isEmpty ? Color(hex: "2F402E").opacity(0.3) : Color(hex: "1C1C1E"))
+                .focused($focusedField, equals: .merchant)
+                .textInputAutocapitalization(.words)
+                .tint(Color(hex: "2F402E"))
+                .padding(.horizontal, 14)
 
-            // NOTE (above tag)
-            HStack(alignment: .top, spacing: 10) {
-                ZStack {
-                    Circle().fill(Color(hex: "E8F0EA")).frame(width: 34, height: 34)
-                    Image(systemName: "note.text")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color(hex: "4A5E50"))
-                }
-                Text("NOTE")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-                    .tracking(0.8)
-                    .padding(.top, 4)
-                Spacer(minLength: 8)
-                TextField("Add a note...", text: $notes, axis: .vertical)
-                    .font(.system(size: 15))
-                    .foregroundStyle(notes.isEmpty ? Color(hex: "C4BFB9") : Color(hex: "1C1C1E"))
-                    .multilineTextAlignment(.trailing)
-                    .focused($focusedField, equals: .notes)
-                    .tint(Color(hex: "2F402E"))
-                    .lineLimit(1...4)
-                    .frame(maxWidth: 200)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-
-            Divider().padding(.leading, 58)
-
-            // TAG
-            Button { showingTagPicker = true } label: {
-                HStack(spacing: 10) {
-                    ZStack {
-                        Circle().fill(Color(hex: "E8F0EA")).frame(width: 34, height: 34)
-                        Image(systemName: "tag.fill")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(Color(hex: "4A5E50"))
-                    }
-                    Text("TAG")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Color(hex: "8F9E94"))
-                        .tracking(0.8)
-                    Spacer(minLength: 8)
-                    if selectedTagIds.isEmpty {
-                        Text("Add tag")
-                            .font(.system(size: 15))
-                            .foregroundStyle(Color(hex: "C4BFB9"))
-                    } else {
-                        HStack(spacing: 6) {
-                            ForEach(selectedTags.prefix(2)) { tag in
-                                HStack(spacing: 4) {
-                                    Circle()
-                                        .fill(tag.tagColor.primaryColor)
-                                        .frame(width: 8, height: 8)
-                                    Text(tag.name)
-                                        .font(.system(size: 14, weight: .medium))
-                                        .foregroundStyle(Color(hex: "2F402E"))
-                                }
+            if !cachedKnownMerchants.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(Array(cachedKnownMerchants.prefix(6)), id: \.self) { name in
+                            Button {
+                                merchant = name
+                                focusedField = nil
+                            } label: {
+                                Text(name)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(merchant == name ? Color.white : Color(hex: "2F402E").opacity(0.7))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(merchant == name ? Color(hex: "2F402E") : Color(hex: "F0EDE6"))
+                                    .clipShape(Capsule())
                             }
-                            if selectedTags.count > 2 {
-                                Text("+\(selectedTags.count - 2)")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(Color(hex: "8F9E94"))
-                            }
+                            .buttonStyle(.plain)
+                            .animation(.easeInOut(duration: 0.12), value: merchant)
                         }
                     }
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color(hex: "C4BFB9"))
+                    .padding(.horizontal, 14)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
+                .padding(.top, 10)
             }
-            .buttonStyle(.plain)
         }
+        .padding(.bottom, 14)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
-        )
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
         .padding(.horizontal, 16)
     }
 
-    // MARK: - State 1: Amount hero
+    // MARK: - Quick Add: Tag card with chip shortcuts
 
-    private var amountHeroView: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Amount")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color(hex: "8F9E94"))
+    private var quickAddTagCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("TAG")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
+                .tracking(1.0)
+                .padding(.horizontal, 14)
+                .padding(.top, 14)
+                .padding(.bottom, 12)
 
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Button {
-                    showingCurrencyPicker = true
-                } label: {
-                    Text(currencySymbol)
-                        .font(.system(size: 28, weight: .regular, design: .monospaced))
-                        .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
-                }
-                .buttonStyle(.plain)
-
-                ZStack(alignment: .leading) {
-                    NumericFieldWithDone(
-                        text: $amountText,
-                        keyboardType: usesDecimalCurrency ? .decimalPad : .numberPad,
-                        font: UIFont.monospacedSystemFont(ofSize: 52, weight: .regular),
-                        textAlignment: .natural,
-                        focusRequested: amountFocusRequested,
-                        hidesFieldText: true,
-                        onBeginEditing: { DispatchQueue.main.async { focusedField = .amount } },
-                        onDone: {
-                            amountFocusRequested = false
-                            focusedField = nil
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(Array(tags.prefix(3))) { tag in
+                        let active = selectedTagIds.contains(tag.id)
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                if active { selectedTagIds.removeAll { $0 == tag.id } }
+                                else { selectedTagIds = [tag.id] }
+                            }
+                        } label: {
+                            HStack(spacing: 5) {
+                                Circle()
+                                    .fill(active ? Color.white.opacity(0.8) : tag.tagColor.primaryColor)
+                                    .frame(width: 7, height: 7)
+                                Text(tag.name)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(active ? Color.white : Color(hex: "2F402E").opacity(0.8))
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(active ? Color(hex: "2F402E") : Color(hex: "F0EDE6"))
+                            .clipShape(Capsule())
+                            .overlay(Capsule().stroke(Color(hex: "2F402E").opacity(active ? 0 : 0.1), lineWidth: 1))
                         }
-                    )
-                    .frame(maxWidth: .infinity, minHeight: 52)
-                    .onChange(of: amountText) { _, newValue in
-                        let sanitized = sanitizeAmountInput(newValue)
-                        if sanitized != newValue { amountText = sanitized }
-                    }
-                    .onChange(of: focusedField) { _, newValue in
-                        if newValue != .amount { formatAmount() }
+                        .buttonStyle(.plain)
+                        .animation(.easeInOut(duration: 0.12), value: active)
                     }
 
-                    Text(amountText.isEmpty ? zeroAmountPlaceholder : amountText)
-                        .font(.system(size: 52, weight: .regular, design: .monospaced))
-                        .foregroundStyle(amountText.isEmpty ? Color(hex: "8F9E94") : Color(hex: "1C1C1E"))
-                        .tracking(-2)
-                        .allowsHitTesting(false)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 18)
-        .padding(.vertical, 20)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
-        )
-        .padding(.horizontal, 16)
-        .contentShape(Rectangle())
-        .simultaneousGesture(TapGesture().onEnded {
-            amountFocusRequested = true
-        })
-    }
-
-    // (merchantDateView, merchantRowShape, dateRowShape removed — replaced by manualDetailCard)
-
-
-    @ViewBuilder
-    private func merchantSuggestionInlineList() -> some View {
-        let suggestions = topMerchantSuggestions
-        if focusedField == .merchant && !merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            VStack(spacing: 0) {
-                ForEach(suggestions, id: \.self) { name in
-                    Button {
-                        merchant = name
-                        focusedField = nil
-                    } label: {
-                        Text(name)
-                            .font(.system(size: 14))
-                            .foregroundStyle(Color(hex: "1C1C1E"))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .frame(height: 44)
-                            .contentShape(Rectangle())
+                    // More... chip
+                    Button { showingTagPicker = true } label: {
+                        Text("More…")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color(hex: "2F402E").opacity(0.55))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .overlay(Capsule().stroke(style: StrokeStyle(lineWidth: 1, dash: [4])).foregroundStyle(Color(hex: "2F402E").opacity(0.25)))
                     }
                     .buttonStyle(.plain)
 
-                    if name != suggestions.last {
-                        Rectangle()
-                            .fill(Color(hex: "DEDAD2"))
-                            .frame(height: 1)
+                    // Selected tags beyond the top-3 shortcut chips
+                    let topTagIds = Set(tags.prefix(3).map(\.id))
+                    ForEach(Array(selectedTags.filter { !topTagIds.contains($0.id) }.prefix(2))) { tag in
+                        HStack(spacing: 5) {
+                            Circle().fill(Color.white.opacity(0.8)).frame(width: 7, height: 7)
+                            Text(tag.name)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color.white)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Color(hex: "2F402E"))
+                        .clipShape(Capsule())
                     }
                 }
+                .padding(.horizontal, 14)
             }
-            .padding(.top, 4)
-            .animation(nil, value: suggestions)
+            .padding(.bottom, 14)
         }
-    }
-
-
-    // MARK: - Add receipt card (state 1 only in stack)
-
-    private var addReceiptView: some View {
-        Button {
-            showingAddReceiptSources = true
-        } label: {
-            HStack(spacing: 14) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .fill(Color(hex: "E8F0EA"))
-                        .frame(width: 40, height: 40)
-                    Image(systemName: "paperclip")
-                        .font(.system(size: 18))
-                        .foregroundStyle(Color(hex: "2F402E"))
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Add receipt")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Color(hex: "1C1C1E"))
-                    Text("Scan, upload photo or PDF")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Color(hex: "8F9E94"))
-                }
-
-                Spacer(minLength: 0)
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color(hex: "C4BFB9"))
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
         .padding(.horizontal, 16)
     }
+
+    // MARK: - Quick Add: Compact date / note / receipt row
+
+    private var quickAddExtrasRow: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                // DATE
+                Button { focusedField = nil; showingDatePickerSheet = true } label: {
+                    HStack(spacing: 8) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(hex: "E8F0EA")).frame(width: 30, height: 30)
+                            Image(systemName: "calendar").font(.system(size: 12, weight: .medium)).foregroundStyle(Color(hex: "4A5E50"))
+                        }
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("DATE").font(.system(size: 8, weight: .bold)).foregroundStyle(Color(hex: "2F402E").opacity(0.45)).tracking(0.6)
+                            Text(datePillLabel).font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(hex: "1C1C1E"))
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 9).frame(maxWidth: .infinity)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+
+                // NOTE
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { showNoteInExtrasRow.toggle() }
+                    if showNoteInExtrasRow {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { focusedField = .notes }
+                    } else {
+                        focusedField = nil
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(hex: "E8F0EA")).frame(width: 30, height: 30)
+                            Image(systemName: "note.text").font(.system(size: 12, weight: .medium)).foregroundStyle(Color(hex: "4A5E50"))
+                        }
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("NOTE").font(.system(size: 8, weight: .bold)).foregroundStyle(Color(hex: "2F402E").opacity(0.45)).tracking(0.6)
+                            Text(notes.isEmpty ? "Add note" : notes)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(notes.isEmpty ? Color(hex: "2F402E").opacity(0.3) : Color(hex: "1C1C1E"))
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 9).frame(maxWidth: .infinity)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+
+                // RECEIPT
+                Button { showingAddReceiptSources = true } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "paperclip").font(.system(size: 14, weight: .medium)).foregroundStyle(Color(hex: "2F402E").opacity(0.6))
+                        Text("Receipt").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color(hex: "2F402E").opacity(0.65))
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 12)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(style: StrokeStyle(lineWidth: 1, dash: [4])).foregroundStyle(Color(hex: "2F402E").opacity(0.2)))
+                }
+                .buttonStyle(.plain)
+            }
+
+            // Expandable note field
+            if showNoteInExtrasRow {
+                TextField("Add a note…", text: $notes, axis: .vertical)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+                    .tint(Color(hex: "2F402E"))
+                    .focused($focusedField, equals: .notes)
+                    .lineLimit(2...5)
+                    .padding(.horizontal, 14).padding(.vertical, 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "2F402E").opacity(0.18), lineWidth: 1))
+                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Quick Add: Floating hero amount (no card, sits on background)
+
+    private var quickAddHeroAmountBlock: some View {
+        VStack(spacing: 4) {
+            if !quickAddPrompt.isEmpty {
+                Text(quickAddPrompt)
+                    .font(Font.dmSerifDisplay(22))
+                    .italic()
+                    .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
+                    .multilineTextAlignment(.center)
+                    .padding(.bottom, 2)
+            }
+
+            let parts = quickAddAmountParts
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Button { showingCurrencyPicker = true } label: {
+                    Text(currencySymbol)
+                        .font(.system(size: 26, weight: .regular, design: .monospaced))
+                        .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
+                        .baselineOffset(8)
+                }
+                .buttonStyle(.plain)
+
+                Text(parts.whole)
+                    .font(Font.dmSerifDisplay(76))
+                    .foregroundStyle(amountText.isEmpty ? Color(hex: "2F402E").opacity(0.18) : Color(hex: "1C1C1E"))
+                    .animation(.none, value: amountText)
+
+                if let dec = parts.decimal {
+                    Text(dec.isEmpty ? "." : ".\(dec)")
+                        .font(Font.dmSerifDisplay(34))
+                        .foregroundStyle(Color(hex: "2F402E").opacity(0.35))
+                        .animation(.none, value: amountText)
+                }
+            }
+
+            // Thin moss underline
+            Rectangle()
+                .fill(LinearGradient(
+                    colors: [.clear, Color(hex: "4A5E50").opacity(0.4), .clear],
+                    startPoint: .leading, endPoint: .trailing
+                ))
+                .frame(width: 80, height: 1)
+                .padding(.top, 2)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 4)
+        .padding(.bottom, 6)
+    }
+
 
     // MARK: - PDF-only card
 
@@ -1224,45 +1230,160 @@ struct AddExpenseView: View {
         .padding(.horizontal, 16)
     }
 
-    // MARK: - Sticky save
+    // MARK: - Sticky bottom chrome
 
     private var stickySaveChrome: some View {
-        // In receipt state the "Done" button lives in the nav bar — no bottom chrome needed
         Group {
-          if !receiptImageAttached {
-            VStack(spacing: 0) {
-            ZStack(alignment: .bottom) {
-                LinearGradient(
-                    colors: [Color.clear, Color(hex: "F0EDE6")],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-                .frame(height: 80)
-                .allowsHitTesting(false)
-
-                Button {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    saveExpense()
-                } label: {
-                    Text("Save expense")
-                        .font(.system(size: 16, weight: .semibold))
+            if receiptImageAttached {
+                // Done button lives in the nav bar — no bottom chrome needed
+                Color.clear.frame(height: 0)
+            } else if keyboardVisible {
+                // System keyboard is up (merchant / note editing) — slim save bar only
+                VStack(spacing: 0) {
+                    Button {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        saveExpense()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkles").font(.system(size: 13, weight: .semibold))
+                            Text("Save expense").font(.system(size: 16, weight: .semibold))
+                        }
                         .foregroundStyle(.white)
-                        .padding(.vertical, 18)
+                        .padding(.vertical, 16)
                         .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(StickySaveCTAStyle(isEnabled: canSave))
-                .padding(.horizontal, 16)
-                .padding(.bottom, 10)
-                .disabled(!canSave)
-            }
-            .background(Color(hex: "F0EDE6"))
+                    }
+                    .buttonStyle(StickySaveCTAStyle(isEnabled: canSave))
+                    .disabled(!canSave)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 8)
 
-            if !appState.isPro {
-                BannerAdView()
+                    if !appState.isPro { BannerAdView() }
+                }
+                .background(Color(hex: "F0EDE6"))
+            } else {
+                // Default manual mode: full custom keypad
+                quickAddKeypadChrome
             }
-            } // inner VStack
-          } // if !receiptImageAttached
-        } // Group
+        }
+        .animation(.easeInOut(duration: 0.2), value: keyboardVisible)
+        .animation(.easeInOut(duration: 0.2), value: receiptImageAttached)
+    }
+
+    // MARK: - Custom keypad chrome
+
+    private var quickAddKeypadChrome: some View {
+        VStack(spacing: 0) {
+            // Quick-math chips
+            HStack(spacing: 8) {
+                ForEach(["+10", "+50", "×2", "÷2"], id: \.self) { op in
+                    Button { applyQuickMath(op) } label: {
+                        Text(op)
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(Color(hex: "2F402E").opacity(0.75))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 9)
+                            .background(Color.white)
+                            .clipShape(Capsule())
+                            .overlay(Capsule().stroke(Color(hex: "2F402E").opacity(0.1), lineWidth: 1))
+                    }
+                    .buttonStyle(KeypadButtonStyle())
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+
+            // 3 × 4 keypad grid
+            let keys = ["1","2","3","4","5","6","7","8","9",".","0","back"]
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
+                ForEach(keys, id: \.self) { key in
+                    Button { quickKeypadPress(key) } label: {
+                        Group {
+                            if key == "back" {
+                                Image(systemName: "delete.left")
+                                    .font(.system(size: 19, weight: .medium))
+                                    .foregroundStyle(Color(hex: "2F402E").opacity(0.65))
+                            } else {
+                                Text(key)
+                                    .font(Font.dmSerifDisplay(30))
+                                    .foregroundStyle(Color(hex: "1C1C1E"))
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color(hex: "2F402E").opacity(0.06), lineWidth: 1))
+                    }
+                    .buttonStyle(KeypadButtonStyle())
+                }
+            }
+            .padding(.horizontal, 12)
+
+            // Save button
+            Button {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                saveExpense()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles").font(.system(size: 13, weight: .semibold))
+                    Text("Save expense").font(.system(size: 16, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .padding(.vertical, 17)
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(StickySaveCTAStyle(isEnabled: canSave))
+            .disabled(!canSave)
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
+            .padding(.bottom, 8)
+
+            if !appState.isPro { BannerAdView() }
+        }
+        .background(Color(hex: "F0EDE6"))
+    }
+
+    private func quickKeypadPress(_ key: String) {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        switch key {
+        case "back":
+            guard !amountText.isEmpty else { return }
+            amountText = String(amountText.dropLast())
+        case ".":
+            guard usesDecimalCurrency, !amountText.contains(".") else { return }
+            amountText = amountText.isEmpty ? "0." : amountText + "."
+        default:
+            if amountText == "0" {
+                amountText = key
+            } else {
+                if let dotIdx = amountText.firstIndex(of: ".") {
+                    let decimals = amountText.distance(from: amountText.index(after: dotIdx), to: amountText.endIndex)
+                    guard decimals < 2 else { return }
+                }
+                amountText += key
+            }
+        }
+    }
+
+    private func applyQuickMath(_ op: String) {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        let current = Double(amountText) ?? 0
+        let result: Double
+        switch op {
+        case "+10": result = current + 10
+        case "+50": result = current + 50
+        case "×2":  result = current * 2
+        case "÷2":  result = current / 2
+        default: return
+        }
+        if usesDecimalCurrency {
+            amountText = result.truncatingRemainder(dividingBy: 1) == 0
+                ? String(Int(result))
+                : String(format: "%.2f", result)
+        } else {
+            amountText = String(Int(result))
+        }
     }
 
     // MARK: - Helpers
@@ -1360,6 +1481,8 @@ struct AddExpenseView: View {
                     attachedImage = img
                 }
             }
+            showNoteInExtrasRow = !notes.isEmpty
+            quickAddPrompt = ""   // No prompt in edit mode
             return
         }
 
@@ -1376,7 +1499,10 @@ struct AddExpenseView: View {
         ocrPopulatedAnyField = false
         isRunningOCR = false
         notesExpanded = false
+        showNoteInExtrasRow = false
         showingGoProFromOcrBanner = false
+        let prompts = ["What's the damage?", "How'd you spend it?", "Where'd it go?", "What's it for?"]
+        quickAddPrompt = prompts.randomElement() ?? "What's it for?"
         source = .manual
         lastImageSource = .manual
         enteredViaPhotoFlow = false
@@ -1421,6 +1547,7 @@ struct AddExpenseView: View {
             if !prefill.notes.isEmpty {
                 notes = prefill.notes
                 notesExpanded = true
+                showNoteInExtrasRow = true
             }
         }
     }
@@ -1722,7 +1849,15 @@ private struct ReceiptSourcePickerSheet: View {
     }
 }
 
-// MARK: - Button style (sticky save pressed state)
+// MARK: - Button styles
+
+private struct KeypadButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.92 : 1)
+            .animation(.easeInOut(duration: 0.08), value: configuration.isPressed)
+    }
+}
 
 private struct StickySaveCTAStyle: ButtonStyle {
     var isEnabled: Bool
