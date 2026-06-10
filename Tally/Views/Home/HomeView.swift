@@ -1076,18 +1076,20 @@ private struct LandingExpenseRow<Content: View>: View {
             .scaleEffect(scale, anchor: .top)
             .opacity(opacity)
             .offset(y: offsetY)
-            .onAppear {
-                guard isLanding else { return }
-                // Start offscreen-above, shrunk, invisible
-                scale = 0.88
-                opacity = 0
-                offsetY = -18
-                withAnimation(.spring(response: 0.46, dampingFraction: 0.60)) {
-                    scale = 1
-                    opacity = 1
-                    offsetY = 0
-                }
+            .onAppear { triggerAnimation() }
+            .onChange(of: isLanding) { _, newVal in if newVal { triggerAnimation() } }
+    }
+
+    private func triggerAnimation() {
+        guard isLanding else { return }
+        // Set start state first, then defer animation one run loop so SwiftUI
+        // renders the initial frame before animating to the final values.
+        scale = 0.88; opacity = 0; offsetY = -18
+        DispatchQueue.main.async {
+            withAnimation(.spring(response: 0.46, dampingFraction: 0.60)) {
+                scale = 1; opacity = 1; offsetY = 0
             }
+        }
     }
 }
 

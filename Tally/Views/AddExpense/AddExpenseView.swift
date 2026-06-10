@@ -515,19 +515,163 @@ struct AddExpenseView: View {
         amountHeroView
             .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
 
-        merchantDateView
-
-        notesRowView
+        manualDetailCard
 
         if attachedFileURL != nil {
             pdfAttachmentCard
         }
 
-        tagsRowView
-
         tallySuggestsCard
 
         addReceiptView
+    }
+
+    // MARK: - Manual detail card (merchant / date / note / tag — no amount, shown in hero above)
+
+    private var manualDetailCard: some View {
+        VStack(spacing: 0) {
+            // MERCHANT
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle().fill(Color(hex: "E8F0EA")).frame(width: 34, height: 34)
+                    Image(systemName: "storefront.fill")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color(hex: "4A5E50"))
+                }
+                Text("MERCHANT")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+                    .tracking(0.8)
+                Spacer(minLength: 8)
+                VStack(alignment: .trailing, spacing: 0) {
+                    TextField("Name", text: $merchant)
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                        .multilineTextAlignment(.trailing)
+                        .focused($focusedField, equals: .merchant)
+                        .textInputAutocapitalization(.words)
+                        .tint(Color(hex: "2F402E"))
+                        .frame(maxWidth: 180)
+                    merchantSuggestionInlineList()
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+
+            Divider().padding(.leading, 58)
+
+            // DATE
+            Button {
+                focusedField = nil
+                showingDatePickerSheet = true
+            } label: {
+                HStack(spacing: 10) {
+                    ZStack {
+                        Circle().fill(Color(hex: "E8F0EA")).frame(width: 34, height: 34)
+                        Image(systemName: "calendar")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Color(hex: "4A5E50"))
+                    }
+                    Text("DATE")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color(hex: "8F9E94"))
+                        .tracking(0.8)
+                    Spacer(minLength: 8)
+                    Text(Self.datePillFormatter.string(from: date))
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color(hex: "C4BFB9"))
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+            }
+            .buttonStyle(.plain)
+
+            Divider().padding(.leading, 58)
+
+            // NOTE (above tag)
+            HStack(alignment: .top, spacing: 10) {
+                ZStack {
+                    Circle().fill(Color(hex: "E8F0EA")).frame(width: 34, height: 34)
+                    Image(systemName: "note.text")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color(hex: "4A5E50"))
+                }
+                Text("NOTE")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+                    .tracking(0.8)
+                    .padding(.top, 4)
+                Spacer(minLength: 8)
+                TextField("Add a note...", text: $notes, axis: .vertical)
+                    .font(.system(size: 15))
+                    .foregroundStyle(notes.isEmpty ? Color(hex: "C4BFB9") : Color(hex: "1C1C1E"))
+                    .multilineTextAlignment(.trailing)
+                    .focused($focusedField, equals: .notes)
+                    .tint(Color(hex: "2F402E"))
+                    .lineLimit(1...4)
+                    .frame(maxWidth: 200)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+
+            Divider().padding(.leading, 58)
+
+            // TAG
+            Button { showingTagPicker = true } label: {
+                HStack(spacing: 10) {
+                    ZStack {
+                        Circle().fill(Color(hex: "E8F0EA")).frame(width: 34, height: 34)
+                        Image(systemName: "tag.fill")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Color(hex: "4A5E50"))
+                    }
+                    Text("TAG")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color(hex: "8F9E94"))
+                        .tracking(0.8)
+                    Spacer(minLength: 8)
+                    if selectedTagIds.isEmpty {
+                        Text("Add tag")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color(hex: "C4BFB9"))
+                    } else {
+                        HStack(spacing: 6) {
+                            ForEach(selectedTags.prefix(2)) { tag in
+                                HStack(spacing: 4) {
+                                    Circle()
+                                        .fill(tag.tagColor.primaryColor)
+                                        .frame(width: 8, height: 8)
+                                    Text(tag.name)
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundStyle(Color(hex: "2F402E"))
+                                }
+                            }
+                            if selectedTags.count > 2 {
+                                Text("+\(selectedTags.count - 2)")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(Color(hex: "8F9E94"))
+                            }
+                        }
+                    }
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color(hex: "C4BFB9"))
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+            }
+            .buttonStyle(.plain)
+        }
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
+        .padding(.horizontal, 16)
     }
 
     // MARK: - State 1: Amount hero
