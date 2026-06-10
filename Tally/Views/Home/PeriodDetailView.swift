@@ -214,49 +214,43 @@ struct PeriodDetailView: View {
     // MARK: - Body
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    // Top bar
-                    topBar
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .padding(.bottom, 20)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                // Top bar
+                topBar
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 20)
 
-                    if expenses.isEmpty {
-                        emptyState
-                    } else {
-                        summaryHeader
-                            .padding(.horizontal, 20)
-                            .padding(.bottom, 24)
+                if expenses.isEmpty {
+                    emptyState
+                } else {
+                    summaryHeader
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 24)
 
-                        // Weekly/daily/monthly chart
-                        if !displayBars.isEmpty {
-                            weekChartCard
-                                .padding(.horizontal, 16)
-                                .padding(.bottom, 14)
-                        }
-
-                        // By category
-                        if !categoryRows.isEmpty {
-                            categoryCard
-                                .padding(.horizontal, 16)
-                                .padding(.bottom, 14)
-                        }
-
-                        // Bottom padding for sticky button
-                        Spacer(minLength: 100)
+                    // Weekly/daily/monthly chart
+                    if !displayBars.isEmpty {
+                        weekChartCard
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 14)
                     }
+
+                    // By category
+                    if !categoryRows.isEmpty {
+                        categoryCard
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 14)
+                    }
+
+                    // Export button inline — scrolls with content, never behind FAB
+                    exportButton
+                        .padding(.bottom, 100)
                 }
             }
-            .scrollContentBackground(.hidden)
-            .background(Color(hex: "F0EDE6").ignoresSafeArea())
-
-            // Sticky export button
-            if !expenses.isEmpty {
-                exportButton
-            }
         }
+        .scrollContentBackground(.hidden)
+        .background(Color(hex: "F0EDE6").ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showingExport) {
             GlobalExportSheet(initialSelection: expenses)
@@ -483,15 +477,10 @@ struct PeriodDetailView: View {
             .padding(.vertical, 16)
             .background(Color(hex: "2F402E"))
             .clipShape(RoundedRectangle(cornerRadius: 14))
-            .padding(.horizontal, 16)
-            .padding(.bottom, 28)
         }
         .buttonStyle(.plain)
-        .background(
-            Color(hex: "F0EDE6")
-                .opacity(0.95)
-                .ignoresSafeArea()
-        )
+        .padding(.horizontal, 16)
+        .padding(.top, 6)
     }
 
     // MARK: - Empty state
