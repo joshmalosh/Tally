@@ -657,7 +657,7 @@ struct GlobalExportSheet: View {
 
     private func formatRow(_ opt: (icon: String, iconBg: Color, title: String, subtitle: String, badge: String?, format: ExportFormat)) -> some View {
         let locked = !appState.isPro
-        Button {
+        return Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             selectedFormat = opt.format
             performExport(format: opt.format)
