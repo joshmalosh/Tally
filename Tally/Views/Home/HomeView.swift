@@ -245,6 +245,7 @@ struct HomeView: View {
             }
             .presentationDetents([.height(490)])
             .presentationDragIndicator(.hidden)
+            .presentationBackground(Color(hex: "F0EDE6"))
         }
         .fullScreenCover(item: $selectedEntryMode) { mode in
             if mode == .bulkImport {

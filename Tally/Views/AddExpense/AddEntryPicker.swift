@@ -63,12 +63,12 @@ struct AddEntryPicker: View {
             } label: {
                 HStack(spacing: 14) {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color(hex: "2F402E").opacity(0.15))
-                            .frame(width: 50, height: 50)
+                        Circle()
+                            .fill(Color(hex: "2F402E"))
+                            .frame(width: 52, height: 52)
                         Image(systemName: "camera.fill")
                             .font(.system(size: 22, weight: .medium))
-                            .foregroundStyle(Color(hex: "2F402E"))
+                            .foregroundStyle(.white)
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 7) {
@@ -145,7 +145,7 @@ struct AddEntryPicker: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 28)
         }
-        .background(Color(hex: "F0EDE6"))
+        .background(Color(hex: "F0EDE6").ignoresSafeArea())
     }
 
     private func gridOption(
@@ -162,11 +162,11 @@ struct AddEntryPicker: View {
         } label: {
             VStack(alignment: .leading, spacing: 10) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    Circle()
                         .fill(bgColor)
-                        .frame(width: 40, height: 40)
+                        .frame(width: 44, height: 44)
                     Image(systemName: icon)
-                        .font(.system(size: 17, weight: .medium))
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(iconColor)
                 }
                 VStack(alignment: .leading, spacing: 2) {
@@ -186,10 +186,6 @@ struct AddEntryPicker: View {
             .frame(height: 106)
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
-            )
         }
         .buttonStyle(EntryOptionButtonStyle())
     }
