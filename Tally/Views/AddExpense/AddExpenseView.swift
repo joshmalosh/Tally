@@ -155,10 +155,14 @@ struct AddExpenseView: View {
         receiptImageAttached && ocrPopulatedAnyField && !isRunningOCR
     }
 
-    private var heroDateLabel: String {
+    private static let heroDateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "d MMM yyyy"
-        return f.string(from: date).uppercased()
+        return f
+    }()
+
+    private var heroDateLabel: String {
+        Self.heroDateFormatter.string(from: date).uppercased()
     }
 
     private var autoScannedBadgeView: some View {
@@ -176,26 +180,13 @@ struct AddExpenseView: View {
         .clipShape(Capsule())
     }
 
-    private var knownMerchants: [String] {
-        let byRecency = allExpenses.sorted { $0.updatedAt > $1.updatedAt }
-        var seenLowercased = Set<String>()
-        var unique: [String] = []
-        for expense in byRecency {
-            guard let raw = expense.merchant else { continue }
-            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { continue }
-            let key = trimmed.lowercased()
-            guard seenLowercased.insert(key).inserted else { continue }
-            unique.append(trimmed)
-        }
-        return unique.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
-    }
+    @State private var cachedKnownMerchants: [String] = []
 
     private var filteredMerchantSuggestions: [String] {
         let trimmed = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
         guard focusedField == .merchant, !trimmed.isEmpty else { return [] }
         let q = trimmed.lowercased()
-        return knownMerchants.filter { candidate in
+        return cachedKnownMerchants.filter { candidate in
             let low = candidate.lowercased()
             return low.contains(q) && low != q
         }
@@ -739,41 +730,8 @@ struct AddExpenseView: View {
         })
     }
 
-    // MARK: - State 1: Merchant + date cluster
+    // (merchantDateView, merchantRowShape, dateRowShape removed — replaced by manualDetailCard)
 
-    private var merchantDateView: some View {
-        VStack(spacing: 2) {
-            merchantRowShape(radiusTop: 14, radiusBottom: 6)
-            dateRowShape(radiusTop: 6, radiusBottom: 14)
-        }
-        .padding(.horizontal, 16)
-    }
-
-    private func merchantRowShape(radiusTop: CGFloat, radiusBottom: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Merchant")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color(hex: "8F9E94"))
-
-            TextField("Where did you pay?", text: $merchant)
-                .font(.system(size: 16))
-                .foregroundStyle(Color(hex: "1C1C1E"))
-                .focused($focusedField, equals: .merchant)
-                .textInputAutocapitalization(.words)
-                .tint(Color(hex: "2F402E"))
-
-            merchantSuggestionInlineList()
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
-        .clipShape(unevenRect(topLeading: radiusTop, topTrailing: radiusTop, bottomLeading: radiusBottom, bottomTrailing: radiusBottom))
-        .overlay(
-            unevenRect(topLeading: radiusTop, topTrailing: radiusTop, bottomLeading: radiusBottom, bottomTrailing: radiusBottom)
-                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
-        )
-    }
 
     @ViewBuilder
     private func merchantSuggestionInlineList() -> some View {
@@ -806,141 +764,6 @@ struct AddExpenseView: View {
         }
     }
 
-    private func dateRowShape(radiusTop: CGFloat, radiusBottom: CGFloat) -> some View {
-        Button {
-            focusedField = nil
-            showingDatePickerSheet = true
-        } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Date of transaction")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-
-                HStack(spacing: 10) {
-                    Text(Self.datePillFormatter.string(from: date))
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Color(hex: "1C1C1E"))
-
-                    Spacer(minLength: 0)
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color(hex: "C4BFB9"))
-                }
-            }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white)
-        }
-        .buttonStyle(.plain)
-        .clipShape(unevenRect(topLeading: radiusTop, topTrailing: radiusTop, bottomLeading: radiusBottom, bottomTrailing: radiusBottom))
-        .overlay(
-            unevenRect(topLeading: radiusTop, topTrailing: radiusTop, bottomLeading: radiusBottom, bottomTrailing: radiusBottom)
-                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
-        )
-    }
-
-    // MARK: - Tags row
-
-    private var tagsRowView: some View {
-        Group {
-            if selectedTagIds.isEmpty {
-                Button {
-                    showingTagPicker = true
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: "tag.fill")
-                            .font(.system(size: 15))
-                            .foregroundStyle(Color(hex: "8F9E94"))
-                        Text("Add tag")
-                            .font(.system(size: 15))
-                            .foregroundStyle(Color(hex: "C4BFB9"))
-                        Spacer(minLength: 0)
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Color(hex: "C4BFB9"))
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
-                    )
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 16)
-            } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(selectedTags) { tag in
-                            HStack(spacing: 4) {
-                                // Tappable area — opens picker to change tags
-                                Button {
-                                    showingTagPicker = true
-                                } label: {
-                                    HStack(spacing: 6) {
-                                        Circle()
-                                            .fill(tag.tagColor.primaryColor)
-                                            .frame(width: 8, height: 8)
-                                        Text(tag.name)
-                                            .font(.system(size: 14, weight: .medium))
-                                            .foregroundStyle(Color(hex: "2F402E"))
-                                    }
-                                }
-                                .buttonStyle(.plain)
-
-                                // × to remove this specific tag
-                                Button {
-                                    selectedTagIds.removeAll { $0 == tag.id }
-                                } label: {
-                                    Image(systemName: "xmark")
-                                        .font(.system(size: 10, weight: .bold))
-                                        .foregroundStyle(Color(hex: "2F402E").opacity(0.55))
-                                        .frame(width: 18, height: 18)
-                                        .background(Color(hex: "2F402E").opacity(0.08))
-                                        .clipShape(Circle())
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            .padding(.vertical, 8)
-                            .padding(.leading, 14)
-                            .padding(.trailing, 8)
-                            .background(Color(hex: "E8F0EA"))
-                            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                    .stroke(Color(hex: "2F402E"), lineWidth: 1.5)
-                            )
-                        }
-
-                        Button {
-                            showingTagPicker = true
-                        } label: {
-                            Text("+ Add tag")
-                                .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(Color(hex: "8F9E94"))
-                                .padding(.vertical, 8)
-                                .padding(.horizontal, 14)
-                                .background(Color.clear)
-                                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                        .stroke(Color(hex: "DEDAD2"), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-                                )
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 4)
-                }
-                .padding(.horizontal, 0)
-            }
-        }
-    }
 
     // MARK: - Add receipt card (state 1 only in stack)
 
@@ -1027,54 +850,6 @@ struct AddExpenseView: View {
         }
     }
 
-    // MARK: - Notes
-
-    private var notesRowView: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            if notesExpanded {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Expense details")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Color(hex: "8F9E94"))
-                    TextEditor(text: $notes)
-                        .font(.system(size: 15))
-                        .foregroundStyle(Color(hex: "1C1C1E"))
-                        .scrollContentBackground(.hidden)
-                        .frame(minHeight: 72)
-                        .focused($focusedField, equals: .notes)
-                }
-                .padding(.horizontal, 18)
-                .padding(.vertical, 14)
-            } else {
-                Button {
-                    notesExpanded = true
-                    focusedField = .notes
-                } label: {
-                    HStack(spacing: 10) {
-                        Image(systemName: "square.and.pencil")
-                            .font(.system(size: 16))
-                            .foregroundStyle(Color(hex: "8F9E94"))
-                        Text("Expense details…")
-                            .font(.system(size: 15))
-                            .foregroundStyle(Color(hex: "C4BFB9"))
-                        Spacer()
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 16)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
-        )
-        .padding(.horizontal, 16)
-    }
 
     // MARK: - State 2: Receipt hero
 
@@ -1206,23 +981,6 @@ struct AddExpenseView: View {
         .padding(.horizontal, 16)
     }
 
-    private var ocrFilledBanner: some View {
-        HStack(alignment: .center, spacing: 8) {
-            Circle()
-                .fill(Color(hex: "2F402E"))
-                .frame(width: 5, height: 5)
-            Text("Fields filled from receipt — review before saving")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Color(hex: "2F402E"))
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(hex: "E8F0EA"))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .padding(.horizontal, 16)
-    }
 
     // MARK: - State 2: Detail cluster (amount, merchant, date, note, tag)
 
@@ -1430,64 +1188,16 @@ struct AddExpenseView: View {
         if let suggestion = tallySuggestion,
            !tallySuggestionDismissed,
            selectedTagIds.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 6) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color(hex: "2F402E"))
-                    Text("TALLY SUGGESTS")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Color(hex: "2F402E"))
-                        .tracking(0.8)
+            TallySuggestsCard(suggestion: suggestion) {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    selectedTagIds = [suggestion.tag.id]
+                    tallySuggestion = nil
                 }
-
-                Text("Looks like a \(suggestion.reason) — want to tag this as **\(suggestion.tag.name)**?")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color(hex: "2F402E").opacity(0.9))
-
-                HStack(spacing: 10) {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            selectedTagIds = [suggestion.tag.id]
-                            tallySuggestion = nil
-                        }
-                    } label: {
-                        Text("Apply tag")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .padding(.vertical, 9)
-                            .padding(.horizontal, 18)
-                            .background(Color(hex: "2F402E"))
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            tallySuggestionDismissed = true
-                        }
-                    } label: {
-                        Text("Dismiss")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(Color(hex: "2F402E"))
-                            .padding(.vertical, 9)
-                            .padding(.horizontal, 18)
-                            .background(Color(hex: "2F402E").opacity(0.1))
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
+            } onDismiss: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    tallySuggestionDismissed = true
                 }
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(hex: "EAF5EC"))
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color(hex: "2F402E").opacity(0.12), lineWidth: 1)
-            )
-            .padding(.horizontal, 16)
-            .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
         }
     }
 
@@ -1792,6 +1502,25 @@ struct AddExpenseView: View {
             predicate: #Predicate { $0.deletedAt == nil }
         )
         allExpenses = (try? modelContext.fetch(descriptor)) ?? []
+        cachedKnownMerchants = buildKnownMerchants()
+    }
+
+    /// Builds the sorted, deduplicated merchant name list from `allExpenses`.
+    /// Called once per `loadExpenses()` so filtering on keystrokes is O(n) over
+    /// the small cached list rather than O(n log n) on the full expense array.
+    private func buildKnownMerchants() -> [String] {
+        let byRecency = allExpenses.sorted { $0.updatedAt > $1.updatedAt }
+        var seenLowercased = Set<String>()
+        var unique: [String] = []
+        for expense in byRecency {
+            guard let raw = expense.merchant else { continue }
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            let key = trimmed.lowercased()
+            guard seenLowercased.insert(key).inserted else { continue }
+            unique.append(trimmed)
+        }
+        return unique.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
     }
 
     private func saveExpense() {

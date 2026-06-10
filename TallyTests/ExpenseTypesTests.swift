@@ -109,3 +109,134 @@ final class ExpenseTypesTests: XCTestCase {
         XCTAssertEqual(TagColors.defaultTagColors["Subscriptions"], "v13")
     }
 }
+
+// MARK: - TagSuggestionEngine Tests
+
+final class TagSuggestionEngineTests: XCTestCase {
+
+    // MARK: - Helpers
+
+    /// Creates a non-persistent TagModel for testing without a ModelContainer.
+    private func makeTag(name: String, isSystem: Bool = false) -> TagModel {
+        let t = TagModel(name: name)
+        t.isSystemTag = isSystem
+        return t
+    }
+
+    // MARK: - No match
+
+    func testSuggest_emptyCorpus_returnsNil() {
+        let tags = [makeTag(name: "Dining")]
+        XCTAssertNil(TagSuggestionEngine.suggest(merchant: "", notes: "", tags: tags))
+    }
+
+    func testSuggest_noMatchingTag_returnsNil() {
+        // "coffee" should match dining rule, but no matching tag exists
+        let tags = [makeTag(name: "Travel")]
+        XCTAssertNil(TagSuggestionEngine.suggest(merchant: "Starbucks Coffee", notes: "", tags: tags))
+    }
+
+    func testSuggest_noTags_returnsNil() {
+        XCTAssertNil(TagSuggestionEngine.suggest(merchant: "Uber", notes: "", tags: []))
+    }
+
+    // MARK: - Dining / Food
+
+    func testSuggest_restaurantMerchant_matchesDiningTag() {
+        let tags = [makeTag(name: "Dining"), makeTag(name: "Travel")]
+        let result = TagSuggestionEngine.suggest(merchant: "Thai restaurant", notes: "", tags: tags)
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.tag.name, "Dining")
+    }
+
+    func testSuggest_coffeeShop_matchesMealsTag() {
+        let tags = [makeTag(name: "Meals"), makeTag(name: "Work")]
+        let result = TagSuggestionEngine.suggest(merchant: "Bluestone Lane Coffee", notes: "", tags: tags)
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.tag.name, "Meals")
+    }
+
+    func testSuggest_uberEats_matchesFoodTag() {
+        let tags = [makeTag(name: "Food"), makeTag(name: "Shopping")]
+        let result = TagSuggestionEngine.suggest(merchant: "UberEats order", notes: "", tags: tags)
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.tag.name, "Food")
+    }
+
+    // MARK: - Transport
+
+    func testSuggest_uberRide_matchesTransportTag() {
+        let tags = [makeTag(name: "Transport"), makeTag(name: "Dining")]
+        let result = TagSuggestionEngine.suggest(merchant: "Uber", notes: "", tags: tags)
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.tag.name, "Transport")
+    }
+
+    func testSuggest_petrolStation_matchesTransportTag() {
+        let tags = [makeTag(name: "Dining"), makeTag(name: "Travel")]
+        let result = TagSuggestionEngine.suggest(merchant: "BP Petrol Station", notes: "", tags: tags)
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.tag.name, "Travel")
+    }
+
+    // MARK: - Subscriptions
+
+    func testSuggest_netflixNote_matchesSubscriptionsTag() {
+        let tags = [makeTag(name: "Subscriptions"), makeTag(name: "Dining")]
+        let result = TagSuggestionEngine.suggest(merchant: "", notes: "Netflix monthly subscription", tags: tags)
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.tag.name, "Subscriptions")
+    }
+
+    func testSuggest_spotifyMerchant_matchesStreamingTag() {
+        let tags = [makeTag(name: "Streaming"), makeTag(name: "Work")]
+        let result = TagSuggestionEngine.suggest(merchant: "Spotify", notes: "", tags: tags)
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.tag.name, "Streaming")
+    }
+
+    // MARK: - Groceries
+
+    func testSuggest_woolworths_matchesGroceriesTag() {
+        let tags = [makeTag(name: "Groceries"), makeTag(name: "Dining")]
+        let result = TagSuggestionEngine.suggest(merchant: "Woolworths", notes: "", tags: tags)
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.tag.name, "Groceries")
+    }
+
+    // MARK: - Reason string
+
+    func testSuggest_reasonIsNonEmpty() {
+        let tags = [makeTag(name: "Dining")]
+        let result = TagSuggestionEngine.suggest(merchant: "pizza place", notes: "", tags: tags)
+        XCTAssertFalse(result?.reason.isEmpty ?? true)
+    }
+
+    // MARK: - System tag preference
+
+    func testSuggest_prefersNonSystemTagOverSystemTag() {
+        // System tag should be used as fallback only; non-system tag with same hint wins
+        let systemTag  = makeTag(name: "Dining", isSystem: true)
+        let userTag    = makeTag(name: "My Dining", isSystem: false)
+        let tags = [systemTag, userTag]
+        let result = TagSuggestionEngine.suggest(merchant: "cafe brunch", notes: "", tags: tags)
+        XCTAssertNotNil(result)
+        XCTAssertFalse(result?.tag.isSystemTag ?? true, "Should prefer non-system tag")
+    }
+
+    // MARK: - Corpus merging
+
+    func testSuggest_matchFromNotes_whenMerchantIsEmpty() {
+        let tags = [makeTag(name: "Health")]
+        let result = TagSuggestionEngine.suggest(merchant: "", notes: "dentist appointment payment", tags: tags)
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.tag.name, "Health")
+    }
+
+    func testSuggest_matchFromMerchant_whenNotesIsEmpty() {
+        let tags = [makeTag(name: "Utilities")]
+        let result = TagSuggestionEngine.suggest(merchant: "Electricity bill", notes: "", tags: tags)
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.tag.name, "Utilities")
+    }
+}

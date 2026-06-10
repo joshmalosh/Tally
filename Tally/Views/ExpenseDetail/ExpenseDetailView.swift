@@ -85,11 +85,15 @@ struct ExpenseDetailView: View {
         selectedTagIds.compactMap { id in tags.first { $0.id == id } }
     }
 
-    /// "18 APR 2026" style for hero overlay
-    private var heroDateLabel: String {
+    private static let heroDateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "d MMM yyyy"
-        return f.string(from: date).uppercased()
+        return f
+    }()
+
+    /// "18 APR 2026" style for hero overlay
+    private var heroDateLabel: String {
+        Self.heroDateFormatter.string(from: date).uppercased()
     }
 
     /// Split amountText into whole and decimal for the hero display
@@ -697,64 +701,16 @@ struct ExpenseDetailView: View {
         if let suggestion = tallySuggestion,
            !tallySuggestionDismissed,
            selectedTagIds.isEmpty {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 6) {
-                    Image(systemName: "sparkles")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color(hex: "2F402E"))
-                    Text("TALLY SUGGESTS")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(Color(hex: "2F402E"))
-                        .tracking(0.8)
+            TallySuggestsCard(suggestion: suggestion) {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    selectedTagIds = [suggestion.tag.id]
+                    tallySuggestion = nil
                 }
-
-                Text("Looks like a \(suggestion.reason) — want to tag this as **\(suggestion.tag.name)**?")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color(hex: "2F402E").opacity(0.9))
-
-                HStack(spacing: 10) {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            selectedTagIds = [suggestion.tag.id]
-                            tallySuggestion = nil
-                        }
-                    } label: {
-                        Text("Apply tag")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .padding(.vertical, 9)
-                            .padding(.horizontal, 18)
-                            .background(Color(hex: "2F402E"))
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            tallySuggestionDismissed = true
-                        }
-                    } label: {
-                        Text("Dismiss")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(Color(hex: "2F402E"))
-                            .padding(.vertical, 9)
-                            .padding(.horizontal, 18)
-                            .background(Color(hex: "2F402E").opacity(0.1))
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
+            } onDismiss: {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    tallySuggestionDismissed = true
                 }
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(hex: "EAF5EC"))
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color(hex: "2F402E").opacity(0.12), lineWidth: 1)
-            )
-            .padding(.horizontal, 16)
-            .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
         }
     }
 

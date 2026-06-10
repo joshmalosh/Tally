@@ -485,3 +485,65 @@ struct FlowLayout: Layout {
         )
     }
 }
+
+// MARK: - TallySuggestsCard
+
+/// Shared "Tally Suggests" banner shown in both AddExpenseView and ExpenseDetailView.
+/// Callers gate visibility with their own `if let suggestion … { TallySuggestsCard(…) }` block.
+struct TallySuggestsCard: View {
+    let suggestion: TagSuggestionEngine.Suggestion
+    let onApply: () -> Void
+    let onDismiss: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color(hex: "2F402E"))
+                Text("TALLY SUGGESTS")
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundStyle(Color(hex: "2F402E"))
+                    .tracking(0.8)
+            }
+
+            Text("Looks like a \(suggestion.reason) — want to tag this as **\(suggestion.tag.name)**?")
+                .font(.system(size: 13))
+                .foregroundStyle(Color(hex: "2F402E").opacity(0.9))
+
+            HStack(spacing: 10) {
+                Button(action: onApply) {
+                    Text("Apply tag")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.vertical, 9)
+                        .padding(.horizontal, 18)
+                        .background(Color(hex: "2F402E"))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+
+                Button(action: onDismiss) {
+                    Text("Dismiss")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color(hex: "2F402E"))
+                        .padding(.vertical, 9)
+                        .padding(.horizontal, 18)
+                        .background(Color(hex: "2F402E").opacity(0.1))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(hex: "EAF5EC"))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color(hex: "2F402E").opacity(0.12), lineWidth: 1)
+        )
+        .padding(.horizontal, 16)
+        .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+    }
+}
