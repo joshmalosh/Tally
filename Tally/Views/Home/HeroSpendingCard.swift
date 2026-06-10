@@ -172,8 +172,10 @@ struct SpendingSummaryCard: View {
     let allTags: [TagModel]
     let homeBarTagId: String?
     let homeBarTagName: String?
-    /// Called when the user taps the card — used to open the Reports tab.
-    let onTap: () -> Void
+    /// Called when the user taps the left (amount/period) panel — opens PeriodDetailView.
+    let onPeriodTap: (HeroPeriod) -> Void
+    /// Called when the user taps the right (chart) panel — opens Reports tab.
+    let onChartTap: () -> Void
 
     @State private var pageIndex: Int = 0
 
@@ -295,7 +297,7 @@ struct SpendingSummaryCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
-        .onTapGesture { onTap() }
+        .onTapGesture { onPeriodTap(periods[pageIndex]) }
         .gesture(
             DragGesture(minimumDistance: 20, coordinateSpace: .local)
                 .onEnded { value in
@@ -325,6 +327,8 @@ struct SpendingSummaryCard: View {
                 topCategoryRow(tag: top.tag, cents: top.cents)
             }
         }
+        .contentShape(Rectangle())
+        .onTapGesture { onChartTap() }
     }
 
     // MARK: - Chart

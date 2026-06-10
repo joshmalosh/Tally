@@ -149,7 +149,11 @@ struct HomeView: View {
                     allTags: Array(tags),
                     homeBarTagId: homeBarTagId,
                     homeBarTagName: homeTagName,
-                    onTap: {
+                    onPeriodTap: { period in
+                        selectedHeroPeriod = period
+                        showingPeriodDetail = true
+                    },
+                    onChartTap: {
                         withAnimation(.easeInOut(duration: 0.2)) {
                             selectedTab = .reports
                         }
