@@ -64,11 +64,11 @@ struct AddEntryPicker: View {
                 HStack(spacing: 14) {
                     ZStack {
                         Circle()
-                            .fill(Color(hex: "2F402E"))
+                            .fill(Color(hex: "E8F0EA"))
                             .frame(width: 52, height: 52)
                         Image(systemName: "camera.fill")
                             .font(.system(size: 22, weight: .medium))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Color(hex: "2F402E"))
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 7) {
@@ -97,8 +97,13 @@ struct AddEntryPicker: View {
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity)
-                .background(Color(hex: "E8F0EA"))
+                .background(Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color(hex: "2F402E").opacity(0.35), lineWidth: 1.5)
+                )
+                .shadow(color: Color.black.opacity(0.07), radius: 8, x: 0, y: 3)
             }
             .buttonStyle(EntryOptionButtonStyle())
             .padding(.horizontal, 20)
