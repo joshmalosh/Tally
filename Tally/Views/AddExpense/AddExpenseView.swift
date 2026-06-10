@@ -155,6 +155,27 @@ struct AddExpenseView: View {
         receiptImageAttached && ocrPopulatedAnyField && !isRunningOCR
     }
 
+    private var heroDateLabel: String {
+        let f = DateFormatter()
+        f.dateFormat = "d MMM yyyy"
+        return f.string(from: date).uppercased()
+    }
+
+    private var autoScannedBadgeView: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "bolt.fill")
+                .font(.system(size: 8, weight: .bold))
+            Text("AUTO-SCANNED")
+                .font(.system(size: 10, weight: .bold))
+                .tracking(0.6)
+        }
+        .foregroundStyle(Color(hex: "2F402E"))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(Color(hex: "B8D9C0"))
+        .clipShape(Capsule())
+    }
+
     private var knownMerchants: [String] {
         let byRecency = allExpenses.sorted { $0.updatedAt > $1.updatedAt }
         var seenLowercased = Set<String>()
@@ -264,6 +285,15 @@ struct AddExpenseView: View {
             }
             .onChange(of: notes) { _, newVal in
                 if !newVal.isEmpty { notesExpanded = true }
+                updateTagSuggestion()
+            }
+            .onChange(of: merchant) { _, _ in
+                updateTagSuggestion()
+            }
+            .onChange(of: selectedTagIds) { _, newValue in
+                if !newValue.isEmpty {
+                    withAnimation(.easeInOut(duration: 0.2)) { tallySuggestion = nil }
+                }
             }
             .onAppear {
                 applyInitialState()
@@ -368,12 +398,42 @@ struct AddExpenseView: View {
 
     private var addExpenseFormChrome: some View {
         addExpenseFormZStack
-            .navigationTitle(isEditing ? "Edit expense" : "Add expense")
+            .navigationTitle(isEditing && !receiptImageAttached ? "Edit expense" : "")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(Color(hex: "8F9E94"))
+                    Button { dismiss() } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Color(hex: "1C1C1E"))
+                    }
+                }
+                if shouldShowOcrFilledBanner {
+                    ToolbarItem(placement: .principal) {
+                        autoScannedBadgeView
+                    }
+                }
+                if receiptImageAttached || isEditing {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            saveExpense()
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 11, weight: .bold))
+                                Text("Done")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 7)
+                            .background(canSave ? Color(hex: "2F402E") : Color(hex: "2F402E").opacity(0.4))
+                            .clipShape(Capsule())
+                        }
+                        .disabled(!canSave)
+                        .buttonStyle(.plain)
+                    }
                 }
             }
             .sheet(isPresented: $showingAddReceiptSources) {
@@ -428,8 +488,6 @@ struct AddExpenseView: View {
         VStack(spacing: 8) {
             if receiptImageAttached {
                 receiptImageAttachedFormBlock
-                notesRowView
-                tagsRowView
                 tallySuggestsCard
             } else {
                 manualEntryFormBlock
@@ -445,15 +503,11 @@ struct AddExpenseView: View {
         receiptHeroView
             .transition(.move(edge: .top).combined(with: .opacity))
 
-        if shouldShowOcrFilledBanner {
-            ocrFilledBanner
-        }
-
         if !appState.isPro {
             proUpsellCompactBanner
         }
 
-        receiptStateAmountMerchantDateCluster
+        receiptDetailCluster
     }
 
     @ViewBuilder
@@ -470,6 +524,8 @@ struct AddExpenseView: View {
         }
 
         tagsRowView
+
+        tallySuggestsCard
 
         addReceiptView
     }
@@ -881,24 +937,26 @@ struct AddExpenseView: View {
     private var receiptHeroView: some View {
         ZStack {
             if let image = attachedImage {
+                // Receipt image (tap to view full)
                 Button { showingFullImage = true } label: {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
                         .frame(maxWidth: .infinity)
-                        .frame(height: 200)
+                        .frame(height: 260)
                         .clipped()
                 }
                 .buttonStyle(.plain)
 
+                // Gradient overlay — covers ~65% from bottom
                 VStack {
-                    Spacer(minLength: 0)
+                    Spacer()
                     LinearGradient(
-                        colors: [.clear, Color.black.opacity(0.55)],
-                        startPoint: .top,
+                        colors: [.clear, Color.black.opacity(0.78)],
+                        startPoint: .init(x: 0.5, y: 0),
                         endPoint: .bottom
                     )
-                    .frame(height: 200 / 3)
+                    .frame(height: 170)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                 .allowsHitTesting(false)
@@ -907,71 +965,97 @@ struct AddExpenseView: View {
                     VStack {
                         Spacer()
                         HStack(spacing: 8) {
-                            ProgressView()
-                                .tint(.white)
+                            ProgressView().tint(.white)
                             Text("Reading receipt…")
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundStyle(.white)
                         }
-                        .padding(.bottom, 40)
+                        .padding(.bottom, 80)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .allowsHitTesting(false)
                 }
             }
         }
-        .frame(height: 220)
+        .frame(height: 260)
+        // Bottom-left: date + merchant + amount display
         .overlay(alignment: .bottomLeading) {
             if attachedImage != nil {
-                Button { showingFullImage = true } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "eye.fill")
-                            .font(.system(size: 11, weight: .semibold))
-                        Text("VIEW RECEIPT")
-                            .font(.system(size: 11, weight: .bold))
-                            .tracking(0.3)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(heroDateLabel)
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.65))
+                        .tracking(1.2)
+                    if !merchant.isEmpty {
+                        Text(merchant)
+                            .font(Font.dmSerifDisplay(22))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
                     }
-                    .foregroundStyle(.white)
-                    .padding(.vertical, 7)
-                    .padding(.horizontal, 12)
-                    .background(.ultraThinMaterial)
-                    .clipShape(Capsule())
+                    // Tappable amount — focuses the field in the detail cluster below
+                    HStack(alignment: .firstTextBaseline, spacing: 3) {
+                        Text(currencySymbol)
+                            .font(.system(size: 18, weight: .regular, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.72))
+                        Text(amountText.isEmpty ? "0.00" : amountText)
+                            .font(.system(size: 40, weight: .regular, design: .monospaced))
+                            .foregroundStyle(.white)
+                            .tracking(-1.5)
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture { amountFocusRequested = true }
                 }
-                .buttonStyle(.plain)
                 .padding(.horizontal, 14)
-                .padding(.bottom, 12)
+                .padding(.bottom, 14)
             }
         }
+        // Bottom-right: VIEW RECEIPT + Replace/Remove
         .overlay(alignment: .bottomTrailing) {
             if attachedImage != nil {
-                HStack(spacing: 12) {
-                    Button {
-                        showingReplaceReceiptSources = true
-                    } label: {
-                        Text("Replace")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.7))
-                            .underline()
+                VStack(alignment: .trailing, spacing: 8) {
+                    Button { showingFullImage = true } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "doc.viewfinder")
+                                .font(.system(size: 11, weight: .semibold))
+                            Text("VIEW RECEIPT")
+                                .font(.system(size: 11, weight: .bold))
+                                .tracking(0.3)
+                        }
+                        .foregroundStyle(.white)
+                        .padding(.vertical, 7)
+                        .padding(.horizontal, 12)
+                        .background(.ultraThinMaterial)
+                        .clipShape(Capsule())
                     }
                     .buttonStyle(.plain)
 
-                    Button {
-                        attachedImage = nil
-                        attachedFileURL = nil
-                        attachmentKey = nil
-                        source = .manual
-                        enteredViaPhotoFlow = true
-                        ocrPopulatedAnyField = false
-                    } label: {
-                        Text("Remove")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.7))
-                            .underline()
+                    HStack(spacing: 12) {
+                        Button { showingReplaceReceiptSources = true } label: {
+                            Text("Replace")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.white.opacity(0.7))
+                                .underline()
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            attachedImage = nil
+                            attachedFileURL = nil
+                            attachmentKey = nil
+                            source = .manual
+                            enteredViaPhotoFlow = true
+                            ocrPopulatedAnyField = false
+                        } label: {
+                            Text("Remove")
+                                .font(.system(size: 11))
+                                .foregroundStyle(.white.opacity(0.7))
+                                .underline()
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 14)
-                .padding(.bottom, 12)
+                .padding(.bottom, 14)
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -996,14 +1080,203 @@ struct AddExpenseView: View {
         .padding(.horizontal, 16)
     }
 
-    // MARK: - State 2: Amount + merchant + date cluster
+    // MARK: - State 2: Detail cluster (amount, merchant, date, note, tag)
 
-    private var receiptStateAmountMerchantDateCluster: some View {
-        VStack(spacing: 2) {
-            receiptAmountRow
-            receiptMerchantRow
-            dateRowForReceiptState
+    private var receiptDetailCluster: some View {
+        VStack(spacing: 0) {
+            // AMOUNT
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle().fill(Color(hex: "E8F0EA")).frame(width: 34, height: 34)
+                    Image(systemName: "dollarsign.circle.fill")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(Color(hex: "4A5E50"))
+                }
+                Text("AMOUNT")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+                    .tracking(0.8)
+                Spacer(minLength: 8)
+                HStack(spacing: 3) {
+                    Button { showingCurrencyPicker = true } label: {
+                        Text(currencySymbol)
+                            .font(.system(size: 16, weight: .regular, design: .monospaced))
+                            .foregroundStyle(Color(hex: "2F402E").opacity(0.55))
+                    }
+                    .buttonStyle(.plain)
+                    ZStack(alignment: .trailing) {
+                        NumericFieldWithDone(
+                            text: $amountText,
+                            keyboardType: usesDecimalCurrency ? .decimalPad : .numberPad,
+                            font: UIFont.monospacedSystemFont(ofSize: 20, weight: .regular),
+                            textAlignment: .right,
+                            focusRequested: amountFocusRequested,
+                            hidesFieldText: true,
+                            onBeginEditing: { DispatchQueue.main.async { focusedField = .amount } },
+                            onDone: { amountFocusRequested = false; focusedField = nil }
+                        )
+                        .frame(width: 140, height: 28)
+                        .onChange(of: amountText) { _, newValue in
+                            let sanitized = sanitizeAmountInput(newValue)
+                            if sanitized != newValue { amountText = sanitized }
+                        }
+                        .onChange(of: focusedField) { _, newValue in
+                            if newValue != .amount { formatAmount() }
+                        }
+                        Text(amountText.isEmpty ? zeroAmountPlaceholder : amountText)
+                            .font(.system(size: 20, weight: .regular, design: .monospaced))
+                            .foregroundStyle(amountText.isEmpty ? Color(hex: "C4BFB9") : Color(hex: "1C1C1E"))
+                            .tracking(-0.5)
+                            .allowsHitTesting(false)
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture { amountFocusRequested = true }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+
+            Divider().padding(.leading, 58)
+
+            // MERCHANT
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle().fill(Color(hex: "E8F0EA")).frame(width: 34, height: 34)
+                    Image(systemName: "storefront.fill")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color(hex: "4A5E50"))
+                }
+                Text("MERCHANT")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+                    .tracking(0.8)
+                Spacer(minLength: 8)
+                TextField("Name", text: $merchant)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+                    .multilineTextAlignment(.trailing)
+                    .focused($focusedField, equals: .merchant)
+                    .textInputAutocapitalization(.words)
+                    .tint(Color(hex: "2F402E"))
+                    .frame(maxWidth: 180)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+
+            Divider().padding(.leading, 58)
+
+            // DATE
+            Button {
+                focusedField = nil
+                showingDatePickerSheet = true
+            } label: {
+                HStack(spacing: 10) {
+                    ZStack {
+                        Circle().fill(Color(hex: "E8F0EA")).frame(width: 34, height: 34)
+                        Image(systemName: "calendar")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Color(hex: "4A5E50"))
+                    }
+                    Text("DATE")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color(hex: "8F9E94"))
+                        .tracking(0.8)
+                    Spacer(minLength: 8)
+                    Text(Self.datePillFormatter.string(from: date))
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color(hex: "C4BFB9"))
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+            }
+            .buttonStyle(.plain)
+
+            Divider().padding(.leading, 58)
+
+            // NOTE (above tag, per spec)
+            HStack(alignment: .top, spacing: 10) {
+                ZStack {
+                    Circle().fill(Color(hex: "E8F0EA")).frame(width: 34, height: 34)
+                    Image(systemName: "note.text")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color(hex: "4A5E50"))
+                }
+                Text("NOTE")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+                    .tracking(0.8)
+                    .padding(.top, 4)
+                Spacer(minLength: 8)
+                TextField("Add a note...", text: $notes, axis: .vertical)
+                    .font(.system(size: 15))
+                    .foregroundStyle(notes.isEmpty ? Color(hex: "C4BFB9") : Color(hex: "1C1C1E"))
+                    .multilineTextAlignment(.trailing)
+                    .focused($focusedField, equals: .notes)
+                    .tint(Color(hex: "2F402E"))
+                    .lineLimit(1...4)
+                    .frame(maxWidth: 200)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+
+            Divider().padding(.leading, 58)
+
+            // TAG
+            Button { showingTagPicker = true } label: {
+                HStack(spacing: 10) {
+                    ZStack {
+                        Circle().fill(Color(hex: "E8F0EA")).frame(width: 34, height: 34)
+                        Image(systemName: "tag.fill")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Color(hex: "4A5E50"))
+                    }
+                    Text("TAG")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color(hex: "8F9E94"))
+                        .tracking(0.8)
+                    Spacer(minLength: 8)
+                    if selectedTagIds.isEmpty {
+                        Text("Add tag")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color(hex: "C4BFB9"))
+                    } else {
+                        HStack(spacing: 6) {
+                            ForEach(selectedTags.prefix(2)) { tag in
+                                HStack(spacing: 4) {
+                                    Circle()
+                                        .fill(tag.tagColor.primaryColor)
+                                        .frame(width: 8, height: 8)
+                                    Text(tag.name)
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundStyle(Color(hex: "2F402E"))
+                                }
+                            }
+                            if selectedTags.count > 2 {
+                                Text("+\(selectedTags.count - 2)")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(Color(hex: "8F9E94"))
+                            }
+                        }
+                    }
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color(hex: "C4BFB9"))
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
+            }
+            .buttonStyle(.plain)
         }
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Tally Suggests
@@ -1097,129 +1370,13 @@ struct AddExpenseView: View {
         .padding(.horizontal, 16)
     }
 
-    private var receiptAmountRow: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Amount")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color(hex: "8F9E94"))
-
-            HStack(spacing: 6) {
-                Button { showingCurrencyPicker = true } label: {
-                    Text(currencySymbol)
-                        .font(.system(size: 20, weight: .regular, design: .monospaced))
-                        .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
-                }
-                .buttonStyle(.plain)
-
-                ZStack(alignment: .leading) {
-                    NumericFieldWithDone(
-                        text: $amountText,
-                        keyboardType: usesDecimalCurrency ? .decimalPad : .numberPad,
-                        font: UIFont.monospacedSystemFont(ofSize: 36, weight: .regular),
-                        textAlignment: .natural,
-                        focusRequested: amountFocusRequested,
-                        hidesFieldText: true,
-                        onBeginEditing: { DispatchQueue.main.async { focusedField = .amount } },
-                        onDone: {
-                            amountFocusRequested = false
-                            focusedField = nil
-                        }
-                    )
-                    .frame(maxWidth: .infinity, minHeight: 40)
-                    .onChange(of: amountText) { _, newValue in
-                        let sanitized = sanitizeAmountInput(newValue)
-                        if sanitized != newValue { amountText = sanitized }
-                    }
-                    .onChange(of: focusedField) { _, newValue in
-                        if newValue != .amount { formatAmount() }
-                    }
-
-                    Text(amountText.isEmpty ? zeroAmountPlaceholder : amountText)
-                        .font(.system(size: 36, weight: .regular, design: .monospaced))
-                        .foregroundStyle(amountText.isEmpty ? Color(hex: "8F9E94") : Color(hex: "1C1C1E"))
-                        .tracking(-2)
-                        .allowsHitTesting(false)
-                }
-            }
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
-        .clipShape(unevenRect(topLeading: 14, topTrailing: 14, bottomLeading: 4, bottomTrailing: 4))
-        .overlay(
-            unevenRect(topLeading: 14, topTrailing: 14, bottomLeading: 4, bottomTrailing: 4)
-                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
-        )
-        .padding(.horizontal, 16)
-        .contentShape(Rectangle())
-        .onTapGesture { amountFocusRequested = true }
-    }
-
-    private var receiptMerchantRow: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Merchant")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Color(hex: "8F9E94"))
-
-            TextField("Where did you pay?", text: $merchant)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundStyle(Color(hex: "1C1C1E"))
-                .focused($focusedField, equals: .merchant)
-                .textInputAutocapitalization(.words)
-                .tint(Color(hex: "2F402E"))
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
-        .clipShape(unevenRect(topLeading: 4, topTrailing: 4, bottomLeading: 4, bottomTrailing: 4))
-        .overlay(
-            unevenRect(topLeading: 4, topTrailing: 4, bottomLeading: 4, bottomTrailing: 4)
-                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
-        )
-        .padding(.horizontal, 16)
-    }
-
-    private var dateRowForReceiptState: some View {
-        Button {
-            focusedField = nil
-            showingDatePickerSheet = true
-        } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Date of transaction")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-
-                HStack(spacing: 10) {
-                    Text(Self.datePillFormatter.string(from: date))
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Color(hex: "1C1C1E"))
-
-                    Spacer(minLength: 0)
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color(hex: "C4BFB9"))
-                }
-            }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white)
-        }
-        .buttonStyle(.plain)
-        .clipShape(unevenRect(topLeading: 4, topTrailing: 4, bottomLeading: 14, bottomTrailing: 14))
-        .overlay(
-            unevenRect(topLeading: 4, topTrailing: 4, bottomLeading: 14, bottomTrailing: 14)
-                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
-        )
-        .padding(.horizontal, 16)
-    }
-
     // MARK: - Sticky save
 
     private var stickySaveChrome: some View {
-        VStack(spacing: 0) {
+        // In receipt state the "Done" button lives in the nav bar — no bottom chrome needed
+        Group {
+          if !receiptImageAttached {
+            VStack(spacing: 0) {
             ZStack(alignment: .bottom) {
                 LinearGradient(
                     colors: [Color.clear, Color(hex: "F0EDE6")],
@@ -1249,7 +1406,9 @@ struct AddExpenseView: View {
             if !appState.isPro {
                 BannerAdView()
             }
-        }
+            } // inner VStack
+          } // if !receiptImageAttached
+        } // Group
     }
 
     // MARK: - Helpers
@@ -1458,6 +1617,21 @@ struct AddExpenseView: View {
                     tallySuggestionDismissed = false
                 }
             }
+        }
+    }
+
+    /// Re-runs tag suggestion from current merchant + notes text.
+    /// Called after OCR, and also on every merchant/notes text change.
+    private func updateTagSuggestion() {
+        guard selectedTagIds.isEmpty, !tallySuggestionDismissed else { return }
+        let suggestion = TagSuggestionEngine.suggest(
+            merchant: merchant,
+            notes: notes,
+            tags: Array(tags)
+        )
+        guard suggestion?.tag.id != tallySuggestion?.tag.id else { return }
+        withAnimation(.easeInOut(duration: 0.2)) {
+            tallySuggestion = suggestion
         }
     }
 
