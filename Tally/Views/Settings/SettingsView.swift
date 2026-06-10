@@ -7,23 +7,34 @@ struct SettingsView: View {
     @State private var showingSubscription = false
     @State private var showingFinancialYearPicker = false
     @State private var showingCurrencyPicker = false
+    @State private var showingManageSubscription = false
+    @Environment(\.openURL) private var openURL
 
     var body: some View {
         NavigationStack {
             List {
                 Section("Subscription") {
                     if appState.isPro {
-                        HStack {
-                            Image(systemName: "star.circle.fill")
-                                .font(.system(size: 20))
-                                .foregroundStyle(Color.brandPrimary)
-                            Text("Pro")
-                                .foregroundStyle(Color.textPrimary)
-                            Spacer()
-                            Text("Active")
-                                .font(Fonts.caption(13))
-                                .fontWeight(.medium)
-                                .foregroundStyle(Color.success)
+                        Button {
+                            showingManageSubscription = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "star.circle.fill")
+                                    .font(.system(size: 20))
+                                    .foregroundStyle(Color.brandPrimary)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Pro")
+                                        .foregroundStyle(Color.textPrimary)
+                                    Text("Tap to manage or cancel")
+                                        .font(Fonts.caption(12))
+                                        .foregroundStyle(Color.textSecondary)
+                                }
+                                Spacer()
+                                Text("Active")
+                                    .font(Fonts.caption(13))
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(Color.success)
+                            }
                         }
                     } else {
                         Button {
@@ -203,6 +214,20 @@ struct SettingsView: View {
             }
             .sheet(isPresented: $showingSubscription) {
                 SubscriptionView()
+            }
+            .confirmationDialog(
+                "Tally Pro",
+                isPresented: $showingManageSubscription,
+                titleVisibility: .visible
+            ) {
+                Button("Manage Subscription") {
+                    if let url = URL(string: "https://apps.apple.com/account/subscriptions") {
+                        openURL(url)
+                    }
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("Your subscription is active. To cancel or change your plan, go to your App Store subscriptions.")
             }
         }
     }
