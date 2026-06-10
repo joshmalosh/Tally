@@ -16,6 +16,8 @@
 		446D72DB8B5D450844D65ABF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 0E91360750E6493DD7621468 /* Assets.xcassets */; };
 		C0F0E0D0A0B09080706050402 /* Fraunces_9pt-LightItalic.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C0F0E0D0A0B09080706050403 /* Fraunces_9pt-LightItalic.ttf */; };
 		C0F0E0D0A0B09080706050406 /* Fraunces_9pt-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C0F0E0D0A0B09080706050405 /* Fraunces_9pt-Regular.ttf */; };
+		C0F0E0D0A0B09080706050411 /* Coin_Expense_Logged.mp3 in Resources */ = {isa = PBXBuildFile; fileRef = C0F0E0D0A0B09080706050410 /* Coin_Expense_Logged.mp3 */; };
+		F1A2B3C4D5E6F7A8B9C0D1E2 /* ExpenseSoundService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1F2A3B4C5D6E7F8A9B0C1D2 /* ExpenseSoundService.swift */; };
 		45A5AB7C880C24FB7FA80A49 /* DocumentPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47DCB686D9E5B22C0E76DD13 /* DocumentPicker.swift */; };
 		47698C5D2D09B6799C0C88D5 /* ExpenseTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79D521FD9A77F5AB586DC615 /* ExpenseTypes.swift */; };
 		508992FEB05634F72D2539B5 /* AddExpenseView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC95D4C0DD04387ED1975A4C /* AddExpenseView.swift */; };
@@ -92,6 +94,8 @@
 		0E91360750E6493DD7621468 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C0F0E0D0A0B09080706050403 /* Fraunces_9pt-LightItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces_9pt-LightItalic.ttf"; sourceTree = "<group>"; };
 		C0F0E0D0A0B09080706050405 /* Fraunces_9pt-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces_9pt-Regular.ttf"; sourceTree = "<group>"; };
+		C0F0E0D0A0B09080706050410 /* Coin_Expense_Logged.mp3 */ = {isa = PBXFileReference; lastKnownFileType = audio.mp3; path = "Coin_Expense_Logged.mp3"; sourceTree = "<group>"; };
+		E1F2A3B4C5D6E7F8A9B0C1D2 /* ExpenseSoundService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpenseSoundService.swift; sourceTree = "<group>"; };
 		0F0868032465E139554DB8D2 /* ExportExpenseSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportExpenseSheet.swift; sourceTree = "<group>"; };
 		10266D569ECBE8A79CC58494 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		154DC6BAE1EEB5F2B8A95FBB /* TagColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagColors.swift; sourceTree = "<group>"; };
@@ -200,10 +204,19 @@
 			path = Fonts;
 			sourceTree = "<group>";
 		};
+		C0F0E0D0A0B09080706050412 /* Sounds */ = {
+			isa = PBXGroup;
+			children = (
+				C0F0E0D0A0B09080706050410 /* Coin_Expense_Logged.mp3 */,
+			);
+			path = Sounds;
+			sourceTree = "<group>";
+		};
 		C0F0E0D0A0B09080706050401 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 				C0F0E0D0A0B09080706050400 /* Fonts */,
+				C0F0E0D0A0B09080706050412 /* Sounds */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -355,6 +368,7 @@
 				65CC7BBBCB475E2A14A52332 /* ExpenseExportService.swift */,
 				F9AB2A709AB5FC124DE83CDB /* ImagePicker.swift */,
 				A2B3C4D5E6F7A8B9C0D1E2F3 /* ReceiptOCRService.swift */,
+				E1F2A3B4C5D6E7F8A9B0C1D2 /* ExpenseSoundService.swift */,
 				FEEDRC040000000000000001 /* RevenueCatConfig.swift */,
 				939C697035562CAAE48774F8 /* SyncEngine.swift */,
 			);
@@ -502,6 +516,7 @@
 				446D72DB8B5D450844D65ABF /* Assets.xcassets in Resources */,
 				C0F0E0D0A0B09080706050402 /* Fraunces_9pt-LightItalic.ttf in Resources */,
 				C0F0E0D0A0B09080706050406 /* Fraunces_9pt-Regular.ttf in Resources */,
+				C0F0E0D0A0B09080706050411 /* Coin_Expense_Logged.mp3 in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -560,6 +575,7 @@
 				FF6C3E328548A7270D83C745 /* SettingsView.swift in Sources */,
 				7F8B2FFD0AD8A575BDCB2CBC /* SubscriptionView.swift in Sources */,
 				B3C4D5E6F7A8B9C0D1E2F3A4 /* ReceiptOCRService.swift in Sources */,
+				F1A2B3C4D5E6F7A8B9C0D1E2 /* ExpenseSoundService.swift in Sources */,
 				FEEDRC050000000000000001 /* RevenueCatConfig.swift in Sources */,
 				97D3C8979D3C0A75D88D603A /* SyncEngine.swift in Sources */,
 				B8KACC222222222222222202 /* SubscriptionService.swift in Sources */,

@@ -35,6 +35,7 @@ struct HomeView: View {
     @State private var showingPeriodDetail = false
     @State private var multiReceiptImages: [UIImage] = []
     @State private var showingMultiReceipt = false
+    @State private var landedExpenseId: String? = nil
     private var periodExpenses: [ExpenseModel] {
         switch periodFilter {
         case .selected:
@@ -235,6 +236,19 @@ struct HomeView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             withAnimation(.easeInOut(duration: 0.2)) { isKeyboardVisible = false }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .expenseLogged)) { notification in
+            guard let id = notification.userInfo?["expenseId"] as? String else { return }
+            // Set landing ID immediately so it's ready when the new row first appears
+            landedExpenseId = id
+            // Sound + haptic timed to the end of the dismiss animation (~0.35s)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.38) {
+                ExpenseSoundService.shared.playExpenseLogged()
+            }
+            // Clear after animation completes
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                landedExpenseId = nil
+            }
         }
         .background(Color(hex: "F0EDE6").ignoresSafeArea())
         .sheet(isPresented: $showingEntryPicker) {
@@ -623,7 +637,9 @@ struct HomeView: View {
                         .listRowBackground(Color.clear)
 
                     ForEach(Array(group.items.enumerated()), id: \.element.id) { index, expense in
-                        groupedExpenseRow(group: group, index: index, expense: expense)
+                        LandingExpenseRow(isLanding: expense.id == landedExpenseId) {
+                            groupedExpenseRow(group: group, index: index, expense: expense)
+                        }
                     }
                 }
             }
@@ -1043,6 +1059,36 @@ private enum HomeExpenseIconResolver {
 private struct ExportWithSelectionItem: Identifiable {
     let id = UUID()
     let expenses: [ExpenseModel]
+}
+
+// MARK: - Landing animation wrapper for newly logged expenses
+
+private struct LandingExpenseRow<Content: View>: View {
+    let isLanding: Bool
+    @ViewBuilder let content: () -> Content
+
+    @State private var scale: CGFloat = 1
+    @State private var opacity: Double = 1
+    @State private var offsetY: CGFloat = 0
+
+    var body: some View {
+        content()
+            .scaleEffect(scale, anchor: .top)
+            .opacity(opacity)
+            .offset(y: offsetY)
+            .onAppear {
+                guard isLanding else { return }
+                // Start offscreen-above, shrunk, invisible
+                scale = 0.88
+                opacity = 0
+                offsetY = -18
+                withAnimation(.spring(response: 0.46, dampingFraction: 0.60)) {
+                    scale = 1
+                    opacity = 1
+                    offsetY = 0
+                }
+            }
+    }
 }
 
 // MARK: - UIKit scroll detector (replaces preference-key approach)

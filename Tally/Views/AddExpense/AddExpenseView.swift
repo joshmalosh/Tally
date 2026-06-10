@@ -1762,6 +1762,14 @@ struct AddExpenseView: View {
                     }
                 }
                 isSaving = false
+                // Fire before dismiss so HomeView sets landedExpenseId before the row appears
+                if onSaved == nil {
+                    NotificationCenter.default.post(
+                        name: .expenseLogged,
+                        object: nil,
+                        userInfo: ["expenseId": expenseId]
+                    )
+                }
                 onSaved?()
                 dismiss()
             }
