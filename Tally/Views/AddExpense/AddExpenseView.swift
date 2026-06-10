@@ -66,6 +66,9 @@ struct AddExpenseView: View {
     @State private var showingProBenefitsCard = false
     @State private var showingGoProFromOcrBanner = false
 
+    @State private var tallySuggestion: TagSuggestionEngine.Suggestion? = nil
+    @State private var tallySuggestionDismissed = false
+
     @State private var showingDatePickerSheet = false
     @State private var showingAddReceiptSources = false
     @State private var showingReplaceReceiptSources = false
@@ -208,6 +211,8 @@ struct AddExpenseView: View {
             .onChange(of: attachedImage) { _, newValue in
                 if newValue == nil {
                     ocrPopulatedAnyField = false
+                    tallySuggestion = nil
+                    tallySuggestionDismissed = false
                 }
                 if let image = newValue {
                     if AttachmentService.exceedsMaxSize(image) {
@@ -425,6 +430,7 @@ struct AddExpenseView: View {
                 receiptImageAttachedFormBlock
                 notesRowView
                 tagsRowView
+                tallySuggestsCard
             } else {
                 manualEntryFormBlock
             }
@@ -914,16 +920,37 @@ struct AddExpenseView: View {
                 }
             }
         }
-        .frame(height: 200)
+        .frame(height: 220)
+        .overlay(alignment: .bottomLeading) {
+            if attachedImage != nil {
+                Button { showingFullImage = true } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "eye.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("VIEW RECEIPT")
+                            .font(.system(size: 11, weight: .bold))
+                            .tracking(0.3)
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.vertical, 7)
+                    .padding(.horizontal, 12)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 12)
+            }
+        }
         .overlay(alignment: .bottomTrailing) {
             if attachedImage != nil {
-                HStack(spacing: 14) {
+                HStack(spacing: 12) {
                     Button {
                         showingReplaceReceiptSources = true
                     } label: {
                         Text("Replace")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.white.opacity(0.75))
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white.opacity(0.7))
                             .underline()
                     }
                     .buttonStyle(.plain)
@@ -937,8 +964,8 @@ struct AddExpenseView: View {
                         ocrPopulatedAnyField = false
                     } label: {
                         Text("Remove")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.white.opacity(0.75))
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white.opacity(0.7))
                             .underline()
                     }
                     .buttonStyle(.plain)
@@ -976,6 +1003,74 @@ struct AddExpenseView: View {
             receiptAmountRow
             receiptMerchantRow
             dateRowForReceiptState
+        }
+    }
+
+    // MARK: - Tally Suggests
+
+    @ViewBuilder
+    private var tallySuggestsCard: some View {
+        if let suggestion = tallySuggestion,
+           !tallySuggestionDismissed,
+           selectedTagIds.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color(hex: "2F402E"))
+                    Text("TALLY SUGGESTS")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(Color(hex: "2F402E"))
+                        .tracking(0.8)
+                }
+
+                Text("Looks like a \(suggestion.reason) — want to tag this as **\(suggestion.tag.name)**?")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color(hex: "2F402E").opacity(0.9))
+
+                HStack(spacing: 10) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedTagIds = [suggestion.tag.id]
+                            tallySuggestion = nil
+                        }
+                    } label: {
+                        Text("Apply tag")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .padding(.vertical, 9)
+                            .padding(.horizontal, 18)
+                            .background(Color(hex: "2F402E"))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            tallySuggestionDismissed = true
+                        }
+                    } label: {
+                        Text("Dismiss")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(Color(hex: "2F402E"))
+                            .padding(.vertical, 9)
+                            .padding(.horizontal, 18)
+                            .background(Color(hex: "2F402E").opacity(0.1))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(hex: "EAF5EC"))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color(hex: "2F402E").opacity(0.12), lineWidth: 1)
+            )
+            .padding(.horizontal, 16)
+            .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
         }
     }
 
@@ -1351,6 +1446,17 @@ struct AddExpenseView: View {
 
                 ocrPopulatedAnyField = applied
                 isRunningOCR = false
+
+                // Smart tag suggestion — only when something was extracted and no tag is set
+                if applied && selectedTagIds.isEmpty {
+                    let suggestion = TagSuggestionEngine.suggest(
+                        merchant: merchant,
+                        notes: notes,
+                        tags: Array(tags)
+                    )
+                    tallySuggestion = suggestion
+                    tallySuggestionDismissed = false
+                }
             }
         }
     }

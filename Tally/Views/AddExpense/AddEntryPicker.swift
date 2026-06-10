@@ -9,11 +9,11 @@ enum AddEntryMode: Identifiable {
 
     var id: String {
         switch self {
-        case .camera: "camera"
-        case .photoLibrary: "photoLibrary"
-        case .uploadFile: "uploadFile"
-        case .manual: "manual"
-        case .bulkImport: "bulkImport"
+        case .camera:      "camera"
+        case .photoLibrary:"photoLibrary"
+        case .uploadFile:  "uploadFile"
+        case .manual:      "manual"
+        case .bulkImport:  "bulkImport"
         }
     }
 }
@@ -24,94 +24,172 @@ struct AddEntryPicker: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // Drag handle
             Capsule()
                 .fill(Color(hex: "DEDAD2"))
                 .frame(width: 36, height: 4)
                 .padding(.top, 12)
-                .padding(.bottom, 24)
-
-            Text("Add expense")
-                .font(Fonts.headline(20))
-                .foregroundStyle(Color.textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, Spacing.lg)
                 .padding(.bottom, 20)
 
-            VStack(spacing: 10) {
-                entryOption(
-                    icon: "camera.fill",
-                    title: "Snap receipt",
-                    subtitle: "Take a photo of your receipt",
-                    mode: .camera
-                )
-                entryOption(
+            // Header
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("NEW EXPENSE")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color(hex: "4A5E50"))
+                        .tracking(1.2)
+                    Text("How'd you\nspend it?")
+                        .font(Font.dmSerifDisplay(26))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                }
+                Spacer()
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                        .frame(width: 32, height: 32)
+                        .background(Color(hex: "EDEAE4"))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 16)
+
+            // Camera — hero full-width card
+            Button {
+                dismiss()
+                onSelect(.camera)
+            } label: {
+                HStack(spacing: 14) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color(hex: "2F402E").opacity(0.15))
+                            .frame(width: 50, height: 50)
+                        Image(systemName: "camera.fill")
+                            .font(.system(size: 22, weight: .medium))
+                            .foregroundStyle(Color(hex: "2F402E"))
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 7) {
+                            Text("Snap a receipt")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(Color(hex: "1C1C1E"))
+                            HStack(spacing: 3) {
+                                Image(systemName: "bolt.fill")
+                                    .font(.system(size: 8, weight: .bold))
+                                    .foregroundStyle(Color(hex: "2F402E"))
+                                Text("FASTEST")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(Color(hex: "2F402E"))
+                                    .tracking(0.4)
+                            }
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(Color(hex: "B8D9C0"))
+                            .clipShape(Capsule())
+                        }
+                        Text("Point, click, parsed in seconds")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color(hex: "4A5E50").opacity(0.8))
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity)
+                .background(Color(hex: "E8F0EA"))
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(EntryOptionButtonStyle())
+            .padding(.horizontal, 20)
+            .padding(.bottom, 10)
+
+            // 2 × 2 option grid
+            LazyVGrid(
+                columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)],
+                spacing: 10
+            ) {
+                gridOption(
                     icon: "photo.fill",
-                    title: "Upload photos",
-                    subtitle: "Select one or more receipts from your library",
+                    iconColor: Color(hex: "5B8FC7"),
+                    bgColor: Color(hex: "EAF2FB"),
+                    title: "From library",
+                    subtitle: "Pick photos",
                     mode: .photoLibrary
                 )
-                entryOption(
+                gridOption(
                     icon: "doc.fill",
+                    iconColor: Color(hex: "D48BC9"),
+                    bgColor: Color(hex: "F9EEF8"),
                     title: "Upload file",
-                    subtitle: "Import a PDF or document",
+                    subtitle: "PDF or doc",
                     mode: .uploadFile
                 )
-                entryOption(
+                gridOption(
                     icon: "square.and.pencil",
+                    iconColor: Color(hex: "E07070"),
+                    bgColor: Color(hex: "FDE8E8"),
                     title: "Quick add",
-                    subtitle: "Log an expense manually",
+                    subtitle: "Type it in",
                     mode: .manual
                 )
-                entryOption(
+                gridOption(
                     icon: "list.bullet.rectangle",
+                    iconColor: Color(hex: "8F9E94"),
+                    bgColor: Color(hex: "EDEAE4"),
                     title: "Import from notes",
-                    subtitle: "Turn a list into tagged expenses",
+                    subtitle: "Paste a list",
                     mode: .bulkImport
                 )
             }
-            .padding(.horizontal, Spacing.lg)
-            .padding(.bottom, Spacing.xl)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 28)
         }
-        .background(Color.bgPrimary)
+        .background(Color(hex: "F0EDE6"))
     }
 
-    private func entryOption(icon: String, title: String, subtitle: String, mode: AddEntryMode) -> some View {
+    private func gridOption(
+        icon: String,
+        iconColor: Color,
+        bgColor: Color,
+        title: String,
+        subtitle: String,
+        mode: AddEntryMode
+    ) -> some View {
         Button {
             dismiss()
             onSelect(mode)
         } label: {
-            HStack(spacing: 14) {
-                Image(systemName: icon)
-                    .font(.system(size: 18, weight: .medium))
-                    .foregroundStyle(Color(hex: "2F402E"))
-                    .frame(width: 44, height: 44)
-                    .background(Color(hex: "E8F0EA"))
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-
+            VStack(alignment: .leading, spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(bgColor)
+                        .frame(width: 40, height: 40)
+                    Image(systemName: icon)
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundStyle(iconColor)
+                }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(Color(hex: "1C1C1E"))
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.85)
                     Text(subtitle)
-                        .font(.system(size: 13))
+                        .font(.system(size: 11))
                         .foregroundStyle(Color(hex: "8F9E94"))
                 }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color(hex: "C5C5C7"))
+                Spacer(minLength: 0)
             }
-            .padding(.vertical, 14)
-            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(14)
+            .frame(height: 106)
             .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 2)
         }
         .buttonStyle(EntryOptionButtonStyle())
     }

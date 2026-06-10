@@ -239,7 +239,7 @@ struct HomeView: View {
                     selectedEntryMode = mode
                 }
             }
-            .presentationDetents([.height(460)])
+            .presentationDetents([.height(490)])
             .presentationDragIndicator(.hidden)
         }
         .fullScreenCover(item: $selectedEntryMode) { mode in
