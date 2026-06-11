@@ -78,6 +78,7 @@ struct AddExpenseView: View {
     @State private var keyboardVisible = false
     @State private var quickAddPrompt: String = ""
     @State private var showNoteInExtrasRow = false
+    @State private var amountCursorVisible: Bool = true
 
     @FocusState private var focusedField: Field?
 
@@ -540,10 +541,23 @@ struct AddExpenseView: View {
         tallySuggestsCard
     }
 
-    // MARK: - Quick Add: Merchant card with horizontal chip suggestions
+    // MARK: - Quick Add: Merchant card with filtered autocomplete chips
 
     private var quickAddMerchantCard: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let trimmed = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
+        let suggestions: [String] = {
+            if trimmed.isEmpty {
+                return Array(cachedKnownMerchants.prefix(6))
+            }
+            let q = trimmed.lowercased()
+            return cachedKnownMerchants
+                .filter { $0.lowercased().contains(q) && $0.lowercased() != q }
+                .prefix(6)
+                .map { $0 }
+        }()
+        let showChips = focusedField == .merchant && !suggestions.isEmpty
+
+        return VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("MERCHANT")
                     .font(.system(size: 10, weight: .bold))
@@ -563,16 +577,16 @@ struct AddExpenseView: View {
 
             TextField("Tap or type…", text: $merchant)
                 .font(Font.dmSerifDisplay(22))
-                .foregroundStyle(merchant.isEmpty ? Color(hex: "2F402E").opacity(0.3) : Color(hex: "1C1C1E"))
+                .foregroundStyle(Color(hex: "1C1C1E"))   // always black when typing
                 .focused($focusedField, equals: .merchant)
                 .textInputAutocapitalization(.words)
                 .tint(Color(hex: "2F402E"))
                 .padding(.horizontal, 14)
 
-            if !cachedKnownMerchants.isEmpty {
+            if showChips {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
-                        ForEach(Array(cachedKnownMerchants.prefix(6)), id: \.self) { name in
+                        ForEach(suggestions, id: \.self) { name in
                             Button {
                                 merchant = name
                                 focusedField = nil
@@ -586,12 +600,12 @@ struct AddExpenseView: View {
                                     .clipShape(Capsule())
                             }
                             .buttonStyle(.plain)
-                            .animation(.easeInOut(duration: 0.12), value: merchant)
                         }
                     }
                     .padding(.horizontal, 14)
                 }
                 .padding(.top, 10)
+                .transition(.opacity)
             }
         }
         .padding(.bottom, 14)
@@ -599,12 +613,15 @@ struct AddExpenseView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
         .padding(.horizontal, 16)
+        .animation(.easeInOut(duration: 0.15), value: showChips)
     }
 
-    // MARK: - Quick Add: Tag card with chip shortcuts
+    // MARK: - Quick Add: Tag card — chips visible only after merchant is entered
 
     private var quickAddTagCard: some View {
-        VStack(alignment: .leading, spacing: 0) {
+        let showChips = !merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+
+        return VStack(alignment: .leading, spacing: 0) {
             Text("TAG")
                 .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
@@ -613,68 +630,79 @@ struct AddExpenseView: View {
                 .padding(.top, 14)
                 .padding(.bottom, 12)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 6) {
-                    ForEach(Array(tags.prefix(3))) { tag in
-                        let active = selectedTagIds.contains(tag.id)
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                if active { selectedTagIds.removeAll { $0 == tag.id } }
-                                else { selectedTagIds = [tag.id] }
+            if showChips {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(Array(tags.prefix(3))) { tag in
+                            let active = selectedTagIds.contains(tag.id)
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.15)) {
+                                    if active { selectedTagIds.removeAll { $0 == tag.id } }
+                                    else { selectedTagIds = [tag.id] }
+                                }
+                            } label: {
+                                HStack(spacing: 5) {
+                                    Circle()
+                                        .fill(active ? Color.white.opacity(0.8) : tag.tagColor.primaryColor)
+                                        .frame(width: 7, height: 7)
+                                    Text(tag.name)
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(active ? Color.white : Color(hex: "2F402E").opacity(0.8))
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
+                                .background(active ? Color(hex: "2F402E") : Color(hex: "F0EDE6"))
+                                .clipShape(Capsule())
+                                .overlay(Capsule().stroke(Color(hex: "2F402E").opacity(active ? 0 : 0.1), lineWidth: 1))
                             }
-                        } label: {
-                            HStack(spacing: 5) {
-                                Circle()
-                                    .fill(active ? Color.white.opacity(0.8) : tag.tagColor.primaryColor)
-                                    .frame(width: 7, height: 7)
-                                Text(tag.name)
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(active ? Color.white : Color(hex: "2F402E").opacity(0.8))
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(active ? Color(hex: "2F402E") : Color(hex: "F0EDE6"))
-                            .clipShape(Capsule())
-                            .overlay(Capsule().stroke(Color(hex: "2F402E").opacity(active ? 0 : 0.1), lineWidth: 1))
+                            .buttonStyle(.plain)
+                            .animation(.easeInOut(duration: 0.12), value: active)
+                        }
+
+                        Button { showingTagPicker = true } label: {
+                            Text("More…")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color(hex: "2F402E").opacity(0.55))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
+                                .overlay(Capsule().stroke(style: StrokeStyle(lineWidth: 1, dash: [4])).foregroundStyle(Color(hex: "2F402E").opacity(0.25)))
                         }
                         .buttonStyle(.plain)
-                        .animation(.easeInOut(duration: 0.12), value: active)
-                    }
 
-                    // More... chip
-                    Button { showingTagPicker = true } label: {
-                        Text("More…")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Color(hex: "2F402E").opacity(0.55))
+                        let topTagIds = Set(tags.prefix(3).map(\.id))
+                        ForEach(Array(selectedTags.filter { !topTagIds.contains($0.id) }.prefix(2))) { tag in
+                            HStack(spacing: 5) {
+                                Circle().fill(Color.white.opacity(0.8)).frame(width: 7, height: 7)
+                                Text(tag.name)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(Color.white)
+                            }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
-                            .overlay(Capsule().stroke(style: StrokeStyle(lineWidth: 1, dash: [4])).foregroundStyle(Color(hex: "2F402E").opacity(0.25)))
-                    }
-                    .buttonStyle(.plain)
-
-                    // Selected tags beyond the top-3 shortcut chips
-                    let topTagIds = Set(tags.prefix(3).map(\.id))
-                    ForEach(Array(selectedTags.filter { !topTagIds.contains($0.id) }.prefix(2))) { tag in
-                        HStack(spacing: 5) {
-                            Circle().fill(Color.white.opacity(0.8)).frame(width: 7, height: 7)
-                            Text(tag.name)
-                                .font(.system(size: 12, weight: .semibold))
-                                .foregroundStyle(Color.white)
+                            .background(Color(hex: "2F402E"))
+                            .clipShape(Capsule())
                         }
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(Color(hex: "2F402E"))
-                        .clipShape(Capsule())
                     }
+                    .padding(.horizontal, 14)
                 }
+                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .leading)))
+            } else {
+                Button { showingTagPicker = true } label: {
+                    Text("Add tag")
+                        .font(.system(size: 15))
+                        .foregroundStyle(Color(hex: "C4BFB9"))
+                }
+                .buttonStyle(.plain)
                 .padding(.horizontal, 14)
+                .transition(.opacity)
             }
-            .padding(.bottom, 14)
         }
+        .padding(.bottom, 14)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
         .padding(.horizontal, 16)
+        .animation(.easeInOut(duration: 0.2), value: showChips)
     }
 
     // MARK: - Quick Add: Compact date / note / receipt row
@@ -779,27 +807,40 @@ struct AddExpenseView: View {
             }
 
             let parts = quickAddAmountParts
-            HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Button { showingCurrencyPicker = true } label: {
-                    Text(currencySymbol)
-                        .font(.system(size: 26, weight: .regular, design: .monospaced))
-                        .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
-                        .baselineOffset(8)
-                }
-                .buttonStyle(.plain)
+            // Outer HStack: center-align so the cursor sits at mid-height
+            HStack(alignment: .center, spacing: 0) {
+                HStack(alignment: .firstTextBaseline, spacing: 2) {
+                    Button { showingCurrencyPicker = true } label: {
+                        Text(currencySymbol)
+                            .font(.system(size: 26, weight: .regular, design: .monospaced))
+                            .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
+                            .baselineOffset(8)
+                    }
+                    .buttonStyle(.plain)
 
-                Text(parts.whole)
-                    .font(Font.dmSerifDisplay(76))
-                    .foregroundStyle(amountText.isEmpty ? Color(hex: "2F402E").opacity(0.18) : Color(hex: "1C1C1E"))
-                    .animation(.none, value: amountText)
-
-                if let dec = parts.decimal {
-                    Text(dec.isEmpty ? "." : ".\(dec)")
-                        .font(Font.dmSerifDisplay(34))
-                        .foregroundStyle(Color(hex: "2F402E").opacity(0.35))
+                    Text(parts.whole)
+                        .font(Font.dmSerifDisplay(76))
+                        .foregroundStyle(amountText.isEmpty ? Color(hex: "2F402E").opacity(0.18) : Color(hex: "1C1C1E"))
                         .animation(.none, value: amountText)
+
+                    if let dec = parts.decimal {
+                        Text(dec.isEmpty ? "." : ".\(dec)")
+                            .font(Font.dmSerifDisplay(34))
+                            .foregroundStyle(Color(hex: "2F402E").opacity(0.35))
+                            .animation(.none, value: amountText)
+                    }
+                }
+
+                // Blinking cursor — only while the custom keypad is active
+                if !keyboardVisible {
+                    Capsule()
+                        .fill(Color(hex: "4A5E50"))
+                        .frame(width: 3, height: 48)
+                        .padding(.leading, 4)
+                        .opacity(amountCursorVisible ? 1 : 0)
                 }
             }
+            .fixedSize()
 
             // Thin moss underline
             Rectangle()
@@ -813,6 +854,16 @@ struct AddExpenseView: View {
         .frame(maxWidth: .infinity)
         .padding(.top, 4)
         .padding(.bottom, 6)
+        // Tap anywhere on the hero to dismiss the system keyboard and restore the keypad
+        .contentShape(Rectangle())
+        .onTapGesture { focusedField = nil }
+        // Blink the cursor every ~530 ms
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 530_000_000)
+                withAnimation(.easeInOut(duration: 0.08)) { amountCursorVisible.toggle() }
+            }
+        }
     }
 
 
@@ -1274,25 +1325,6 @@ struct AddExpenseView: View {
 
     private var quickAddKeypadChrome: some View {
         VStack(spacing: 0) {
-            // Quick-math chips
-            HStack(spacing: 8) {
-                ForEach(["+10", "+50", "×2", "÷2"], id: \.self) { op in
-                    Button { applyQuickMath(op) } label: {
-                        Text(op)
-                            .font(.system(size: 13, weight: .bold))
-                            .foregroundStyle(Color(hex: "2F402E").opacity(0.75))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 9)
-                            .background(Color.white)
-                            .clipShape(Capsule())
-                            .overlay(Capsule().stroke(Color(hex: "2F402E").opacity(0.1), lineWidth: 1))
-                    }
-                    .buttonStyle(KeypadButtonStyle())
-                }
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-
             // 3 × 4 keypad grid
             let keys = ["1","2","3","4","5","6","7","8","9",".","0","back"]
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
@@ -1319,6 +1351,7 @@ struct AddExpenseView: View {
                 }
             }
             .padding(.horizontal, 12)
+            .padding(.top, 10)
 
             // Save button
             Button {
@@ -1363,26 +1396,6 @@ struct AddExpenseView: View {
                 }
                 amountText += key
             }
-        }
-    }
-
-    private func applyQuickMath(_ op: String) {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        let current = Double(amountText) ?? 0
-        let result: Double
-        switch op {
-        case "+10": result = current + 10
-        case "+50": result = current + 50
-        case "×2":  result = current * 2
-        case "÷2":  result = current / 2
-        default: return
-        }
-        if usesDecimalCurrency {
-            amountText = result.truncatingRemainder(dividingBy: 1) == 0
-                ? String(Int(result))
-                : String(format: "%.2f", result)
-        } else {
-            amountText = String(Int(result))
         }
     }
 
