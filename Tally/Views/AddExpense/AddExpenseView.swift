@@ -767,7 +767,7 @@ struct AddExpenseView: View {
                         }
                         Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, 10).padding(.vertical, 9).frame(maxWidth: .infinity)
+                    .padding(.horizontal, 10).padding(.vertical, 9).frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color.white)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
@@ -781,6 +781,7 @@ struct AddExpenseView: View {
                         Text("Receipt").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color(hex: "2F402E").opacity(0.65))
                     }
                     .padding(.horizontal, 12).padding(.vertical, 12)
+                    .frame(maxHeight: .infinity)
                     .background(Color.white)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(style: StrokeStyle(lineWidth: 1, dash: [4])).foregroundStyle(Color(hex: "2F402E").opacity(0.2)))
@@ -833,13 +834,22 @@ struct AddExpenseView: View {
                 }
                 .buttonStyle(.plain)
 
+                // Cursor before the placeholder "0" when nothing typed yet
+                if !keyboardVisible && !hasDecimalTyped && amountText.isEmpty {
+                    Capsule()
+                        .fill(Color(hex: "4A5E50"))
+                        .frame(width: 3, height: 48)
+                        .padding(.horizontal, 2)
+                        .opacity(amountCursorVisible ? 1 : 0)
+                }
+
                 Text(parts.whole)
                     .font(Font.dmSerifDisplay(76))
                     .foregroundStyle(amountText.isEmpty ? Color(hex: "2F402E").opacity(0.18) : Color(hex: "1C1C1E"))
                     .animation(.none, value: amountText)
 
-                // Cursor sits after whole number, before the auto ".00" suffix
-                if !keyboardVisible && !hasDecimalTyped {
+                // Cursor after typed digits, before the auto ".00" suffix
+                if !keyboardVisible && !hasDecimalTyped && !amountText.isEmpty {
                     Capsule()
                         .fill(Color(hex: "4A5E50"))
                         .frame(width: 3, height: 48)
