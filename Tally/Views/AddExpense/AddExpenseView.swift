@@ -531,11 +531,9 @@ struct AddExpenseView: View {
 
         quickAddMerchantCard
 
-        quickAddNoteCard
+        quickAddExtrasRow
 
         quickAddTagCard
-
-        quickAddExtrasRow
 
         if attachedFileURL != nil {
             pdfAttachmentCard
@@ -710,88 +708,92 @@ struct AddExpenseView: View {
         .animation(.easeInOut(duration: 0.2), value: showChips)
     }
 
-    // MARK: - Quick Add: Compact date / receipt row (note promoted to its own card)
+    // MARK: - Quick Add: Compact date / note / receipt row
 
     private var quickAddExtrasRow: some View {
-        HStack(spacing: 8) {
-            // DATE
-            Button { focusedField = nil; showingDatePickerSheet = true } label: {
-                HStack(spacing: 8) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(hex: "E8F0EA")).frame(width: 30, height: 30)
-                        Image(systemName: "calendar").font(.system(size: 12, weight: .medium)).foregroundStyle(Color(hex: "4A5E50"))
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                // DATE
+                Button { focusedField = nil; showingDatePickerSheet = true } label: {
+                    HStack(spacing: 8) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(hex: "E8F0EA")).frame(width: 30, height: 30)
+                            Image(systemName: "calendar").font(.system(size: 12, weight: .medium)).foregroundStyle(Color(hex: "4A5E50"))
+                        }
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("DATE").font(.system(size: 8, weight: .bold)).foregroundStyle(Color(hex: "2F402E").opacity(0.45)).tracking(0.6)
+                            Text(datePillLabel).font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(hex: "1C1C1E"))
+                        }
+                        Spacer(minLength: 0)
                     }
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text("DATE").font(.system(size: 8, weight: .bold)).foregroundStyle(Color(hex: "2F402E").opacity(0.45)).tracking(0.6)
-                        Text(datePillLabel).font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(hex: "1C1C1E"))
+                    .padding(.horizontal, 10).padding(.vertical, 9).frame(maxWidth: .infinity)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+
+                // NOTE
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { showNoteInExtrasRow.toggle() }
+                    if showNoteInExtrasRow {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { focusedField = .notes }
+                    } else {
+                        focusedField = nil
                     }
-                    Spacer(minLength: 0)
+                } label: {
+                    HStack(spacing: 8) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(hex: "E8F0EA")).frame(width: 30, height: 30)
+                            Image(systemName: "note.text").font(.system(size: 12, weight: .medium)).foregroundStyle(Color(hex: "4A5E50"))
+                        }
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text("NOTE").font(.system(size: 8, weight: .bold)).foregroundStyle(Color(hex: "2F402E").opacity(0.45)).tracking(0.6)
+                            Text(notes.isEmpty ? "Add note" : notes)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(notes.isEmpty ? Color(hex: "2F402E").opacity(0.3) : Color(hex: "1C1C1E"))
+                                .lineLimit(1)
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 10).padding(.vertical, 9).frame(maxWidth: .infinity)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
                 }
-                .padding(.horizontal, 10).padding(.vertical, 9).frame(maxWidth: .infinity)
-                .background(Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
-            }
-            .buttonStyle(.plain)
+                .buttonStyle(.plain)
 
-            // RECEIPT
-            Button { showingAddReceiptSources = true } label: {
-                HStack(spacing: 5) {
-                    Image(systemName: "paperclip").font(.system(size: 14, weight: .medium)).foregroundStyle(Color(hex: "2F402E").opacity(0.6))
-                    Text("Receipt").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color(hex: "2F402E").opacity(0.65))
+                // RECEIPT
+                Button { showingAddReceiptSources = true } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "paperclip").font(.system(size: 14, weight: .medium)).foregroundStyle(Color(hex: "2F402E").opacity(0.6))
+                        Text("Receipt").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color(hex: "2F402E").opacity(0.65))
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 12)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(style: StrokeStyle(lineWidth: 1, dash: [4])).foregroundStyle(Color(hex: "2F402E").opacity(0.2)))
                 }
-                .padding(.horizontal, 12).padding(.vertical, 12)
-                .background(Color.white)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(style: StrokeStyle(lineWidth: 1, dash: [4])).foregroundStyle(Color(hex: "2F402E").opacity(0.2)))
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-        }
-        .padding(.horizontal, 16)
-    }
 
-    // MARK: - Quick Add: Note card (sits between Merchant and Tag)
-
-    private var quickAddNoteCard: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Text("NOTE")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
-                .tracking(1.0)
-                .padding(.horizontal, 14)
-                .padding(.top, 14)
-                .padding(.bottom, 8)
-
+            // Expandable note field
             if showNoteInExtrasRow {
                 TextField("Add a note…", text: $notes, axis: .vertical)
-                    .font(.system(size: 15))
+                    .font(.system(size: 14))
                     .foregroundStyle(Color(hex: "1C1C1E"))
                     .tint(Color(hex: "2F402E"))
                     .focused($focusedField, equals: .notes)
-                    .lineLimit(1...4)
-                    .padding(.horizontal, 14)
-                    .transition(.opacity)
-            } else {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { showNoteInExtrasRow = true }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { focusedField = .notes }
-                } label: {
-                    Text("Add a note…")
-                        .font(.system(size: 15))
-                        .foregroundStyle(Color(hex: "C4BFB9"))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 14)
-                .transition(.opacity)
+                    .lineLimit(2...5)
+                    .padding(.horizontal, 14).padding(.vertical, 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "2F402E").opacity(0.18), lineWidth: 1))
+                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
             }
         }
-        .padding(.bottom, 14)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
         .padding(.horizontal, 16)
-        .animation(.easeInOut(duration: 0.2), value: showNoteInExtrasRow)
     }
 
     // MARK: - Quick Add: Floating hero amount (no card, sits on background)
