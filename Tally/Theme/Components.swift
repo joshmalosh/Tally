@@ -163,13 +163,15 @@ struct ExpenseCard: View {
     let primaryTagColor: TagColor?
     let additionalTagCount: Int
 
-    /// "What" — note first, then description, then fallback.
+    /// "What" — merchant first, then notes, then description, then fallback.
     private var displayTitle: String {
+        if let m = merchant, !m.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return m.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         if let n = notes, !n.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return n.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         if !description.isEmpty { return description }
-        if let m = merchant, !m.isEmpty { return m }
         return "Expense"
     }
 

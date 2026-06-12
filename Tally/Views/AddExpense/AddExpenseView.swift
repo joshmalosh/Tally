@@ -538,9 +538,9 @@ struct AddExpenseView: View {
 
         quickAddMerchantCard
 
-        quickAddExtrasRow
-
         quickAddTagCard
+
+        quickAddExtrasRow
 
         if attachedFileURL != nil {
             pdfAttachmentCard
