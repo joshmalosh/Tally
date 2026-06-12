@@ -549,3 +549,163 @@ struct TallySuggestsCard: View {
         .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
     }
 }
+
+// MARK: - Expense celebration: confetti burst + monthly total toast
+
+private struct ConfettiParticleData: Identifiable {
+    let id: Int
+    let color: Color
+    let dx: CGFloat
+    let dy: CGFloat
+    let rotation: Double
+    let delay: Double
+}
+
+private struct ConfettiParticleView: View {
+    let data: ConfettiParticleData
+    let origin: CGPoint
+
+    @State private var launched = false
+    @State private var visible = false
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: 2, style: .continuous)
+            .fill(data.color)
+            .frame(width: 8, height: 8)
+            .scaleEffect(launched ? 1.0 : 0.4)
+            .rotationEffect(.degrees(launched ? data.rotation : 0))
+            .opacity(visible ? 1.0 : 0.0)
+            .position(
+                x: launched ? origin.x + data.dx : origin.x,
+                y: launched ? origin.y + data.dy : origin.y
+            )
+            .task {
+                try? await Task.sleep(nanoseconds: UInt64(data.delay * 1_000_000_000))
+                withAnimation(.linear(duration: 0.11)) { visible = true }
+                withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 1.1)) { launched = true }
+                try? await Task.sleep(nanoseconds: 110_000_000)
+                withAnimation(.linear(duration: 0.99)) { visible = false }
+            }
+    }
+}
+
+struct ExpenseCelebrationView: View {
+    let amountCents: Int
+    let currency: String
+    let monthlyTotalCents: Int
+
+    @State private var particles: [ConfettiParticleData] = {
+        let colors: [Color] = [
+            Color(hex: "C27040"),  // terracotta  ~ oklch(0.7 0.15 30)
+            Color(hex: "4A8A6A"),  // sage        ~ oklch(0.6 0.12 150)
+            Color(hex: "C4A030"),  // gold        ~ oklch(0.75 0.15 70)
+        ]
+        return (0..<14).map { i in
+            let angleDeg = Double.random(in: -165...165)
+            let angle = angleDeg * .pi / 180
+            let distance = CGFloat.random(in: 80...160)
+            return ConfettiParticleData(
+                id: i,
+                color: colors[i % 3],
+                dx: distance * CGFloat(sin(angle)),
+                dy: -distance * abs(CGFloat(cos(angle))),
+                rotation: Double.random(in: -270...270),
+                delay: Double(i) * 0.018
+            )
+        }
+    }()
+
+    @State private var showToast = false
+
+    private var symbol: String { CurrencyFormatter.shared.symbol(for: currency) }
+    private var usesDecimals: Bool { CurrencyFormatter.shared.usesDecimals(for: currency) }
+
+    private func fmt(_ cents: Int) -> String {
+        usesDecimals
+            ? "\(symbol)\(String(format: "%.2f", Double(cents) / 100))"
+            : "\(symbol)\(cents)"
+    }
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            // Confetti burst — origin sits above the save button area
+            GeometryReader { geo in
+                let origin = CGPoint(x: geo.size.width / 2, y: geo.size.height - 90)
+                ForEach(particles) { p in
+                    ConfettiParticleView(data: p, origin: origin)
+                }
+            }
+            .allowsHitTesting(false)
+
+            // Monthly total toast
+            if showToast {
+                toastView
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 28)
+                    .transition(
+                        .asymmetric(
+                            insertion: .move(edge: .bottom).combined(with: .opacity),
+                            removal: .opacity
+                        )
+                    )
+            }
+        }
+        .onAppear {
+            withAnimation(.timingCurve(0.16, 1, 0.3, 1, duration: 0.45)) {
+                showToast = true
+            }
+        }
+    }
+
+    private var toastView: some View {
+        HStack(spacing: 12) {
+            // Checkmark badge
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color(hex: "8FA893").opacity(0.2))
+                    .frame(width: 36, height: 36)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(Color(hex: "8FA893"))
+            }
+
+            // Label + amounts
+            VStack(alignment: .leading, spacing: 2) {
+                Text("THIS MONTH")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.white.opacity(0.55))
+                    .tracking(0.8)
+                HStack(alignment: .firstTextBaseline, spacing: 5) {
+                    Text(fmt(monthlyTotalCents))
+                        .font(.system(size: 19, weight: .semibold).italic())
+                        .foregroundStyle(Color.white)
+                    Text("+\(fmt(amountCents))")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(0.55))
+                }
+            }
+
+            Spacer(minLength: 0)
+
+            // Sparkline — points from Lovable spec
+            Canvas { ctx, size in
+                let raw: [(CGFloat, CGFloat)] = [
+                    (1,16),(8,12),(15,14),(22,8),(29,10),(36,5),(45,3)
+                ]
+                var path = Path()
+                for (i, (x, y)) in raw.enumerated() {
+                    let pt = CGPoint(x: x * size.width / 46, y: y * size.height / 22)
+                    if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
+                }
+                ctx.stroke(path, with: .color(Color(hex: "8FA893")),
+                           style: StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+            }
+            .frame(width: 46, height: 22)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(Color(hex: "2F402E"))
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: .black.opacity(0.25), radius: 16, x: 0, y: 8)
+    }
+}

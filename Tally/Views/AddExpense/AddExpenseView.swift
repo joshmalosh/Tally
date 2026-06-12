@@ -1903,7 +1903,11 @@ struct AddExpenseView: View {
                     NotificationCenter.default.post(
                         name: .expenseLogged,
                         object: nil,
-                        userInfo: ["expenseId": expenseId]
+                        userInfo: [
+                            "expenseId": expenseId,
+                            "amountCents": amountCents,
+                            "currency": currency
+                        ]
                     )
                 }
                 onSaved?()

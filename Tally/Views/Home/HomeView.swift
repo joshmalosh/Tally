@@ -36,6 +36,9 @@ struct HomeView: View {
     @State private var multiReceiptImages: [UIImage] = []
     @State private var showingMultiReceipt = false
     @State private var landedExpenseId: String? = nil
+    @State private var showingCelebration = false
+    @State private var celebrationAmountCents = 0
+    @State private var celebrationCurrency = ""
     private var periodExpenses: [ExpenseModel] {
         switch periodFilter {
         case .selected:
@@ -97,6 +100,14 @@ struct HomeView: View {
     private var homeTagName: String? {
         guard let id = homeBarTagId else { return nil }
         return tags.first(where: { $0.id == id })?.name
+    }
+
+    private func monthlyTotalCents(for currency: String) -> Int {
+        let cal = Calendar.current
+        let now = Date()
+        return activeExpenses
+            .filter { $0.currency == currency && cal.isDate($0.date, equalTo: now, toGranularity: .month) }
+            .reduce(0) { $0 + $1.amountCents }
     }
 
     private func periodExpensesForHero(_ period: HeroPeriod) -> [ExpenseModel] {
@@ -239,15 +250,30 @@ struct HomeView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .expenseLogged)) { notification in
             guard let id = notification.userInfo?["expenseId"] as? String else { return }
-            // Set landing ID immediately so it's ready when the new row first appears
             landedExpenseId = id
-            // Sound + haptic timed to the end of the dismiss animation (~0.35s)
+            let aCents = notification.userInfo?["amountCents"] as? Int ?? 0
+            let curr = notification.userInfo?["currency"] as? String ?? appState.defaultCurrency
+            // Sound + confetti timed to end of dismiss animation (~0.35s)
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.38) {
                 ExpenseSoundService.shared.playExpenseLogged()
+                celebrationAmountCents = aCents
+                celebrationCurrency = curr
+                withAnimation { showingCelebration = true }
             }
-            // Clear after animation completes
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.8) {
                 landedExpenseId = nil
+                withAnimation { showingCelebration = false }
+            }
+        }
+        .overlay {
+            if showingCelebration {
+                ExpenseCelebrationView(
+                    amountCents: celebrationAmountCents,
+                    currency: celebrationCurrency,
+                    monthlyTotalCents: monthlyTotalCents(for: celebrationCurrency)
+                )
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
             }
         }
         .background(Color(hex: "F0EDE6").ignoresSafeArea())
