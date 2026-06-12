@@ -646,30 +646,54 @@ struct AddExpenseView: View {
             if showChips {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
-                        ForEach(Array(tags.prefix(3))) { tag in
-                            let active = selectedTagIds.contains(tag.id)
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.15)) {
-                                    if active { selectedTagIds.removeAll { $0 == tag.id } }
-                                    else { selectedTagIds = [tag.id] }
+                        if tagAutoAppliedByHistory {
+                            // Collapsed view: only the auto-applied tag(s), then More
+                            ForEach(selectedTags) { tag in
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.15)) {
+                                        selectedTagIds.removeAll { $0 == tag.id }
+                                    }
+                                } label: {
+                                    HStack(spacing: 5) {
+                                        Circle().fill(Color.white.opacity(0.8)).frame(width: 7, height: 7)
+                                        Text(tag.name)
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundStyle(Color.white)
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 7)
+                                    .background(Color(hex: "2F402E"))
+                                    .clipShape(Capsule())
                                 }
-                            } label: {
-                                HStack(spacing: 5) {
-                                    Circle()
-                                        .fill(active ? Color.white.opacity(0.8) : tag.tagColor.primaryColor)
-                                        .frame(width: 7, height: 7)
-                                    Text(tag.name)
-                                        .font(.system(size: 12, weight: .semibold))
-                                        .foregroundStyle(active ? Color.white : Color(hex: "2F402E").opacity(0.8))
-                                }
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 7)
-                                .background(active ? Color(hex: "2F402E") : Color(hex: "F0EDE6"))
-                                .clipShape(Capsule())
-                                .overlay(Capsule().stroke(Color(hex: "2F402E").opacity(active ? 0 : 0.1), lineWidth: 1))
+                                .buttonStyle(.plain)
                             }
-                            .buttonStyle(.plain)
-                            .animation(.easeInOut(duration: 0.12), value: active)
+                        } else {
+                            // Normal view: top 3 tags with active state
+                            ForEach(Array(tags.prefix(3))) { tag in
+                                let active = selectedTagIds.contains(tag.id)
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.15)) {
+                                        if active { selectedTagIds.removeAll { $0 == tag.id } }
+                                        else { selectedTagIds = [tag.id] }
+                                    }
+                                } label: {
+                                    HStack(spacing: 5) {
+                                        Circle()
+                                            .fill(active ? Color.white.opacity(0.8) : tag.tagColor.primaryColor)
+                                            .frame(width: 7, height: 7)
+                                        Text(tag.name)
+                                            .font(.system(size: 12, weight: .semibold))
+                                            .foregroundStyle(active ? Color.white : Color(hex: "2F402E").opacity(0.8))
+                                    }
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 7)
+                                    .background(active ? Color(hex: "2F402E") : Color(hex: "F0EDE6"))
+                                    .clipShape(Capsule())
+                                    .overlay(Capsule().stroke(Color(hex: "2F402E").opacity(active ? 0 : 0.1), lineWidth: 1))
+                                }
+                                .buttonStyle(.plain)
+                                .animation(.easeInOut(duration: 0.12), value: active)
+                            }
                         }
 
                         Button { showingTagPicker = true } label: {
@@ -682,18 +706,20 @@ struct AddExpenseView: View {
                         }
                         .buttonStyle(.plain)
 
-                        let topTagIds = Set(tags.prefix(3).map(\.id))
-                        ForEach(Array(selectedTags.filter { !topTagIds.contains($0.id) }.prefix(2))) { tag in
-                            HStack(spacing: 5) {
-                                Circle().fill(Color.white.opacity(0.8)).frame(width: 7, height: 7)
-                                Text(tag.name)
-                                    .font(.system(size: 12, weight: .semibold))
-                                    .foregroundStyle(Color.white)
+                        if !tagAutoAppliedByHistory {
+                            let topTagIds = Set(tags.prefix(3).map(\.id))
+                            ForEach(Array(selectedTags.filter { !topTagIds.contains($0.id) }.prefix(2))) { tag in
+                                HStack(spacing: 5) {
+                                    Circle().fill(Color.white.opacity(0.8)).frame(width: 7, height: 7)
+                                    Text(tag.name)
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(Color.white)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
+                                .background(Color(hex: "2F402E"))
+                                .clipShape(Capsule())
                             }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 7)
-                            .background(Color(hex: "2F402E"))
-                            .clipShape(Capsule())
                         }
                     }
                     .padding(.horizontal, 14)
