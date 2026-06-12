@@ -821,37 +821,46 @@ struct AddExpenseView: View {
             }
 
             let parts = quickAddAmountParts
-            // Outer HStack: center-align so the cursor sits at mid-height
-            HStack(alignment: .center, spacing: 0) {
-                HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    Button { showingCurrencyPicker = true } label: {
-                        Text(currencySymbol)
-                            .font(.system(size: 26, weight: .regular, design: .monospaced))
-                            .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
-                            .baselineOffset(8)
-                    }
-                    .buttonStyle(.plain)
+            let hasDecimalTyped = amountText.contains(".")
 
-                    Text(parts.whole)
-                        .font(Font.dmSerifDisplay(76))
-                        .foregroundStyle(amountText.isEmpty ? Color(hex: "2F402E").opacity(0.18) : Color(hex: "1C1C1E"))
-                        .animation(.none, value: amountText)
-
-                    if let dec = parts.decimal {
-                        Text(dec.isEmpty ? "." : ".\(dec)")
-                            .font(Font.dmSerifDisplay(34))
-                            .foregroundStyle(amountText.isEmpty ? Color(hex: "2F402E").opacity(0.18) : Color(hex: "1C1C1E"))
-                            .animation(.none, value: amountText)
-                    }
+            // Single baseline-aligned row; cursor inserted at the active typing position
+            HStack(alignment: .firstTextBaseline, spacing: 2) {
+                Button { showingCurrencyPicker = true } label: {
+                    Text(currencySymbol)
+                        .font(.system(size: 26, weight: .regular, design: .monospaced))
+                        .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
+                        .baselineOffset(8)
                 }
+                .buttonStyle(.plain)
 
-                // Blinking cursor — only while the custom keypad is active
-                if !keyboardVisible {
+                Text(parts.whole)
+                    .font(Font.dmSerifDisplay(76))
+                    .foregroundStyle(amountText.isEmpty ? Color(hex: "2F402E").opacity(0.18) : Color(hex: "1C1C1E"))
+                    .animation(.none, value: amountText)
+
+                // Cursor sits after whole number, before the auto ".00" suffix
+                if !keyboardVisible && !hasDecimalTyped {
                     Capsule()
                         .fill(Color(hex: "4A5E50"))
                         .frame(width: 3, height: 48)
-                        .padding(.leading, 4)
+                        .padding(.horizontal, 2)
                         .opacity(amountCursorVisible ? 1 : 0)
+                }
+
+                if let dec = parts.decimal {
+                    Text(dec.isEmpty ? "." : ".\(dec)")
+                        .font(Font.dmSerifDisplay(34))
+                        .foregroundStyle(amountText.isEmpty ? Color(hex: "2F402E").opacity(0.18) : Color(hex: "1C1C1E"))
+                        .animation(.none, value: amountText)
+
+                    // Cursor sits after the typed decimal digits
+                    if !keyboardVisible && hasDecimalTyped {
+                        Capsule()
+                            .fill(Color(hex: "4A5E50"))
+                            .frame(width: 3, height: 32)
+                            .padding(.horizontal, 2)
+                            .opacity(amountCursorVisible ? 1 : 0)
+                    }
                 }
             }
             .fixedSize()
