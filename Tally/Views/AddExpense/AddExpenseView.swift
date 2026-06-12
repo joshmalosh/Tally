@@ -632,13 +632,16 @@ struct AddExpenseView: View {
         let showChips = !merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
 
         return VStack(alignment: .leading, spacing: 0) {
-            Text("TAG")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
-                .tracking(1.0)
-                .padding(.horizontal, 14)
-                .padding(.top, 14)
-                .padding(.bottom, 12)
+            HStack {
+                Text("TAG")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
+                    .tracking(1.0)
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 14)
+            .padding(.bottom, 12)
 
             if showChips {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -701,6 +704,7 @@ struct AddExpenseView: View {
                     Text("Add tag")
                         .font(.system(size: 15))
                         .foregroundStyle(Color(hex: "C4BFB9"))
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, 14)
