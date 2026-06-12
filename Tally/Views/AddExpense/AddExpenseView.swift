@@ -80,6 +80,7 @@ struct AddExpenseView: View {
     @State private var showNoteInExtrasRow = false
     @State private var amountCursorVisible: Bool = true
     @State private var merchantReturnMessage: String? = nil
+    @State private var tagAutoAppliedByHistory = false
 
     @FocusState private var focusedField: Field?
 
@@ -297,12 +298,18 @@ struct AddExpenseView: View {
                 updateTagSuggestion()
             }
             .onChange(of: merchant) { _, _ in
-                applyMerchantHistory()
+                if isEditing {
+                    updateTagSuggestion()
+                } else {
+                    applyMerchantHistory()
+                }
             }
             .onChange(of: selectedTagIds) { _, newValue in
                 if !newValue.isEmpty {
                     withAnimation(.easeInOut(duration: 0.2)) { tallySuggestion = nil }
                 }
+                // User made a manual change — stop tracking this as auto-applied
+                tagAutoAppliedByHistory = false
             }
             .onAppear {
                 applyInitialState()
@@ -1520,6 +1527,7 @@ struct AddExpenseView: View {
         tallySuggestion = nil
         tallySuggestionDismissed = false
         merchantReturnMessage = nil
+        tagAutoAppliedByHistory = false
         let prompts = ["What's the damage?", "How'd you spend it?", "Where'd it go?", "What's it for?"]
         quickAddPrompt = prompts.randomElement() ?? "What's it for?"
         source = .manual
@@ -1641,28 +1649,49 @@ struct AddExpenseView: View {
         let trimmed = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             withAnimation(.easeInOut(duration: 0.2)) { merchantReturnMessage = nil }
+            // Bug 1: clear tag that was auto-applied if merchant is now empty
+            if tagAutoAppliedByHistory {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    selectedTagIds = []
+                    tagAutoAppliedByHistory = false
+                    tallySuggestionDismissed = false
+                }
+            }
             updateTagSuggestion()
             return
         }
 
         if let tagIds = historicalTagIds(for: trimmed), !tagIds.isEmpty {
+            // Auto-apply only if nothing is selected yet (first match)
             if selectedTagIds.isEmpty {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     selectedTagIds = tagIds
+                    tagAutoAppliedByHistory = true
                     tallySuggestion = nil
                     tallySuggestionDismissed = true
                 }
             }
             let totalCents = totalSpent(at: trimmed)
             if totalCents > 0 {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    merchantReturnMessage = buildReturnMessage(for: trimmed, totalCents: totalCents)
+                // Bug 3: only set the message once — don't randomise on every keystroke
+                if merchantReturnMessage == nil {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        merchantReturnMessage = buildReturnMessage(for: trimmed, totalCents: totalCents)
+                    }
                 }
             } else {
                 withAnimation(.easeInOut(duration: 0.2)) { merchantReturnMessage = nil }
             }
         } else {
             withAnimation(.easeInOut(duration: 0.2)) { merchantReturnMessage = nil }
+            // Bug 1: merchant no longer matches what was auto-applied — clear the tag
+            if tagAutoAppliedByHistory {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    selectedTagIds = []
+                    tagAutoAppliedByHistory = false
+                    tallySuggestionDismissed = false
+                }
+            }
             updateTagSuggestion()
         }
     }
@@ -1681,9 +1710,11 @@ struct AddExpenseView: View {
         let q = merchantName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return 0 }
         let currentYear = Calendar.current.component(.year, from: Date())
+        let excludeId = editingExpense?.id
         return allExpenses
             .filter { ($0.merchant ?? "").lowercased() == q }
             .filter { Calendar.current.component(.year, from: $0.date) == currentYear }
+            .filter { $0.id != excludeId }
             .reduce(0) { $0 + $1.amountCents }
     }
 
