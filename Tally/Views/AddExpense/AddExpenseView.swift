@@ -79,6 +79,7 @@ struct AddExpenseView: View {
     @State private var quickAddPrompt: String = ""
     @State private var showNoteInExtrasRow = false
     @State private var amountCursorVisible: Bool = true
+    @State private var merchantReturnMessage: String? = nil
 
     @FocusState private var focusedField: Field?
 
@@ -296,7 +297,7 @@ struct AddExpenseView: View {
                 updateTagSuggestion()
             }
             .onChange(of: merchant) { _, _ in
-                updateTagSuggestion()
+                applyMerchantHistory()
             }
             .onChange(of: selectedTagIds) { _, newValue in
                 if !newValue.isEmpty {
@@ -530,6 +531,8 @@ struct AddExpenseView: View {
 
         quickAddMerchantCard
 
+        quickAddNoteCard
+
         quickAddTagCard
 
         quickAddExtrasRow
@@ -537,6 +540,8 @@ struct AddExpenseView: View {
         if attachedFileURL != nil {
             pdfAttachmentCard
         }
+
+        merchantReturnCard
 
         tallySuggestsCard
     }
@@ -551,7 +556,7 @@ struct AddExpenseView: View {
             }
             let q = trimmed.lowercased()
             return cachedKnownMerchants
-                .filter { $0.lowercased().contains(q) && $0.lowercased() != q }
+                .filter { $0.lowercased().contains(q) }
                 .prefix(6)
                 .map { $0 }
         }()
@@ -705,92 +710,88 @@ struct AddExpenseView: View {
         .animation(.easeInOut(duration: 0.2), value: showChips)
     }
 
-    // MARK: - Quick Add: Compact date / note / receipt row
+    // MARK: - Quick Add: Compact date / receipt row (note promoted to its own card)
 
     private var quickAddExtrasRow: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                // DATE
-                Button { focusedField = nil; showingDatePickerSheet = true } label: {
-                    HStack(spacing: 8) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(hex: "E8F0EA")).frame(width: 30, height: 30)
-                            Image(systemName: "calendar").font(.system(size: 12, weight: .medium)).foregroundStyle(Color(hex: "4A5E50"))
-                        }
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("DATE").font(.system(size: 8, weight: .bold)).foregroundStyle(Color(hex: "2F402E").opacity(0.45)).tracking(0.6)
-                            Text(datePillLabel).font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(hex: "1C1C1E"))
-                        }
-                        Spacer(minLength: 0)
+        HStack(spacing: 8) {
+            // DATE
+            Button { focusedField = nil; showingDatePickerSheet = true } label: {
+                HStack(spacing: 8) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(hex: "E8F0EA")).frame(width: 30, height: 30)
+                        Image(systemName: "calendar").font(.system(size: 12, weight: .medium)).foregroundStyle(Color(hex: "4A5E50"))
                     }
-                    .padding(.horizontal, 10).padding(.vertical, 9).frame(maxWidth: .infinity)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("DATE").font(.system(size: 8, weight: .bold)).foregroundStyle(Color(hex: "2F402E").opacity(0.45)).tracking(0.6)
+                        Text(datePillLabel).font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(hex: "1C1C1E"))
+                    }
+                    Spacer(minLength: 0)
                 }
-                .buttonStyle(.plain)
-
-                // NOTE
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { showNoteInExtrasRow.toggle() }
-                    if showNoteInExtrasRow {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { focusedField = .notes }
-                    } else {
-                        focusedField = nil
-                    }
-                } label: {
-                    HStack(spacing: 8) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(hex: "E8F0EA")).frame(width: 30, height: 30)
-                            Image(systemName: "note.text").font(.system(size: 12, weight: .medium)).foregroundStyle(Color(hex: "4A5E50"))
-                        }
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("NOTE").font(.system(size: 8, weight: .bold)).foregroundStyle(Color(hex: "2F402E").opacity(0.45)).tracking(0.6)
-                            Text(notes.isEmpty ? "Add note" : notes)
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(notes.isEmpty ? Color(hex: "2F402E").opacity(0.3) : Color(hex: "1C1C1E"))
-                                .lineLimit(1)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 10).padding(.vertical, 9).frame(maxWidth: .infinity)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-
-                // RECEIPT
-                Button { showingAddReceiptSources = true } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "paperclip").font(.system(size: 14, weight: .medium)).foregroundStyle(Color(hex: "2F402E").opacity(0.6))
-                        Text("Receipt").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color(hex: "2F402E").opacity(0.65))
-                    }
-                    .padding(.horizontal, 12).padding(.vertical, 12)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(style: StrokeStyle(lineWidth: 1, dash: [4])).foregroundStyle(Color(hex: "2F402E").opacity(0.2)))
-                }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 10).padding(.vertical, 9).frame(maxWidth: .infinity)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
             }
+            .buttonStyle(.plain)
 
-            // Expandable note field
+            // RECEIPT
+            Button { showingAddReceiptSources = true } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: "paperclip").font(.system(size: 14, weight: .medium)).foregroundStyle(Color(hex: "2F402E").opacity(0.6))
+                    Text("Receipt").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color(hex: "2F402E").opacity(0.65))
+                }
+                .padding(.horizontal, 12).padding(.vertical, 12)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(style: StrokeStyle(lineWidth: 1, dash: [4])).foregroundStyle(Color(hex: "2F402E").opacity(0.2)))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Quick Add: Note card (sits between Merchant and Tag)
+
+    private var quickAddNoteCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("NOTE")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
+                .tracking(1.0)
+                .padding(.horizontal, 14)
+                .padding(.top, 14)
+                .padding(.bottom, 8)
+
             if showNoteInExtrasRow {
                 TextField("Add a note…", text: $notes, axis: .vertical)
-                    .font(.system(size: 14))
+                    .font(.system(size: 15))
                     .foregroundStyle(Color(hex: "1C1C1E"))
                     .tint(Color(hex: "2F402E"))
                     .focused($focusedField, equals: .notes)
-                    .lineLimit(2...5)
-                    .padding(.horizontal, 14).padding(.vertical, 12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "2F402E").opacity(0.18), lineWidth: 1))
-                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+                    .lineLimit(1...4)
+                    .padding(.horizontal, 14)
+                    .transition(.opacity)
+            } else {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) { showNoteInExtrasRow = true }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { focusedField = .notes }
+                } label: {
+                    Text("Add a note…")
+                        .font(.system(size: 15))
+                        .foregroundStyle(Color(hex: "C4BFB9"))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 14)
+                .transition(.opacity)
             }
         }
+        .padding(.bottom, 14)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
         .padding(.horizontal, 16)
+        .animation(.easeInOut(duration: 0.2), value: showNoteInExtrasRow)
     }
 
     // MARK: - Quick Add: Floating hero amount (no card, sits on background)
@@ -826,7 +827,7 @@ struct AddExpenseView: View {
                     if let dec = parts.decimal {
                         Text(dec.isEmpty ? "." : ".\(dec)")
                             .font(Font.dmSerifDisplay(34))
-                            .foregroundStyle(Color(hex: "2F402E").opacity(0.35))
+                            .foregroundStyle(amountText.isEmpty ? Color(hex: "2F402E").opacity(0.18) : Color(hex: "1C1C1E"))
                             .animation(.none, value: amountText)
                     }
                 }
@@ -1514,6 +1515,9 @@ struct AddExpenseView: View {
         notesExpanded = false
         showNoteInExtrasRow = false
         showingGoProFromOcrBanner = false
+        tallySuggestion = nil
+        tallySuggestionDismissed = false
+        merchantReturnMessage = nil
         let prompts = ["What's the damage?", "How'd you spend it?", "Where'd it go?", "What's it for?"]
         quickAddPrompt = prompts.randomElement() ?? "What's it for?"
         source = .manual
@@ -1626,6 +1630,92 @@ struct AddExpenseView: View {
         guard suggestion?.tag.id != tallySuggestion?.tag.id else { return }
         withAnimation(.easeInOut(duration: 0.2)) {
             tallySuggestion = suggestion
+        }
+    }
+
+    /// Checks expense history for the current merchant. Auto-applies historical tag and
+    /// shows a playful returning-merchant message instead of generic TallySuggests.
+    private func applyMerchantHistory() {
+        let trimmed = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            withAnimation(.easeInOut(duration: 0.2)) { merchantReturnMessage = nil }
+            updateTagSuggestion()
+            return
+        }
+
+        if let tagIds = historicalTagIds(for: trimmed), !tagIds.isEmpty {
+            if selectedTagIds.isEmpty {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    selectedTagIds = tagIds
+                    tallySuggestion = nil
+                    tallySuggestionDismissed = true
+                }
+            }
+            let totalCents = totalSpent(at: trimmed)
+            if totalCents > 0 {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    merchantReturnMessage = buildReturnMessage(for: trimmed, totalCents: totalCents)
+                }
+            } else {
+                withAnimation(.easeInOut(duration: 0.2)) { merchantReturnMessage = nil }
+            }
+        } else {
+            withAnimation(.easeInOut(duration: 0.2)) { merchantReturnMessage = nil }
+            updateTagSuggestion()
+        }
+    }
+
+    private func historicalTagIds(for merchantName: String) -> [String]? {
+        let q = merchantName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return nil }
+        let match = allExpenses
+            .filter { ($0.merchant ?? "").lowercased() == q && !$0.resolvedTagIds.isEmpty }
+            .sorted { $0.updatedAt > $1.updatedAt }
+            .first
+        return match?.resolvedTagIds
+    }
+
+    private func totalSpent(at merchantName: String) -> Int {
+        let q = merchantName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !q.isEmpty else { return 0 }
+        let currentYear = Calendar.current.component(.year, from: Date())
+        return allExpenses
+            .filter { ($0.merchant ?? "").lowercased() == q }
+            .filter { Calendar.current.component(.year, from: $0.date) == currentYear }
+            .reduce(0) { $0 + $1.amountCents }
+    }
+
+    private func buildReturnMessage(for merchantName: String, totalCents: Int) -> String {
+        let wholeDollars = totalCents / 100
+        let amountStr = "\(currencySymbol)\(wholeDollars)"
+        let options = [
+            "\(merchantName) again?… You've spent \(amountStr) here this year",
+            "Back at \(merchantName)! That's \(amountStr) spent this year",
+            "Another \(merchantName) visit… \(amountStr) this year and counting",
+        ]
+        return options.randomElement() ?? options[0]
+    }
+
+    @ViewBuilder
+    private var merchantReturnCard: some View {
+        if let msg = merchantReturnMessage, !receiptImageAttached {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color(hex: "4A5E50"))
+                    .padding(.top, 1)
+                Text(msg)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(Color(hex: "2F402E").opacity(0.75))
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+            }
+            .padding(14)
+            .background(Color(hex: "EAF5EC"))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color(hex: "2F402E").opacity(0.1), lineWidth: 1))
+            .padding(.horizontal, 16)
+            .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
         }
     }
 
