@@ -222,6 +222,20 @@ struct AddExpenseView: View {
         return (text, usesDecimalCurrency ? "00" : nil)
     }
 
+    // Typed cents digits and how many greyed placeholder zeros remain.
+    // e.g. "100.5" → typed="5", placeholder="0"  →  displays as .5[0]
+    //      "100."  → typed="",  placeholder="00" →  displays as .[00]
+    //      "100"   → typed="",  placeholder="00" →  decimal separator is greyed too
+    private var decimalDisplayParts: (typed: String, placeholder: String) {
+        guard usesDecimalCurrency else { return ("", "") }
+        guard amountText.contains("."), !amountText.hasSuffix(".") else { return ("", "00") }
+        if let dotIdx = amountText.firstIndex(of: ".") {
+            let typed = String(amountText[amountText.index(after: dotIdx)...])
+            return (typed, String(repeating: "0", count: max(0, 2 - typed.count)))
+        }
+        return ("", "00")
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -864,12 +878,23 @@ struct AddExpenseView: View {
                     .foregroundStyle(amountText.isEmpty ? Color(hex: "2F402E").opacity(0.18) : Color(hex: "1C1C1E"))
                     .animation(.none, value: amountText)
 
-                if let dec = parts.decimal {
-                    // Greyed when auto-suffix ".00"; dark only after the user types "."
-                    Text(dec.isEmpty ? "." : ".\(dec)")
-                        .font(Font.dmSerifDisplay(34))
-                        .foregroundStyle(hasDecimalTyped ? Color(hex: "1C1C1E") : Color(hex: "2F402E").opacity(0.18))
-                        .animation(.none, value: amountText)
+                if usesDecimalCurrency {
+                    let dp = decimalDisplayParts
+                    // Three separate nodes so typed digits are dark and untyped zeros stay greyed
+                    HStack(spacing: 0) {
+                        Text(".")
+                            .foregroundStyle(hasDecimalTyped ? Color(hex: "1C1C1E") : Color(hex: "2F402E").opacity(0.18))
+                        if !dp.typed.isEmpty {
+                            Text(dp.typed)
+                                .foregroundStyle(Color(hex: "1C1C1E"))
+                        }
+                        if !dp.placeholder.isEmpty {
+                            Text(dp.placeholder)
+                                .foregroundStyle(Color(hex: "2F402E").opacity(0.18))
+                        }
+                    }
+                    .font(Font.dmSerifDisplay(34))
+                    .animation(.none, value: amountText)
                 }
             }
             .fixedSize()
