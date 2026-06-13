@@ -175,6 +175,15 @@ struct ExpenseCard: View {
         return "Expense"
     }
 
+    /// Secondary context line — note when merchant is the heading, merchant when note is the heading.
+    private var displaySubtitle: String? {
+        let m = merchant?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let n = notes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if !m.isEmpty { return n.isEmpty ? nil : n }   // merchant is title → show note
+        if !n.isEmpty { return m.isEmpty ? nil : m }   // note is title → show merchant
+        return nil
+    }
+
     private static let rowHorizontalPadding: CGFloat = Spacing.md
     private static let iconSlot: CGFloat = 38
 
@@ -232,20 +241,20 @@ struct ExpenseCard: View {
                                 .foregroundStyle(Color.textMuted)
                         }
 
-                        // Who: merchant below tag on the same compact row
-                        if let m = merchant, !m.isEmpty {
+                        // Secondary context after tag — note if merchant is heading, else nothing
+                        if let sub = displaySubtitle {
                             Text("·")
                                 .font(.system(size: 11))
                                 .foregroundStyle(Color.textMuted)
-                            Text(m)
+                            Text(sub)
                                 .font(.system(size: 12))
                                 .foregroundStyle(Color.textMuted)
                                 .lineLimit(1)
                         }
                     }
-                } else if let m = merchant, !m.isEmpty {
-                    // No tag — show merchant on its own line
-                    Text(m)
+                } else if let sub = displaySubtitle {
+                    // No tag — show secondary context on its own line
+                    Text(sub)
                         .font(.system(size: 12))
                         .foregroundStyle(Color.textMuted)
                         .lineLimit(1)
