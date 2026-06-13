@@ -78,6 +78,7 @@ struct AddExpenseView: View {
     @State private var keyboardVisible = false
     @State private var quickAddPrompt: String = ""
     @State private var showNoteInExtrasRow = false
+    @State private var amountCursorVisible: Bool = true
 
     @State private var merchantReturnMessage: String? = nil
     @State private var tagAutoAppliedByHistory = false
@@ -873,28 +874,36 @@ struct AddExpenseView: View {
                 }
                 .buttonStyle(.plain)
 
-                Text(parts.whole)
-                    .font(Font.dmSerifDisplay(76))
-                    .foregroundStyle(amountText.isEmpty ? Color(hex: "2F402E").opacity(0.18) : Color(hex: "1C1C1E"))
-                    .animation(.none, value: amountText)
+                if amountText.isEmpty {
+                    // Empty: cursor sits right after the currency symbol, nothing else shown
+                    Capsule()
+                        .fill(Color(hex: "4A5E50"))
+                        .frame(width: 3, height: 48)
+                        .opacity(amountCursorVisible ? 1 : 0)
+                } else {
+                    // Whole number
+                    Text(parts.whole)
+                        .font(Font.dmSerifDisplay(76))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                        .animation(.none, value: amountText)
 
-                if usesDecimalCurrency {
-                    let dp = decimalDisplayParts
-                    // Three separate nodes so typed digits are dark and untyped zeros stay greyed
-                    HStack(spacing: 0) {
-                        Text(".")
-                            .foregroundStyle(hasDecimalTyped ? Color(hex: "1C1C1E") : Color(hex: "2F402E").opacity(0.18))
-                        if !dp.typed.isEmpty {
-                            Text(dp.typed)
-                                .foregroundStyle(Color(hex: "1C1C1E"))
+                    // Decimal section — only what the user has actually typed
+                    if hasDecimalTyped {
+                        let dp = decimalDisplayParts
+                        HStack(spacing: 0) {
+                            Text(".")
+                            if !dp.typed.isEmpty { Text(dp.typed) }
                         }
-                        if !dp.placeholder.isEmpty {
-                            Text(dp.placeholder)
-                                .foregroundStyle(Color(hex: "2F402E").opacity(0.18))
-                        }
+                        .font(Font.dmSerifDisplay(34))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                        .animation(.none, value: amountText)
                     }
-                    .font(Font.dmSerifDisplay(34))
-                    .animation(.none, value: amountText)
+
+                    // Cursor always at the end of typed content
+                    Capsule()
+                        .fill(Color(hex: "4A5E50"))
+                        .frame(width: 3, height: hasDecimalTyped ? 32 : 48)
+                        .opacity(amountCursorVisible ? 1 : 0)
                 }
             }
             .fixedSize()
@@ -914,6 +923,12 @@ struct AddExpenseView: View {
         // Tap anywhere on the hero to dismiss the system keyboard and restore the keypad
         .contentShape(Rectangle())
         .onTapGesture { focusedField = nil }
+        .task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 530_000_000)
+                withAnimation(.easeInOut(duration: 0.08)) { amountCursorVisible.toggle() }
+            }
+        }
     }
 
 
