@@ -324,8 +324,10 @@ struct AddExpenseView: View {
                 if !newValue.isEmpty {
                     withAnimation(.easeInOut(duration: 0.2)) { tallySuggestion = nil }
                 }
-                // User made a manual change — stop tracking this as auto-applied
-                tagAutoAppliedByHistory = false
+            }
+            .onChange(of: showingTagPicker) { _, isShowing in
+                // Picker dismissed with a user selection — clear the auto-apply flag
+                if !isShowing { tagAutoAppliedByHistory = false }
             }
             .onAppear {
                 applyInitialState()
@@ -668,6 +670,7 @@ struct AddExpenseView: View {
                                 Button {
                                     withAnimation(.easeInOut(duration: 0.15)) {
                                         selectedTagIds.removeAll { $0 == tag.id }
+                                        tagAutoAppliedByHistory = false
                                     }
                                 } label: {
                                     HStack(spacing: 5) {
@@ -689,6 +692,7 @@ struct AddExpenseView: View {
                                 Button {
                                     withAnimation(.easeInOut(duration: 0.15)) {
                                         selectedTagIds = [tag.id]
+                                        tagAutoAppliedByHistory = false
                                     }
                                 } label: {
                                     HStack(spacing: 5) {
@@ -1763,7 +1767,7 @@ struct AddExpenseView: View {
             "Back at \(merchantName)! That's \(amountStr) spent this year",
             "Another \(merchantName) visit… \(amountStr) this year and counting",
         ]
-        return options.randomElement() ?? options[0]
+        return options.randomElement()!
     }
 
     @ViewBuilder
