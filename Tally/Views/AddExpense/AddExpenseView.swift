@@ -78,7 +78,7 @@ struct AddExpenseView: View {
     @State private var keyboardVisible = false
     @State private var quickAddPrompt: String = ""
     @State private var showNoteInExtrasRow = false
-    @State private var amountCursorVisible: Bool = true
+
     @State private var merchantReturnMessage: String? = nil
     @State private var tagAutoAppliedByHistory = false
 
@@ -850,7 +850,6 @@ struct AddExpenseView: View {
             let parts = quickAddAmountParts
             let hasDecimalTyped = amountText.contains(".")
 
-            // Single baseline-aligned row; cursor inserted at the active typing position
             HStack(alignment: .firstTextBaseline, spacing: 2) {
                 Button { showingCurrencyPicker = true } label: {
                     Text(currencySymbol)
@@ -860,43 +859,17 @@ struct AddExpenseView: View {
                 }
                 .buttonStyle(.plain)
 
-                // Cursor before the placeholder "0" when nothing typed yet
-                if !keyboardVisible && !hasDecimalTyped && amountText.isEmpty {
-                    Capsule()
-                        .fill(Color(hex: "4A5E50"))
-                        .frame(width: 3, height: 48)
-                        .padding(.horizontal, 2)
-                        .opacity(amountCursorVisible ? 1 : 0)
-                }
-
                 Text(parts.whole)
                     .font(Font.dmSerifDisplay(76))
                     .foregroundStyle(amountText.isEmpty ? Color(hex: "2F402E").opacity(0.18) : Color(hex: "1C1C1E"))
                     .animation(.none, value: amountText)
 
-                // Cursor after typed digits, before the auto ".00" suffix
-                if !keyboardVisible && !hasDecimalTyped && !amountText.isEmpty {
-                    Capsule()
-                        .fill(Color(hex: "4A5E50"))
-                        .frame(width: 3, height: 48)
-                        .padding(.horizontal, 2)
-                        .opacity(amountCursorVisible ? 1 : 0)
-                }
-
                 if let dec = parts.decimal {
+                    // Greyed when auto-suffix ".00"; dark only after the user types "."
                     Text(dec.isEmpty ? "." : ".\(dec)")
                         .font(Font.dmSerifDisplay(34))
-                        .foregroundStyle(amountText.isEmpty ? Color(hex: "2F402E").opacity(0.18) : Color(hex: "1C1C1E"))
+                        .foregroundStyle(hasDecimalTyped ? Color(hex: "1C1C1E") : Color(hex: "2F402E").opacity(0.18))
                         .animation(.none, value: amountText)
-
-                    // Cursor sits after the typed decimal digits
-                    if !keyboardVisible && hasDecimalTyped {
-                        Capsule()
-                            .fill(Color(hex: "4A5E50"))
-                            .frame(width: 3, height: 32)
-                            .padding(.horizontal, 2)
-                            .opacity(amountCursorVisible ? 1 : 0)
-                    }
                 }
             }
             .fixedSize()
@@ -916,13 +889,6 @@ struct AddExpenseView: View {
         // Tap anywhere on the hero to dismiss the system keyboard and restore the keypad
         .contentShape(Rectangle())
         .onTapGesture { focusedField = nil }
-        // Blink the cursor every ~530 ms
-        .task {
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 530_000_000)
-                withAnimation(.easeInOut(duration: 0.08)) { amountCursorVisible.toggle() }
-            }
-        }
     }
 
 
