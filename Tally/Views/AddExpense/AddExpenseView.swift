@@ -245,6 +245,7 @@ struct AddExpenseView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             withAnimation(.easeInOut(duration: 0.2)) { keyboardVisible = true }
+            formatAmount()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             withAnimation(.easeInOut(duration: 0.2)) { keyboardVisible = false }
@@ -879,7 +880,7 @@ struct AddExpenseView: View {
                     Capsule()
                         .fill(Color(hex: "4A5E50"))
                         .frame(width: 3, height: 48)
-                        .opacity(amountCursorVisible ? 1 : 0)
+                        .opacity(amountCursorVisible && !keyboardVisible ? 1 : 0)
                 } else {
                     // Whole number
                     Text(parts.whole)
@@ -903,7 +904,7 @@ struct AddExpenseView: View {
                     Capsule()
                         .fill(Color(hex: "4A5E50"))
                         .frame(width: 3, height: hasDecimalTyped ? 32 : 48)
-                        .opacity(amountCursorVisible ? 1 : 0)
+                        .opacity(amountCursorVisible && !keyboardVisible ? 1 : 0)
                 }
             }
             .fixedSize()
