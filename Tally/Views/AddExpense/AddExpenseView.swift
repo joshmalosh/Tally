@@ -1,6 +1,7 @@
 import SwiftUI
 import SwiftData
 import UIKit
+import PDFKit
 
 /// Pre-filled values applied when `AddExpenseView` is opened from `MultiReceiptReviewView`.
 struct BatchDraftPrefill {
@@ -53,6 +54,7 @@ struct AddExpenseView: View {
     @State private var showingCamera = false
     @State private var showingPhotoPicker = false
     @State private var showingDocumentPicker = false
+    @State private var showingPDFPreview = false
     @State private var lastImageSource: ExpenseSource = .manual
     @State private var showingTagPicker = false
     @State private var showingCurrencyPicker = false
@@ -301,6 +303,11 @@ struct AddExpenseView: View {
                 if !showing && !formReady {
                     withAnimation(.easeIn(duration: 0.2)) { formReady = true }
                 }
+            }
+            .onChange(of: attachedFileURL) { _, url in
+                // Run OCR when a PDF is attached (images are handled via attachedImage)
+                guard let url, attachedImage == nil, !isEditing else { return }
+                runOCROnPDF(url: url)
             }
             .onChange(of: formReady) { _, ready in
                 guard ready, focusedField == nil, !hasAttachment else { return }
@@ -924,26 +931,36 @@ struct AddExpenseView: View {
         Group {
             if let url = attachedFileURL {
                 HStack(spacing: 12) {
-                    Image(systemName: "doc.fill")
-                        .font(.system(size: 22))
-                        .foregroundStyle(Color(hex: "2F402E"))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(url.lastPathComponent)
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundStyle(Color(hex: "1C1C1E"))
-                            .lineLimit(1)
-                        Text("PDF document")
-                            .font(.system(size: 13))
-                            .foregroundStyle(Color(hex: "8F9E94"))
+                    // Tappable area opens the PDF preview
+                    Button { showingPDFPreview = true } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "doc.richtext")
+                                .font(.system(size: 22))
+                                .foregroundStyle(Color(hex: "2F402E"))
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(url.lastPathComponent)
+                                    .font(.system(size: 15, weight: .semibold))
+                                    .foregroundStyle(Color(hex: "1C1C1E"))
+                                    .lineLimit(1)
+                                Text("Tap to preview · PDF document")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(Color(hex: "8F9E94"))
+                            }
+                            Spacer()
+                        }
                     }
-                    Spacer()
-                    Button("Remove") {
+                    .buttonStyle(.plain)
+
+                    Button {
                         attachedFileURL = nil
                         attachedImage = nil
                         attachmentKey = nil
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(Color(hex: "2F402E").opacity(0.35))
                     }
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Color(hex: "2F402E"))
+                    .buttonStyle(.plain)
                 }
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -954,6 +971,9 @@ struct AddExpenseView: View {
                         .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
                 )
                 .padding(.horizontal, 16)
+                .sheet(isPresented: $showingPDFPreview) {
+                    PDFPreviewSheet(url: url)
+                }
             }
         }
     }
@@ -1624,48 +1644,78 @@ struct AddExpenseView: View {
         isRunningOCR = true
         Task {
             let result = await ReceiptOCRService.extract(from: image)
-            await MainActor.run {
-                let isPro = appState.isPro
-                var applied = false
+            await MainActor.run { applyOCRResult(result) }
+        }
+    }
 
-                if let amount = result.amount, amountText.isEmpty || amountText == "0" || amountText == "0.00" {
-                    if CurrencyFormatter.shared.usesDecimals(for: currency) {
-                        amountText = String(format: "%.2f", amount)
-                    } else {
-                        amountText = String(format: "%.0f", amount)
-                    }
-                    applied = true
-                }
-                if let extractedDate = result.date {
-                    date = extractedDate
-                    applied = true
-                }
-
-                if isPro {
-                    if let name = result.merchant, merchant.isEmpty {
-                        merchant = name
-                        applied = true
-                    }
-                    if let ocrNotes = result.notes, notes.isEmpty {
-                        notes = ocrNotes
-                        applied = true
-                    }
-                }
-
-                ocrPopulatedAnyField = applied
-                isRunningOCR = false
-
-                // Smart tag suggestion — only when something was extracted and no tag is set
-                if applied && selectedTagIds.isEmpty {
-                    let suggestion = TagSuggestionEngine.suggest(
-                        merchant: merchant,
-                        notes: notes,
-                        tags: Array(tags)
-                    )
-                    tallySuggestion = suggestion
-                    tallySuggestionDismissed = false
-                }
+    private func runOCROnPDF(url: URL) {
+        guard let document = PDFDocument(url: url) else { return }
+        isRunningOCR = true
+        Task {
+            var merged = ReceiptOCRResult()
+            for i in 0..<min(document.pageCount, 3) {
+                guard let page = document.page(at: i) else { continue }
+                let image = renderPDFPage(page)
+                let result = await ReceiptOCRService.extract(from: image)
+                if merged.amount == nil   { merged.amount = result.amount }
+                if merged.merchant == nil { merged.merchant = result.merchant }
+                if merged.date == nil     { merged.date = result.date }
+                if merged.notes == nil    { merged.notes = result.notes }
             }
+            await MainActor.run { applyOCRResult(merged) }
+        }
+    }
+
+    private func renderPDFPage(_ page: PDFPage) -> UIImage {
+        let rect = page.bounds(for: .mediaBox)
+        let scale: CGFloat = 2.0
+        let size = CGSize(width: rect.width * scale, height: rect.height * scale)
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { ctx in
+            UIColor.white.setFill()
+            ctx.fill(CGRect(origin: .zero, size: size))
+            let cgCtx = ctx.cgContext
+            cgCtx.scaleBy(x: scale, y: scale)
+            // PDF coordinates are bottom-up; flip to match UIKit's top-down
+            cgCtx.translateBy(x: 0, y: rect.height)
+            cgCtx.scaleBy(x: 1, y: -1)
+            page.draw(with: .mediaBox, to: cgCtx)
+        }
+    }
+
+    @MainActor
+    private func applyOCRResult(_ result: ReceiptOCRResult) {
+        let isPro = appState.isPro
+        var applied = false
+
+        if let amount = result.amount, amountText.isEmpty || amountText == "0" || amountText == "0.00" {
+            amountText = CurrencyFormatter.shared.usesDecimals(for: currency)
+                ? String(format: "%.2f", amount)
+                : String(format: "%.0f", amount)
+            applied = true
+        }
+        if let extractedDate = result.date {
+            date = extractedDate
+            applied = true
+        }
+        if isPro {
+            if let name = result.merchant, merchant.isEmpty {
+                merchant = name
+                applied = true
+            }
+            if let ocrNotes = result.notes, notes.isEmpty {
+                notes = ocrNotes
+                applied = true
+            }
+        }
+
+        ocrPopulatedAnyField = applied
+        isRunningOCR = false
+
+        if applied && selectedTagIds.isEmpty {
+            let suggestion = TagSuggestionEngine.suggest(merchant: merchant, notes: notes, tags: Array(tags))
+            tallySuggestion = suggestion
+            tallySuggestionDismissed = false
         }
     }
 
@@ -2057,5 +2107,46 @@ private struct StickySaveCTAStyle: ButtonStyle {
             return Color(hex: "2F402E").opacity(0.4)
         }
         return isPressed ? Color(hex: "2D5A3F") : Color(hex: "2F402E")
+    }
+}
+
+// MARK: - PDF preview
+
+private struct PDFKitView: UIViewRepresentable {
+    let url: URL
+
+    func makeUIView(context: Context) -> PDFView {
+        let view = PDFView()
+        view.autoScales = true
+        view.displayMode = .singlePageContinuous
+        view.displayDirection = .vertical
+        view.backgroundColor = UIColor.systemGroupedBackground
+        return view
+    }
+
+    func updateUIView(_ pdfView: PDFView, context: Context) {
+        if let doc = PDFDocument(url: url), pdfView.document == nil {
+            pdfView.document = doc
+        }
+    }
+}
+
+struct PDFPreviewSheet: View {
+    let url: URL
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            PDFKitView(url: url)
+                .ignoresSafeArea(edges: .bottom)
+                .navigationTitle(url.deletingPathExtension().lastPathComponent)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") { dismiss() }
+                            .fontWeight(.semibold)
+                    }
+                }
+        }
     }
 }
