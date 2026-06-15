@@ -79,11 +79,12 @@ struct AddExpenseView: View {
     @State private var amountFocusRequested: Bool = false
     @State private var keyboardVisible = false
     @State private var quickAddPrompt: String = ""
-    @State private var showNoteInExtrasRow = false
     @State private var amountCursorVisible: Bool = true
 
     @State private var merchantReturnMessage: String? = nil
     @State private var tagAutoAppliedByHistory = false
+    @State private var isRecurring = false
+    @State private var recurringInterval: RecurringInterval = .monthly
 
     @FocusState private var focusedField: Field?
 
@@ -91,6 +92,22 @@ struct AddExpenseView: View {
 
     private enum Field: Hashable {
         case amount, merchant, notes
+    }
+
+    private enum RecurringInterval: String, CaseIterable {
+        case weekly = "Weekly"
+        case fortnightly = "Fortnightly"
+        case monthly = "Monthly"
+        case annually = "Annually"
+
+        var adverb: String {
+            switch self {
+            case .weekly: return "weekly"
+            case .fortnightly: return "fortnightly"
+            case .monthly: return "monthly"
+            case .annually: return "annually"
+            }
+        }
     }
 
     /// Two-state UI: receipt image attached vs not (PDF-only stays in “no image” layout with file card).
@@ -317,7 +334,7 @@ struct AddExpenseView: View {
                 }
             }
             .onChange(of: notes) { _, newVal in
-                if !newVal.isEmpty { notesExpanded = true; showNoteInExtrasRow = true }
+                if !newVal.isEmpty { notesExpanded = true }
                 updateTagSuggestion()
             }
             .onChange(of: merchant) { _, _ in
@@ -563,9 +580,13 @@ struct AddExpenseView: View {
 
         quickAddMerchantCard
 
+        quickAddNoteCard
+
         quickAddTagCard
 
         quickAddExtrasRow
+
+        quickAddRecurringCard
 
         if attachedFileURL != nil {
             pdfAttachmentCard
@@ -651,10 +672,43 @@ struct AddExpenseView: View {
         .animation(.easeInOut(duration: 0.15), value: showChips)
     }
 
+    // MARK: - Quick Add: Note card
+
+    private var quickAddNoteCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: "doc.text")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color(hex: "4A5E50"))
+                Text("WHAT WAS IT?")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
+                    .tracking(1.0)
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 14)
+            .padding(.bottom, 8)
+
+            TextField("A flat white before the meeting…", text: $notes, axis: .vertical)
+                .font(Font.dmSerifDisplay(17).italic())
+                .foregroundStyle(notes.isEmpty ? Color(hex: "C4BFB9") : Color(hex: "1C1C1E"))
+                .focused($focusedField, equals: .notes)
+                .tint(Color(hex: "2F402E"))
+                .lineLimit(1...4)
+                .padding(.horizontal, 14)
+        }
+        .padding(.bottom, 14)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
+        .padding(.horizontal, 16)
+    }
+
     // MARK: - Quick Add: Tag card — chips visible only after merchant is entered
 
     private var quickAddTagCard: some View {
         let showChips = !merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasContent = showChips || !selectedTagIds.isEmpty
 
         return VStack(alignment: .leading, spacing: 0) {
             HStack {
@@ -663,12 +717,21 @@ struct AddExpenseView: View {
                     .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
                     .tracking(1.0)
                 Spacer()
+                if !hasContent {
+                    Button { showingTagPicker = true } label: {
+                        Text("e.g. coffee, transport…")
+                            .font(.system(size: 14))
+                            .foregroundStyle(Color(hex: "C4BFB9"))
+                    }
+                    .buttonStyle(.plain)
+                    .transition(.opacity)
+                }
             }
             .padding(.horizontal, 14)
             .padding(.top, 14)
-            .padding(.bottom, 12)
+            .padding(.bottom, hasContent ? 12 : 14)
 
-            if showChips {
+            if hasContent {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         if !selectedTagIds.isEmpty {
@@ -732,112 +795,54 @@ struct AddExpenseView: View {
                     }
                     .padding(.horizontal, 14)
                 }
+                .padding(.bottom, 14)
                 .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .leading)))
-            } else {
-                Button { showingTagPicker = true } label: {
-                    Text("Add tag")
-                        .font(.system(size: 15))
-                        .foregroundStyle(Color(hex: "C4BFB9"))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.plain)
-                .padding(.horizontal, 14)
-                .transition(.opacity)
             }
         }
-        .padding(.bottom, 14)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
         .padding(.horizontal, 16)
-        .animation(.easeInOut(duration: 0.2), value: showChips)
+        .animation(.easeInOut(duration: 0.2), value: hasContent)
     }
 
-    // MARK: - Quick Add: Compact date / note / receipt row
+    // MARK: - Quick Add: Compact date / receipt row
 
     private var quickAddExtrasRow: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                // DATE
-                Button { focusedField = nil; showingDatePickerSheet = true } label: {
-                    HStack(spacing: 8) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(hex: "E8F0EA")).frame(width: 30, height: 30)
-                            Image(systemName: "calendar").font(.system(size: 12, weight: .medium)).foregroundStyle(Color(hex: "4A5E50"))
-                        }
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("DATE").font(.system(size: 8, weight: .bold)).foregroundStyle(Color(hex: "2F402E").opacity(0.45)).tracking(0.6)
-                            Text(datePillLabel).font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(hex: "1C1C1E"))
-                        }
-                        Spacer(minLength: 0)
+        HStack(spacing: 8) {
+            // DATE
+            Button { focusedField = nil; showingDatePickerSheet = true } label: {
+                HStack(spacing: 8) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(hex: "E8F0EA")).frame(width: 30, height: 30)
+                        Image(systemName: "calendar").font(.system(size: 12, weight: .medium)).foregroundStyle(Color(hex: "4A5E50"))
                     }
-                    .padding(.horizontal, 10).padding(.vertical, 9).frame(maxWidth: .infinity)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("DATE").font(.system(size: 8, weight: .bold)).foregroundStyle(Color(hex: "2F402E").opacity(0.45)).tracking(0.6)
+                        Text(datePillLabel).font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(hex: "1C1C1E"))
+                    }
+                    Spacer(minLength: 0)
                 }
-                .buttonStyle(.plain)
-
-                // NOTE
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) { showNoteInExtrasRow.toggle() }
-                    if showNoteInExtrasRow {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { focusedField = .notes }
-                    } else {
-                        focusedField = nil
-                    }
-                } label: {
-                    HStack(spacing: 8) {
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(hex: "E8F0EA")).frame(width: 30, height: 30)
-                            Image(systemName: "note.text").font(.system(size: 12, weight: .medium)).foregroundStyle(Color(hex: "4A5E50"))
-                        }
-                        VStack(alignment: .leading, spacing: 1) {
-                            Text("NOTE").font(.system(size: 8, weight: .bold)).foregroundStyle(Color(hex: "2F402E").opacity(0.45)).tracking(0.6)
-                            Text(notes.isEmpty ? "Add note" : notes)
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(notes.isEmpty ? Color(hex: "2F402E").opacity(0.3) : Color(hex: "1C1C1E"))
-                                .lineLimit(1)
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 10).padding(.vertical, 9).frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-
-                // RECEIPT
-                Button { showingAddReceiptSources = true } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "paperclip").font(.system(size: 14, weight: .medium)).foregroundStyle(Color(hex: "2F402E").opacity(0.6))
-                        Text("Receipt").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color(hex: "2F402E").opacity(0.65))
-                    }
-                    .padding(.horizontal, 12).padding(.vertical, 12)
-                    .frame(maxHeight: .infinity)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(style: StrokeStyle(lineWidth: 1, dash: [4])).foregroundStyle(Color(hex: "2F402E").opacity(0.2)))
-                }
-                .buttonStyle(.plain)
+                .padding(.horizontal, 10).padding(.vertical, 9).frame(maxWidth: .infinity)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
             }
+            .buttonStyle(.plain)
 
-            // Expandable note field
-            if showNoteInExtrasRow {
-                TextField("Add a note…", text: $notes, axis: .vertical)
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-                    .tint(Color(hex: "2F402E"))
-                    .focused($focusedField, equals: .notes)
-                    .lineLimit(2...5)
-                    .padding(.horizontal, 14).padding(.vertical, 12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "2F402E").opacity(0.18), lineWidth: 1))
-                    .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+            // ADD RECEIPT
+            Button { showingAddReceiptSources = true } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "paperclip").font(.system(size: 13, weight: .medium)).foregroundStyle(Color(hex: "2F402E").opacity(0.6))
+                    Text("Add receipt").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color(hex: "2F402E").opacity(0.65))
+                }
+                .padding(.horizontal, 12).padding(.vertical, 9)
+                .frame(maxHeight: .infinity)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(style: StrokeStyle(lineWidth: 1, dash: [4])).foregroundStyle(Color(hex: "2F402E").opacity(0.2)))
             }
+            .buttonStyle(.plain)
         }
         .padding(.horizontal, 16)
     }
@@ -924,6 +929,77 @@ struct AddExpenseView: View {
         }
     }
 
+
+    // MARK: - Quick Add: Recurring card
+
+    private var quickAddRecurringCard: some View {
+        VStack(spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { isRecurring.toggle() }
+            } label: {
+                HStack(spacing: 10) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color(hex: "E8F0EA"))
+                            .frame(width: 30, height: 30)
+                        Image(systemName: "arrow.2.squarepath")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Color(hex: "4A5E50"))
+                    }
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("RECURRING")
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
+                            .tracking(0.6)
+                        Text(isRecurring ? "Repeats \(recurringInterval.adverb)" : "One-off expense")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color(hex: "1C1C1E"))
+                    }
+                    Spacer(minLength: 0)
+                    ZStack {
+                        Circle()
+                            .fill(isRecurring ? Color(hex: "2F402E") : Color(hex: "E2DDD6"))
+                            .frame(width: 28, height: 28)
+                        if isRecurring {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+            }
+            .buttonStyle(.plain)
+
+            if isRecurring {
+                HStack(spacing: 8) {
+                    ForEach(RecurringInterval.allCases, id: \.self) { interval in
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) { recurringInterval = interval }
+                        } label: {
+                            Text(interval.rawValue)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(recurringInterval == interval ? .white : Color(hex: "2F402E").opacity(0.7))
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(recurringInterval == interval ? Color(hex: "2F402E") : Color(hex: "F0EDE6"))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 12)
+                .transition(.opacity.combined(with: .scale(scale: 0.97, anchor: .top)))
+            }
+        }
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
+        .padding(.horizontal, 16)
+        .animation(.easeInOut(duration: 0.2), value: isRecurring)
+    }
 
     // MARK: - PDF-only card
 
@@ -1565,7 +1641,6 @@ struct AddExpenseView: View {
                     attachedImage = img
                 }
             }
-            showNoteInExtrasRow = !notes.isEmpty
             quickAddPrompt = ""   // No prompt in edit mode
             return
         }
@@ -1583,12 +1658,13 @@ struct AddExpenseView: View {
         ocrPopulatedAnyField = false
         isRunningOCR = false
         notesExpanded = false
-        showNoteInExtrasRow = false
         showingGoProFromOcrBanner = false
         tallySuggestion = nil
         tallySuggestionDismissed = false
         merchantReturnMessage = nil
         tagAutoAppliedByHistory = false
+        isRecurring = false
+        recurringInterval = .monthly
         let prompts = ["What's the damage?", "How'd you spend it?", "Where'd it go?", "What's it for?"]
         quickAddPrompt = prompts.randomElement() ?? "What's it for?"
         source = .manual
@@ -1635,7 +1711,6 @@ struct AddExpenseView: View {
             if !prefill.notes.isEmpty {
                 notes = prefill.notes
                 notesExpanded = true
-                showNoteInExtrasRow = true
             }
         }
     }
