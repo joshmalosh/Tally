@@ -445,12 +445,6 @@ struct MultiReceiptReviewView: View {
         return usesDecimals ? Int(round(val * 100)) : Int(round(val))
     }
 
-    private func shimmerBar(width: CGFloat, height: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: height / 2)
-            .fill(Color(hex: "EEEDEB"))
-            .frame(width: width, height: height)
-    }
-
     // MARK: - OCR
 
     private func runAllOCR() async {

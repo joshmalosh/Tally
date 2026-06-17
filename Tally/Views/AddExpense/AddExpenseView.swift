@@ -1546,18 +1546,6 @@ struct AddExpenseView: View {
         }
     }
 
-    // MARK: - Helpers
-
-    private func unevenRect(topLeading: CGFloat, topTrailing: CGFloat, bottomLeading: CGFloat, bottomTrailing: CGFloat) -> UnevenRoundedRectangle {
-        UnevenRoundedRectangle(
-            topLeadingRadius: topLeading,
-            bottomLeadingRadius: bottomLeading,
-            bottomTrailingRadius: bottomTrailing,
-            topTrailingRadius: topTrailing,
-            style: .continuous
-        )
-    }
-
     // MARK: - UIKit presentation
 
     private func presentReviewViaUIKit(images: [UIImage]) {

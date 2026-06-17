@@ -100,11 +100,6 @@ enum ReceiptOCRService {
         options: .caseInsensitive
     )
 
-    private static let percentPattern = try! NSRegularExpression(
-        pattern: #"\d[,.]?\d*\s*%"#,
-        options: []
-    )
-
     private static let totalLinePattern = try! NSRegularExpression(
         pattern: #"(?<!\w)(?:grand\s+)?(?:total|net)(?:\s+due|\s+payable|\s+amount|\s+charge)?(?:\s*:)?(?!\w)"#,
         options: .caseInsensitive
