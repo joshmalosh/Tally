@@ -56,6 +56,10 @@ struct HomeView: View {
             let cal = Calendar.current
             let now = Date()
             return activeExpenses.filter { cal.isDate($0.date, equalTo: now, toGranularity: .month) }
+        case .lastMonth:
+            let cal = Calendar.current
+            guard let lastMonth = cal.date(byAdding: .month, value: -1, to: Date()) else { return [] }
+            return activeExpenses.filter { cal.isDate($0.date, equalTo: lastMonth, toGranularity: .month) }
         }
     }
 
@@ -1190,6 +1194,7 @@ enum PeriodFilter {
     case thisFinancialYear
     case thisYear
     case thisMonth
+    case lastMonth
 
     var label: String {
         switch self {
@@ -1198,6 +1203,7 @@ enum PeriodFilter {
         case .thisFinancialYear: "Financial Year"
         case .thisYear: "This Year"
         case .thisMonth: "This Month"
+        case .lastMonth: "Last Month"
         }
     }
 }

@@ -38,26 +38,17 @@ struct FilterSheet: View {
                             .padding(.horizontal, 20)
 
                         VStack(spacing: 0) {
-                            ForEach([PeriodFilter.allTime, .thisFinancialYear, .thisYear, .thisMonth], id: \.label) { filter in
-                                Button {
+                            ForEach([PeriodFilter.allTime, .thisFinancialYear, .thisYear, .thisMonth, .lastMonth], id: \.label) { filter in
+                                FilterRow(
+                                    title: filter.label,
+                                    titleFont: .system(size: 16),
+                                    isSelected: periodFilter == filter,
+                                    checkmarkFont: .system(size: 14, weight: .semibold),
+                                    verticalPadding: 13
+                                ) {
                                     periodFilter = filter
-                                } label: {
-                                    HStack {
-                                        Text(filter.label)
-                                            .font(.system(size: 16))
-                                            .foregroundStyle(Color(hex: "1C1C1E"))
-                                        Spacer()
-                                        if periodFilter == filter {
-                                            Image(systemName: "checkmark")
-                                                .font(.system(size: 14, weight: .semibold))
-                                                .foregroundStyle(Color(hex: "2F402E"))
-                                        }
-                                    }
-                                    .padding(.horizontal, 20)
-                                    .padding(.vertical, 13)
                                 }
-                                .buttonStyle(.plain)
-                                if filter != .thisMonth {
+                                if filter != .lastMonth {
                                     Divider().padding(.horizontal, 20)
                                 }
                             }
@@ -84,53 +75,41 @@ struct FilterSheet: View {
                                 }
 
                                 ForEach(Array(groups.enumerated()), id: \.element.id) { gIndex, group in
-                                    Button {
-                                        appState.toggleFilter(id: group.id, isGroup: true)
-                                    } label: {
-                                        HStack(spacing: 10) {
+                                    FilterRow(
+                                        title: group.name,
+                                        titleFont: .system(size: 16),
+                                        isSelected: appState.activeFilterIds.contains(group.id),
+                                        checkmarkFont: .system(size: 14, weight: .semibold),
+                                        verticalPadding: 13,
+                                        leading: {
                                             Image(systemName: "folder.fill")
                                                 .font(.system(size: 12))
                                                 .foregroundStyle(group.tagColor.primaryColor)
-                                            Text(group.name)
-                                                .font(.system(size: 16))
-                                                .foregroundStyle(Color(hex: "1C1C1E"))
-                                            Spacer()
-                                            if appState.activeFilterIds.contains(group.id) {
-                                                Image(systemName: "checkmark")
-                                                    .font(.system(size: 14, weight: .semibold))
-                                                    .foregroundStyle(Color(hex: "2F402E"))
-                                            }
                                         }
-                                        .padding(.horizontal, 20)
-                                        .padding(.vertical, 13)
+                                    ) {
+                                        appState.toggleFilter(id: group.id, isGroup: true)
                                     }
-                                    .buttonStyle(.plain)
 
                                     let children = childTags(of: group)
                                     ForEach(children, id: \.id) { child in
                                         Divider().padding(.horizontal, 20)
-                                        Button {
-                                            appState.toggleFilter(id: child.id, isGroup: false)
-                                        } label: {
-                                            HStack(spacing: 10) {
+                                        FilterRow(
+                                            title: child.name,
+                                            titleFont: .system(size: 15),
+                                            titleColor: Color(hex: "4A5E50"),
+                                            isSelected: appState.activeFilterIds.contains(child.id),
+                                            checkmarkFont: .system(size: 13, weight: .semibold),
+                                            horizontalPadding: 20,
+                                            verticalPadding: 11,
+                                            leading: {
                                                 Circle()
                                                     .fill(child.tagColor.primaryColor)
                                                     .frame(width: 8, height: 8)
                                                     .padding(.leading, 16)
-                                                Text(child.name)
-                                                    .font(.system(size: 15))
-                                                    .foregroundStyle(Color(hex: "4A5E50"))
-                                                Spacer()
-                                                if appState.activeFilterIds.contains(child.id) {
-                                                    Image(systemName: "checkmark")
-                                                        .font(.system(size: 13, weight: .semibold))
-                                                        .foregroundStyle(Color(hex: "2F402E"))
-                                                }
                                             }
-                                            .padding(.horizontal, 20)
-                                            .padding(.vertical, 11)
+                                        ) {
+                                            appState.toggleFilter(id: child.id, isGroup: false)
                                         }
-                                        .buttonStyle(.plain)
                                     }
 
                                     if gIndex < groups.count - 1 {
@@ -165,31 +144,89 @@ struct FilterSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
         .presentationDragIndicator(.visible)
     }
 
     private func tagFilterRow(tag: TagModel) -> some View {
-        Button {
-            appState.toggleFilter(id: tag.id, isGroup: false)
-        } label: {
-            HStack(spacing: 10) {
+        FilterRow(
+            title: tag.name,
+            titleFont: .system(size: 16),
+            isSelected: appState.activeFilterIds.contains(tag.id),
+            checkmarkFont: .system(size: 14, weight: .semibold),
+            verticalPadding: 13,
+            leading: {
                 Circle()
                     .fill(tag.tagColor.primaryColor)
                     .frame(width: 10, height: 10)
-                Text(tag.name)
-                    .font(.system(size: 16))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-                Spacer()
-                if appState.activeFilterIds.contains(tag.id) {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Color(hex: "2F402E"))
-                }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 13)
+        ) {
+            appState.toggleFilter(id: tag.id, isGroup: false)
         }
-        .buttonStyle(.plain)
+    }
+}
+
+/// A full-width, full-height tappable filter row: the entire row (not just the
+/// glyphs) is a hit target, and pressing it flashes the brand green with white
+/// text/checkmark so a press always reads as a press.
+private struct FilterRow<Leading: View>: View {
+    let title: String
+    var titleFont: Font = .system(size: 16)
+    var titleColor: Color = Color(hex: "1C1C1E")
+    let isSelected: Bool
+    var checkmarkFont: Font = .system(size: 14, weight: .semibold)
+    var horizontalPadding: CGFloat = 20
+    var verticalPadding: CGFloat = 13
+    let leading: () -> Leading
+    let action: () -> Void
+
+    @State private var isPressed = false
+
+    init(
+        title: String,
+        titleFont: Font = .system(size: 16),
+        titleColor: Color = Color(hex: "1C1C1E"),
+        isSelected: Bool,
+        checkmarkFont: Font = .system(size: 14, weight: .semibold),
+        horizontalPadding: CGFloat = 20,
+        verticalPadding: CGFloat = 13,
+        @ViewBuilder leading: @escaping () -> Leading = { EmptyView() },
+        action: @escaping () -> Void
+    ) {
+        self.title = title
+        self.titleFont = titleFont
+        self.titleColor = titleColor
+        self.isSelected = isSelected
+        self.checkmarkFont = checkmarkFont
+        self.horizontalPadding = horizontalPadding
+        self.verticalPadding = verticalPadding
+        self.leading = leading
+        self.action = action
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            leading()
+            Text(title)
+                .font(titleFont)
+                .foregroundStyle(isPressed ? Color.white : titleColor)
+            Spacer()
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .font(checkmarkFont)
+                    .foregroundStyle(isPressed ? Color.white : Color(hex: "2F402E"))
+            }
+        }
+        .padding(.horizontal, horizontalPadding)
+        .padding(.vertical, verticalPadding)
+        .contentShape(Rectangle())
+        .background(isPressed ? Color.brandPrimary : Color.clear)
+        .animation(.easeOut(duration: 0.12), value: isPressed)
+        .onTapGesture(perform: action)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
     }
 }

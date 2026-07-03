@@ -428,8 +428,19 @@ enum ReceiptOCRService {
     private static func extractMerchant(from blocks: [TextBlock]) -> String? {
         let ordered = blocks.sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
 
-        for block in ordered {
-            guard block.confidence >= 0.75 else { continue }
+        if let match = firstMerchantCandidate(in: ordered, minConfidence: 0.75) {
+            return match
+        }
+        // Fallback: store names are often printed in a large/bold header font that OCRs
+        // with lower confidence than the small monospace body text below it — don't let
+        // the whole extraction come up empty (or fall through to a divider line) just
+        // because the name itself scored under the primary threshold.
+        return firstMerchantCandidate(in: ordered, minConfidence: 0.4)
+    }
+
+    private static func firstMerchantCandidate(in blocks: [TextBlock], minConfidence: Float) -> String? {
+        for block in blocks {
+            guard block.confidence >= minConfidence else { continue }
 
             let raw = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard raw.count >= 2 else { continue }
@@ -444,10 +455,12 @@ enum ReceiptOCRService {
             text = text
                 .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-                .trimmingCharacters(in: CharacterSet(charactersIn: ".,;:-•·"))
+                .trimmingCharacters(in: CharacterSet(charactersIn: ".,;:-=_*~•·"))
 
             guard text.count >= 2, text.count <= 45 else { continue }
             if text.contains(where: { $0.isNumber }) { continue }
+            // Reject divider/rule lines ("====", "----", "****") — a merchant name has letters.
+            guard text.contains(where: { $0.isLetter }) else { continue }
 
             let wordCount = text.split(whereSeparator: { $0.isWhitespace }).count
             guard wordCount <= 6 else { continue }

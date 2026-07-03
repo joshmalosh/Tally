@@ -81,6 +81,7 @@ struct AddExpenseView: View {
     @State private var quickAddPrompt: String = ""
     @State private var amountCursorVisible: Bool = true
 
+    @State private var dateManuallyEdited = false
     @State private var merchantReturnMessage: String? = nil
     @State private var tagAutoAppliedByHistory = false
     @State private var isRecurring = false
@@ -277,6 +278,7 @@ struct AddExpenseView: View {
             .onChange(of: attachedImage) { _, newValue in
                 if newValue == nil {
                     ocrPopulatedAnyField = false
+                    dateManuallyEdited = false
                     tallySuggestion = nil
                     tallySuggestionDismissed = false
                 }
@@ -290,6 +292,7 @@ struct AddExpenseView: View {
                     }
                     source = lastImageSource
                     ocrPopulatedAnyField = false
+                    dateManuallyEdited = false
                     focusedField = nil
                     amountFocusRequested = false
                     if !isEditing {
@@ -383,8 +386,11 @@ struct AddExpenseView: View {
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
-                            Button("Done") { showingDatePickerSheet = false }
-                                .foregroundStyle(Color(hex: "2F402E"))
+                            Button("Done") {
+                                dateManuallyEdited = true
+                                showingDatePickerSheet = false
+                            }
+                            .foregroundStyle(Color(hex: "2F402E"))
                         }
                     }
                 }
@@ -1168,6 +1174,7 @@ struct AddExpenseView: View {
                             source = .manual
                             enteredViaPhotoFlow = true
                             ocrPopulatedAnyField = false
+                            dateManuallyEdited = false
                         } label: {
                             Text("Remove")
                                 .font(.system(size: 11))
@@ -1202,6 +1209,9 @@ struct AddExpenseView: View {
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(Color(hex: "8F9E94"))
                     .tracking(0.8)
+                if isRunningOCR && amountText.isEmpty {
+                    ProgressView().scaleEffect(0.6).tint(Color(hex: "8F9E94"))
+                }
                 Spacer(minLength: 8)
                 HStack(spacing: 3) {
                     Button { showingCurrencyPicker = true } label: {
@@ -1256,8 +1266,11 @@ struct AddExpenseView: View {
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(Color(hex: "8F9E94"))
                     .tracking(0.8)
+                if isRunningOCR && merchant.isEmpty && appState.isPro {
+                    ProgressView().scaleEffect(0.6).tint(Color(hex: "8F9E94"))
+                }
                 Spacer(minLength: 8)
-                TextField("Name", text: $merchant)
+                TextField(isRunningOCR && appState.isPro ? "Detecting…" : "Name", text: $merchant)
                     .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(Color(hex: "1C1C1E"))
                     .multilineTextAlignment(.trailing)
@@ -1287,6 +1300,9 @@ struct AddExpenseView: View {
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(Color(hex: "8F9E94"))
                         .tracking(0.8)
+                    if isRunningOCR && !dateManuallyEdited {
+                        ProgressView().scaleEffect(0.6).tint(Color(hex: "8F9E94"))
+                    }
                     Spacer(minLength: 8)
                     Text(Self.datePillFormatter.string(from: date))
                         .font(.system(size: 15, weight: .medium))
@@ -1315,8 +1331,11 @@ struct AddExpenseView: View {
                     .foregroundStyle(Color(hex: "8F9E94"))
                     .tracking(0.8)
                     .padding(.top, 4)
+                if isRunningOCR && notes.isEmpty && appState.isPro {
+                    ProgressView().scaleEffect(0.6).tint(Color(hex: "8F9E94"))
+                }
                 Spacer(minLength: 8)
-                TextField("Add a note...", text: $notes, axis: .vertical)
+                TextField(isRunningOCR && appState.isPro ? "Detecting…" : "Add a note...", text: $notes, axis: .vertical)
                     .font(.system(size: 15))
                     .foregroundStyle(notes.isEmpty ? Color(hex: "C4BFB9") : Color(hex: "1C1C1E"))
                     .multilineTextAlignment(.trailing)
@@ -1645,6 +1664,7 @@ struct AddExpenseView: View {
         attachmentKey = nil
         ocrPopulatedAnyField = false
         isRunningOCR = false
+        dateManuallyEdited = false
         notesExpanded = false
         showingGoProFromOcrBanner = false
         tallySuggestion = nil
@@ -1757,7 +1777,7 @@ struct AddExpenseView: View {
                 : String(format: "%.0f", amount)
             applied = true
         }
-        if let extractedDate = result.date {
+        if let extractedDate = result.date, !dateManuallyEdited {
             date = extractedDate
             applied = true
         }
