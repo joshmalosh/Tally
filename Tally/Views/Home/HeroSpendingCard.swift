@@ -1,5 +1,4 @@
 import SwiftUI
-import Charts
 
 // MARK: - Period enum (shared by HeroSpendingCard + HomeView)
 
@@ -13,6 +12,15 @@ enum HeroPeriod: Int, CaseIterable {
         case .month: "SPENT THIS MONTH"
         case .week:  "SPENT THIS WEEK"
         case .year:  "SPENT THIS YEAR"
+        }
+    }
+
+    /// Short label for the hero card's period picker, e.g. "This Year".
+    var pickerLabel: String {
+        switch self {
+        case .month: "This Month"
+        case .week:  "This Week"
+        case .year:  "This Year"
         }
     }
 
@@ -165,271 +173,55 @@ private struct HeroPeriodPage: View {
 
 // MARK: - SpendingSummaryCard
 
+/// Compact hero card: a period picker + export action on top, then "Total spent" and
+/// "Top category" side by side — both driven by the same selected period so the top
+/// category always reflects whatever range the user has picked (Week/Month/Year).
 struct SpendingSummaryCard: View {
     @Environment(AppState.self) private var appState
+    @Binding var selectedPeriod: HeroPeriod
 
     let allExpenses: [ExpenseModel]
     let allTags: [TagModel]
     let homeBarTagId: String?
-    let homeBarTagName: String?
-    /// Called when the user taps the left (amount/period) panel — opens PeriodDetailView.
-    let onPeriodTap: (HeroPeriod) -> Void
-    /// Called when the user taps the right (chart) panel — opens Reports tab.
-    let onChartTap: () -> Void
-
-    @State private var pageIndex: Int = 0
+    /// Called when the user taps the card body — opens PeriodDetailView for the selected period.
+    let onPeriodTap: () -> Void
+    /// Called when the user taps the Export pill.
+    let onExportTap: () -> Void
 
     private var currency: String { appState.defaultCurrency }
-    private let periods = HeroPeriod.allCases
 
     // MARK: - Computed helpers
 
-    private func totalCents(for period: HeroPeriod) -> Int {
-        let range = period.dateRange()
+    /// Expenses within the selected period, narrowed by the home tag bar's active filter (if any).
+    private var periodExpenses: [ExpenseModel] {
+        let range = selectedPeriod.dateRange()
         var result = allExpenses.filter { $0.date >= range.start && $0.date <= range.end }
         if let tagId = homeBarTagId {
             result = result.filter { $0.resolvedTagIds.contains(tagId) }
         }
-        return result.reduce(0) { $0 + $1.amountCents }
+        return result
     }
 
-    /// Monthly spend totals for the current calendar year (for the chart).
-    private var monthlyTotals: [SummaryMonthTotal] {
-        let cal = Calendar.current
-        let now = Date()
-        let yearStart = cal.dateInterval(of: .year, for: now)?.start ?? now
-        let yearExpenses = allExpenses.filter { $0.date >= yearStart && $0.date <= now }
-
-        var buckets: [Int: Int] = [:]
-        for expense in yearExpenses {
-            let month = cal.component(.month, from: expense.date)
-            buckets[month, default: 0] += expense.amountCents
-        }
-
-        let currentMonth = cal.component(.month, from: now)
-        return (1...currentMonth).map { month in
-            SummaryMonthTotal(month: month, cents: buckets[month] ?? 0)
-        }
+    private var totalCents: Int {
+        periodExpenses.reduce(0) { $0 + $1.amountCents }
     }
 
-    /// Tag with the highest spend this year.
-    private var topTag: (tag: TagModel, cents: Int)? {
-        let cal = Calendar.current
-        let now = Date()
-        let yearStart = cal.dateInterval(of: .year, for: now)?.start ?? now
-        let yearExpenses = allExpenses.filter { $0.date >= yearStart && $0.date <= now }
-
+    /// Tag with the highest spend within the selected period.
+    private var topCategory: (tag: TagModel, cents: Int)? {
         let tagMap = Dictionary(uniqueKeysWithValues: allTags.map { ($0.id, $0) })
-        var tagTotals: [String: Int] = [:]
-        for expense in yearExpenses {
+        var totals: [String: Int] = [:]
+        for expense in periodExpenses {
             for tagId in expense.resolvedTagIds {
-                tagTotals[tagId, default: 0] += expense.amountCents
+                totals[tagId, default: 0] += expense.amountCents
             }
         }
-
-        guard let best = tagTotals.max(by: { $0.value < $1.value }),
-              let tag = tagMap[best.key]
-        else { return nil }
+        guard let best = totals.max(by: { $0.value < $1.value }), let tag = tagMap[best.key] else { return nil }
         return (tag, best.value)
     }
 
-    // MARK: - Body
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            // Left: narrow amount panel — fixed slot, right panel takes remaining space
-            leftPanel
-                .padding(.leading, 14)
-                .padding(.vertical, 14)
-                .padding(.trailing, 10)
-                .frame(width: 148)   // ~40% of a 360pt card; right panel gets ~60%
-
-            // Vertical divider — no height constraint; fixedSize below keeps card compact
-            Rectangle()
-                .fill(Color(hex: "E8E4DD"))
-                .frame(width: 0.5)
-
-            // Right: chart takes all remaining space
-            rightPanel
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .padding(.leading, 10)
-                .padding(.trailing, 12)
-        }
-        .frame(maxWidth: .infinity)
-        // fixedSize(vertical: true) makes the HStack shrink to its tallest child's
-        // intrinsic height instead of accepting whatever height the parent offers.
-        // Without this the bare Rectangle() divider expands to fill the screen.
-        .fixedSize(horizontal: false, vertical: true)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: .black.opacity(0.07), radius: 12, x: 0, y: 3)
-        .padding(.horizontal, 16)
-    }
-
-    // MARK: - Left panel
-    // Uses DragGesture instead of TabView — TabView(.page) ignores frame(height:)
-    // and expands to fill all available space, making the card massive.
-
-    private var leftPanel: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SpendingPeriodPage(
-                period: periods[pageIndex],
-                totalCents: totalCents(for: periods[pageIndex])
-            )
-            .animation(.easeInOut(duration: 0.2), value: pageIndex)
-
-            // Page indicators — larger and more spaced so they're clearly visible
-            HStack(spacing: 7) {
-                ForEach(0..<periods.count, id: \.self) { i in
-                    if i == pageIndex {
-                        Capsule()
-                            .fill(Color(hex: "346049"))
-                            .frame(width: 22, height: 5)
-                    } else {
-                        Capsule()
-                            .fill(Color(hex: "DEDAD2"))
-                            .frame(width: 8, height: 5)
-                    }
-                }
-            }
-            .animation(.easeInOut(duration: 0.15), value: pageIndex)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .contentShape(Rectangle())
-        .onTapGesture { onPeriodTap(periods[pageIndex]) }
-        .gesture(
-            DragGesture(minimumDistance: 20, coordinateSpace: .local)
-                .onEnded { value in
-                    guard abs(value.translation.width) > abs(value.translation.height) else { return }
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        if value.translation.width < 0 {
-                            pageIndex = min(pageIndex + 1, periods.count - 1)
-                        } else {
-                            pageIndex = max(pageIndex - 1, 0)
-                        }
-                    }
-                }
-        )
-    }
-
-    // MARK: - Right panel
-
-    private var rightPanel: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Spending trend")
-                .font(.system(size: 10, weight: .regular))
-                .foregroundStyle(Color(hex: "8F9E94"))
-
-            spendingChart
-
-            if let top = topTag {
-                topCategoryRow(tag: top.tag, cents: top.cents)
-            }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture { onChartTap() }
-    }
-
-    // MARK: - Chart
-
-    @ViewBuilder
-    private var spendingChart: some View {
-        let data = monthlyTotals
-        let maxCents = data.map(\.cents).max() ?? 1
-
-        Chart {
-            ForEach(data) { point in
-                AreaMark(
-                    x: .value("Month", point.month),
-                    y: .value("Amount", point.cents)
-                )
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [Color(hex: "346049").opacity(0.1), .clear],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .interpolationMethod(.catmullRom)
-
-                LineMark(
-                    x: .value("Month", point.month),
-                    y: .value("Amount", point.cents)
-                )
-                .foregroundStyle(Color(hex: "346049"))
-                .lineStyle(StrokeStyle(lineWidth: 2))
-                .interpolationMethod(.catmullRom)
-            }
-
-            if let last = data.last {
-                PointMark(
-                    x: .value("Month", last.month),
-                    y: .value("Amount", last.cents)
-                )
-                .foregroundStyle(Color(hex: "346049"))
-                .symbolSize(30)
-            }
-        }
-        .chartXAxis(.hidden)
-        .chartYAxis(.hidden)
-        .chartYScale(domain: 0...(maxCents > 0 ? maxCents : 1))
-        .frame(height: 50)
-        .overlay {
-            if monthlyTotals.allSatisfy({ $0.cents == 0 }) {
-                Color(hex: "DEDAD2")
-                    .frame(height: 1)
-                    .frame(maxHeight: .infinity, alignment: .center)
-            }
-        }
-    }
-
-    // MARK: - Top category row
-
-    private func topCategoryRow(tag: TagModel, cents: Int) -> some View {
-        HStack(spacing: 6) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color(hex: "FAEEDA"))
-                    .frame(width: 22, height: 22)
-                Image(systemName: tag.symbolName ?? tag.icon ?? "tag.fill")
-                    .font(.system(size: 11, weight: .medium))
-                    .foregroundStyle(Color(hex: "854F0B"))
-            }
-
-            VStack(alignment: .leading, spacing: 1) {
-                Text("Top category")
-                    .font(.system(size: 9, weight: .regular))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-                Text(tag.name)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 0)
-
-            Text(CurrencyFormatter.shared.format(cents: cents, currencyCode: currency))
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .foregroundStyle(Color(hex: "346049"))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-        }
-    }
-}
-
-// MARK: - Spending period page
-
-private struct SpendingPeriodPage: View {
-    let period: HeroPeriod
-    let totalCents: Int
-
-    private var periodLabel: String {
-        switch period {
-        case .month: return "spent this month"
-        case .week:  return "spent this week"
-        case .year:  return "spent this year"
-        }
+    private var topCategoryPercent: Int {
+        guard let top = topCategory, totalCents > 0 else { return 0 }
+        return Int(round(Double(top.cents) / Double(totalCents) * 100))
     }
 
     private var dollarPart: String {
@@ -437,6 +229,8 @@ private struct SpendingPeriodPage: View {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.groupingSeparator = ","
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 0
         return formatter.string(from: NSNumber(value: whole)) ?? "\(whole)"
     }
 
@@ -444,45 +238,133 @@ private struct SpendingPeriodPage: View {
         String(format: "%02d", abs(totalCents % 100))
     }
 
+    // MARK: - Body
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-            }
+        VStack(alignment: .leading, spacing: 14) {
+            topRow
 
             HStack(alignment: .top, spacing: 0) {
+                totalSpentColumn
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                if let top = topCategory {
+                    Rectangle()
+                        .fill(Color.white.opacity(0.2))
+                        .frame(width: 1)
+                        .padding(.vertical, 2)
+
+                    topCategoryColumn(tag: top.tag, cents: top.cents)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.leading, 14)
+                }
+            }
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .background(Color(hex: "2F402E"))
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onPeriodTap)
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Top row (period picker + export)
+
+    private var topRow: some View {
+        HStack {
+            Menu {
+                ForEach(HeroPeriod.allCases, id: \.rawValue) { period in
+                    Button(period.pickerLabel) {
+                        withAnimation(.easeInOut(duration: 0.15)) { selectedPeriod = period }
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(selectedPeriod.pickerLabel)
+                        .font(.system(size: 13, weight: .medium))
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.white.opacity(0.15))
+                .clipShape(Capsule())
+            }
+
+            Spacer()
+
+            Button(action: onExportTap) {
+                HStack(spacing: 5) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 12, weight: .medium))
+                    Text("Export")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.white.opacity(0.15))
+                .clipShape(Capsule())
+            }
+        }
+    }
+
+    // MARK: - Total spent column
+
+    private var totalSpentColumn: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Total spent")
+                .font(.system(size: 12))
+                .foregroundStyle(.white.opacity(0.65))
+            HStack(alignment: .top, spacing: 0) {
                 Text("$")
-                    .font(.system(size: 18, weight: .regular, design: .monospaced))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-                    .padding(.top, 4)
-                    .padding(.trailing, 1)
+                    .font(.system(size: 16, weight: .regular, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .padding(.top, 5)
                 Text(dollarPart)
-                    .font(.system(size: 36, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-                    .tracking(-1.5)
+                    .font(.system(size: 32, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.white)
+                    .tracking(-1)
                     .minimumScaleFactor(0.7)
                     .lineLimit(1)
                 Text(".\(centsPart)")
-                    .font(.system(size: 18, weight: .regular, design: .monospaced))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-                    .padding(.top, 4)
+                    .font(.system(size: 16, weight: .regular, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.85))
+                    .padding(.top, 5)
             }
-
-            Text(periodLabel)
-                .font(.system(size: 13, weight: .regular))
-                .foregroundStyle(Color(hex: "8F9E94"))
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
-}
 
-// MARK: - Chart data point
+    // MARK: - Top category column
 
-private struct SummaryMonthTotal: Identifiable {
-    let month: Int
-    let cents: Int
-    var id: Int { month }
+    private func topCategoryColumn(tag: TagModel, cents: Int) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Top category")
+                .font(.system(size: 12))
+                .foregroundStyle(.white.opacity(0.65))
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(Color.white.opacity(0.15))
+                        .frame(width: 34, height: 34)
+                    Image(systemName: tag.symbolName ?? tag.icon ?? "tag.fill")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.white)
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(tag.name)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Text("\(CurrencyFormatter.shared.format(cents: cents, currencyCode: currency)) (\(topCategoryPercent)%)")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.75))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+            }
+        }
+    }
 }

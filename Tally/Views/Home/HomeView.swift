@@ -31,7 +31,7 @@ struct HomeView: View {
     @State private var showingFilterSheet = false
     @State private var isKeyboardVisible = false
     @State private var homeBarTagId: String? = nil
-    @State private var selectedHeroPeriod: HeroPeriod = .month
+    @AppStorage("homeHeroPeriod") private var selectedHeroPeriod: HeroPeriod = .month
     @State private var showingPeriodDetail = false
     @State private var multiReceiptImages: [UIImage] = []
     @State private var showingMultiReceipt = false
@@ -101,11 +101,6 @@ struct HomeView: View {
         return result
     }
 
-    private var homeTagName: String? {
-        guard let id = homeBarTagId else { return nil }
-        return tags.first(where: { $0.id == id })?.name
-    }
-
     private func monthlyTotalCents(for currency: String) -> Int {
         let cal = Calendar.current
         let now = Date()
@@ -161,18 +156,15 @@ struct HomeView: View {
             // Spending card — collapses when user scrolls down, reveals on scroll up
             if !isHeaderCollapsed && searchText.isEmpty {
                 SpendingSummaryCard(
+                    selectedPeriod: $selectedHeroPeriod,
                     allExpenses: activeExpenses,
                     allTags: Array(tags),
                     homeBarTagId: homeBarTagId,
-                    homeBarTagName: homeTagName,
-                    onPeriodTap: { period in
-                        selectedHeroPeriod = period
+                    onPeriodTap: {
                         showingPeriodDetail = true
                     },
-                    onChartTap: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            selectedTab = .reports
-                        }
+                    onExportTap: {
+                        appState.showingExport = true
                     }
                 )
                 .padding(.top, 6)
@@ -362,22 +354,18 @@ struct HomeView: View {
 
     private var appBar: some View {
         HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: Spacing.sm) {
-                    Image("TallyLogo")
-                        .renderingMode(.original)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(height: 34)
+            HStack(spacing: Spacing.sm) {
+                Image("TallyLogo")
+                    .renderingMode(.original)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(height: 34)
 
-                    if !syncEngine.isOnline {
-                        Image(systemName: "icloud.slash")
-                            .font(.system(size: 13))
-                            .foregroundStyle(Color.textMuted)
-                    }
+                if !syncEngine.isOnline {
+                    Image(systemName: "icloud.slash")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.textMuted)
                 }
-
-                greetingLine
             }
 
             Spacer()
@@ -405,36 +393,6 @@ struct HomeView: View {
         .padding(.horizontal, Spacing.lg)
         .padding(.top, Spacing.sm)
         .padding(.bottom, 4)
-    }
-
-    // MARK: - Greeting Line
-
-    private var greetingLine: some View {
-        let hour = Calendar.current.component(.hour, from: Date())
-        let timeOfDay: String
-        switch hour {
-        case 5...11: timeOfDay = "morning"
-        case 12...17: timeOfDay = "afternoon"
-        default:     timeOfDay = "evening"
-        }
-
-        let name = UserDefaults.standard.string(forKey: "tally_user_name")
-        let trimmedName = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-
-        return Group {
-            if trimmedName.isEmpty {
-                Text("Good \(timeOfDay)")
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-            } else {
-                Text("Good \(timeOfDay), ")
-                    .font(.system(size: 14, weight: .regular))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-                + Text(trimmedName)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color(hex: "346049"))
-            }
-        }
     }
 
     // MARK: - Search

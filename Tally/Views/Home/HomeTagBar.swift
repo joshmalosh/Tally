@@ -74,7 +74,6 @@ struct HomeTagBar: View {
                     currency: currency,
                     iconBg: Color(hex: "E8F0EA"),
                     iconColor: Color(hex: "346049"),
-                    barColor: Color(hex: "346049"),
                     isSelected: selectedTagId == nil
                 ) {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -94,7 +93,6 @@ struct HomeTagBar: View {
                         currency: currency,
                         iconBg: iconBg,
                         iconColor: primary,
-                        barColor: primary,
                         isSelected: selectedTagId == tag.id
                     ) {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
@@ -131,46 +129,40 @@ private struct TagFilterCard: View {
     let currency: String
     let iconBg: Color
     let iconColor: Color
-    let barColor: Color
     let isSelected: Bool
     let onTap: () -> Void
 
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: 6) {
+            VStack(spacing: 4) {
                 // Icon square
                 ZStack {
-                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
                         .fill(iconBg)
-                        .frame(width: 36, height: 36)
+                        .frame(width: 30, height: 30)
                     Image(systemName: icon)
-                        .font(.system(size: 17, weight: .medium))
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(iconColor)
                 }
 
                 // Tag name
                 Text(label)
-                    .font(.system(size: 10, weight: .regular))
+                    .font(.system(size: 9, weight: .regular))
                     .foregroundStyle(Color(hex: "6B7A6A"))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.85)
                     .frame(maxWidth: .infinity, alignment: .center)
 
                 // Amount
                 Text(CurrencyFormatter.shared.format(cents: amountCents, currencyCode: currency))
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
                     .foregroundStyle(Color(hex: "1C1C1E"))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.8)
                     .frame(maxWidth: .infinity, alignment: .center)
-
-                // Coloured bar
-                Capsule()
-                    .fill(barColor)
-                    .frame(width: 28, height: 3)
             }
-            .padding(.horizontal, 8)
-            .padding(.top, 11)
-            .padding(.bottom, 10)
-            .frame(minWidth: 74)
+            .padding(6)
+            .frame(width: 74, height: 74)
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(
@@ -194,27 +186,25 @@ private struct MoreTagCard: View {
 
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: 6) {
+            VStack(spacing: 4) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                    RoundedRectangle(cornerRadius: 9, style: .continuous)
                         .stroke(
                             style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])
                         )
                         .foregroundStyle(Color(hex: "DEDAD2"))
-                        .frame(width: 36, height: 36)
+                        .frame(width: 30, height: 30)
                     Image(systemName: "plus")
-                        .font(.system(size: 17, weight: .medium))
+                        .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(Color(hex: "8F9E94"))
                 }
 
                 Text("More")
-                    .font(.system(size: 10, weight: .regular))
+                    .font(.system(size: 9, weight: .regular))
                     .foregroundStyle(Color(hex: "6B7A6A"))
             }
-            .padding(.horizontal, 8)
-            .padding(.top, 11)
-            .padding(.bottom, 10)
-            .frame(width: 54)
+            .padding(6)
+            .frame(width: 74, height: 74)
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .overlay(
