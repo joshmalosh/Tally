@@ -718,3 +718,44 @@ struct ExpenseCelebrationView: View {
         .shadow(color: .black.opacity(0.25), radius: 16, x: 0, y: 8)
     }
 }
+
+// MARK: - HomeToggle
+
+/// Branded "show on home screen" switch: a white thumb on the left when off,
+/// a green thumb with a white house glyph on the right when on. Used anywhere
+/// a tag or group's `showOnHome` flag can be flipped (tags list, edit sheet).
+struct HomeToggle: View {
+    let isOn: Bool
+    let onToggle: () -> Void
+
+    private let width: CGFloat = 46
+    private let height: CGFloat = 26
+    private let thumbSize: CGFloat = 22
+
+    var body: some View {
+        Button(action: onToggle) {
+            ZStack(alignment: isOn ? .trailing : .leading) {
+                Capsule()
+                    .fill(Color(hex: "EDEAE2"))
+                    .overlay(Capsule().stroke(Color.borderColor, lineWidth: 1))
+                    .frame(width: width, height: height)
+
+                Circle()
+                    .fill(isOn ? Color.brandPrimary : Color.white)
+                    .frame(width: thumbSize, height: thumbSize)
+                    .overlay(
+                        Image(systemName: "house.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .opacity(isOn ? 1 : 0)
+                    )
+                    .shadow(color: .black.opacity(0.15), radius: 1.5, x: 0, y: 0.5)
+                    .padding(2)
+            }
+        }
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.16), value: isOn)
+        .accessibilityLabel("Show on home screen")
+        .accessibilityValue(isOn ? "On" : "Off")
+    }
+}

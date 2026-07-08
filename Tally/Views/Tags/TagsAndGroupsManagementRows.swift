@@ -1,8 +1,8 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 /// Shared tags & groups list rows + sheets (used from Tags tab).
-/// Toggle removed — tags are no longer filtered by showOnHome.
 struct TagsAndGroupsManagementRows: View {
     @Environment(AppState.self) private var appState
     @Environment(\.modelContext) private var modelContext
@@ -92,30 +92,37 @@ struct TagsAndGroupsManagementRows: View {
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
 
-            // Tags — no toggle
+            // Tags — home-bar toggle (own tap target) + tap-anywhere-else-to-edit.
+            // Uses onTapGesture (not an outer Button) so it doesn't fight the inner
+            // HomeToggle Button for the tap — a real Button always wins hit-testing
+            // over an ancestor's onTapGesture, a plain ancestor Button can't guarantee that.
             ForEach(allTagsSorted) { tag in
-                Button {
-                    activeSheet = .edit(tag)
-                } label: {
-                    HStack(spacing: Spacing.smd) {
-                        Circle()
-                            .fill(tag.tagColor.primaryColor)
-                            .frame(width: 12, height: 12)
-                        Text(tag.name)
-                            .foregroundStyle(Color.textPrimary)
-                        Spacer()
-                        if tag.showOnHome {
-                            Image(systemName: "house.fill")
-                                .font(.system(size: 11))
-                                .foregroundStyle(Color(hex: "346049").opacity(0.7))
+                HStack(spacing: Spacing.smd) {
+                    Circle()
+                        .fill(tag.tagColor.primaryColor)
+                        .frame(width: 12, height: 12)
+                    Text(tag.name)
+                        .foregroundStyle(Color.textPrimary)
+                    Spacer()
+                    HomeToggle(isOn: tag.showOnHome) {
+                        tag.showOnHome.toggle()
+                        do {
+                            try modelContext.save()
+                        } catch {
+                            #if DEBUG
+                            print("[Tally] ERROR toggling showOnHome: \(error)")
+                            #endif
                         }
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(Color.textMuted)
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     }
-                    .contentShape(Rectangle())
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.brandPrimary)
                 }
-                .buttonStyle(.plain)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    activeSheet = .edit(tag)
+                }
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                     Button(role: .destructive) { deleteTag(tag) } label: {
                         Label("Delete", systemImage: "trash")

@@ -6,12 +6,21 @@ enum HeroPeriod: Int, CaseIterable {
     case month = 0
     case week  = 1
     case year  = 2
+    case lastMonth = 3
+    case thisFinancialYear = 4
+    case allTime = 5
+
+    /// Display order for period pickers — granularity progression, not raw case order.
+    static let pickerOrder: [HeroPeriod] = [.week, .month, .lastMonth, .year, .thisFinancialYear, .allTime]
 
     var cardLabel: String {
         switch self {
         case .month: "SPENT THIS MONTH"
         case .week:  "SPENT THIS WEEK"
         case .year:  "SPENT THIS YEAR"
+        case .lastMonth: "SPENT LAST MONTH"
+        case .thisFinancialYear: "SPENT THIS FINANCIAL YEAR"
+        case .allTime: "SPENT ALL TIME"
         }
     }
 
@@ -21,10 +30,15 @@ enum HeroPeriod: Int, CaseIterable {
         case .month: "This Month"
         case .week:  "This Week"
         case .year:  "This Year"
+        case .lastMonth: "Last Month"
+        case .thisFinancialYear: "Financial Year"
+        case .allTime: "All Time"
         }
     }
 
-    func dateRange() -> (start: Date, end: Date) {
+    /// - Parameter financialYearStart: required for `.thisFinancialYear` — pass
+    ///   `AppState.currentFinancialYearStart`. Unused by every other case.
+    func dateRange(financialYearStart: Date = .distantPast) -> (start: Date, end: Date) {
         let cal = Calendar.current
         let now = Date()
         switch self {
@@ -37,6 +51,14 @@ enum HeroPeriod: Int, CaseIterable {
         case .year:
             let start = cal.dateInterval(of: .year, for: now)?.start ?? now
             return (start, now)
+        case .lastMonth:
+            let lastMonthAnchor = cal.date(byAdding: .month, value: -1, to: now) ?? now
+            let interval = cal.dateInterval(of: .month, for: lastMonthAnchor)
+            return (interval?.start ?? now, interval?.end ?? now)
+        case .thisFinancialYear:
+            return (financialYearStart, now)
+        case .allTime:
+            return (.distantPast, now)
         }
     }
 }
@@ -194,7 +216,7 @@ struct SpendingSummaryCard: View {
 
     /// Expenses within the selected period, narrowed by the home tag bar's active filter (if any).
     private var periodExpenses: [ExpenseModel] {
-        let range = selectedPeriod.dateRange()
+        let range = selectedPeriod.dateRange(financialYearStart: appState.currentFinancialYearStart)
         var result = allExpenses.filter { $0.date >= range.start && $0.date <= range.end }
         if let tagId = homeBarTagId {
             result = result.filter { $0.resolvedTagIds.contains(tagId) }
@@ -274,7 +296,7 @@ struct SpendingSummaryCard: View {
     private var topRow: some View {
         HStack {
             Menu {
-                ForEach(HeroPeriod.allCases, id: \.rawValue) { period in
+                ForEach(HeroPeriod.pickerOrder, id: \.rawValue) { period in
                     Button(period.pickerLabel) {
                         withAnimation(.easeInOut(duration: 0.15)) { selectedPeriod = period }
                     }

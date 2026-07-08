@@ -37,9 +37,9 @@ struct TallyTabBar: View {
             // centred in the full white zone (bar height + safe area inset).
             HStack(alignment: .bottom, spacing: 0) {
                 tabItem(tab: .home, icon: "house", filledIcon: "house.fill", label: "Home")
-                tabItem(tab: .reports, icon: "chart.line.uptrend.xyaxis", filledIcon: "chart.line.uptrend.xyaxis", label: "Reports")
-                Spacer().frame(maxWidth: .infinity)
                 tabItem(tab: .tags, icon: "tag", filledIcon: "tag.fill", label: "Tags")
+                Spacer().frame(maxWidth: .infinity)
+                tabItem(tab: .reports, icon: "chart.line.uptrend.xyaxis", filledIcon: "chart.line.uptrend.xyaxis", label: "Reports")
                 exportItem
             }
             .frame(height: barHeight + 13)   // +13 ≈ half safe-area, centres icons in visible white zone

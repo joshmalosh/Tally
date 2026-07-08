@@ -110,7 +110,7 @@ struct HomeView: View {
     }
 
     private func periodExpensesForHero(_ period: HeroPeriod) -> [ExpenseModel] {
-        let range = period.dateRange()
+        let range = period.dateRange(financialYearStart: appState.currentFinancialYearStart)
         var result = activeExpenses.filter { $0.date >= range.start && $0.date <= range.end }
         if let tagId = homeBarTagId {
             result = result.filter { $0.resolvedTagIds.contains(tagId) }

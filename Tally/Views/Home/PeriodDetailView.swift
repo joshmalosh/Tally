@@ -31,17 +31,26 @@ struct PeriodDetailView: View {
 
     private var titleText: String {
         if let override = titleOverride { return override }
+        let cal = Calendar.current
+        let now = Date()
         switch period {
         case .month:
-            let cal = Calendar.current
-            let date = cal.date(byAdding: .month, value: 0, to: Date()) ?? Date()
             let formatter = DateFormatter()
             formatter.dateFormat = "MMMM yyyy"
-            return formatter.string(from: date).uppercased()
+            return formatter.string(from: now).uppercased()
         case .week:
             return "THIS WEEK"
         case .year:
-            return "\(Calendar.current.component(.year, from: Date()))"
+            return "\(cal.component(.year, from: now))"
+        case .lastMonth:
+            let lastMonthDate = cal.date(byAdding: .month, value: -1, to: now) ?? now
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMMM yyyy"
+            return formatter.string(from: lastMonthDate).uppercased()
+        case .thisFinancialYear:
+            return "THIS FINANCIAL YEAR"
+        case .allTime:
+            return "ALL TIME"
         }
     }
 
@@ -56,6 +65,12 @@ struct PeriodDetailView: View {
             return "last week"
         case .year:
             return "\(cal.component(.year, from: now) - 1)"
+        case .lastMonth:
+            return "the month before"
+        case .thisFinancialYear:
+            return "last financial year"
+        case .allTime:
+            return ""
         }
     }
 
@@ -144,8 +159,8 @@ struct PeriodDetailView: View {
         let isCurrentWeek: Bool
     }
 
+    /// This month's expenses bucketed by week-of-month, with the current week called out.
     private var weekBars: [WeekBar] {
-        guard period == .month else { return [] }
         let cal = Calendar.current
         let now = Date()
         let currentWeekOfMonth = cal.component(.weekOfMonth, from: now)
@@ -166,11 +181,28 @@ struct PeriodDetailView: View {
         }
     }
 
-    private var weekBarsForOtherPeriods: [WeekBar] {
-        // For non-month periods use the old time-bucket approach mapped to WeekBar
+    /// A past month's expenses bucketed by week-of-month — no "current week" highlight
+    /// since it isn't the live month.
+    private var lastMonthWeekBars: [WeekBar] {
+        let cal = Calendar.current
+        var buckets: [Int: Int] = [:]
+        for e in expenses {
+            let w = cal.component(.weekOfMonth, from: e.date)
+            buckets[w, default: 0] += e.amountCents
+        }
+        let maxWeek = buckets.keys.max() ?? 1
+        return (1...maxWeek).map { w in
+            WeekBar(id: "w\(w)", label: "W\(w)", totalCents: buckets[w] ?? 0, isCurrentWeek: false)
+        }
+    }
+
+    private var displayBars: [WeekBar] {
         let cal = Calendar.current
         switch period {
-        case .month: return weekBars  // handled above
+        case .month:
+            return weekBars
+        case .lastMonth:
+            return lastMonthWeekBars
         case .week:
             let symbols = cal.shortWeekdaySymbols
             var buckets: [Int: Int] = [:]
@@ -182,29 +214,41 @@ struct PeriodDetailView: View {
                 WeekBar(id: "d\(kv.key)", label: symbols[kv.key - 1],
                         totalCents: kv.value, isCurrentWeek: false)
             }
-        case .year:
+        case .year, .thisFinancialYear:
+            // Bucket by month, but order chronologically by each month's actual start
+            // date — a financial year's 12 months never repeat a month number, but they
+            // don't start in January, so sorting by raw month number (1-12) would be wrong.
             let symbols = cal.shortMonthSymbols
-            var buckets: [Int: Int] = [:]
+            var cents: [Int: Int] = [:]
+            var sortDate: [Int: Date] = [:]
             for e in expenses {
                 let m = cal.component(.month, from: e.date)
-                buckets[m, default: 0] += e.amountCents
+                cents[m, default: 0] += e.amountCents
+                if sortDate[m] == nil {
+                    sortDate[m] = cal.dateInterval(of: .month, for: e.date)?.start ?? e.date
+                }
+            }
+            return cents.keys.sorted { (sortDate[$0] ?? .distantPast) < (sortDate[$1] ?? .distantPast) }.map { m in
+                WeekBar(id: "m\(m)", label: symbols[m - 1], totalCents: cents[m] ?? 0, isCurrentWeek: false)
+            }
+        case .allTime:
+            var buckets: [Int: Int] = [:]
+            for e in expenses {
+                let y = cal.component(.year, from: e.date)
+                buckets[y, default: 0] += e.amountCents
             }
             return buckets.sorted { $0.key < $1.key }.map { kv in
-                WeekBar(id: "m\(kv.key)", label: symbols[kv.key - 1],
-                        totalCents: kv.value, isCurrentWeek: false)
+                WeekBar(id: "y\(kv.key)", label: "\(kv.key)", totalCents: kv.value, isCurrentWeek: false)
             }
         }
     }
 
-    private var displayBars: [WeekBar] {
-        period == .month ? weekBars : weekBarsForOtherPeriods
-    }
-
     private var chartTitle: String {
         switch period {
-        case .month: return "By week"
-        case .week:  return "By day"
-        case .year:  return "By month"
+        case .month, .lastMonth:        return "By week"
+        case .week:                     return "By day"
+        case .year, .thisFinancialYear: return "By month"
+        case .allTime:                  return "By year"
         }
     }
 
@@ -219,13 +263,26 @@ struct PeriodDetailView: View {
             // e.g. "MAY 2026" → "May 2026"
             return override.capitalized
         }
+        let cal = Calendar.current
+        let now = Date()
         switch period {
         case .month:
             let formatter = DateFormatter()
             formatter.dateFormat = "MMMM"
-            return formatter.string(from: Date())
-        case .week:  return "this week"
-        case .year:  return "\(Calendar.current.component(.year, from: Date()))"
+            return formatter.string(from: now)
+        case .week:
+            return "this week"
+        case .year:
+            return "\(cal.component(.year, from: now))"
+        case .lastMonth:
+            let lastMonthDate = cal.date(byAdding: .month, value: -1, to: now) ?? now
+            let formatter = DateFormatter()
+            formatter.dateFormat = "MMMM"
+            return formatter.string(from: lastMonthDate)
+        case .thisFinancialYear:
+            return "this financial year"
+        case .allTime:
+            return "all time"
         }
     }
 
@@ -398,6 +455,11 @@ struct PeriodDetailView: View {
                                 )
                                 .multilineTextAlignment(.center)
                                 .lineLimit(2)
+                                // Fixed height regardless of 1-line ("W1") vs 2-line ("THIS
+                                // WEEK") labels — otherwise the taller label pushes its bar
+                                // out of alignment with neighboring bars (HStack aligns the
+                                // whole column to the bottom, not the bar itself).
+                                .frame(height: 24, alignment: .top)
                         }
                     }
                 }

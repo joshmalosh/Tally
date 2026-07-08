@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct TagCreationView: View {
     @Environment(\.dismiss) private var dismiss
@@ -13,10 +14,9 @@ struct TagCreationView: View {
     @State private var selectedParentId: String?
     @State private var showingGroupPicker = false
     @State private var showingNewGroup = false
-    @State private var isColorExpanded: Bool = false
     @State private var selectedIcon: String? = nil
-    @State private var isIconExpanded: Bool = false
-    @State private var showOnHome: Bool = false
+    @State private var showingColorPicker = false
+    @State private var showingIconPicker = false
 
     var editingTag: TagModel? = nil
     var initialParentId: String? = nil
@@ -30,48 +30,42 @@ struct TagCreationView: View {
 
     private var isEditing: Bool { editingTag != nil }
     private var canSave: Bool { !name.trimmingCharacters(in: .whitespaces).isEmpty }
+    private var accentColor: Color { TagColors.forId(selectedColorId).primaryColor }
 
     private var availableGroups: [TagModel] {
         allTags.filter { $0.isGroup && $0.id != editingTag?.id }
     }
 
-    private var showInHomeBarRow: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Show in home bar")
-                    .font(Fonts.body(15))
-                    .foregroundStyle(Color.textPrimary)
-                Text("Quick-access filter on the home screen")
-                    .font(Fonts.caption(12))
-                    .foregroundStyle(Color.textMuted)
-            }
-            Spacer()
-            Toggle("", isOn: $showOnHome)
-                .tint(Color.brandPrimary)
-                .labelsHidden()
-        }
-        .padding(.horizontal, Spacing.md)
-        .frame(minHeight: 60)
-        .background(Color.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-        .overlay(
-            RoundedRectangle(cornerRadius: Radius.md)
-                .stroke(Color.borderColor, lineWidth: 1)
-        )
+    private var eyebrowText: String {
+        if isGroupMode { return isEditing ? "EDIT GROUP" : "NEW GROUP" }
+        return isEditing ? "EDIT TAG" : "NEW TAG"
+    }
+
+    private var saveButtonLabel: String {
+        if isGroupMode { return isEditing ? "Save changes" : "Create group" }
+        return isEditing ? "Save changes" : "Create tag"
     }
 
     private var formContent: some View {
         ScrollView {
-            VStack(spacing: Spacing.lg) {
-                nameField
-                if !isGroupMode { groupPicker }
-                if !isGroupMode { showInHomeBarRow }
-                colorGrid
-                iconPickerSection
+            VStack(spacing: Spacing.md) {
+                nameCard
+
+                if !isGroupMode {
+                    groupCard
+                }
+
+                HStack(spacing: Spacing.sm) {
+                    colorCard
+                    iconCard
+                }
+
                 if isEditing && !isGroupMode { deleteTagButton }
+
+                saveButton
             }
             .frame(maxWidth: .infinity)
-            .padding(.horizontal, Spacing.lg)
+            .padding(.horizontal, Spacing.md)
             .padding(.top, embeddedInNavigation ? Spacing.xl : Spacing.md)
             .padding(.bottom, Spacing.xl)
         }
@@ -80,19 +74,23 @@ struct TagCreationView: View {
             isNameFieldFocused = false
         }
         .background(Color.bgPrimary)
-        .navigationTitle(navigationTitle)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if !embeddedInNavigation {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                        .foregroundStyle(Color.textSecondary)
+                    Button { dismiss() } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Color(hex: "1C1C1E"))
+                    }
                 }
             }
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Save") { save() }
-                    .foregroundStyle(canSave ? Color.brandPrimary : Color.textMuted)
-                    .disabled(!canSave)
+            ToolbarItem(placement: .principal) {
+                Text(eyebrowText)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color(hex: "2F402E").opacity(0.6))
+                    .tracking(1.5)
             }
         }
         .onAppear {
@@ -101,7 +99,6 @@ struct TagCreationView: View {
                 selectedColorId = tag.colorId
                 selectedParentId = tag.parentId
                 selectedIcon = tag.icon
-                showOnHome = tag.showOnHome
             } else {
                 selectedParentId = initialParentId
             }
@@ -111,6 +108,12 @@ struct TagCreationView: View {
             Button("Delete", role: .destructive) { performDeleteTag() }
         } message: {
             Text("This will remove the tag from all expenses. This cannot be undone.")
+        }
+        .sheet(isPresented: $showingColorPicker) {
+            TagColorPickerSheet(selectedColorId: $selectedColorId)
+        }
+        .sheet(isPresented: $showingIconPicker) {
+            TagIconPickerSheet(selectedIcon: $selectedIcon, accentColor: accentColor)
         }
     }
 
@@ -124,130 +127,207 @@ struct TagCreationView: View {
         }
     }
 
-    private var navigationTitle: String {
-        if isGroupMode {
-            return isEditing ? "Edit Group" : "New Group"
-        }
-        return isEditing ? "Edit Tag" : "New Tag"
-    }
+    // MARK: - Name card
+    // Mirrors Quick Add's MERCHANT card: caps label inside the card, serif input below.
 
-    private var nameField: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text(isGroupMode ? "Group name" : "Tag name")
-                .font(Fonts.caption(13))
-                .foregroundStyle(Color.textSecondary)
+    private var nameCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(isGroupMode ? "GROUP NAME" : "TAG NAME")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
+                .tracking(1.0)
+                .padding(.horizontal, 14)
+                .padding(.top, 14)
+                .padding(.bottom, 8)
 
-            HStack(spacing: Spacing.smd) {
-                Circle()
-                    .fill(TagColors.forId(selectedColorId).primaryColor)
-                    .frame(width: 12, height: 12)
-
-                TextField(
-                    isGroupMode ? "e.g. Projects" : "e.g. Office supplies",
-                    text: $name
-                )
-                .id("tagCreationNameField")
-                .font(Fonts.body(16))
-                .foregroundStyle(Color.textPrimary)
-                .textFieldStyle(.plain)
-                .autocorrectionDisabled()
-                .focused($isNameFieldFocused)
-                .onAppear {
-                    // Only focus if explicitly allowed — prevents keyboard from
-                    // pushing up the sheet content when opened from tag picker.
-                    if !suppressNameFieldAutofocus {
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                            isNameFieldFocused = true
-                        }
-                    }
-                }
-            }
-            .padding(.horizontal, Spacing.md)
-            .frame(height: 48)
-            .background(Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-            .overlay(
-                RoundedRectangle(cornerRadius: Radius.md)
-                    .stroke(Color.borderColor, lineWidth: 1)
+            TextField(
+                isGroupMode ? "e.g. Projects" : "e.g. Office supplies",
+                text: $name
             )
+            .id("tagCreationNameField")
+            .font(Font.dmSerifDisplay(22))
+            .foregroundStyle(Color(hex: "1C1C1E"))
+            .autocorrectionDisabled()
+            .focused($isNameFieldFocused)
+            .tint(accentColor)
+            .padding(.horizontal, 14)
+            .onAppear {
+                // Only focus if explicitly allowed — prevents keyboard from
+                // pushing up the sheet content when opened from tag picker.
+                if !suppressNameFieldAutofocus {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        isNameFieldFocused = true
+                    }
+                }
+            }
+        }
+        .padding(.bottom, 14)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
+    }
+
+    // MARK: - Group card
+    // Mirrors Quick Add's compact DATE card: icon chip + stacked caps label/value.
+
+    private var selectedGroup: TagModel? {
+        selectedParentId.flatMap { id in allTags.first(where: { $0.id == id }) }
+    }
+
+    private var groupCard: some View {
+        Button { showingGroupPicker = true } label: {
+            HStack(spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color(hex: "F0EDEA"))
+                        .frame(width: 30, height: 30)
+                    Image(systemName: "folder.fill")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(selectedGroup?.tagColor.primaryColor ?? Color(hex: "8F9E94"))
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("GROUP")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
+                        .tracking(0.6)
+                    Text(selectedGroup?.name ?? "None")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(selectedGroup == nil ? Color(hex: "9CA3AF") : Color(hex: "1C1C1E"))
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color(hex: "C4BFB9"))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showingGroupPicker) {
+            GroupPickerSheet(
+                groups: availableGroups,
+                selectedGroupId: $selectedParentId,
+                onCreateGroup: {
+                    showingGroupPicker = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        showingNewGroup = true
+                    }
+                }
+            )
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showingNewGroup) {
+            TagCreationView(isGroupMode: true) { newGroupId in
+                selectedParentId = newGroupId
+            }
         }
     }
 
-    private var groupPicker: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            Text("Group (optional)")
-                .font(Fonts.caption(13))
-                .foregroundStyle(Color.textSecondary)
+    // MARK: - Color / Icon cards
+    // Mirror Quick Add's compact DATE + Add Receipt row: two half-width cards, side by side.
 
-            Button { showingGroupPicker = true } label: {
-                HStack {
-                    if let parentId = selectedParentId,
-                       let group = allTags.first(where: { $0.id == parentId }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "folder.fill")
-                                .font(.system(size: 12))
-                                .foregroundStyle(group.tagColor.primaryColor)
-                            Text(group.name)
-                                .font(Fonts.body(15))
-                                .foregroundStyle(Color.textPrimary)
-                        }
+    private var colorCard: some View {
+        Button { showingColorPicker = true } label: {
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(accentColor)
+                    .frame(width: 22, height: 22)
+                Text("Color")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color(hex: "2F402E").opacity(0.75))
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color(hex: "C4BFB9"))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var iconCard: some View {
+        Button { showingIconPicker = true } label: {
+            HStack(spacing: 8) {
+                ZStack {
+                    Circle()
+                        .fill(accentColor.opacity(0.15))
+                        .frame(width: 22, height: 22)
+                    if let icon = selectedIcon {
+                        Image(systemName: icon)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(accentColor)
                     } else {
-                        Text("None")
-                            .font(Fonts.body(15))
-                            .foregroundStyle(Color.textMuted)
+                        Image(systemName: "questionmark")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(Color(hex: "8F9E94"))
                     }
-                    Spacer()
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color.textMuted)
                 }
-                .padding(.horizontal, Spacing.md)
-                .frame(height: 48)
-                .background(Color.surface)
-                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-                .overlay(
-                    RoundedRectangle(cornerRadius: Radius.md)
-                        .stroke(Color.borderColor, lineWidth: 1)
-                )
+                Text("Icon")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color(hex: "2F402E").opacity(0.75))
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color(hex: "C4BFB9"))
             }
-            .buttonStyle(.plain)
-            .sheet(isPresented: $showingGroupPicker) {
-                GroupPickerSheet(
-                    groups: availableGroups,
-                    selectedGroupId: $selectedParentId,
-                    onCreateGroup: {
-                        showingGroupPicker = false
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                            showingNewGroup = true
-                        }
-                    }
-                )
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
-            }
-            .sheet(isPresented: $showingNewGroup) {
-                TagCreationView(isGroupMode: true) { newGroupId in
-                    selectedParentId = newGroupId
-                }
-            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 11)
+            .frame(maxWidth: .infinity)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
         }
+        .buttonStyle(.plain)
     }
+
+    // MARK: - Delete + Save
 
     private var deleteTagButton: some View {
         Button(role: .destructive) {
             showingDeleteConfirmation = true
         } label: {
             Text("Delete tag")
-                .font(Fonts.body(17))
-                .fontWeight(.semibold)
-                .foregroundStyle(.white)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Color.danger)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 17)
-                .background(Color.danger)
-                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
+                .padding(.vertical, 14)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color.danger.opacity(0.25), lineWidth: 1))
         }
         .buttonStyle(.plain)
-        .padding(.top, Spacing.lg)
+    }
+
+    private var saveButton: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            save()
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 13, weight: .bold))
+                Text(saveButtonLabel)
+                    .font(.system(size: 16, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(canSave ? Color(hex: "2F402E") : Color(hex: "2F402E").opacity(0.4))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(!canSave)
+        .padding(.top, Spacing.xs)
     }
 
     private func performDeleteTag() {
@@ -276,141 +356,6 @@ struct TagCreationView: View {
         }
     }
 
-    private var colorGrid: some View {
-        VStack(alignment: .leading, spacing: Spacing.smd) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isColorExpanded.toggle()
-                }
-            } label: {
-                HStack {
-                    Text("Color")
-                        .font(Fonts.caption(13))
-                        .foregroundStyle(Color.textSecondary)
-                    Spacer()
-                    Circle()
-                        .fill(TagColors.forId(selectedColorId).primaryColor)
-                        .frame(width: 22, height: 22)
-                    Image(systemName: isColorExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color.textMuted)
-                }
-                .padding(.horizontal, Spacing.md)
-                .frame(height: 48)
-                .background(Color.surface)
-                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-                .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.borderColor, lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-
-            if isColorExpanded {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Spacing.smd), count: 6), spacing: Spacing.smd) {
-                    ForEach(TagColors.palette) { color in
-                        Button { selectedColorId = color.id } label: {
-                            ZStack {
-                                Circle()
-                                    .fill(color.primaryColor)
-                                    .frame(width: 40, height: 40)
-                                if selectedColorId == color.id {
-                                    Image(systemName: "checkmark")
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundStyle(.white)
-                                }
-                            }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-    }
-
-    private var iconPickerSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.smd) {
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isIconExpanded.toggle()
-                }
-            } label: {
-                HStack {
-                    Text("Icon")
-                        .font(Fonts.caption(13))
-                        .foregroundStyle(Color.textSecondary)
-                    Spacer()
-                    if let icon = selectedIcon {
-                        Image(systemName: icon)
-                            .font(.system(size: 16))
-                            .foregroundStyle(TagColors.forId(selectedColorId).primaryColor)
-                    } else {
-                        Text("None")
-                            .font(.system(size: 14))
-                            .foregroundStyle(Color.textMuted)
-                    }
-                    Image(systemName: isIconExpanded ? "chevron.up" : "chevron.down")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(Color.textMuted)
-                }
-                .padding(.horizontal, Spacing.md)
-                .frame(height: 48)
-                .background(Color.surface)
-                .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-                .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(Color.borderColor, lineWidth: 1))
-            }
-            .buttonStyle(.plain)
-
-            if isIconExpanded {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Spacing.smd), count: 6), spacing: Spacing.smd) {
-                    // "None" option
-                    Button {
-                        selectedIcon = nil
-                    } label: {
-                        ZStack {
-                            Circle()
-                                .fill(Color(hex: "F0EDEA"))
-                                .frame(width: 40, height: 40)
-                            Image(systemName: "xmark")
-                                .font(.system(size: 14))
-                                .foregroundStyle(Color(hex: "8F9E94"))
-                            if selectedIcon == nil {
-                                Circle()
-                                    .stroke(Color(hex: "2F402E"), lineWidth: 2)
-                                    .frame(width: 40, height: 40)
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-
-                    ForEach(TagIconPicker.icons, id: \.self) { iconName in
-                        Button {
-                            selectedIcon = iconName
-                        } label: {
-                            ZStack {
-                                Circle()
-                                    .fill(selectedIcon == iconName
-                                        ? TagColors.forId(selectedColorId).primaryColor.opacity(0.15)
-                                        : Color(hex: "F0EDEA"))
-                                    .frame(width: 40, height: 40)
-                                Image(systemName: iconName)
-                                    .font(.system(size: 16))
-                                    .foregroundStyle(selectedIcon == iconName
-                                        ? TagColors.forId(selectedColorId).primaryColor
-                                        : Color(hex: "4A5E50"))
-                                if selectedIcon == iconName {
-                                    Circle()
-                                        .stroke(TagColors.forId(selectedColorId).primaryColor, lineWidth: 2)
-                                        .frame(width: 40, height: 40)
-                                }
-                            }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .transition(.opacity.combined(with: .move(edge: .top)))
-            }
-        }
-    }
-
     private func save() {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
@@ -421,7 +366,6 @@ struct TagCreationView: View {
             tag.icon = selectedIcon
             if !isGroupMode {
                 tag.parentId = selectedParentId
-                tag.showOnHome = showOnHome
             }
             do {
                 try modelContext.save()
@@ -442,7 +386,7 @@ struct TagCreationView: View {
                 colorId: selectedColorId,
                 icon: selectedIcon,
                 sortOrder: count,
-                showOnHome: isGroupMode ? false : showOnHome,
+                showOnHome: false,
                 parentId: isGroupMode ? nil : selectedParentId,
                 isGroup: isGroupMode
             )
@@ -541,5 +485,121 @@ struct GroupPickerSheet: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Color Picker Sheet
+
+struct TagColorPickerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var selectedColorId: String
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Spacing.smd), count: 6), spacing: Spacing.smd) {
+                    ForEach(TagColors.palette) { color in
+                        Button {
+                            selectedColorId = color.id
+                            dismiss()
+                        } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(color.primaryColor)
+                                    .frame(width: 44, height: 44)
+                                if selectedColorId == color.id {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 15, weight: .bold))
+                                        .foregroundStyle(.white)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(20)
+            }
+            .background(Color.bgPrimary.ignoresSafeArea())
+            .navigationTitle("Color")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundStyle(Color.brandPrimary)
+                }
+            }
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
+    }
+}
+
+// MARK: - Icon Picker Sheet
+
+struct TagIconPickerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var selectedIcon: String?
+    let accentColor: Color
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Spacing.smd), count: 6), spacing: Spacing.smd) {
+                    Button {
+                        selectedIcon = nil
+                        dismiss()
+                    } label: {
+                        ZStack {
+                            Circle()
+                                .fill(Color(hex: "F0EDEA"))
+                                .frame(width: 44, height: 44)
+                            Image(systemName: "xmark")
+                                .font(.system(size: 15))
+                                .foregroundStyle(Color(hex: "8F9E94"))
+                            if selectedIcon == nil {
+                                Circle()
+                                    .stroke(Color.brandPrimary, lineWidth: 2)
+                                    .frame(width: 44, height: 44)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    ForEach(TagIconPicker.icons, id: \.self) { iconName in
+                        Button {
+                            selectedIcon = iconName
+                            dismiss()
+                        } label: {
+                            ZStack {
+                                Circle()
+                                    .fill(selectedIcon == iconName ? accentColor.opacity(0.15) : Color(hex: "F0EDEA"))
+                                    .frame(width: 44, height: 44)
+                                Image(systemName: iconName)
+                                    .font(.system(size: 17))
+                                    .foregroundStyle(selectedIcon == iconName ? accentColor : Color(hex: "4A5E50"))
+                                if selectedIcon == iconName {
+                                    Circle()
+                                        .stroke(accentColor, lineWidth: 2)
+                                        .frame(width: 44, height: 44)
+                                }
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(20)
+            }
+            .background(Color.bgPrimary.ignoresSafeArea())
+            .navigationTitle("Icon")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                        .foregroundStyle(Color.brandPrimary)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 }
