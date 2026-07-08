@@ -10,6 +10,7 @@ struct PeriodDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var showingExport = false
+    @State private var expandedCategoryId: String? = nil
 
     // MARK: - Computed totals
 
@@ -116,6 +117,23 @@ struct PeriodDetailView: View {
                                percent: percent)
         }.sorted { $0.totalCents > $1.totalCents }
     }
+
+    private func expensesForCategory(_ id: String) -> [ExpenseModel] {
+        expenses.filter { ($0.resolvedTagIds.first ?? "__none__") == id }
+    }
+
+    private func expenseTitle(_ expense: ExpenseModel) -> String {
+        if let merchant = expense.merchant, !merchant.isEmpty { return merchant }
+        if let description = expense.expenseDescription, !description.isEmpty { return description }
+        if let notes = expense.notes, !notes.isEmpty { return notes }
+        return "Expense"
+    }
+
+    private static let expenseRowDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "d MMM"
+        return formatter
+    }()
 
     // MARK: - Weekly bars
 
@@ -404,6 +422,7 @@ struct PeriodDetailView: View {
 
             VStack(spacing: 16) {
                 ForEach(categoryRows) { row in
+                    let isExpanded = expandedCategoryId == row.id
                     VStack(spacing: 8) {
                         HStack(spacing: 12) {
                             // Colored icon circle
@@ -430,6 +449,17 @@ struct PeriodDetailView: View {
                             Text(formatCents(row.totalCents))
                                 .font(.system(size: 14, weight: .semibold).monospaced())
                                 .foregroundStyle(Color(hex: "1C1C1E"))
+
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(Color(hex: "8F9E94"))
+                                .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                expandedCategoryId = isExpanded ? nil : row.id
+                            }
                         }
 
                         // Progress bar
@@ -450,6 +480,36 @@ struct PeriodDetailView: View {
                         }
                         .frame(height: 5)
                         .padding(.leading, 48)
+
+                        if isExpanded {
+                            let categoryExpenses = expensesForCategory(row.id)
+                            VStack(spacing: 0) {
+                                ForEach(Array(categoryExpenses.enumerated()), id: \.element.id) { index, expense in
+                                    HStack(spacing: 10) {
+                                        Text(Self.expenseRowDateFormatter.string(from: expense.date))
+                                            .font(.system(size: 11))
+                                            .foregroundStyle(Color(hex: "8F9E94"))
+                                            .frame(width: 42, alignment: .leading)
+                                        Text(expenseTitle(expense))
+                                            .font(.system(size: 13))
+                                            .foregroundStyle(Color(hex: "1C1C1E"))
+                                            .lineLimit(1)
+                                        Spacer()
+                                        Text(formatCents(expense.amountCents))
+                                            .font(.system(size: 13, weight: .medium).monospaced())
+                                            .foregroundStyle(Color(hex: "1C1C1E"))
+                                    }
+                                    .padding(.vertical, 8)
+
+                                    if index < categoryExpenses.count - 1 {
+                                        Divider()
+                                    }
+                                }
+                            }
+                            .padding(.leading, 48)
+                            .padding(.top, 2)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
                     }
                 }
             }
