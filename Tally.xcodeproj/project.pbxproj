@@ -57,6 +57,7 @@
 		C7B0A146A50B69C007E4EE0A /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 353E2E5E865C87E7C05BC31D /* AppDelegate.swift */; };
 		CFA7B0D7E0E131B68534D8CD /* ExportExpenseSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F0868032465E139554DB8D2 /* ExportExpenseSheet.swift */; };
 		D9118E63AC4F413995C5400D /* AttachmentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCB500AF673FBDF6CA909FE4 /* AttachmentService.swift */; };
+		7A11AA22BB33CC44DD55EE66 /* SharedInboxService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B22BB33CC44DD55EE66FF77 /* SharedInboxService.swift */; };
 		DB1F48D628A150958EA48685 /* AddEntryPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89108F3F19E4B1E39A0F0925 /* AddEntryPicker.swift */; };
 		AA000008CAFEBABE00000001 /* MultiReceiptReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000007CAFEBABE00000001 /* MultiReceiptReviewView.swift */; };
 		B1C2D3E4F5A6B7C8D9E0F1A2 /* BulkExpenseParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F6A7B8C9D0E1F2A3B /* BulkExpenseParser.swift */; };
@@ -134,6 +135,7 @@
 		BF2E9A9CCBD037A89B382C47 /* SubscriptionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionView.swift; sourceTree = "<group>"; };
 		BF8ADCE89F2C2027BC34AC3D /* APIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIService.swift; sourceTree = "<group>"; };
 		DCB500AF673FBDF6CA909FE4 /* AttachmentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttachmentService.swift; sourceTree = "<group>"; };
+		7B22BB33CC44DD55EE66FF77 /* SharedInboxService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedInboxService.swift; sourceTree = "<group>"; };
 		E8F0EA11BEEF000000000001 /* UIApplication+ResignFirstResponder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "UIApplication+ResignFirstResponder.swift"; sourceTree = "<group>"; };
 		B8KACC111111111111111101 /* KeyboardAccessoryBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardAccessoryBar.swift; sourceTree = "<group>"; };
 		B8KACC222222222222222201 /* SubscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionService.swift; sourceTree = "<group>"; };
@@ -371,6 +373,7 @@
 				E1F2A3B4C5D6E7F8A9B0C1D2 /* ExpenseSoundService.swift */,
 				FEEDRC040000000000000001 /* RevenueCatConfig.swift */,
 				939C697035562CAAE48774F8 /* SyncEngine.swift */,
+				7B22BB33CC44DD55EE66FF77 /* SharedInboxService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -548,6 +551,7 @@
 				C7B0A146A50B69C007E4EE0A /* AppDelegate.swift in Sources */,
 				5A69146139E526666C5D9D7A /* AppState.swift in Sources */,
 				D9118E63AC4F413995C5400D /* AttachmentService.swift in Sources */,
+				7A11AA22BB33CC44DD55EE66 /* SharedInboxService.swift in Sources */,
 				52A07130A77697CCBC2AF143 /* AuthView.swift in Sources */,
 				220EC38D189CAA7BFA39CA94 /* Components.swift in Sources */,
 				ED724114CF6EAE1E98A6E684 /* ContentView.swift in Sources */,

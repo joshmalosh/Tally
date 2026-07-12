@@ -7,6 +7,7 @@ struct HomeView: View {
     @Environment(SyncEngine.self) private var syncEngine
     @Environment(AdManager.self) private var adManager
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil }, sort: \ExpenseModel.date, order: .reverse) private var activeExpenses: [ExpenseModel]
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
 
@@ -35,6 +36,7 @@ struct HomeView: View {
     @State private var showingPeriodDetail = false
     @State private var multiReceiptImages: [UIImage] = []
     @State private var showingMultiReceipt = false
+    @State private var sharedPDFItem: SharedPDFItem?
     @State private var landedExpenseId: String? = nil
     @State private var showingCelebration = false
     @State private var celebrationAmountCents = 0
@@ -75,8 +77,11 @@ struct HomeView: View {
             result = result.filter { expense in
                 for filterId in appState.activeFilterIds {
                     if appState.groupFilterIds.contains(filterId) {
+                        // Match children of the group or the group id itself
+                        // (expenses can be tagged with a group directly).
                         let childIds = tags.filter { $0.parentId == filterId }.map(\.id)
-                        if !expense.resolvedTagIds.contains(where: { childIds.contains($0) }) {
+                        if !expense.resolvedTagIds.contains(filterId)
+                            && !expense.resolvedTagIds.contains(where: { childIds.contains($0) }) {
                             return false
                         }
                     } else {
@@ -99,6 +104,33 @@ struct HomeView: View {
             }
         }
         return result
+    }
+
+    /// Picks up receipts deposited by the TallyShare extension and routes them
+    /// into the review flows — images to multi-receipt review, PDFs to the
+    /// add-expense file flow, one at a time. Never interrupts an open flow;
+    /// leftovers are picked up when the current cover dismisses or on the
+    /// next foreground.
+    private func consumeSharedInbox() {
+        guard !showingMultiReceipt, selectedEntryMode == nil, sharedPDFItem == nil else { return }
+        let items = SharedInboxService.pendingItems()
+        guard !items.isEmpty else { return }
+
+        let images = items.filter { !$0.isPDF }.compactMap { item -> UIImage? in
+            let image = SharedInboxService.loadImage(item)
+            SharedInboxService.remove(item)
+            return image
+        }
+        if !images.isEmpty {
+            multiReceiptImages = images
+            showingMultiReceipt = true
+            return
+        }
+
+        if let pdf = items.first(where: { $0.isPDF }),
+           let claimedURL = SharedInboxService.claimPDF(pdf) {
+            sharedPDFItem = SharedPDFItem(url: claimedURL)
+        }
     }
 
     private func monthlyTotalCents(for currency: String) -> Int {
@@ -303,6 +335,7 @@ struct HomeView: View {
         }
         .fullScreenCover(isPresented: $showingMultiReceipt, onDismiss: {
             multiReceiptImages = []
+            consumeSharedInbox()
         }) {
             MultiReceiptReviewView(
                 images: multiReceiptImages,
@@ -310,6 +343,15 @@ struct HomeView: View {
                 onDone: { showingMultiReceipt = false }
             )
         }
+        .fullScreenCover(item: $sharedPDFItem, onDismiss: {
+            consumeSharedInbox()
+        }) { item in
+            AddExpenseView(initialMode: .uploadFile, initialFileURL: item.url)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { consumeSharedInbox() }
+        }
+        .task { consumeSharedInbox() }
         .sheet(item: $appState.selectedExpenseId) { id in
             ExpenseDetailView(expenseId: id)
         }

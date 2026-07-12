@@ -759,3 +759,70 @@ struct HomeToggle: View {
         .accessibilityValue(isOn ? "On" : "Off")
     }
 }
+
+// MARK: - FilterRow (shared selection row: filter sheet, tag picker)
+
+/// A full-width, full-height tappable filter row: the entire row (not just the
+/// glyphs) is a hit target, and pressing it flashes the brand green with white
+/// text/checkmark so a press always reads as a press.
+struct FilterRow<Leading: View>: View {
+    let title: String
+    var titleFont: Font = .system(size: 16)
+    var titleColor: Color = Color(hex: "1C1C1E")
+    let isSelected: Bool
+    var checkmarkFont: Font = .system(size: 14, weight: .semibold)
+    var horizontalPadding: CGFloat = 20
+    var verticalPadding: CGFloat = 13
+    let leading: () -> Leading
+    let action: () -> Void
+
+    @State private var isPressed = false
+
+    init(
+        title: String,
+        titleFont: Font = .system(size: 16),
+        titleColor: Color = Color(hex: "1C1C1E"),
+        isSelected: Bool,
+        checkmarkFont: Font = .system(size: 14, weight: .semibold),
+        horizontalPadding: CGFloat = 20,
+        verticalPadding: CGFloat = 13,
+        @ViewBuilder leading: @escaping () -> Leading = { EmptyView() },
+        action: @escaping () -> Void
+    ) {
+        self.title = title
+        self.titleFont = titleFont
+        self.titleColor = titleColor
+        self.isSelected = isSelected
+        self.checkmarkFont = checkmarkFont
+        self.horizontalPadding = horizontalPadding
+        self.verticalPadding = verticalPadding
+        self.leading = leading
+        self.action = action
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            leading()
+            Text(title)
+                .font(titleFont)
+                .foregroundStyle(isPressed ? Color.white : titleColor)
+            Spacer()
+            if isSelected {
+                Image(systemName: "checkmark")
+                    .font(checkmarkFont)
+                    .foregroundStyle(isPressed ? Color.white : Color(hex: "2F402E"))
+            }
+        }
+        .padding(.horizontal, horizontalPadding)
+        .padding(.vertical, verticalPadding)
+        .contentShape(Rectangle())
+        .background(isPressed ? Color.brandPrimary : Color.clear)
+        .animation(.easeOut(duration: 0.12), value: isPressed)
+        .onTapGesture(perform: action)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
+    }
+}

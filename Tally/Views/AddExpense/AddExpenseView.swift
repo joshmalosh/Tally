@@ -176,6 +176,14 @@ struct AddExpenseView: View {
         selectedTagIds.compactMap { id in tags.first { $0.id == id } }
     }
 
+    /// "Group · Child" for a group's sub-tag, plain name otherwise.
+    private func chipTitle(for tag: TagModel) -> String {
+        if let parentId = tag.parentId, let parent = tags.first(where: { $0.id == parentId }) {
+            return "\(parent.name) · \(tag.name)"
+        }
+        return tag.name
+    }
+
     private var shouldShowOcrFilledBanner: Bool {
         receiptImageAttached && ocrPopulatedAnyField && !isRunningOCR
     }
@@ -742,8 +750,14 @@ struct AddExpenseView: View {
                                     }
                                 } label: {
                                     HStack(spacing: 5) {
-                                        Circle().fill(Color.white.opacity(0.8)).frame(width: 7, height: 7)
-                                        Text(tag.name)
+                                        if tag.isGroup {
+                                            Image(systemName: "folder.fill")
+                                                .font(.system(size: 9, weight: .semibold))
+                                                .foregroundStyle(Color.white.opacity(0.8))
+                                        } else {
+                                            Circle().fill(Color.white.opacity(0.8)).frame(width: 7, height: 7)
+                                        }
+                                        Text(chipTitle(for: tag))
                                             .font(.system(size: 12, weight: .semibold))
                                             .foregroundStyle(Color.white)
                                     }
@@ -1692,7 +1706,13 @@ struct AddExpenseView: View {
             lastImageSource = .upload
             enteredViaPhotoFlow = true
             formReady = false
-            showingDocumentPicker = true
+            // Skip the picker when a file was pre-supplied (e.g. shared via
+            // the TallyShare extension) — go straight to review.
+            if initialFileURL == nil {
+                showingDocumentPicker = true
+            } else {
+                formReady = true
+            }
         case .manual, .bulkImport:
             source = .manual
         }
@@ -1828,10 +1848,11 @@ struct AddExpenseView: View {
         }
 
         if let tagIds = historicalTagIds(for: trimmed), !tagIds.isEmpty {
-            // Auto-apply only if nothing is selected yet (first match)
+            // Auto-apply only if nothing is selected yet (first match).
+            // Single-selection rule: cap legacy multi-tag history to one tag.
             if selectedTagIds.isEmpty {
                 withAnimation(.easeInOut(duration: 0.2)) {
-                    selectedTagIds = tagIds
+                    selectedTagIds = Array(tagIds.prefix(1))
                     tagAutoAppliedByHistory = true
                     tallySuggestion = nil
                     tallySuggestionDismissed = true

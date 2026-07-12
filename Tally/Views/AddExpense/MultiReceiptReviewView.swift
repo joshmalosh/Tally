@@ -304,7 +304,7 @@ struct MultiReceiptReviewView: View {
             rowDivider
 
             // Tags
-            fieldRow(label: "Tags") {
+            fieldRow(label: "Tag") {
                 if selectedTags.isEmpty {
                     Button {
                         focusedField = nil
@@ -331,7 +331,7 @@ struct MultiReceiptReviewView: View {
                                 tagPickerDraftId = draftId
                                 showingTagPicker = true
                             } label: {
-                                Text("+ Add")
+                                Text("Change")
                                     .font(.system(size: 12, weight: .medium))
                                     .foregroundStyle(Color(hex: "8F9E94"))
                                     .padding(.vertical, 5).padding(.horizontal, 9)
@@ -373,10 +373,24 @@ struct MultiReceiptReviewView: View {
         Color(hex: "F0EFE9").frame(height: 1)
     }
 
+    /// "Group · Child" for a group's sub-tag, plain name otherwise.
+    private func chipTitle(for tag: TagModel) -> String {
+        if let parentId = tag.parentId, let parent = tags.first(where: { $0.id == parentId }) {
+            return "\(parent.name) · \(tag.name)"
+        }
+        return tag.name
+    }
+
     private func tagChip(tag: TagModel, onRemove: @escaping () -> Void) -> some View {
         HStack(spacing: 4) {
-            Circle().fill(tag.tagColor.primaryColor).frame(width: 7, height: 7)
-            Text(tag.name).font(.system(size: 12, weight: .medium)).foregroundStyle(Color(hex: "2F402E"))
+            if tag.isGroup {
+                Image(systemName: "folder.fill")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(tag.tagColor.primaryColor)
+            } else {
+                Circle().fill(tag.tagColor.primaryColor).frame(width: 7, height: 7)
+            }
+            Text(chipTitle(for: tag)).font(.system(size: 12, weight: .medium)).foregroundStyle(Color(hex: "2F402E"))
             Button(action: onRemove) {
                 Image(systemName: "xmark").font(.system(size: 9, weight: .bold)).foregroundStyle(Color(hex: "2F402E").opacity(0.6))
             }.buttonStyle(.plain)

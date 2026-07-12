@@ -127,7 +127,7 @@ struct PeriodDetailView: View {
             return CategoryRow(id: key,
                                name: tag?.name ?? "Unknown",
                                color: tag?.tagColor.primaryColor ?? Color(hex: "8F9E94"),
-                               symbol: tag?.symbolName ?? "tag.fill",
+                               symbol: tag?.symbolName ?? (tag?.isGroup == true ? "folder.fill" : "tag.fill"),
                                totalCents: cents,
                                percent: percent)
         }.sorted { $0.totalCents > $1.totalCents }

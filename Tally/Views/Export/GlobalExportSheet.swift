@@ -1145,6 +1145,9 @@ struct TagExportPickerSheet: View {
                 expandedTagIds.formUnion(childIds)
             }
         }
+        // Expenses can be tagged with a group directly (group-alone selection),
+        // so a selected group must match its own id, not just its children.
+        expandedTagIds.formUnion(selectedGroupIds)
 
         return expenses.filter { expense in
             !expense.resolvedTagIds.filter({ expandedTagIds.contains($0) }).isEmpty

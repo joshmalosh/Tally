@@ -85,6 +85,14 @@ struct ExpenseDetailView: View {
         selectedTagIds.compactMap { id in tags.first { $0.id == id } }
     }
 
+    /// "Group · Child" for a group's sub-tag, plain name otherwise.
+    private func chipTitle(for tag: TagModel) -> String {
+        if let parentId = tag.parentId, let parent = tags.first(where: { $0.id == parentId }) {
+            return "\(parent.name) · \(tag.name)"
+        }
+        return tag.name
+    }
+
     private static let heroDateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "d MMM yyyy"
@@ -332,12 +340,18 @@ struct ExpenseDetailView: View {
         .overlay(alignment: .topLeading) {
             if !selectedTags.isEmpty, let tag = selectedTags.first {
                 HStack(spacing: 5) {
-                    Circle()
-                        .fill(tag.tagColor.primaryColor)
-                        .frame(width: 7, height: 7)
+                    if tag.isGroup {
+                        Image(systemName: "folder.fill")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(tag.tagColor.primaryColor)
+                    } else {
+                        Circle()
+                            .fill(tag.tagColor.primaryColor)
+                            .frame(width: 7, height: 7)
+                    }
                     Text(
                         selectedTags.count == 1
-                            ? tag.name
+                            ? chipTitle(for: tag)
                             : "\(tag.name) +\(selectedTags.count - 1)"
                     )
                     .font(.system(size: 12, weight: .semibold))
@@ -655,10 +669,16 @@ struct ExpenseDetailView: View {
                     HStack(spacing: 6) {
                         ForEach(selectedTags.prefix(2)) { tag in
                             HStack(spacing: 4) {
-                                Circle()
-                                    .fill(tag.tagColor.primaryColor)
-                                    .frame(width: 6, height: 6)
-                                Text(tag.name)
+                                if tag.isGroup {
+                                    Image(systemName: "folder.fill")
+                                        .font(.system(size: 9, weight: .semibold))
+                                        .foregroundStyle(tag.tagColor.primaryColor)
+                                } else {
+                                    Circle()
+                                        .fill(tag.tagColor.primaryColor)
+                                        .frame(width: 6, height: 6)
+                                }
+                                Text(chipTitle(for: tag))
                                     .font(.system(size: 14, weight: .medium))
                                     .foregroundStyle(Color(hex: "2F402E"))
                             }
@@ -896,6 +916,8 @@ struct FullImageView: View {
     @Environment(\.dismiss) private var dismiss
     let image: UIImage
 
+    @State private var dragOffset: CGFloat = 0
+
     var body: some View {
         ZStack(alignment: .topTrailing) {
             Color.black.ignoresSafeArea()
@@ -904,11 +926,31 @@ struct FullImageView: View {
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .offset(y: dragOffset)
+                .gesture(
+                    DragGesture()
+                        .onChanged { value in
+                            if value.translation.height > 0 {
+                                dragOffset = value.translation.height
+                            }
+                        }
+                        .onEnded { value in
+                            if value.translation.height > 100 {
+                                dismiss()
+                            } else {
+                                withAnimation(.easeOut(duration: 0.2)) {
+                                    dragOffset = 0
+                                }
+                            }
+                        }
+                )
 
+            // White x on a translucent dark circle — visible on any receipt,
+            // including white paper that fills the screen behind it.
             Button { dismiss() } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 28))
-                    .foregroundStyle(.white)
+                    .font(.system(size: 30))
+                    .foregroundStyle(.white, Color.black.opacity(0.55))
             }
             .padding(Spacing.lg)
         }
