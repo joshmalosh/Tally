@@ -8,7 +8,6 @@ struct AddMultipleExpensesView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(AppState.self) private var appState
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
-    @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil }) private var allExpenses: [ExpenseModel]
 
     @State private var step: Step = .input
     @State private var showingCamera = false
@@ -19,8 +18,6 @@ struct AddMultipleExpensesView: View {
     @State private var linkedTagIds: [String: String] = [:] // suggestedTagName -> existing tag id
     @State private var showingTagLinkPickerFor: TagLinkPickerTag?
     @State private var showingPhotoSourcePicker = false
-    @State private var showingMonthlyLimitSheet = false
-    @State private var limitContextMessage: String?
     @State private var showingPhotoLibrary = false
     @State private var photoForOCR: UIImage?
     @State private var bulkEditExpenseId: String?
@@ -109,16 +106,6 @@ struct AddMultipleExpensesView: View {
                 runOCR(on: new)
                 photoForOCR = nil
             }
-        }
-        .sheet(isPresented: $showingMonthlyLimitSheet) {
-            MonthlyLimitSheet(
-                onProUnlocked: {
-                    performImport()
-                },
-                contextMessage: limitContextMessage
-            )
-                .presentationDetents([.medium])
-                .presentationDragIndicator(.visible)
         }
         .sheet(item: $showingTagLinkPickerFor) { tagTag in
             TagLinkPickerSheet(
@@ -516,34 +503,8 @@ struct AddMultipleExpensesView: View {
         .padding(.vertical, 14)
     }
 
-    private func expenseCountInMonth(of d: Date) -> Int {
-        let cal = Calendar.current
-        let (y, m) = (cal.component(.year, from: d), cal.component(.month, from: d))
-        return allExpenses.filter {
-            cal.component(.year, from: $0.date) == y && cal.component(.month, from: $0.date) == m
-        }.count
-    }
-
     private func performImport() {
         let currency = appState.defaultCurrency
-        let today = Date()
-
-        if !appState.isPro {
-            let existingCount = expenseCountInMonth(of: today)
-            let toAdd = groupedExpenseSections.flatMap(\.expenses).filter { $0.amountCents > 0 }.count
-            if existingCount + toAdd > 15 {
-                let remaining = max(0, 15 - existingCount)
-                let importPhrase = toAdd == 1 ? "1 expense" : "\(toAdd) expenses"
-                if remaining == 0 {
-                    limitContextMessage = "This import adds \(importPhrase), but you've already used all 15 free expenses this month."
-                } else {
-                    let remainingPhrase = remaining == 1 ? "only 1 is" : "only \(remaining) are"
-                    limitContextMessage = "This import adds \(importPhrase), but \(remainingPhrase) left this month."
-                }
-                showingMonthlyLimitSheet = true
-                return
-            }
-        }
 
         for section in groupedExpenseSections {
             var tagId: String?

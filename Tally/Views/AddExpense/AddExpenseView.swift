@@ -64,7 +64,6 @@ struct AddExpenseView: View {
     @State private var isSaving = false
     @State private var formReady = true
     @State private var isRunningOCR = false
-    @State private var showingMonthlyLimitSheet = false
     @State private var showingProBenefitsCard = false
     @State private var showingGoProFromOcrBanner = false
 
@@ -442,13 +441,6 @@ struct AddExpenseView: View {
                 if let image = attachedImage {
                     FullImageView(image: image)
                 }
-            }
-            .sheet(isPresented: $showingMonthlyLimitSheet) {
-                MonthlyLimitSheet(onProUnlocked: {
-                    saveExpense()
-                })
-                    .presentationDetents([.medium])
-                    .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $showingProBenefitsCard, onDismiss: { dismiss() }) {
                 ProBenefitsCard()
@@ -1965,14 +1957,6 @@ struct AddExpenseView: View {
             errorMessage = "Please enter a valid amount."
             showingError = true
             return
-        }
-
-        if !isEditing && !appState.isPro {
-            let countInMonth = expenseCountInMonth(of: date)
-            if countInMonth >= 15 {
-                showingMonthlyLimitSheet = true
-                return
-            }
         }
 
         isSaving = true
