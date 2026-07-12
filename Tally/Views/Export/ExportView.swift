@@ -352,9 +352,9 @@ struct ProBenefitsCard: View {
                     .multilineTextAlignment(.center)
 
                 VStack(alignment: .leading, spacing: Spacing.sm) {
-                    benefitRow(icon: "infinity", text: "Unlimited expenses per month")
                     benefitRow(icon: "doc.text.viewfinder", text: "Full OCR auto-fill on receipts")
-                    benefitRow(icon: "square.and.arrow.up", text: "Unlimited exports")
+                    benefitRow(icon: "square.and.arrow.up", text: "Unlimited CSV exports")
+                    benefitRow(icon: "doc.richtext", text: "PDF reports")
                     benefitRow(icon: "nosign", text: "No ads")
                 }
                 .padding(.horizontal, Spacing.sm)

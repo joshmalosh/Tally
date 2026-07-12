@@ -2,7 +2,7 @@
 
 This is the single source of truth for Tally's monetisation model. If anything in `PROJECT_BRIEF.md` or other documents conflicts with this file, this file wins.
 
-Last updated: 2026-02-28
+Last updated: 2026-07-12
 
 ---
 
@@ -155,6 +155,17 @@ Automatically extract amount and merchant from receipts.
 | Tap OCR toggle (free user) | Standard upgrade sheet |
 | Tap Advanced Filters (free user) | Standard upgrade sheet |
 | Settings "Go Pro" row | Subscription view |
+| 3rd, 6th, and 9th expense saved in a month (free user) | Pro benefits card |
+
+### Pro benefits card
+
+The only proactive prompt (every other trigger is reactive — the user tapped a locked thing). Rules:
+
+- Shown after a free user saves their 3rd, 6th, or 9th expense of the calendar month.
+- Maximum 3 showings per calendar month. Counter resets on the 1st.
+- Never shown mid-batch during bulk import — one prompt per save moment, never stacked.
+- Lists real Pro benefits only: OCR auto-fill, unlimited CSV exports, PDF reports, no ads. Never claim a benefit the free tier also has.
+- Same tone rules as all prompts: [Upgrade to Pro] / [Not now]. No urgency.
 
 ### Tone rules
 
@@ -215,3 +226,4 @@ These are explicit prohibitions. Never implement any of these:
 |---|---|
 | 2026-02-28 | Initial brief: CSV 1/month, PDF Pro, no interstitials, banner only |
 | 2026-02-28 | Upload caps removed (unlimited for all). iCloud-only storage. Monthly auto-export confirmed as Pro. Bulk delete ungated. Add Expense ad strategy refined (keyboard hiding, 3-expense threshold). Storage caps removed (user-owned iCloud). No Stripe/web subscription for now. |
+| 2026-07-12 | 15/month free expense cap removed from app (violated this brief; brief confirmed as source of truth). Pro benefits card documented: proactive prompt on 3rd/6th/9th expense per month, max 3/month, never mid-batch. |
