@@ -7,12 +7,14 @@ struct ParsedExpense: Identifiable {
     var description: String
     var amountCents: Int
     var suggestedTagName: String?
+    var date: Date
 
-    init(id: String = UUID().uuidString, description: String, amountCents: Int, suggestedTagName: String? = nil) {
+    init(id: String = UUID().uuidString, description: String, amountCents: Int, suggestedTagName: String? = nil, date: Date = Date()) {
         self.id = id
         self.description = description
         self.amountCents = amountCents
         self.suggestedTagName = suggestedTagName
+        self.date = date
     }
 }
 

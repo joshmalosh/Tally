@@ -13,13 +13,14 @@ struct AddMultipleExpensesView: View {
     @State private var step: Step = .input
     @State private var showingCamera = false
     @State private var pastedText = ""
-    @State private var showingPasteEditor = false
+    @State private var importDate = Date()
     @State private var isExtractingOCR = false
     @State private var parsedExpenses: [ParsedExpense] = []
     @State private var linkedTagIds: [String: String] = [:] // suggestedTagName -> existing tag id
     @State private var showingTagLinkPickerFor: TagLinkPickerTag?
     @State private var showingPhotoSourcePicker = false
     @State private var showingMonthlyLimitSheet = false
+    @State private var limitContextMessage: String?
     @State private var showingPhotoLibrary = false
     @State private var photoForOCR: UIImage?
     @State private var bulkEditExpenseId: String?
@@ -74,6 +75,16 @@ struct AddMultipleExpensesView: View {
                         Button("Cancel") { dismiss() }
                             .foregroundStyle(Color.textSecondary)
                     }
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            showingPhotoSourcePicker = true
+                        } label: {
+                            Image(systemName: "camera")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundStyle(Color(hex: "2F402E"))
+                        }
+                        .accessibilityLabel("Scan from photo")
+                    }
                 }
             }
         }
@@ -99,13 +110,13 @@ struct AddMultipleExpensesView: View {
                 photoForOCR = nil
             }
         }
-        .sheet(isPresented: $showingPasteEditor) {
-            pasteTextSheet
-        }
         .sheet(isPresented: $showingMonthlyLimitSheet) {
-            MonthlyLimitSheet(onProUnlocked: {
-                performImport()
-            })
+            MonthlyLimitSheet(
+                onProUnlocked: {
+                    performImport()
+                },
+                contextMessage: limitContextMessage
+            )
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
@@ -141,6 +152,10 @@ struct AddMultipleExpensesView: View {
                     },
                     onCancel: {
                         bulkEditExpenseId = nil
+                    },
+                    onRemove: {
+                        removeExpenseFromPending(exp)
+                        bulkEditExpenseId = nil
                     }
                 )
                 .id(id)
@@ -151,90 +166,16 @@ struct AddMultipleExpensesView: View {
     // MARK: - Input Step
 
     private var inputStep: some View {
-        VStack(spacing: Spacing.lg) {
-            Text("Have a list of expenses somewhere else already? Upload or type them, we'll handle the rest.")
-                .font(Fonts.caption(14))
-                .foregroundStyle(Color.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, Spacing.lg)
-                .padding(.top, Spacing.lg)
-
-            VStack(spacing: Spacing.md) {
-                inputCard(
-                    icon: "camera.fill",
-                    title: "Take or upload a photo",
-                    subtitle: "Upload a photo or screenshot of your notes"
-                ) {
-                    showingPhotoSourcePicker = true
-                }
-
-                inputCard(
-                    icon: "doc.text",
-                    title: "Paste text",
-                    subtitle: "Paste from Notes, Messages, anywhere"
-                ) {
-                    showingPasteEditor = true
-                }
-            }
-            .padding(.horizontal, Spacing.lg)
-            .padding(.top, Spacing.md)
-
-            Spacer()
-        }
-        .overlay {
-            if isExtractingOCR {
-                ZStack {
-                    Color.black.opacity(0.3)
-                        .ignoresSafeArea()
-                    VStack(spacing: Spacing.md) {
-                        ProgressView()
-                        Text("Extracting text...")
-                            .font(Fonts.caption(14))
-                            .foregroundStyle(.white)
-                    }
-                }
-            }
-        }
-    }
-
-    private func inputCard(icon: String, title: String, subtitle: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: Spacing.md) {
-                Image(systemName: icon)
-                    .font(.system(size: 24))
-                    .foregroundStyle(Color.brandPrimary)
-                    .frame(width: 48, height: 48)
-                    .background(Color.brandTint)
-                    .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(Fonts.headline(16))
-                        .foregroundStyle(Color.textPrimary)
-                    Text(subtitle)
-                        .font(Fonts.caption(13))
+        ZStack {
+            ScrollView {
+                VStack(spacing: Spacing.md) {
+                    Text("Have a list of expenses somewhere else already? Paste or type them, we'll handle the rest.")
+                        .font(Fonts.caption(14))
                         .foregroundStyle(Color.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, Spacing.lg)
+                        .padding(.top, Spacing.md)
 
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(Color.textMuted)
-            }
-            .padding(Spacing.lg)
-            .background(Color.surface)
-            .clipShape(RoundedRectangle(cornerRadius: Radius.md))
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var pasteTextSheet: some View {
-        NavigationStack {
-            ZStack {
-                Color.bgPrimary.ignoresSafeArea()
-
-                ScrollView {
                     ZStack(alignment: .topLeading) {
                         TextEditor(text: $pastedText)
                             .font(Fonts.body(16))
@@ -256,31 +197,37 @@ struct AddMultipleExpensesView: View {
                         }
                     }
                     .padding(.horizontal, Spacing.lg)
-                    .padding(.top, Spacing.md)
-                    .padding(.bottom, 100)
                 }
+                .padding(.bottom, 100)
+            }
 
-                VStack {
-                    Spacer(minLength: 0)
-                    PrimaryButton(title: "Continue") {
-                        proceedWithText(pastedText)
-                        showingPasteEditor = false
+            VStack {
+                Spacer(minLength: 0)
+                PrimaryButton(title: "Continue") {
+                    proceedWithText(pastedText)
+                }
+                .disabled(pastedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .opacity(pastedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.5 : 1)
+                .padding(.horizontal, Spacing.lg)
+                .padding(.bottom, Spacing.lg)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            .ignoresSafeArea(.keyboard, edges: .bottom)
+        }
+        .onAppear { isPasteFieldFocused = true }
+        .overlay {
+            if isExtractingOCR {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .ignoresSafeArea()
+                    VStack(spacing: Spacing.md) {
+                        ProgressView()
+                        Text("Extracting text...")
+                            .font(Fonts.caption(14))
+                            .foregroundStyle(.white)
                     }
-                    .padding(.horizontal, Spacing.lg)
-                    .padding(.bottom, Spacing.lg)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                .ignoresSafeArea(.keyboard, edges: .bottom)
-            }
-            .navigationTitle("Paste expenses")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { showingPasteEditor = false }
-                        .foregroundStyle(Color.textSecondary)
                 }
             }
-            .onAppear { isPasteFieldFocused = true }
         }
     }
 
@@ -290,11 +237,10 @@ struct AddMultipleExpensesView: View {
             let text = await ReceiptOCRService.extractFullText(from: image)
             await MainActor.run {
                 isExtractingOCR = false
-                if text.isEmpty {
-                    proceedWithText("")
-                } else {
-                    proceedWithText(text)
+                if !text.isEmpty {
+                    pastedText = text
                 }
+                proceedWithText(text)
             }
         }
     }
@@ -315,10 +261,15 @@ struct AddMultipleExpensesView: View {
     private func proceedWithText(_ text: String) {
         let parsed = BulkExpenseParser.parse(text)
         if parsed.isEmpty {
-            dismiss()
+            // Stay on the input step — the text (typed or OCR-extracted) remains
+            // in the editor for the user to fix.
             return
         }
-        parsedExpenses = parsed
+        parsedExpenses = parsed.map { exp in
+            var e = exp
+            e.date = importDate
+            return e
+        }
         step = .review
     }
 
@@ -339,6 +290,7 @@ struct AddMultipleExpensesView: View {
         return ZStack(alignment: .bottom) {
             ScrollView {
                 VStack(spacing: 20) {
+                    importDateRow
                     ForEach(groupedExpenseSections, id: \.tagKey) { section in
                         reviewTagGroupSection(section)
                     }
@@ -346,6 +298,11 @@ struct AddMultipleExpensesView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .padding(.bottom, 110)
+            }
+            .onChange(of: importDate) { _, newDate in
+                for i in parsedExpenses.indices {
+                    parsedExpenses[i].date = newDate
+                }
             }
             .animation(.easeInOut(duration: 0.25), value: parsedExpenses.map { "\($0.id):\($0.suggestedTagName ?? "")" }.joined())
 
@@ -381,6 +338,28 @@ struct AddMultipleExpensesView: View {
         }
     }
 
+    private var importDateRow: some View {
+        HStack {
+            Text("DATE")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color(hex: "8F9E94"))
+                .tracking(0.6)
+            Spacer()
+            DatePicker("", selection: $importDate, displayedComponents: .date)
+                .labelsHidden()
+                .datePickerStyle(.compact)
+                .tint(Color(hex: "2F402E"))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
+    }
+
     private func headerDotColor(for section: (tagKey: String, tagDisplayName: String, isNew: Bool, linkedTagId: String?, expenses: [ParsedExpense])) -> Color {
         if let lid = section.linkedTagId, let t = tags.first(where: { $0.id == lid }) {
             return t.tagColor.primaryColor
@@ -408,10 +387,10 @@ struct AddMultipleExpensesView: View {
                 if section.isNew {
                     Text("New")
                         .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color(hex: "2F402E"))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(Color(hex: "F5A623"))
+                        .background(Color(hex: "B8D9C0"))
                         .clipShape(Capsule())
                 }
 
@@ -553,6 +532,14 @@ struct AddMultipleExpensesView: View {
             let existingCount = expenseCountInMonth(of: today)
             let toAdd = groupedExpenseSections.flatMap(\.expenses).filter { $0.amountCents > 0 }.count
             if existingCount + toAdd > 15 {
+                let remaining = max(0, 15 - existingCount)
+                let importPhrase = toAdd == 1 ? "1 expense" : "\(toAdd) expenses"
+                if remaining == 0 {
+                    limitContextMessage = "This import adds \(importPhrase), but you've already used all 15 free expenses this month."
+                } else {
+                    let remainingPhrase = remaining == 1 ? "only 1 is" : "only \(remaining) are"
+                    limitContextMessage = "This import adds \(importPhrase), but \(remainingPhrase) left this month."
+                }
                 showingMonthlyLimitSheet = true
                 return
             }
@@ -583,10 +570,9 @@ struct AddMultipleExpensesView: View {
                 let model = ExpenseModel(
                     amountCents: exp.amountCents,
                     currency: currency,
-                    date: today,
+                    date: exp.date,
                     description: exp.description,
                     tagIds: tagId.map { [$0] } ?? [],
-                    notes: exp.description,
                     source: "bulk_import"
                 )
                 modelContext.insert(model)
@@ -796,10 +782,10 @@ struct TagLinkPickerSheet: View {
                 Spacer()
                 Text("New")
                     .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color(hex: "2F402E"))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color(hex: "F5A623"))
+                    .background(Color(hex: "B8D9C0"))
                     .clipShape(Capsule())
             }
             .padding(Spacing.md)
@@ -842,6 +828,7 @@ private struct BulkExpenseRowEditSheet: View {
     @Binding var linkedTagIds: [String: String]
     let onSave: (ParsedExpense) -> Void
     let onCancel: () -> Void
+    let onRemove: () -> Void
 
     @State private var draft: ParsedExpense
     @State private var amountText: String
@@ -855,7 +842,8 @@ private struct BulkExpenseRowEditSheet: View {
         initial: ParsedExpense,
         linkedTagIds: Binding<[String: String]>,
         onSave: @escaping (ParsedExpense) -> Void,
-        onCancel: @escaping () -> Void
+        onCancel: @escaping () -> Void,
+        onRemove: @escaping () -> Void
     ) {
         self.tags = tags
         self.importTagNames = importTagNames
@@ -864,6 +852,7 @@ private struct BulkExpenseRowEditSheet: View {
         _linkedTagIds = linkedTagIds
         self.onSave = onSave
         self.onCancel = onCancel
+        self.onRemove = onRemove
         _draft = State(initialValue: initial)
         let uses = CurrencyFormatter.shared.usesDecimals(for: currencyCode)
         let cents = initial.amountCents
@@ -898,8 +887,11 @@ private struct BulkExpenseRowEditSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: Spacing.lg) {
+                    descriptionCard
                     amountCard
+                    dateCard
                     tagCard
+                    removeButton
                 }
                 .padding(.horizontal, Spacing.lg)
                 .padding(.top, Spacing.md)
@@ -919,10 +911,12 @@ private struct BulkExpenseRowEditSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
                         applyAmountFromText()
+                        draft.description = draft.description.trimmingCharacters(in: .whitespacesAndNewlines)
                         onSave(draft)
                         dismiss()
                     }
                     .foregroundStyle(Color(hex: "2F402E"))
+                    .disabled(draft.description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
             .sheet(isPresented: $showingTagPicker) {
@@ -936,6 +930,70 @@ private struct BulkExpenseRowEditSheet: View {
                 )
             }
         }
+    }
+
+    private var descriptionCard: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("DESCRIPTION")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color(hex: "8F9E94"))
+                .tracking(0.6)
+                .textCase(.uppercase)
+            TextField("Description", text: $draft.description)
+                .font(Fonts.body(16))
+                .foregroundStyle(Color.textPrimary)
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
+    }
+
+    private var dateCard: some View {
+        HStack {
+            Text("DATE")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color(hex: "8F9E94"))
+                .tracking(0.6)
+                .textCase(.uppercase)
+            Spacer()
+            DatePicker("", selection: $draft.date, displayedComponents: .date)
+                .labelsHidden()
+                .datePickerStyle(.compact)
+                .tint(Color(hex: "2F402E"))
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+        )
+    }
+
+    private var removeButton: some View {
+        Button(role: .destructive) {
+            onRemove()
+            dismiss()
+        } label: {
+            Text("Remove expense")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Color.danger)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(Color.white)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
     }
 
     private var amountCard: some View {

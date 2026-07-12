@@ -346,6 +346,8 @@ struct MonthlyLimitSheet: View {
 
     /// Called after the user becomes Pro (e.g. successful purchase) so the host can dismiss the limit sheet and retry save/import.
     var onProUnlocked: (() -> Void)? = nil
+    /// Optional extra line explaining what triggered the limit (e.g. a bulk import that would exceed the cap).
+    var contextMessage: String? = nil
 
     var body: some View {
         VStack(spacing: Spacing.lg) {
@@ -360,6 +362,15 @@ struct MonthlyLimitSheet: View {
                     .font(Fonts.headline(20))
                     .foregroundStyle(Color.textPrimary)
                     .multilineTextAlignment(.center)
+
+                if let contextMessage {
+                    Text(contextMessage)
+                        .font(Fonts.body(15))
+                        .fontWeight(.medium)
+                        .foregroundStyle(Color.textPrimary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+                }
 
                 Text("Free accounts can log up to 15 expenses per month. Upgrade to Pro for unlimited tracking.")
                     .font(Fonts.body(15))
