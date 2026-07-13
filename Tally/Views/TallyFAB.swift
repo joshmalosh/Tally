@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 import AudioToolbox
 
 struct TallyFAB: View {
@@ -7,6 +6,9 @@ struct TallyFAB: View {
     let action: () -> Void
 
     @State private var isRippling: Bool = false
+    // Bumped on every press; drives .sensoryFeedback, which manages the Taptic
+    // Engine (preparation + lifecycle) internally for instant, reliable haptics.
+    @State private var pressTick: Int = 0
 
     var body: some View {
         Button {
@@ -39,20 +41,24 @@ struct TallyFAB: View {
                     .foregroundStyle(.white)
             }
         }
-        .buttonStyle(FABButtonStyle())
+        .buttonStyle(FABButtonStyle(pressTick: $pressTick))
+        .sensoryFeedback(.impact(weight: .heavy, intensity: 1.0), trigger: pressTick)
     }
 }
 
 // MARK: - Button style
 
 private struct FABButtonStyle: ButtonStyle {
+    @Binding var pressTick: Int
+
     func makeBody(configuration: Configuration) -> some View {
-        FABButtonBody(configuration: configuration)
+        FABButtonBody(configuration: configuration, pressTick: $pressTick)
     }
 }
 
 private struct FABButtonBody: View {
     let configuration: ButtonStyleConfiguration
+    @Binding var pressTick: Int
     @State private var shadowRadius: CGFloat = 14
     @State private var shadowY: CGFloat = 6
     @State private var scale: CGFloat = 1.0
@@ -68,13 +74,14 @@ private struct FABButtonBody: View {
             .scaleEffect(scale)
             .onChange(of: configuration.isPressed) { _, pressed in
                 if pressed {
+                    // Fire the haptic on touch-down for an instant, tactile press.
+                    pressTick &+= 1
+                    AudioServicesPlaySystemSound(1104)
                     withAnimation(.easeIn(duration: 0.08)) {
                         scale = 0.84
                         shadowRadius = 4
                         shadowY = 2
                     }
-                    UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-                    AudioServicesPlaySystemSound(1104)
                 } else {
                     // Phase 1: inflate (balloon puffs up)
                     withAnimation(.spring(response: 0.2, dampingFraction: 0.35)) {
@@ -87,9 +94,6 @@ private struct FABButtonBody: View {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
                             scale = 1.0
                         }
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     }
                 }
             }

@@ -1,7 +1,31 @@
 import UIKit
+import ImageIO
 
 actor AttachmentService {
     static let shared = AttachmentService()
+
+    /// Decodes image data straight to a small, fully-rendered thumbnail via
+    /// ImageIO. This does the expensive work (decode + downscale) up front off
+    /// the main thread, so SwiftUI never decodes a full-resolution receipt on
+    /// the main thread at draw time — the cause of slow/janky thumbnails.
+    /// Target pixel size for list thumbnails: a ~44pt slot at 3x plus headroom.
+    /// A fixed value keeps this callable off the main thread (no UIScreen).
+    nonisolated static func downsampledThumbnail(from data: Data, maxPixel: CGFloat = 300) -> UIImage? {
+        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithData(data as CFData, sourceOptions) else {
+            return nil
+        }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixel
+        ]
+        guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return nil
+        }
+        return UIImage(cgImage: cgImage)
+    }
 
     private let fileManager = FileManager.default
     private let attachmentsDirectory: URL
@@ -63,7 +87,8 @@ actor AttachmentService {
     nonisolated func loadThumbnail(key: String) -> UIImage? {
         let url = Self.docsDir.appendingPathComponent("Thumbnails", isDirectory: true).appendingPathComponent(key)
         guard let data = try? Data(contentsOf: url) else { return nil }
-        return UIImage(data: data)
+        // Force full decode now (off the main thread) rather than lazily at draw.
+        return Self.downsampledThumbnail(from: data) ?? UIImage(data: data)
     }
 
     func deleteAttachment(key: String) {

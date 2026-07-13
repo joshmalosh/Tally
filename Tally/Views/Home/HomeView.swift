@@ -838,8 +838,11 @@ struct HomeView: View {
                let thumb = AttachmentService.shared.loadThumbnail(key: key) {
                 return thumb
             }
+            // No pre-baked thumbnail (e.g. share-imported images) — downsample
+            // the full data to a small decoded thumbnail rather than decoding
+            // the whole receipt on the main thread at draw time.
             if let data = attachmentData {
-                return UIImage(data: data)
+                return AttachmentService.downsampledThumbnail(from: data) ?? UIImage(data: data)
             }
             return nil
         }.value
