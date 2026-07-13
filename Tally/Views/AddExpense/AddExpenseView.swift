@@ -710,93 +710,78 @@ struct AddExpenseView: View {
         .padding(.horizontal, 16)
     }
 
-    // MARK: - Quick Add: Tag card — chips visible only after merchant is entered
+    // MARK: - Quick Add: Tag card
 
     private var quickAddTagCard: some View {
-        let showChips = !merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        let hasContent = showChips || !selectedTagIds.isEmpty
-
-        return VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
             HStack {
                 Text("TAG")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
                     .tracking(1.0)
                 Spacer()
-                if !hasContent {
-                    Button { showingTagPicker = true } label: {
-                        Text("e.g. coffee, transport…")
-                            .font(.system(size: 14))
-                            .foregroundStyle(Color(hex: "C4BFB9"))
-                    }
-                    .buttonStyle(.plain)
-                    .transition(.opacity)
-                }
             }
             .padding(.horizontal, 14)
             .padding(.top, 14)
-            .padding(.bottom, hasContent ? 12 : 14)
+            .padding(.bottom, 12)
 
-            if hasContent {
+            if selectedTagIds.isEmpty {
+                // Nothing selected: one unambiguous "add" affordance — never
+                // pre-populated tag chips, which read as already-selected.
+                Button { showingTagPicker = true } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus")
+                            .font(.system(size: 11, weight: .bold))
+                        Text("Add a tag")
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .foregroundStyle(Color(hex: "2F402E").opacity(0.6))
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .overlay(
+                        Capsule().stroke(
+                            style: StrokeStyle(lineWidth: 1, dash: [4])
+                        ).foregroundStyle(Color(hex: "2F402E").opacity(0.3))
+                    )
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 14)
+                }
+                .buttonStyle(.plain)
+            } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
-                        if !selectedTagIds.isEmpty {
-                            // Any tag selected: collapse to just the selected tag(s) + More
-                            ForEach(selectedTags) { tag in
-                                Button {
-                                    withAnimation(.easeInOut(duration: 0.15)) {
-                                        selectedTagIds.removeAll { $0 == tag.id }
-                                        tagAutoAppliedByHistory = false
-                                    }
-                                } label: {
-                                    HStack(spacing: 5) {
-                                        if tag.isGroup {
-                                            Image(systemName: "folder.fill")
-                                                .font(.system(size: 9, weight: .semibold))
-                                                .foregroundStyle(Color.white.opacity(0.8))
-                                        } else {
-                                            Circle().fill(Color.white.opacity(0.8)).frame(width: 7, height: 7)
-                                        }
-                                        Text(chipTitle(for: tag))
-                                            .font(.system(size: 12, weight: .semibold))
-                                            .foregroundStyle(Color.white)
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 7)
-                                    .background(Color(hex: "2F402E"))
-                                    .clipShape(Capsule())
+                        ForEach(selectedTags) { tag in
+                            Button {
+                                withAnimation(.easeInOut(duration: 0.15)) {
+                                    selectedTagIds.removeAll { $0 == tag.id }
+                                    tagAutoAppliedByHistory = false
                                 }
-                                .buttonStyle(.plain)
-                            }
-                        } else {
-                            // No tag selected: show top 3 suggestions
-                            ForEach(Array(tags.prefix(3))) { tag in
-                                Button {
-                                    withAnimation(.easeInOut(duration: 0.15)) {
-                                        selectedTagIds = [tag.id]
-                                        tagAutoAppliedByHistory = false
+                            } label: {
+                                HStack(spacing: 5) {
+                                    if tag.isGroup {
+                                        Image(systemName: "folder.fill")
+                                            .font(.system(size: 9, weight: .semibold))
+                                            .foregroundStyle(Color.white.opacity(0.8))
+                                    } else {
+                                        Circle().fill(Color.white.opacity(0.8)).frame(width: 7, height: 7)
                                     }
-                                } label: {
-                                    HStack(spacing: 5) {
-                                        Circle()
-                                            .fill(tag.tagColor.primaryColor)
-                                            .frame(width: 7, height: 7)
-                                        Text(tag.name)
-                                            .font(.system(size: 12, weight: .semibold))
-                                            .foregroundStyle(Color(hex: "2F402E").opacity(0.8))
-                                    }
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 7)
-                                    .background(Color(hex: "F0EDE6"))
-                                    .clipShape(Capsule())
-                                    .overlay(Capsule().stroke(Color(hex: "2F402E").opacity(0.1), lineWidth: 1))
+                                    Text(chipTitle(for: tag))
+                                        .font(.system(size: 12, weight: .semibold))
+                                        .foregroundStyle(Color.white)
+                                    Image(systemName: "xmark")
+                                        .font(.system(size: 8, weight: .bold))
+                                        .foregroundStyle(Color.white.opacity(0.7))
                                 }
-                                .buttonStyle(.plain)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 7)
+                                .background(Color(hex: "2F402E"))
+                                .clipShape(Capsule())
                             }
+                            .buttonStyle(.plain)
                         }
 
                         Button { showingTagPicker = true } label: {
-                            Text("More…")
+                            Text("Change")
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(Color(hex: "2F402E").opacity(0.55))
                                 .padding(.horizontal, 12)
@@ -815,7 +800,7 @@ struct AddExpenseView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
         .padding(.horizontal, 16)
-        .animation(.easeInOut(duration: 0.2), value: hasContent)
+        .animation(.easeInOut(duration: 0.2), value: selectedTagIds.isEmpty)
     }
 
     // MARK: - Quick Add: Compact date / receipt row
