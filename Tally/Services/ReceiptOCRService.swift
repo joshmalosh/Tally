@@ -6,6 +6,9 @@ struct ReceiptOCRResult {
     var merchant: String?
     var date: Date?
     var notes: String?
+    /// ISO 4217 code when the receipt names its currency unambiguously
+    /// (€ → EUR, £ → GBP, "AUD" → AUD…). A bare "$" stays nil.
+    var currencyCode: String?
 }
 
 enum ReceiptOCRService {
@@ -65,8 +68,12 @@ enum ReceiptOCRService {
         let merchant = extractMerchant(from: blocks)
         let date = extractDate(from: blocks)
         let notes = extractNotes(from: blocks, merchant: merchant)
+        let currencyCode = detectCurrency(in: blocks)
 
-        return ReceiptOCRResult(amount: amount, merchant: merchant, date: date, notes: notes)
+        return ReceiptOCRResult(
+            amount: amount, merchant: merchant, date: date,
+            notes: notes, currencyCode: currencyCode
+        )
     }
 
     // MARK: - Vision
@@ -100,11 +107,6 @@ enum ReceiptOCRService {
         options: .caseInsensitive
     )
 
-    private static let totalLinePattern = try! NSRegularExpression(
-        pattern: #"(?<!\w)(?:grand\s+)?(?:total|net)(?:\s+due|\s+payable|\s+amount|\s+charge)?(?:\s*:)?(?!\w)"#,
-        options: .caseInsensitive
-    )
-
     private static let subtotalPattern = try! NSRegularExpression(
         pattern: #"sub\s*total|net\s+total"#,
         options: .caseInsensitive
@@ -114,15 +116,53 @@ enum ReceiptOCRService {
         pattern: #"[\$£€¥]"#, options: []
     )
 
-    /// Find the nearest amount block on the same horizontal line as a keyword block.
-    /// Vision's bounding boxes use normalized coordinates (0-1), Y increases upward.
-    private static func findAmountOnSameLine(as keywordBlock: TextBlock, in blocks: [TextBlock]) -> Double? {
-        let yTolerance = 0.03 // blocks within ~3% of image height are "same line"
-        let keyY = keywordBlock.boundingBox.midY
+    /// Lines whose amount is NOT the bill total: the tax component ("Total
+    /// includes GST of: $22.46", "Includes TAX: $2.82", "GST: $4.10"),
+    /// savings/discount lines ("TOTAL SAVINGS $52.94"), change, rounding, tips.
+    /// Note: "(GST incl.)" / "incl. GST" mark a tax-INCLUSIVE total and must
+    /// NOT be excluded — the patterns below only match the tax-amount phrasings.
+    private static let amountExclusionPattern = try! NSRegularExpression(
+        pattern: #"includes?\s+(gst|tax|vat)|\b(gst|tax|vat)\s*(of\b|:)|saving|discount|\bchange\b|rounding|cash\s*out|\btip\b|reward|points|\brrp\b|\bwas\s"#,
+        options: .caseInsensitive
+    )
 
+    /// High-confidence total labels.
+    private static let strongTotalPattern = try! NSRegularExpression(
+        pattern: #"total\s+amount|grand\s+total|amount\s+due|balance\s+due|total\s+due|amount\s+payable|total\s*\(|total\s*:"#,
+        options: .caseInsensitive
+    )
+
+    private static let genericTotalPattern = try! NSRegularExpression(
+        pattern: #"(?<!\w)total(?!\w)"#,
+        options: .caseInsensitive
+    )
+
+    /// Payment-confirmation lines usually restate the exact total.
+    private static let paymentPattern = try! NSRegularExpression(
+        pattern: #"eftpos|visa|mastercard|amex|debit|credit\s+card|tendered|paid\b|payment"#,
+        options: .caseInsensitive
+    )
+
+    private static func matches(_ regex: NSRegularExpression, _ text: String) -> Bool {
+        regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+    }
+
+    /// Skew-tolerant same-line test: blocks share a line when their vertical
+    /// extents overlap (each expanded slightly), rather than requiring midpoints
+    /// within a fixed fraction of image height — tilted receipts fail the latter.
+    private static func sameLine(_ a: CGRect, _ b: CGRect) -> Bool {
+        let padA = a.height * 0.4
+        let padB = b.height * 0.4
+        return (a.minY - padA) < b.maxY && (b.minY - padB) < a.maxY
+    }
+
+    /// Nearest amount in a block sharing a line with the keyword block.
+    private static func findAmountOnSameLine(as keywordBlock: TextBlock, in blocks: [TextBlock]) -> Double? {
         var candidates: [(Double, CGFloat)] = [] // (amount, horizontal distance)
         for block in blocks where block.text != keywordBlock.text || block.boundingBox != keywordBlock.boundingBox {
-            guard abs(block.boundingBox.midY - keyY) < yTolerance else { continue }
+            guard sameLine(block.boundingBox, keywordBlock.boundingBox) else { continue }
+            // The paired block must not itself be an excluded line.
+            guard !matches(amountExclusionPattern, block.text) else { continue }
             if let value = parseAmount(from: block.text), value > 0 {
                 let dist = abs(block.boundingBox.midX - keywordBlock.boundingBox.midX)
                 candidates.append((value, dist))
@@ -131,116 +171,124 @@ enum ReceiptOCRService {
         return candidates.min(by: { $0.1 < $1.1 })?.0
     }
 
+    /// Scored extraction: every plausible (line, amount) pair earns a score from
+    /// its label, position, and magnitude; the best-scored candidate wins. This
+    /// replaces first-match tiers, which happily returned "TOTAL SAVINGS" or
+    /// "Total includes GST of:" lines because they contain the word "total".
     private static func extractAmount(from blocks: [TextBlock]) -> Double? {
+        struct Candidate {
+            let value: Double
+            var score: Int
+        }
 
-        var totalCandidates: [(Double, TextBlock)] = []
-        var subtotalCandidates: [(Double, TextBlock)] = []
-        var totalKeywordBlocks: [TextBlock] = []    // keyword found but no inline amount
-        var subtotalKeywordBlocks: [TextBlock] = []
+        // Largest amount anywhere on the receipt (totals are usually the max).
+        var maxAmount: Double = 0
+        for block in blocks where !matches(amountExclusionPattern, block.text) {
+            if let v = parseAmount(from: block.text), v > maxAmount { maxAmount = v }
+        }
+
+        var candidates: [Candidate] = []
+        var subtotalFallback: Double?
+
+        for block in blocks {
+            let text = block.text
+
+            // Tax/savings/discount/change lines never nominate their amount.
+            if matches(amountExclusionPattern, text) { continue }
+
+            let isSubtotal = matches(subtotalPattern, text)
+            let isStrongTotal = !isSubtotal && matches(strongTotalPattern, text)
+            let isGenericTotal = !isSubtotal && !isStrongTotal && matches(genericTotalPattern, text)
+            let isPayment = matches(paymentPattern, text)
+
+            guard isStrongTotal || isGenericTotal || isPayment || isSubtotal else { continue }
+
+            // Amount inline in the same block, else in a block sharing the line.
+            var value = parseAmount(from: text)
+            var inline = true
+            if value == nil || value == 0 {
+                value = findAmountOnSameLine(as: block, in: blocks)
+                inline = false
+            }
+            guard let amount = value, amount > 0 else { continue }
+
+            if isSubtotal {
+                subtotalFallback = subtotalFallback ?? amount
+                continue
+            }
+
+            var score = 0
+            if isStrongTotal { score += 100 }
+            else if isGenericTotal { score += 80 }
+            if isPayment { score += 45 }
+            if amount == maxAmount { score += 25 }
+            if block.boundingBox.origin.y < 0.5 { score += 10 } // lower half
+            if inline { score += 5 }
+
+            candidates.append(Candidate(value: amount, score: score))
+        }
+
+        if let best = candidates.max(by: { ($0.score, $0.value) < ($1.score, $1.value) }),
+           best.score >= 45 {
+            return best.value
+        }
+
+        // Fallbacks: subtotal, then largest currency-marked amount, then the
+        // largest amount in the bottom half.
+        if let subtotalFallback { return subtotalFallback }
+
+        var currencyAmounts: [Double] = []
+        for block in blocks where !matches(amountExclusionPattern, block.text) {
+            if matches(currencySymbolPattern, block.text),
+               let value = parseAmount(from: block.text), value > 0 {
+                currencyAmounts.append(value)
+            }
+        }
+        if let best = currencyAmounts.max() { return best }
+
+        var bottomAmounts: [Double] = []
+        for block in blocks where block.boundingBox.origin.y < 0.5 && !matches(amountExclusionPattern, block.text) {
+            if let value = parseAmount(from: block.text), value > 0 {
+                bottomAmounts.append(value)
+            }
+        }
+        return bottomAmounts.max()
+    }
+
+    // MARK: - Currency Detection
+
+    /// Explicit ISO codes and unambiguous symbols only — a bare "$" could be
+    /// AUD/USD/NZD/CAD, so it never overrides the user's default currency.
+    private static let currencyCodePattern = try! NSRegularExpression(
+        pattern: #"(?<![A-Z])(AUD|USD|EUR|GBP|NZD|CAD|JPY|CHF|SGD|HKD|CNY|INR)(?![A-Z])"#,
+        options: []
+    )
+
+    private static func detectCurrency(in blocks: [TextBlock]) -> String? {
+        var codeVotes: [String: Int] = [:]
+        var symbolVotes: [String: Int] = [:]
 
         for block in blocks {
             let text = block.text
             let nsRange = NSRange(text.startIndex..., in: text)
-            let isSubtotal = subtotalPattern.firstMatch(in: text, range: nsRange) != nil
-            let isTotal = totalLinePattern.firstMatch(in: text, range: nsRange) != nil
-
-            if let value = parseAmount(from: text), value > 0 {
-                if isTotal && !isSubtotal {
-                    totalCandidates.append((value, block))
-                } else if isSubtotal {
-                    subtotalCandidates.append((value, block))
-                }
-            } else {
-                if isTotal && !isSubtotal {
-                    totalKeywordBlocks.append(block)
-                } else if isSubtotal {
-                    subtotalKeywordBlocks.append(block)
+            for match in currencyCodePattern.matches(in: text, range: nsRange) {
+                if let r = Range(match.range, in: text) {
+                    codeVotes[String(text[r]), default: 0] += 1
                 }
             }
+            if text.contains("US$") { codeVotes["USD", default: 0] += 1 }
+            if text.contains("A$")  { codeVotes["AUD", default: 0] += 1 }
+            if text.contains("NZ$") { codeVotes["NZD", default: 0] += 1 }
+            if text.contains("C$")  { codeVotes["CAD", default: 0] += 1 }
+            if text.contains("€") { symbolVotes["EUR", default: 0] += 1 }
+            if text.contains("£") { symbolVotes["GBP", default: 0] += 1 }
+            if text.contains("¥") { symbolVotes["JPY", default: 0] += 1 }
+            if text.contains("₹") { symbolVotes["INR", default: 0] += 1 }
         }
 
-        // Tier 1a: "Total" blocks that contained both keyword and amount
-        if !totalCandidates.isEmpty {
-            let best = totalCandidates.min { $0.1.boundingBox.origin.y < $1.1.boundingBox.origin.y }
-            if let best {
-                return best.0
-            }
-        }
-
-        // Tier 1b: "Total"/"Net" keyword block with amount in an adjacent block on the same line.
-        // Prefer keywords in the lower portion of the receipt (actual totals vs column headers).
-        if !totalKeywordBlocks.isEmpty {
-            let sorted = totalKeywordBlocks.sorted { $0.boundingBox.origin.y < $1.boundingBox.origin.y }
-            let hasBottomKeyword = sorted.contains { $0.boundingBox.origin.y < 0.5 }
-            for kwBlock in sorted {
-                if hasBottomKeyword && kwBlock.boundingBox.origin.y >= 0.6 { continue }
-                if let value = findAmountOnSameLine(as: kwBlock, in: blocks) {
-                    return value
-                }
-            }
-        }
-
-        // Tier 2: Keyword lines — "amount due", "balance due", "you pay", etc.
-        let fallbackKeywords = [
-            "amount due", "balance due", "you pay", "amount", "balance",
-            "due", "charge", "payment", "tendered", "tender", "net:"
-        ]
-        for keyword in fallbackKeywords {
-            for block in blocks {
-                let lower = block.text.lowercased()
-                if lower.contains(keyword) {
-                    if let value = parseAmount(from: block.text), value > 0 {
-                        return value
-                    }
-                    if let value = findAmountOnSameLine(as: block, in: blocks) {
-                        return value
-                    }
-                }
-            }
-        }
-
-        // Tier 3: Fall back to subtotal
-        if !subtotalCandidates.isEmpty {
-            let best = subtotalCandidates.min(by: { $0.1.boundingBox.origin.y < $1.1.boundingBox.origin.y })
-            if let best {
-                return best.0
-            }
-        }
-        if !subtotalKeywordBlocks.isEmpty {
-            let sorted = subtotalKeywordBlocks.sorted { $0.boundingBox.origin.y < $1.boundingBox.origin.y }
-            for kwBlock in sorted {
-                if let value = findAmountOnSameLine(as: kwBlock, in: blocks) {
-                    return value
-                }
-            }
-        }
-
-        // Tier 4: Largest amount with a currency symbol
-        var currencyAmounts: [(Double, TextBlock)] = []
-        for block in blocks {
-            let nsRange = NSRange(block.text.startIndex..., in: block.text)
-            if currencySymbolPattern.firstMatch(in: block.text, range: nsRange) != nil {
-                if let value = parseAmount(from: block.text), value > 0 {
-                    currencyAmounts.append((value, block))
-                }
-            }
-        }
-        if let best = currencyAmounts.max(by: { $0.0 < $1.0 }) {
-            return best.0
-        }
-
-        // Tier 5: Last resort — largest standalone amount near the bottom half
-        let bottomHalf = blocks.filter { $0.boundingBox.origin.y < 0.5 }
-        var allAmounts: [(Double, TextBlock)] = []
-        for block in bottomHalf {
-            if let value = parseAmount(from: block.text), value > 0 {
-                allAmounts.append((value, block))
-            }
-        }
-        if let best = allAmounts.max(by: { $0.0 < $1.0 }) {
-            return best.0
-        }
-
+        // An explicit code wins; otherwise an unambiguous symbol.
+        if let best = codeVotes.max(by: { $0.value < $1.value }) { return best.key }
+        if let best = symbolVotes.max(by: { $0.value < $1.value }) { return best.key }
         return nil
     }
 
@@ -425,20 +473,53 @@ enum ReceiptOCRService {
         "amount", "description", "service", "docket", "balance", "payment"
     ]
 
+    /// Staff/role/contact labels: a block that IS one of these, or that shares a
+    /// line with one, is a label-value pair ("Sale Staff : Melissa") — never a
+    /// merchant name.
+    private static let labelLinePattern = try! NSRegularExpression(
+        pattern: #"sale\s*staff|\bstaff\b|cashier|server\b|served\s+by|operator|\bclerk\b|attendant|sold\s+by|your\s+(server|cashier)|customer|member\b|contact|ship\s+to|bill\s+to"#,
+        options: .caseInsensitive
+    )
+
+    /// Domain/email-looking text ("account.monos.au") — a URL is where the
+    /// receipt came from, not who the merchant is.
+    private static let domainLikePattern = try! NSRegularExpression(
+        pattern: #"[a-z0-9][.][a-z]{2,}|@"#,
+        options: .caseInsensitive
+    )
+
+    /// Registered-business suffixes: a line like "Monos Travel Ltd." is the
+    /// legal merchant name and beats positional guessing.
+    private static let businessSuffixPattern = try! NSRegularExpression(
+        pattern: #"\b(pty|ltd|inc|llc|plc|gmbh|co\.|limited|corporation)\b"#,
+        options: .caseInsensitive
+    )
+
     private static func extractMerchant(from blocks: [TextBlock]) -> String? {
         let ordered = blocks.sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
 
-        if let match = firstMerchantCandidate(in: ordered, minConfidence: 0.75) {
+        // Pass 0: an explicit registered-business name anywhere on the receipt.
+        for block in ordered where block.confidence >= 0.4 {
+            let raw = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard matches(businessSuffixPattern, raw),
+                  !raw.contains(where: { $0.isNumber }),
+                  !matches(domainLikePattern, raw),
+                  raw.count >= 4, raw.count <= 45 else { continue }
+            let cleaned = raw.trimmingCharacters(in: CharacterSet(charactersIn: ".,;:-=_*~•·"))
+            if cleaned.count >= 3 { return cleaned }
+        }
+
+        if let match = firstMerchantCandidate(in: ordered, allBlocks: blocks, minConfidence: 0.75) {
             return match
         }
         // Fallback: store names are often printed in a large/bold header font that OCRs
         // with lower confidence than the small monospace body text below it — don't let
         // the whole extraction come up empty (or fall through to a divider line) just
         // because the name itself scored under the primary threshold.
-        return firstMerchantCandidate(in: ordered, minConfidence: 0.4)
+        return firstMerchantCandidate(in: ordered, allBlocks: blocks, minConfidence: 0.35)
     }
 
-    private static func firstMerchantCandidate(in blocks: [TextBlock], minConfidence: Float) -> String? {
+    private static func firstMerchantCandidate(in blocks: [TextBlock], allBlocks: [TextBlock], minConfidence: Float) -> String? {
         for block in blocks {
             guard block.confidence >= minConfidence else { continue }
 
@@ -447,6 +528,19 @@ enum ReceiptOCRService {
 
             // Never use a line that contains any numeric character (amounts, ABN, street numbers, item lines).
             if raw.contains(where: { $0.isNumber }) { continue }
+
+            // Never use a label-value line ("Sale Staff: Melissa") — whether the
+            // label is in this block or in a sibling block on the same line.
+            if matches(labelLinePattern, raw) { continue }
+            let pairedWithLabelOrAmount = allBlocks.contains { other in
+                (other.text != block.text || other.boundingBox != block.boundingBox)
+                    && sameLine(other.boundingBox, block.boundingBox)
+                    && (matches(labelLinePattern, other.text) || (parseAmount(from: other.text) ?? 0) > 0)
+            }
+            if pairedWithLabelOrAmount { continue }
+
+            // URLs and emails are not merchant names.
+            if matches(domainLikePattern, raw) { continue }
 
             var text = raw
             for phrase in merchantNoisePhrases {

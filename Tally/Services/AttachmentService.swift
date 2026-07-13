@@ -91,6 +91,17 @@ actor AttachmentService {
         return Self.downsampledThumbnail(from: data) ?? UIImage(data: data)
     }
 
+    nonisolated func loadImageData(key: String) -> Data? {
+        let url = Self.docsDir.appendingPathComponent("Attachments", isDirectory: true).appendingPathComponent(key)
+        return try? Data(contentsOf: url)
+    }
+
+    /// Persist a thumbnail for an attachment whose thumbnail file is missing
+    /// (failed write, or the attachment arrived without one).
+    func saveThumbnail(_ image: UIImage, key: String) {
+        try? generateThumbnail(from: image, key: key)
+    }
+
     func deleteAttachment(key: String) {
         let url = attachmentsDirectory.appendingPathComponent(key)
         try? fileManager.removeItem(at: url)

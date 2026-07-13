@@ -1625,6 +1625,7 @@ struct AddExpenseView: View {
                 if merged.merchant == nil { merged.merchant = result.merchant }
                 if merged.date == nil     { merged.date = result.date }
                 if merged.notes == nil    { merged.notes = result.notes }
+                if merged.currencyCode == nil { merged.currencyCode = result.currencyCode }
             }
             await MainActor.run { applyOCRResult(merged) }
         }
@@ -1653,6 +1654,11 @@ struct AddExpenseView: View {
         var applied = false
 
         if let amount = result.amount, amountText.isEmpty || amountText == "0" || amountText == "0.00" {
+            // Receipt names its currency unambiguously (€, EUR, GBP…) — adopt it
+            // for this expense before formatting. A bare "$" never overrides.
+            if let code = result.currencyCode, code != currency {
+                currency = code
+            }
             amountText = CurrencyFormatter.shared.usesDecimals(for: currency)
                 ? String(format: "%.2f", amount)
                 : String(format: "%.0f", amount)

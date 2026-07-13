@@ -389,6 +389,7 @@ struct HomeView: View {
             if phase == .active { consumeSharedInbox() }
         }
         .task { consumeSharedInbox() }
+        .task(id: activeExpenses.count) { await prewarmThumbnails() }
         .sheet(item: $appState.selectedExpenseId) { id in
             ExpenseDetailView(expenseId: id)
         }
@@ -823,7 +824,9 @@ struct HomeView: View {
             }
         }
         .task {
-            await loadThumbnail(for: expense)
+            if await cacheThumbnailIfNeeded(for: expense) {
+                thumbnailVersion += 1
+            }
         }
     }
 
@@ -851,25 +854,36 @@ struct HomeView: View {
         }
     }
 
-    // Runs file I/O on a utility-priority background thread so the main thread
-    // is never blocked. The .task modifier cancels this automatically on row disappear.
+    // Runs file I/O on a background thread so the main thread is never blocked.
+    // Returns true when a new thumbnail landed in the cache; the caller decides
+    // when to bump thumbnailVersion (per-row immediately, prewarm once at end).
     @MainActor
-    private func loadThumbnail(for expense: ExpenseModel) async {
+    @discardableResult
+    private func cacheThumbnailIfNeeded(for expense: ExpenseModel) async -> Bool {
         let cacheKey = expense.attachmentKey ?? expense.id
-        guard Self.thumbnailCache.object(forKey: cacheKey as NSString) == nil else { return }
+        guard Self.thumbnailCache.object(forKey: cacheKey as NSString) == nil else { return false }
 
         // Capture value-type copies before jumping off the main actor
         let attachmentKey = expense.attachmentKey
         let attachmentData = expense.attachmentData
 
-        let image: UIImage? = await Task.detached(priority: .utility) {
-            if let key = attachmentKey,
-               let thumb = AttachmentService.shared.loadThumbnail(key: key) {
-                return thumb
+        let image: UIImage? = await Task.detached(priority: .userInitiated) {
+            if let key = attachmentKey {
+                if let thumb = AttachmentService.shared.loadThumbnail(key: key) {
+                    return thumb
+                }
+                // Thumbnail file missing (failed write, or attachment saved
+                // without one) — rebuild from the stored attachment and
+                // persist the thumbnail so next launch reads it directly.
+                if let data = AttachmentService.shared.loadImageData(key: key),
+                   let thumb = AttachmentService.downsampledThumbnail(from: data) {
+                    await AttachmentService.shared.saveThumbnail(thumb, key: key)
+                    return thumb
+                }
             }
-            // No pre-baked thumbnail (e.g. share-imported images) — downsample
-            // the full data to a small decoded thumbnail rather than decoding
-            // the whole receipt on the main thread at draw time.
+            // No file at all (e.g. data-only expenses) — downsample the full
+            // data to a small decoded thumbnail rather than decoding the whole
+            // receipt on the main thread at draw time.
             if let data = attachmentData {
                 return AttachmentService.downsampledThumbnail(from: data) ?? UIImage(data: data)
             }
@@ -878,8 +892,20 @@ struct HomeView: View {
 
         if let image {
             Self.thumbnailCache.setObject(image, forKey: cacheKey as NSString)
-            thumbnailVersion += 1
+            return true
         }
+        return false
+    }
+
+    /// Bulk-warms the thumbnail cache for the soonest-visible expenses so rows
+    /// render with their images immediately instead of popping in one by one.
+    private func prewarmThumbnails() async {
+        var loadedAny = false
+        for expense in activeExpenses.prefix(60) {
+            guard expense.attachmentKey != nil || expense.attachmentData != nil else { continue }
+            if await cacheThumbnailIfNeeded(for: expense) { loadedAny = true }
+        }
+        if loadedAny { thumbnailVersion += 1 }
     }
 
     // MARK: - Selection Bottom Toolbar
