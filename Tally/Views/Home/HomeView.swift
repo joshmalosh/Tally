@@ -681,10 +681,18 @@ struct HomeView: View {
         List {
             // UIKit KVO-based detector — SwiftUI preference keys don't propagate
             // reliably from inside List cells (UICollectionView) on iOS 16+.
-            ListScrollDetector { offset in
+            ListScrollDetector { offset, maxOffset in
                 withAnimation(.easeInOut(duration: 0.2)) {
-                    if offset > 30  { isHeaderCollapsed = true  }
-                    if offset < 10  { isHeaderCollapsed = false }
+                    // Collapsing the hero makes this list taller, shrinking the
+                    // max scroll offset by the hero's height. With a barely
+                    // overflowing list (seen at exactly 4 expenses) the offset
+                    // then gets clamped back under the expand threshold and the
+                    // hero re-expands — an endless jitter loop. Only collapse
+                    // when enough scrollable content remains below to absorb
+                    // the hero's height.
+                    let heroClearance: CGFloat = 260
+                    if offset > 30 && maxOffset - offset > heroClearance { isHeaderCollapsed = true }
+                    if offset < 10 { isHeaderCollapsed = false }
                 }
             }
             .frame(height: 0)
@@ -1171,7 +1179,8 @@ private struct LandingExpenseRow<Content: View>: View {
 // regardless of SwiftUI version or internal implementation details.
 
 private struct ListScrollDetector: UIViewRepresentable {
-    var onScroll: (CGFloat) -> Void
+    /// (contentOffset.y, maximum reachable contentOffset.y)
+    var onScroll: (CGFloat, CGFloat) -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(onScroll: onScroll) }
 
@@ -1189,16 +1198,17 @@ private struct ListScrollDetector: UIViewRepresentable {
     // MARK: Coordinator
 
     final class Coordinator: NSObject {
-        var onScroll: (CGFloat) -> Void
+        var onScroll: (CGFloat, CGFloat) -> Void
         private var observation: NSKeyValueObservation?
 
-        init(onScroll: @escaping (CGFloat) -> Void) { self.onScroll = onScroll }
+        init(onScroll: @escaping (CGFloat, CGFloat) -> Void) { self.onScroll = onScroll }
 
         func startObserving(_ scrollView: UIScrollView) {
             observation?.invalidate()
             observation = scrollView.observe(\.contentOffset, options: [.new]) { [weak self] sv, _ in
                 guard let self else { return }
-                DispatchQueue.main.async { self.onScroll(sv.contentOffset.y) }
+                let maxOffset = max(0, sv.contentSize.height + sv.adjustedContentInset.bottom - sv.bounds.height)
+                DispatchQueue.main.async { self.onScroll(sv.contentOffset.y, maxOffset) }
             }
         }
 

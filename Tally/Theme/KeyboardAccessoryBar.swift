@@ -49,6 +49,8 @@ struct NumericFieldWithDone: UIViewRepresentable {
     var focusRequested: Bool = false
     /// When true, field text is invisible so a SwiftUI `Text` overlay can supply styling (Add Expense hero).
     var hidesFieldText: Bool = false
+    /// Native UITextField placeholder, shown greyed while the field is empty.
+    var placeholder: String? = nil
     var onBeginEditing: (() -> Void)? = nil
     var onDone: (() -> Void)? = nil
 
@@ -67,6 +69,12 @@ struct NumericFieldWithDone: UIViewRepresentable {
         tf.textColor = hidesFieldText
             ? .clear
             : UIColor(red: 0x1C / 255, green: 0x1C / 255, blue: 0x1E / 255, alpha: 1)
+        if let placeholder {
+            tf.attributedPlaceholder = NSAttributedString(
+                string: placeholder,
+                attributes: [.foregroundColor: UIColor(red: 0xC4 / 255, green: 0xBF / 255, blue: 0xB9 / 255, alpha: 1)]
+            )
+        }
         context.coordinator.textField = tf
         tf.inputAccessoryView = KeyboardAccessoryBar(target: context.coordinator, action: #selector(Coordinator.doneTapped))
         tf.addTarget(context.coordinator, action: #selector(Coordinator.textChanged(_:)), for: .editingChanged)

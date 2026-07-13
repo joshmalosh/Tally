@@ -1207,7 +1207,7 @@ struct AddExpenseView: View {
             .padding(.top, 14)
             .padding(.bottom, 8)
 
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
+            HStack(alignment: .center, spacing: 4) {
                 Button { showingCurrencyPicker = true } label: {
                     Text(currencySymbol)
                         .font(.system(size: 18, weight: .regular, design: .monospaced))
@@ -1215,32 +1215,26 @@ struct AddExpenseView: View {
                 }
                 .buttonStyle(.plain)
 
-                ZStack(alignment: .leading) {
-                    NumericFieldWithDone(
-                        text: $amountText,
-                        keyboardType: usesDecimalCurrency ? .decimalPad : .numberPad,
-                        font: UIFont.monospacedSystemFont(ofSize: 24, weight: .medium),
-                        textAlignment: .left,
-                        focusRequested: amountFocusRequested,
-                        hidesFieldText: true,
-                        onBeginEditing: { DispatchQueue.main.async { focusedField = .amount } },
-                        onDone: { amountFocusRequested = false; focusedField = nil }
-                    )
-                    .frame(height: 34)
-                    .onChange(of: amountText) { _, newValue in
-                        let sanitized = sanitizeAmountInput(newValue)
-                        if sanitized != newValue { amountText = sanitized }
-                    }
-                    .onChange(of: focusedField) { _, newValue in
-                        if newValue != .amount { formatAmount() }
-                    }
-                    Text(amountText.isEmpty ? zeroAmountPlaceholder : amountText)
-                        .font(Font.dmSerifDisplay(28))
-                        .foregroundStyle(amountText.isEmpty ? Color(hex: "C4BFB9") : Color(hex: "1C1C1E"))
-                        .allowsHitTesting(false)
+                // Plain, visible native field — real caret in the real text, so
+                // the cursor and decimal point land exactly where they appear.
+                NumericFieldWithDone(
+                    text: $amountText,
+                    keyboardType: usesDecimalCurrency ? .decimalPad : .numberPad,
+                    font: UIFont.monospacedSystemFont(ofSize: 24, weight: .medium),
+                    textAlignment: .left,
+                    focusRequested: amountFocusRequested,
+                    placeholder: zeroAmountPlaceholder,
+                    onBeginEditing: { DispatchQueue.main.async { focusedField = .amount } },
+                    onDone: { amountFocusRequested = false; focusedField = nil }
+                )
+                .frame(height: 34)
+                .onChange(of: amountText) { _, newValue in
+                    let sanitized = sanitizeAmountInput(newValue)
+                    if sanitized != newValue { amountText = sanitized }
                 }
-                .contentShape(Rectangle())
-                .onTapGesture { amountFocusRequested = true }
+                .onChange(of: focusedField) { _, newValue in
+                    if newValue != .amount { formatAmount() }
+                }
             }
             .padding(.horizontal, 14)
         }
