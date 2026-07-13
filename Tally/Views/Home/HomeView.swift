@@ -270,7 +270,7 @@ struct HomeView: View {
                 .background(
                     ZStack {
                         Color(hex: "F0EDE6")
-                        Self.riseGradient.opacity(0.8)   // dialed back 20%
+                        Self.riseGradient.opacity(0.65)   // dialed back further
                     }
                     .ignoresSafeArea()
                 )
