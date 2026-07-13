@@ -215,13 +215,6 @@ struct AddExpenseView: View {
 
     @State private var cachedKnownMerchants: [String] = []
 
-    private static let datePillFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateStyle = .medium
-        f.timeStyle = .none
-        return f
-    }()
-
     private static let compactDateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "d MMM"
@@ -576,7 +569,14 @@ struct AddExpenseView: View {
             proUpsellCompactBanner
         }
 
-        receiptDetailCluster
+        // Same card language as Quick Add — the receipt flow is Quick Add
+        // with the hero amount swapped for a compact amount card.
+        receiptAmountCard
+        quickAddMerchantCard
+        quickAddNoteCard
+        quickAddTagCard
+        receiptDateRow
+        quickAddRecurringCard
     }
 
     @ViewBuilder
@@ -637,7 +637,7 @@ struct AddExpenseView: View {
             .padding(.top, 14)
             .padding(.bottom, 8)
 
-            TextField("Tap or type…", text: $merchant)
+            TextField(isRunningOCR && appState.isPro && merchant.isEmpty ? "Detecting…" : "Tap or type…", text: $merchant)
                 .font(Font.dmSerifDisplay(22))
                 .foregroundStyle(Color(hex: "1C1C1E"))   // always black when typing
                 .focused($focusedField, equals: .merchant)
@@ -1199,214 +1199,103 @@ struct AddExpenseView: View {
     }
 
 
-    // MARK: - State 2: Detail cluster (amount, merchant, date, note, tag)
+    // MARK: - State 2: Receipt review cards (quick-add card language)
 
-    private var receiptDetailCluster: some View {
-        VStack(spacing: 0) {
-            // AMOUNT
-            HStack(spacing: 10) {
-                ZStack {
-                    Circle().fill(Color(hex: "E8F0EA")).frame(width: 34, height: 34)
-                    Image(systemName: "dollarsign.circle.fill")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(Color(hex: "4A5E50"))
-                }
+    /// Compact amount card — replaces the hero amount when a receipt is
+    /// attached so the amount sits in line with the rest of the cards.
+    private var receiptAmountCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Image(systemName: "dollarsign.circle")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(Color(hex: "4A5E50"))
                 Text("AMOUNT")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-                    .tracking(0.8)
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
+                    .tracking(1.0)
                 if isRunningOCR && amountText.isEmpty {
                     ProgressView().scaleEffect(0.6).tint(Color(hex: "8F9E94"))
                 }
-                Spacer(minLength: 8)
-                HStack(spacing: 3) {
-                    Button { showingCurrencyPicker = true } label: {
-                        Text(currencySymbol)
-                            .font(.system(size: 16, weight: .regular, design: .monospaced))
-                            .foregroundStyle(Color(hex: "2F402E").opacity(0.55))
-                    }
-                    .buttonStyle(.plain)
-                    ZStack(alignment: .trailing) {
-                        NumericFieldWithDone(
-                            text: $amountText,
-                            keyboardType: usesDecimalCurrency ? .decimalPad : .numberPad,
-                            font: UIFont.monospacedSystemFont(ofSize: 20, weight: .regular),
-                            textAlignment: .right,
-                            focusRequested: amountFocusRequested,
-                            hidesFieldText: true,
-                            onBeginEditing: { DispatchQueue.main.async { focusedField = .amount } },
-                            onDone: { amountFocusRequested = false; focusedField = nil }
-                        )
-                        .frame(width: 140, height: 28)
-                        .onChange(of: amountText) { _, newValue in
-                            let sanitized = sanitizeAmountInput(newValue)
-                            if sanitized != newValue { amountText = sanitized }
-                        }
-                        .onChange(of: focusedField) { _, newValue in
-                            if newValue != .amount { formatAmount() }
-                        }
-                        Text(amountText.isEmpty ? zeroAmountPlaceholder : amountText)
-                            .font(.system(size: 20, weight: .regular, design: .monospaced))
-                            .foregroundStyle(amountText.isEmpty ? Color(hex: "C4BFB9") : Color(hex: "1C1C1E"))
-                            .tracking(-0.5)
-                            .allowsHitTesting(false)
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture { amountFocusRequested = true }
-                }
+                Spacer()
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
+            .padding(.horizontal, 14)
+            .padding(.top, 14)
+            .padding(.bottom, 8)
 
-            Divider().padding(.leading, 58)
-
-            // MERCHANT
-            HStack(spacing: 10) {
-                ZStack {
-                    Circle().fill(Color(hex: "E8F0EA")).frame(width: 34, height: 34)
-                    Image(systemName: "storefront.fill")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color(hex: "4A5E50"))
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Button { showingCurrencyPicker = true } label: {
+                    Text(currencySymbol)
+                        .font(.system(size: 18, weight: .regular, design: .monospaced))
+                        .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
                 }
-                Text("MERCHANT")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-                    .tracking(0.8)
-                if isRunningOCR && merchant.isEmpty && appState.isPro {
-                    ProgressView().scaleEffect(0.6).tint(Color(hex: "8F9E94"))
-                }
-                Spacer(minLength: 8)
-                TextField(isRunningOCR && appState.isPro ? "Detecting…" : "Name", text: $merchant)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-                    .multilineTextAlignment(.trailing)
-                    .focused($focusedField, equals: .merchant)
-                    .textInputAutocapitalization(.words)
-                    .tint(Color(hex: "2F402E"))
-                    .frame(maxWidth: 180)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
+                .buttonStyle(.plain)
 
-            Divider().padding(.leading, 58)
-
-            // DATE
-            Button {
-                focusedField = nil
-                showingDatePickerSheet = true
-            } label: {
-                HStack(spacing: 10) {
-                    ZStack {
-                        Circle().fill(Color(hex: "E8F0EA")).frame(width: 34, height: 34)
-                        Image(systemName: "calendar")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(Color(hex: "4A5E50"))
+                ZStack(alignment: .leading) {
+                    NumericFieldWithDone(
+                        text: $amountText,
+                        keyboardType: usesDecimalCurrency ? .decimalPad : .numberPad,
+                        font: UIFont.monospacedSystemFont(ofSize: 24, weight: .medium),
+                        textAlignment: .left,
+                        focusRequested: amountFocusRequested,
+                        hidesFieldText: true,
+                        onBeginEditing: { DispatchQueue.main.async { focusedField = .amount } },
+                        onDone: { amountFocusRequested = false; focusedField = nil }
+                    )
+                    .frame(height: 34)
+                    .onChange(of: amountText) { _, newValue in
+                        let sanitized = sanitizeAmountInput(newValue)
+                        if sanitized != newValue { amountText = sanitized }
                     }
-                    Text("DATE")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Color(hex: "8F9E94"))
-                        .tracking(0.8)
-                    if isRunningOCR && !dateManuallyEdited {
-                        ProgressView().scaleEffect(0.6).tint(Color(hex: "8F9E94"))
+                    .onChange(of: focusedField) { _, newValue in
+                        if newValue != .amount { formatAmount() }
                     }
-                    Spacer(minLength: 8)
-                    Text(Self.datePillFormatter.string(from: date))
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundStyle(Color(hex: "1C1C1E"))
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color(hex: "C4BFB9"))
+                    Text(amountText.isEmpty ? zeroAmountPlaceholder : amountText)
+                        .font(Font.dmSerifDisplay(28))
+                        .foregroundStyle(amountText.isEmpty ? Color(hex: "C4BFB9") : Color(hex: "1C1C1E"))
+                        .allowsHitTesting(false)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
+                .contentShape(Rectangle())
+                .onTapGesture { amountFocusRequested = true }
             }
-            .buttonStyle(.plain)
-
-            Divider().padding(.leading, 58)
-
-            // NOTE (above tag, per spec)
-            HStack(alignment: .top, spacing: 10) {
-                ZStack {
-                    Circle().fill(Color(hex: "E8F0EA")).frame(width: 34, height: 34)
-                    Image(systemName: "note.text")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color(hex: "4A5E50"))
-                }
-                Text("NOTE")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-                    .tracking(0.8)
-                    .padding(.top, 4)
-                if isRunningOCR && notes.isEmpty && appState.isPro {
-                    ProgressView().scaleEffect(0.6).tint(Color(hex: "8F9E94"))
-                }
-                Spacer(minLength: 8)
-                TextField(isRunningOCR && appState.isPro ? "Detecting…" : "Add a note...", text: $notes, axis: .vertical)
-                    .font(.system(size: 15))
-                    .foregroundStyle(notes.isEmpty ? Color(hex: "C4BFB9") : Color(hex: "1C1C1E"))
-                    .multilineTextAlignment(.trailing)
-                    .focused($focusedField, equals: .notes)
-                    .tint(Color(hex: "2F402E"))
-                    .lineLimit(1...4)
-                    .frame(maxWidth: 200)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
-
-            Divider().padding(.leading, 58)
-
-            // TAG
-            Button { showingTagPicker = true } label: {
-                HStack(spacing: 10) {
-                    ZStack {
-                        Circle().fill(Color(hex: "E8F0EA")).frame(width: 34, height: 34)
-                        Image(systemName: "tag.fill")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(Color(hex: "4A5E50"))
-                    }
-                    Text("TAG")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(Color(hex: "8F9E94"))
-                        .tracking(0.8)
-                    Spacer(minLength: 8)
-                    if selectedTagIds.isEmpty {
-                        Text("Add tag")
-                            .font(.system(size: 15))
-                            .foregroundStyle(Color(hex: "C4BFB9"))
-                    } else {
-                        HStack(spacing: 6) {
-                            ForEach(selectedTags.prefix(2)) { tag in
-                                HStack(spacing: 4) {
-                                    Circle()
-                                        .fill(tag.tagColor.primaryColor)
-                                        .frame(width: 8, height: 8)
-                                    Text(tag.name)
-                                        .font(.system(size: 14, weight: .medium))
-                                        .foregroundStyle(Color(hex: "2F402E"))
-                                }
-                            }
-                            if selectedTags.count > 2 {
-                                Text("+\(selectedTags.count - 2)")
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(Color(hex: "8F9E94"))
-                            }
-                        }
-                    }
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Color(hex: "C4BFB9"))
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
-            }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 14)
         }
+        .padding(.bottom, 14)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
-        )
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
+        .padding(.horizontal, 16)
+    }
+
+    /// Date row in the extras style — no "Add receipt" here because the
+    /// receipt controls (view / replace / remove) live on the hero.
+    private var receiptDateRow: some View {
+        Button { focusedField = nil; showingDatePickerSheet = true } label: {
+            HStack(spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(hex: "E8F0EA")).frame(width: 30, height: 30)
+                    Image(systemName: "calendar").font(.system(size: 12, weight: .medium)).foregroundStyle(Color(hex: "4A5E50"))
+                }
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("DATE").font(.system(size: 8, weight: .bold)).foregroundStyle(Color(hex: "2F402E").opacity(0.45)).tracking(0.6)
+                    HStack(spacing: 5) {
+                        Text(datePillLabel).font(.system(size: 11, weight: .semibold)).foregroundStyle(Color(hex: "1C1C1E"))
+                        if isRunningOCR && !dateManuallyEdited {
+                            ProgressView().scaleEffect(0.5).tint(Color(hex: "8F9E94"))
+                        }
+                    }
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color(hex: "C4BFB9"))
+            }
+            .padding(.horizontal, 10).padding(.vertical, 9)
+            .frame(maxWidth: .infinity)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
         .padding(.horizontal, 16)
     }
 
@@ -1679,8 +1568,10 @@ struct AddExpenseView: View {
         tagAutoAppliedByHistory = false
         isRecurring = false
         recurringInterval = .monthly
-        let prompts = ["What's the damage?", "How'd you spend it?", "Where'd it go?", "What's it for?"]
-        quickAddPrompt = prompts.randomElement() ?? "What's it for?"
+        // Amount-flavored questions only — the hero sits above the amount,
+        // so "what was it for" style prompts belong to the note card instead.
+        let prompts = ["What's the damage?", "How much was it?", "Where'd it go?", "What did it cost?"]
+        quickAddPrompt = prompts.randomElement() ?? "How much was it?"
         source = .manual
         lastImageSource = .manual
         enteredViaPhotoFlow = false
