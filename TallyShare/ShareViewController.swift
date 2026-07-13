@@ -85,20 +85,23 @@ final class ShareViewController: UIViewController {
         }
     }
 
-    /// Share extensions can't call UIApplication.shared, but walking the
-    /// responder chain to the application object and performing openURL:
-    /// launches the host app. Falls back to the confirmation card if iOS
-    /// declines (the inbox is picked up on next open either way).
-    private func openHostApp() {
-        guard let url = URL(string: "tally://inbox") else { return }
+    /// Walk the responder chain to the UIApplication and call the modern
+    /// open(_:options:completionHandler:) directly (the deprecated openURL:
+    /// selector is blocked on recent iOS). Apple restricts share extensions
+    /// from launching their host, so this is best-effort; the inbox is picked
+    /// up on next open regardless.
+    @discardableResult
+    private func openHostApp() -> Bool {
+        guard let url = URL(string: "tally://inbox") else { return false }
         var responder: UIResponder? = self
         while let current = responder {
             if let application = current as? UIApplication {
-                application.perform(NSSelectorFromString("openURL:"), with: url)
-                return
+                application.open(url, options: [:], completionHandler: nil)
+                return true
             }
             responder = current.next
         }
+        return false
     }
 
     private func showConfirmationAndFinish(savedCount: Int) {
@@ -132,12 +135,16 @@ final class ShareViewController: UIViewController {
         card.alpha = 0
         UIView.animate(withDuration: 0.18) { card.alpha = 1 }
         if savedCount > 0 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-                self?.openHostApp()
+            // Attempt the hand-off to the app right away while the extension is
+            // freshest; complete shortly after so iOS can perform the switch.
+            openHostApp()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                self?.complete()
             }
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
-            self?.complete()
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
+                self?.complete()
+            }
         }
     }
 
