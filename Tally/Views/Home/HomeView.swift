@@ -249,12 +249,25 @@ struct HomeView: View {
         }
     }
 
+    /// "Rise" — warm parchment easing into the hero's forest green toward the
+    /// bottom of the screen. Sits behind the Home content as a single layer.
+    static let riseGradient = LinearGradient(
+        stops: [
+            .init(color: Color(hex: "F0EDE6"), location: 0.0),
+            .init(color: Color(hex: "E6ECE0"), location: 0.36),
+            .init(color: Color(hex: "C0D1BB"), location: 0.72),
+            .init(color: Color(hex: "9DB598"), location: 1.0)
+        ],
+        startPoint: .top,
+        endPoint: .bottom
+    )
+
     var body: some View {
         @Bindable var appState = appState
 
         ZStack(alignment: .bottom) {
             homeScrollableColumn
-                .background(Color(hex: "F0EDE6").ignoresSafeArea())
+                .background(Self.riseGradient.ignoresSafeArea())
 
             // Keep both views alive in memory — opacity-based switching prevents
             // the "closes on first open" bug that occurs when views are destroyed/recreated.
@@ -560,7 +573,8 @@ struct HomeView: View {
             Color.clear.frame(height: 90)
         }
         .scrollContentBackground(.hidden)
-        .background(Color(hex: "F0EDE6"))
+        // Transparent so the Home gradient shows through.
+        .background(Color.clear)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
@@ -699,7 +713,8 @@ struct HomeView: View {
         .listStyle(.plain)
         .environment(\.defaultMinListRowHeight, 0)
         .scrollContentBackground(.hidden)
-        .background(Color(hex: "F0EDE6").ignoresSafeArea())
+        // Transparent so the Home gradient shows through.
+        .background(Color.clear)
         .contentMargins(.top, 0, for: .scrollContent)
         .contentMargins(.horizontal, 0, for: .scrollContent)
         .scrollDismissesKeyboard(.interactively)
