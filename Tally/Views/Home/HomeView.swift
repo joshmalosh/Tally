@@ -267,7 +267,13 @@ struct HomeView: View {
 
         ZStack(alignment: .bottom) {
             homeScrollableColumn
-                .background(Self.riseGradient.ignoresSafeArea())
+                .background(
+                    ZStack {
+                        Color(hex: "F0EDE6")
+                        Self.riseGradient.opacity(0.8)   // dialed back 20%
+                    }
+                    .ignoresSafeArea()
+                )
 
             // Keep both views alive in memory — opacity-based switching prevents
             // the "closes on first open" bug that occurs when views are destroyed/recreated.
