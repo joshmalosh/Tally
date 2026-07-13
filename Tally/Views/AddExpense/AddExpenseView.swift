@@ -1688,39 +1688,38 @@ struct AddExpenseView: View {
 
         currency = appState.defaultCurrency
 
-        switch initialMode {
-        case .camera:
-            source = .camera
-            lastImageSource = .camera
-            enteredViaPhotoFlow = true
-            formReady = false
-            showingCamera = true
-        case .photoLibrary:
+        if initialImage != nil || initialFileURL != nil {
+            // Attachment pre-supplied (share extension or batch) — no picker,
+            // land directly on the receipt review layout.
             source = .upload
             lastImageSource = .upload
             enteredViaPhotoFlow = true
-            formReady = false
-            showingPhotoPicker = true
-        case .uploadFile:
-            source = .upload
-            lastImageSource = .upload
-            enteredViaPhotoFlow = true
-            formReady = false
-            // Skip the picker when a file was pre-supplied (e.g. shared via
-            // the TallyShare extension) — go straight to review.
-            if initialFileURL == nil {
+            formReady = true
+        } else {
+            switch initialMode {
+            case .camera:
+                source = .camera
+                lastImageSource = .camera
+                enteredViaPhotoFlow = true
+                formReady = false
+                showingCamera = true
+            case .photoLibrary:
+                source = .upload
+                lastImageSource = .upload
+                enteredViaPhotoFlow = true
+                formReady = false
+                showingPhotoPicker = true
+            case .uploadFile:
+                source = .upload
+                lastImageSource = .upload
+                enteredViaPhotoFlow = true
+                formReady = false
                 showingDocumentPicker = true
-            } else {
-                formReady = true
+            case .manual, .bulkImport:
+                source = .manual
             }
-        case .manual, .bulkImport:
-            source = .manual
         }
-        if let img = initialImage {
-            attachedImage = img
-            // Image was pre-supplied (batch mode) — treat as uploaded, not manual
-            if source == .manual { source = .upload }
-        }
+        if let img = initialImage { attachedImage = img }
         if let url = initialFileURL { attachedFileURL = url }
 
         // Apply OCR-derived prefill from the review screen (only sets non-empty values)

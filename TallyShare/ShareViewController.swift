@@ -85,6 +85,22 @@ final class ShareViewController: UIViewController {
         }
     }
 
+    /// Share extensions can't call UIApplication.shared, but walking the
+    /// responder chain to the application object and performing openURL:
+    /// launches the host app. Falls back to the confirmation card if iOS
+    /// declines (the inbox is picked up on next open either way).
+    private func openHostApp() {
+        guard let url = URL(string: "tally://inbox") else { return }
+        var responder: UIResponder? = self
+        while let current = responder {
+            if let application = current as? UIApplication {
+                application.perform(NSSelectorFromString("openURL:"), with: url)
+                return
+            }
+            responder = current.next
+        }
+    }
+
     private func showConfirmationAndFinish(savedCount: Int) {
         let card = UIView()
         card.backgroundColor = UIColor(red: 0.18, green: 0.25, blue: 0.18, alpha: 1) // #2F402E
@@ -93,7 +109,7 @@ final class ShareViewController: UIViewController {
 
         let label = UILabel()
         label.text = savedCount > 0
-            ? "Added to Tally — open Tally to review"
+            ? "Added to Tally"
             : "Couldn't add to Tally"
         label.textColor = .white
         label.font = .systemFont(ofSize: 15, weight: .semibold)
@@ -115,7 +131,12 @@ final class ShareViewController: UIViewController {
 
         card.alpha = 0
         UIView.animate(withDuration: 0.18) { card.alpha = 1 }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) { [weak self] in
+        if savedCount > 0 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                self?.openHostApp()
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
             self?.complete()
         }
     }

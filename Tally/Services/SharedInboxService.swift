@@ -60,3 +60,9 @@ struct SharedPDFItem: Identifiable {
     let url: URL
     var id: String { url.absoluteString }
 }
+
+/// Identifiable wrapper so a single shared image can drive a fullScreenCover(item:).
+struct SharedImageItem: Identifiable {
+    let image: UIImage
+    let id = UUID().uuidString
+}

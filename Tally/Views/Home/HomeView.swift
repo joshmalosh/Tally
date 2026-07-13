@@ -37,6 +37,7 @@ struct HomeView: View {
     @State private var multiReceiptImages: [UIImage] = []
     @State private var showingMultiReceipt = false
     @State private var sharedPDFItem: SharedPDFItem?
+    @State private var sharedImageItem: SharedImageItem?
     @State private var landedExpenseId: String? = nil
     @State private var showingCelebration = false
     @State private var celebrationAmountCents = 0
@@ -112,7 +113,8 @@ struct HomeView: View {
     /// leftovers are picked up when the current cover dismisses or on the
     /// next foreground.
     private func consumeSharedInbox() {
-        guard !showingMultiReceipt, selectedEntryMode == nil, sharedPDFItem == nil else { return }
+        guard !showingMultiReceipt, selectedEntryMode == nil,
+              sharedPDFItem == nil, sharedImageItem == nil else { return }
         let items = SharedInboxService.pendingItems()
         guard !items.isEmpty else { return }
 
@@ -121,9 +123,20 @@ struct HomeView: View {
             SharedInboxService.remove(item)
             return image
         }
+        // One shared receipt goes straight to the single-expense review page.
+        if images.count == 1, let only = images.first {
+            sharedImageItem = SharedImageItem(image: only)
+            return
+        }
         if !images.isEmpty {
             multiReceiptImages = images
-            showingMultiReceipt = true
+            // Delay presentation one beat so the cover is built after the
+            // images state settles — presenting in the same tick produced an
+            // empty review screen (matches the 0.55s pattern used when
+            // arriving from AddExpenseView).
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                showingMultiReceipt = true
+            }
             return
         }
 
@@ -347,6 +360,11 @@ struct HomeView: View {
             consumeSharedInbox()
         }) { item in
             AddExpenseView(initialMode: .uploadFile, initialFileURL: item.url)
+        }
+        .fullScreenCover(item: $sharedImageItem, onDismiss: {
+            consumeSharedInbox()
+        }) { item in
+            AddExpenseView(initialMode: .photoLibrary, initialImage: item.image)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { consumeSharedInbox() }

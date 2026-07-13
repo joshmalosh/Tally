@@ -18,6 +18,17 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.asimplelife.tally</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>tally</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Tally uses the camera to capture receipts.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

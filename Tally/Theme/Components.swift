@@ -765,6 +765,10 @@ struct HomeToggle: View {
 /// A full-width, full-height tappable filter row: the entire row (not just the
 /// glyphs) is a hit target, and pressing it flashes the brand green with white
 /// text/checkmark so a press always reads as a press.
+///
+/// Implemented as a real Button so it never steals scroll gestures inside a
+/// ScrollView (a zero-distance DragGesture does); the pressed state reaches
+/// the label through the environment.
 struct FilterRow<Leading: View>: View {
     let title: String
     var titleFont: Font = .system(size: 16)
@@ -775,8 +779,6 @@ struct FilterRow<Leading: View>: View {
     var verticalPadding: CGFloat = 13
     let leading: () -> Leading
     let action: () -> Void
-
-    @State private var isPressed = false
 
     init(
         title: String,
@@ -801,6 +803,53 @@ struct FilterRow<Leading: View>: View {
     }
 
     var body: some View {
+        Button(action: action) {
+            FilterRowLabel(
+                title: title,
+                titleFont: titleFont,
+                titleColor: titleColor,
+                isSelected: isSelected,
+                checkmarkFont: checkmarkFont,
+                horizontalPadding: horizontalPadding,
+                verticalPadding: verticalPadding,
+                leading: leading
+            )
+        }
+        .buttonStyle(FilterRowPressStyle())
+    }
+}
+
+private struct FilterRowPressedKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+private extension EnvironmentValues {
+    var filterRowPressed: Bool {
+        get { self[FilterRowPressedKey.self] }
+        set { self[FilterRowPressedKey.self] = newValue }
+    }
+}
+
+private struct FilterRowPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .environment(\.filterRowPressed, configuration.isPressed)
+    }
+}
+
+private struct FilterRowLabel<Leading: View>: View {
+    @Environment(\.filterRowPressed) private var isPressed
+
+    let title: String
+    let titleFont: Font
+    let titleColor: Color
+    let isSelected: Bool
+    let checkmarkFont: Font
+    let horizontalPadding: CGFloat
+    let verticalPadding: CGFloat
+    let leading: () -> Leading
+
+    var body: some View {
         HStack(spacing: 10) {
             leading()
             Text(title)
@@ -818,11 +867,5 @@ struct FilterRow<Leading: View>: View {
         .contentShape(Rectangle())
         .background(isPressed ? Color.brandPrimary : Color.clear)
         .animation(.easeOut(duration: 0.12), value: isPressed)
-        .onTapGesture(perform: action)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in isPressed = true }
-                .onEnded { _ in isPressed = false }
-        )
     }
 }
