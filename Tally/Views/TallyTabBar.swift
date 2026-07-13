@@ -21,16 +21,18 @@ struct TallyTabBar: View {
     var body: some View {
         ZStack(alignment: .top) {
 
-            // Frosted translucent background so the Home gradient reads through
-            // to the bottom edge, rather than being cut off by a solid bar.
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .ignoresSafeArea(edges: .bottom)
-                .overlay(alignment: .top) {
-                    Rectangle()
-                        .fill(Color(hex: "DEDAD2").opacity(0.6))
-                        .frame(height: 0.5)
-                }
+            // Solid, opaque bar — the gradient is the bottom-most layer and
+            // every UI element, this bar included, sits on top of it.
+            VStack(spacing: 0) {
+                Color.white.frame(height: barHeight)
+                Color.white
+            }
+            .ignoresSafeArea(edges: .bottom)
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(Color(hex: "DEDAD2"))
+                    .frame(height: 0.5)
+            }
 
             // Tab items — extend frame into safe area so icons are vertically
             // centred in the full white zone (bar height + safe area inset).
