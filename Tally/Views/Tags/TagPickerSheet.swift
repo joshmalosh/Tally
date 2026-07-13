@@ -2,8 +2,8 @@ import SwiftUI
 import SwiftData
 
 /// Shared tag picker: single selection — one standalone tag, one group, or one
-/// of a group's sub-tags. Visual language matches the Home filter sheet
-/// (white card, dividers, full-row press-flash via the shared FilterRow).
+/// of a group's sub-tags. Visual language matches the Tags tab
+/// (serif heading, white Add tag / Add folder buttons, white card list).
 struct SharedTagPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
@@ -40,77 +40,56 @@ struct SharedTagPickerSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    createButtons
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Select tag")
+                        .font(.dmSerifDisplay(28))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 12)
 
-                    if !tags.isEmpty {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("Tags & groups")
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(Color(hex: "8F9E94"))
-                                .padding(.horizontal, 20)
-
-                            VStack(spacing: 0) {
-                                ForEach(Array(standaloneTags.enumerated()), id: \.element.id) { index, tag in
-                                    tagRow(tag)
-                                    if index < standaloneTags.count - 1 || !groups.isEmpty {
-                                        Divider().padding(.horizontal, 20)
-                                    }
-                                }
-
-                                ForEach(Array(groups.enumerated()), id: \.element.id) { gIndex, group in
-                                    FilterRow(
-                                        title: group.name,
-                                        titleFont: .system(size: 16),
-                                        isSelected: selectedId == group.id,
-                                        checkmarkFont: .system(size: 14, weight: .semibold),
-                                        verticalPadding: 13,
-                                        leading: {
-                                            Image(systemName: "folder.fill")
-                                                .font(.system(size: 12))
-                                                .foregroundStyle(group.tagColor.primaryColor)
-                                        }
-                                    ) {
-                                        select(group.id)
-                                    }
-
-                                    let children = childTags(of: group)
-                                    ForEach(children, id: \.id) { child in
-                                        Divider().padding(.horizontal, 20)
-                                        FilterRow(
-                                            title: child.name,
-                                            titleFont: .system(size: 15),
-                                            titleColor: Color(hex: "4A5E50"),
-                                            isSelected: selectedId == child.id,
-                                            checkmarkFont: .system(size: 13, weight: .semibold),
-                                            horizontalPadding: 20,
-                                            verticalPadding: 11,
-                                            leading: {
-                                                Circle()
-                                                    .fill(child.tagColor.primaryColor)
-                                                    .frame(width: 8, height: 8)
-                                                    .padding(.leading, 16)
-                                            }
-                                        ) {
-                                            select(child.id)
-                                        }
-                                    }
-
-                                    if gIndex < groups.count - 1 {
-                                        Divider().padding(.horizontal, 20)
-                                    }
-                                }
-                            }
-                            .background(Color.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 14))
-                            .padding(.horizontal, 16)
+                    // Add tag / Add folder — same style as the Tags tab
+                    HStack(spacing: 10) {
+                        createButton(icon: "plus.circle", title: "Add tag") {
+                            showingNewTag = true
+                        }
+                        createButton(icon: "folder.badge.plus", title: "Add folder") {
+                            showingNewGroup = true
                         }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
+
+                    if !tags.isEmpty {
+                        VStack(spacing: 0) {
+                            ForEach(Array(standaloneTags.enumerated()), id: \.element.id) { index, tag in
+                                tagRow(tag)
+                                if index < standaloneTags.count - 1 || !groups.isEmpty {
+                                    rowDivider
+                                }
+                            }
+
+                            ForEach(Array(groups.enumerated()), id: \.element.id) { gIndex, group in
+                                groupRow(group)
+
+                                ForEach(childTags(of: group), id: \.id) { child in
+                                    rowDivider
+                                    childRow(child)
+                                }
+
+                                if gIndex < groups.count - 1 {
+                                    rowDivider
+                                }
+                            }
+                        }
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 24)
+                    }
                 }
-                .padding(.vertical, 20)
             }
             .background(Color(hex: "F0EDE6").ignoresSafeArea())
-            .navigationTitle("Select tag")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -147,59 +126,81 @@ struct SharedTagPickerSheet: View {
         dismiss()
     }
 
-    private var createButtons: some View {
-        HStack(spacing: Spacing.sm) {
-            Button {
-                showingNewTag = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "tag.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text("New tag")
-                        .font(.system(size: 14, weight: .semibold))
-                }
-                .foregroundStyle(Color(hex: "2F402E"))
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
-                .background(Color(hex: "E8F0EA"))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            }
-            .buttonStyle(.plain)
+    private var rowDivider: some View {
+        Divider().padding(.leading, 44)
+    }
 
-            Button {
-                showingNewGroup = true
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "folder.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text("New group")
-                        .font(.system(size: 14, weight: .semibold))
-                }
-                .foregroundStyle(Color(hex: "2F402E"))
-                .frame(maxWidth: .infinity)
-                .frame(height: 44)
-                .background(Color(hex: "E8F0EA"))
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    private func createButton(icon: String, title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                    .font(.system(size: 14))
+                Text(title)
+                    .font(.system(size: 14, weight: .medium))
             }
-            .buttonStyle(.plain)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 10)
+            .background(Color.white)
+            .foregroundStyle(Color(hex: "2F402E"))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
         }
-        .padding(.horizontal, 16)
+        .buttonStyle(.plain)
     }
 
     private func tagRow(_ tag: TagModel) -> some View {
         FilterRow(
             title: tag.name,
-            titleFont: .system(size: 16),
+            titleFont: .system(size: 17),
             isSelected: selectedId == tag.id,
-            checkmarkFont: .system(size: 14, weight: .semibold),
-            verticalPadding: 13,
+            checkmarkFont: .system(size: 15, weight: .semibold),
+            horizontalPadding: 16,
+            verticalPadding: 16,
             leading: {
                 Circle()
                     .fill(tag.tagColor.primaryColor)
-                    .frame(width: 10, height: 10)
+                    .frame(width: 12, height: 12)
             }
         ) {
             select(tag.id)
+        }
+    }
+
+    private func groupRow(_ group: TagModel) -> some View {
+        FilterRow(
+            title: group.name,
+            titleFont: .system(size: 17),
+            isSelected: selectedId == group.id,
+            checkmarkFont: .system(size: 15, weight: .semibold),
+            horizontalPadding: 16,
+            verticalPadding: 16,
+            leading: {
+                Image(systemName: "folder.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(group.tagColor.primaryColor)
+            }
+        ) {
+            select(group.id)
+        }
+    }
+
+    private func childRow(_ child: TagModel) -> some View {
+        FilterRow(
+            title: child.name,
+            titleFont: .system(size: 16),
+            titleColor: Color(hex: "4A5E50"),
+            isSelected: selectedId == child.id,
+            checkmarkFont: .system(size: 14, weight: .semibold),
+            horizontalPadding: 16,
+            verticalPadding: 13,
+            leading: {
+                Circle()
+                    .fill(child.tagColor.primaryColor)
+                    .frame(width: 10, height: 10)
+                    .padding(.leading, 24)
+            }
+        ) {
+            select(child.id)
         }
     }
 }
