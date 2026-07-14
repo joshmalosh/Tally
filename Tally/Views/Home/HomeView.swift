@@ -26,7 +26,8 @@ struct HomeView: View {
     @State private var isSelecting = false
     @State private var selectedExpenseIds: Set<String> = []
     @State private var exportWithSelectionItem: ExportWithSelectionItem?
-    @State private var expenseToDelete: ExpenseModel?
+    @State private var showingShred = false
+    @State private var shredTick = 0
     @FocusState private var isSearchFocused: Bool
     @State private var selectedTab: TallyTab = .home
     @State private var showingFilterSheet = false
@@ -289,6 +290,15 @@ struct HomeView: View {
                 .allowsHitTesting(selectedTab == .tags)
                 .zIndex(50)
 
+            // Shred animation — behind the FAB and tab bar (below zIndex 60).
+            if showingShred {
+                ExpenseShredView()
+                    .id(shredTick)
+                    .allowsHitTesting(false)
+                    .ignoresSafeArea()
+                    .zIndex(55)
+            }
+
             if !isKeyboardVisible {
                 VStack(spacing: 0) {
                     if adManager.shouldShowBannerAd {
@@ -307,6 +317,14 @@ struct HomeView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             withAnimation(.easeInOut(duration: 0.2)) { isKeyboardVisible = false }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .expenseDeleted)) { _ in
+            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+            shredTick += 1
+            showingShred = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                showingShred = false
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: .expenseLogged)) { notification in
             guard let id = notification.userInfo?["expenseId"] as? String else { return }
@@ -415,18 +433,6 @@ struct HomeView: View {
                 tags: Array(tags)
             )
             .presentationDragIndicator(.visible)
-        }
-        .alert("Delete expense?", isPresented: Binding(
-            get: { expenseToDelete != nil },
-            set: { if !$0 { expenseToDelete = nil } }
-        )) {
-            Button("Cancel", role: .cancel) { expenseToDelete = nil }
-            Button("Delete", role: .destructive) {
-                if let exp = expenseToDelete { deleteExpense(exp) }
-                expenseToDelete = nil
-            }
-        } message: {
-            Text("This cannot be undone.")
         }
     }
 
@@ -816,8 +822,9 @@ struct HomeView: View {
         .listRowBackground(groupCardRowBackground(index: index, count: group.items.count))
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             if !isSelecting {
+                // No confirmation on swipe — the gesture is deliberate enough.
                 Button(role: .destructive) {
-                    expenseToDelete = expense
+                    deleteExpense(expense)
                 } label: {
                     Label("Delete", systemImage: "trash")
                 }
@@ -847,6 +854,7 @@ struct HomeView: View {
         }
         do {
             try modelContext.save()
+            NotificationCenter.default.post(name: .expenseDeleted, object: nil)
         } catch {
             #if DEBUG
             print("[Tally] ERROR deleting expense: \(error)")

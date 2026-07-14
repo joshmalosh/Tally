@@ -7,6 +7,10 @@ extension NSNotification.Name {
     /// Posted immediately when an expense is saved.
     /// userInfo: ["expenseId": String]
     static let expenseLogged = NSNotification.Name("com.tally.expenseLogged")
+
+    /// Posted immediately when an expense is deleted (swipe on Home, or from
+    /// the expense detail screen). Drives the shred animation + haptic on Home.
+    static let expenseDeleted = NSNotification.Name("com.tally.expenseDeleted")
 }
 
 // MARK: - Sound + haptic service

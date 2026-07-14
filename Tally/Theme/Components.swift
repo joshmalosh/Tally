@@ -869,3 +869,127 @@ private struct FilterRowLabel<Leading: View>: View {
         .animation(.easeOut(duration: 0.12), value: isPressed)
     }
 }
+
+// MARK: - ExpenseShredView (delete animation)
+
+/// A small receipt shredding down at the bottom of the screen, with white
+/// particles puffing up from the base. Sits behind the FAB and tab bar.
+/// Lives ~1.3s; the host hides it shortly after. Mirrors the add-expense
+/// confetti in scale and spirit — a satisfying counterpart for deletion.
+struct ExpenseShredView: View {
+    @State private var animate = false
+
+    private struct Strip: Identifiable {
+        let id: Int
+        let xOffset: CGFloat
+        let width: CGFloat
+        let fall: CGFloat
+        let rotation: Double
+        let delay: Double
+    }
+    private struct Spark: Identifiable {
+        let id: Int
+        let dx: CGFloat
+        let rise: CGFloat
+        let size: CGFloat
+        let delay: Double
+    }
+
+    private let receiptWidth: CGFloat = 46
+    private let receiptHeight: CGFloat = 58
+    private let strips: [Strip]
+    private let sparks: [Spark]
+
+    init() {
+        let count = 9
+        strips = (0..<count).map { i in
+            let t = CGFloat(i) / CGFloat(max(1, count - 1))
+            return Strip(
+                id: i,
+                xOffset: (t - 0.5) * (receiptWidthStatic - 4),
+                width: 3.5,
+                fall: 62 + CGFloat.random(in: 0...34),
+                rotation: Double.random(in: -55...55),
+                delay: Double(i) * 0.02
+            )
+        }
+        sparks = (0..<12).map { i in
+            Spark(
+                id: i,
+                dx: CGFloat.random(in: -32...32),
+                rise: CGFloat.random(in: 42...92),
+                size: CGFloat.random(in: 3...6),
+                delay: Double.random(in: 0...0.22)
+            )
+        }
+    }
+
+    private static let receiptWidthStatic: CGFloat = 46
+
+    var body: some View {
+        GeometryReader { geo in
+            let baseX = geo.size.width / 2
+            // Base line sits low, so the effect reads partly behind the tab bar.
+            let baseY = geo.size.height - 64
+
+            ZStack {
+                // Receipt being drawn down into the shredder (squashes toward its
+                // base, fades) — the top edge descends to the shred line.
+                receiptBody
+                    .frame(width: receiptWidth, height: receiptHeight)
+                    .scaleEffect(x: 1, y: animate ? 0.04 : 1, anchor: .bottom)
+                    .opacity(animate ? 0 : 1)
+                    .position(x: baseX, y: baseY - receiptHeight / 2)
+
+                // Shredded strips falling from the base line.
+                ForEach(strips) { s in
+                    RoundedRectangle(cornerRadius: 1, style: .continuous)
+                        .fill(Color.white)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 1, style: .continuous)
+                                .stroke(Color(hex: "DEDAD2"), lineWidth: 0.5)
+                        )
+                        .frame(width: s.width, height: 13)
+                        .position(x: baseX + s.xOffset, y: baseY)
+                        .offset(y: animate ? s.fall : -2)
+                        .rotationEffect(.degrees(animate ? s.rotation : 0))
+                        .opacity(animate ? 0 : 1)
+                        .animation(.easeIn(duration: 0.85).delay(s.delay), value: animate)
+                }
+
+                // White sparks shooting up from the base.
+                ForEach(sparks) { p in
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: p.size, height: p.size)
+                        .position(x: baseX, y: baseY)
+                        .offset(x: animate ? p.dx : 0, y: animate ? -p.rise : 0)
+                        .opacity(animate ? 0 : 1)
+                        .animation(.easeOut(duration: 0.8).delay(p.delay), value: animate)
+                }
+            }
+        }
+        .onAppear {
+            withAnimation(.easeIn(duration: 0.85)) { animate = true }
+        }
+    }
+
+    private var receiptBody: some View {
+        VStack(spacing: 4) {
+            ForEach(0..<4, id: \.self) { _ in
+                RoundedRectangle(cornerRadius: 1, style: .continuous)
+                    .fill(Color(hex: "DEDAD2"))
+                    .frame(height: 3)
+                    .padding(.horizontal, 7)
+            }
+        }
+        .padding(.vertical, 7)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                .stroke(Color(hex: "DEDAD2"), lineWidth: 0.5)
+        )
+    }
+}

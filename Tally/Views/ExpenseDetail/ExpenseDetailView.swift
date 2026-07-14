@@ -814,6 +814,8 @@ struct ExpenseDetailView: View {
         expense.updatedAt  = Date()
         do {
             try modelContext.save()
+            // Fire after dismiss so the shred plays on the Home screen underneath.
+            NotificationCenter.default.post(name: .expenseDeleted, object: nil)
         } catch {
             #if DEBUG
             print("[Tally] ERROR deleting expense: \(error)")

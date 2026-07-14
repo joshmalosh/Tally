@@ -355,9 +355,15 @@ enum ReceiptOCRService {
         // Prefer date blocks in the upper half of the receipt (dates usually near the top)
         let sortedByPosition = blocks.sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
 
+        // A receipt date can't be in the future — thermal-print digit misreads
+        // (2026 → 2028) would otherwise sail through. Allow a 2-day grace for
+        // timezone slop, and skip implausibly old reads too.
+        let latestAllowed = Calendar.current.date(byAdding: .day, value: 2, to: Date()) ?? Date()
+        let earliestAllowed = Calendar.current.date(from: DateComponents(year: 2015, month: 1, day: 1)) ?? .distantPast
+
         for block in sortedByPosition {
-            let text = block.text
-            if let date = parseDateFromBlock(text) {
+            if let date = parseDateFromBlock(block.text),
+               date <= latestAllowed, date >= earliestAllowed {
                 return date
             }
         }
