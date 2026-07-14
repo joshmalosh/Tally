@@ -58,6 +58,34 @@ struct FilterSheet: View {
                         .padding(.horizontal, 16)
                     }
 
+                    // Recurring
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Type")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color(hex: "8F9E94"))
+                            .padding(.horizontal, 20)
+
+                        VStack(spacing: 0) {
+                            FilterRow(
+                                title: "Recurring only",
+                                titleFont: .system(size: 16),
+                                isSelected: appState.filterRecurringOnly,
+                                checkmarkFont: .system(size: 14, weight: .semibold),
+                                verticalPadding: 13,
+                                leading: {
+                                    Image(systemName: "arrow.2.squarepath")
+                                        .font(.system(size: 13))
+                                        .foregroundStyle(Color(hex: "2F402E"))
+                                }
+                            ) {
+                                appState.filterRecurringOnly.toggle()
+                            }
+                        }
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .padding(.horizontal, 16)
+                    }
+
                     // All tags & groups
                     if !tags.isEmpty {
                         VStack(alignment: .leading, spacing: 10) {

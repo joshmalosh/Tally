@@ -12,12 +12,16 @@ final class AppState {
     // Filters (multi-select, AND logic)
     var activeFilterIds: Set<String> = []
     var groupFilterIds: Set<String> = []
+    /// Show only expenses marked recurring (subscriptions etc.).
+    var filterRecurringOnly = false
 
     var hasTagFilters: Bool { !activeFilterIds.isEmpty }
+    var hasAnyFilter: Bool { !activeFilterIds.isEmpty || filterRecurringOnly }
 
     func clearFilters() {
         activeFilterIds.removeAll()
         groupFilterIds.removeAll()
+        filterRecurringOnly = false
     }
 
     func toggleFilter(id: String, isGroup: Bool) {

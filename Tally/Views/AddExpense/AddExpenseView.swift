@@ -1523,6 +1523,7 @@ struct AddExpenseView: View {
             notes = !trimmedNotes.isEmpty ? (expense.notes ?? "") : (expense.expenseDescription ?? "")
             selectedTagIds = expense.resolvedTagIds
             source = ExpenseSource(rawValue: expense.source) ?? .manual
+            isRecurring = expense.isRecurring
             attachmentKey = expense.attachmentKey
 
             if let key = expense.attachmentKey {
@@ -1945,6 +1946,7 @@ struct AddExpenseView: View {
                     existing.tagIds = selectedTagIds
                     existing.tagId = selectedTagIds.first ?? ""
                     existing.notes = notes.isEmpty ? nil : notes
+                    existing.isRecurring = isRecurring
                     existing.attachmentKey = savedKey
                     existing.attachmentData = rawAttachmentData
                     existing.updatedAt = Date()
@@ -1967,7 +1969,8 @@ struct AddExpenseView: View {
                         notes: notes.isEmpty ? nil : notes,
                         attachmentKey: savedKey,
                         attachmentData: rawAttachmentData,
-                        source: source.rawValue
+                        source: source.rawValue,
+                        isRecurring: isRecurring
                     )
                     modelContext.insert(expense)
                     do {

@@ -36,6 +36,23 @@ enum ReceiptOCRService {
         return blocks.joined(separator: "\n")
     }
 
+    #if DEBUG
+    /// Regression test hook: run field extraction over synthetic OCR lines
+    /// (text + normalized bounding box, Vision-style: y increases upward).
+    /// Lets tests pin the behaviour on real receipt layouts without images.
+    static func extractForTesting(_ lines: [(text: String, box: CGRect)]) -> ReceiptOCRResult {
+        let blocks = lines.map { TextBlock(text: $0.text, confidence: 1.0, boundingBox: $0.box) }
+        let merchant = extractMerchant(from: blocks)
+        return ReceiptOCRResult(
+            amount: extractAmount(from: blocks),
+            merchant: merchant,
+            date: extractDate(from: blocks),
+            notes: extractNotes(from: blocks, merchant: merchant),
+            currencyCode: detectCurrency(in: blocks)
+        )
+    }
+    #endif
+
     static func extract(from image: UIImage) async -> ReceiptOCRResult {
         let cgImage: CGImage
         if let cg = image.cgImage {
@@ -122,7 +139,7 @@ enum ReceiptOCRService {
     /// Note: "(GST incl.)" / "incl. GST" mark a tax-INCLUSIVE total and must
     /// NOT be excluded — the patterns below only match the tax-amount phrasings.
     private static let amountExclusionPattern = try! NSRegularExpression(
-        pattern: #"includes?\s+(gst|tax|vat)|\b(gst|tax|vat)\s*(of\b|:)|\btva\b|\bht\b|hors\s+taxe|saving|discount|\bchange\b|rounding|cash\s*out|\btip\b|reward|points|\brrp\b|\bwas\s"#,
+        pattern: #"includes?\s+(gst|tax|vat)|\b(gst|tax|vat)\s+includ|\b(gst|tax|vat)\s*(of\b|:)|\btva\b|\bht\b|hors\s+taxe|saving|discount|\bchange\b|rounding|cash\s*out|\btip\b|reward|points|\brrp\b|\bwas\s"#,
         options: .caseInsensitive
     )
 
@@ -184,11 +201,19 @@ enum ReceiptOCRService {
             var score: Int
         }
 
-        // Largest amount anywhere on the receipt (totals are usually the max).
+        // Frequency of each amount (in cents) across non-excluded blocks, plus
+        // the receipt maximum. A value that appears more than once — the total
+        // restated on the card/payment line — is far more trustworthy than a
+        // one-off large misread.
+        var freq: [Int: Int] = [:]
         var maxAmount: Double = 0
         for block in blocks where !matches(amountExclusionPattern, block.text) {
-            if let v = parseAmount(from: block.text), v > maxAmount { maxAmount = v }
+            if let v = parseAmount(from: block.text), v > 0 {
+                freq[Int((v * 100).rounded()), default: 0] += 1
+                if v > maxAmount { maxAmount = v }
+            }
         }
+        func repeats(_ v: Double) -> Bool { (freq[Int((v * 100).rounded())] ?? 0) >= 2 }
 
         var candidates: [Candidate] = []
         var subtotalFallback: Double?
@@ -224,7 +249,8 @@ enum ReceiptOCRService {
             if isStrongTotal { score += 100 }
             else if isGenericTotal { score += 80 }
             if isPayment { score += 45 }
-            if amount == maxAmount { score += 25 }
+            if repeats(amount) { score += 40 }          // cross-confirmed
+            if amount == maxAmount { score += 12 }
             if block.boundingBox.origin.y < 0.5 { score += 10 } // lower half
             if inline { score += 5 }
 
@@ -234,6 +260,14 @@ enum ReceiptOCRService {
         if let best = candidates.max(by: { ($0.score, $0.value) < ($1.score, $1.value) }),
            best.score >= 45 {
             return best.value
+        }
+
+        // No confident labelled total — e.g. a curled receipt where the label
+        // and its amount didn't pair. Prefer the most-confirmed amount: the
+        // largest value that appears at least twice. A real total is almost
+        // always restated (Total + card line); a large misread is not.
+        if let best = freq.filter({ $0.value >= 2 }).keys.map({ Double($0) / 100 }).max() {
+            return best
         }
 
         // Fallbacks: subtotal, then largest currency-marked amount, then the

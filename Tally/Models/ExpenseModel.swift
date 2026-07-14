@@ -16,6 +16,7 @@ final class ExpenseModel {
     var attachmentKey: String?
     @Attribute(.externalStorage) var attachmentData: Data?
     var source: String = "manual"
+    var isRecurring: Bool = false
     var createdAt: Date = Date.now
     var updatedAt: Date = Date.now
     var deletedAt: Date?
@@ -42,6 +43,7 @@ final class ExpenseModel {
         attachmentKey: String? = nil,
         attachmentData: Data? = nil,
         source: String = "manual",
+        isRecurring: Bool = false,
         createdAt: Date = .now,
         updatedAt: Date = .now
     ) {
@@ -58,6 +60,7 @@ final class ExpenseModel {
         self.attachmentKey = attachmentKey
         self.attachmentData = attachmentData
         self.source = source
+        self.isRecurring = isRecurring
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }

@@ -75,6 +75,10 @@ struct HomeView: View {
             result = result.filter { $0.resolvedTagIds.contains(tagId) }
         }
 
+        if appState.filterRecurringOnly {
+            result = result.filter { $0.isRecurring }
+        }
+
         if appState.hasTagFilters {
             result = result.filter { expense in
                 for filterId in appState.activeFilterIds {
@@ -525,7 +529,7 @@ struct HomeView: View {
                         .font(.system(size: 13, weight: .medium))
                 }
                 .foregroundStyle(
-                    appState.hasTagFilters || periodFilter != .allTime
+                    appState.hasAnyFilter || periodFilter != .allTime
                         ? Color(hex: "2F402E")
                         : Color(hex: "4A5E50")
                 )
@@ -536,10 +540,10 @@ struct HomeView: View {
                 .overlay(
                     RoundedRectangle(cornerRadius: Radius.sm)
                         .stroke(
-                            appState.hasTagFilters || periodFilter != .allTime
+                            appState.hasAnyFilter || periodFilter != .allTime
                                 ? Color(hex: "2F402E")
                                 : Color(hex: "DEDAD2"),
-                            lineWidth: appState.hasTagFilters || periodFilter != .allTime ? 1 : 0.5
+                            lineWidth: appState.hasAnyFilter || periodFilter != .allTime ? 1 : 0.5
                         )
                 )
             }
@@ -551,7 +555,7 @@ struct HomeView: View {
     // MARK: - Empty State
 
     private var hasActiveFilters: Bool {
-        !searchText.isEmpty || appState.hasTagFilters
+        !searchText.isEmpty || appState.hasAnyFilter
     }
 
     /// Extra bottom padding inside empty-state scroll; main clearance comes from `safeAreaInset`.
