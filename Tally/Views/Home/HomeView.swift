@@ -322,7 +322,7 @@ struct HomeView: View {
             UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
             shredTick += 1
             showingShred = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.7) {
                 showingShred = false
             }
         }

@@ -872,10 +872,10 @@ private struct FilterRowLabel<Leading: View>: View {
 
 // MARK: - ExpenseShredView (delete animation)
 
-/// A small receipt shredding down at the bottom of the screen, with white
-/// particles puffing up from the base. Sits behind the FAB and tab bar.
-/// Lives ~1.3s; the host hides it shortly after. Mirrors the add-expense
-/// confetti in scale and spirit — a satisfying counterpart for deletion.
+/// A small receipt (tilted 35°) shredding down toward the base of the screen,
+/// with white particles puffing up. Sits behind the FAB and tab bar. Lives
+/// ~1.6s; the host hides it shortly after. Mirrors the add-expense confetti in
+/// scale and spirit — a satisfying counterpart for deletion.
 struct ExpenseShredView: View {
     @State private var animate = false
 
@@ -908,7 +908,7 @@ struct ExpenseShredView: View {
                 id: i,
                 xOffset: (t - 0.5) * (receiptWidthStatic - 4),
                 width: 3.5,
-                fall: 62 + CGFloat.random(in: 0...34),
+                fall: 102 + CGFloat.random(in: 0...40),
                 rotation: Double.random(in: -55...55),
                 delay: Double(i) * 0.02
             )
@@ -929,15 +929,16 @@ struct ExpenseShredView: View {
     var body: some View {
         GeometryReader { geo in
             let baseX = geo.size.width / 2
-            // Base line sits low, so the effect reads partly behind the tab bar.
-            let baseY = geo.size.height - 64
+            // Base line sits above the tab bar so the tilted receipt reads clearly.
+            let baseY = geo.size.height - 104
 
             ZStack {
-                // Receipt being drawn down into the shredder (squashes toward its
-                // base, fades) — the top edge descends to the shred line.
+                // Receipt (tilted 35°) drawn down into the shredder — squashes
+                // toward its base along its own axis, then fades.
                 receiptBody
                     .frame(width: receiptWidth, height: receiptHeight)
                     .scaleEffect(x: 1, y: animate ? 0.04 : 1, anchor: .bottom)
+                    .rotationEffect(.degrees(35), anchor: .bottom)
                     .opacity(animate ? 0 : 1)
                     .position(x: baseX, y: baseY - receiptHeight / 2)
 
@@ -954,7 +955,8 @@ struct ExpenseShredView: View {
                         .offset(y: animate ? s.fall : -2)
                         .rotationEffect(.degrees(animate ? s.rotation : 0))
                         .opacity(animate ? 0 : 1)
-                        .animation(.easeIn(duration: 0.85).delay(s.delay), value: animate)
+                        // Longer distance, same speed as before → longer duration.
+                        .animation(.easeIn(duration: 1.15).delay(s.delay), value: animate)
                 }
 
                 // White sparks shooting up from the base.
