@@ -1345,13 +1345,13 @@ struct AddExpenseView: View {
     // MARK: - Sticky bottom chrome
 
     private var stickySaveChrome: some View {
-        Group {
-            if receiptImageAttached {
-                // Done button lives in the nav bar — no bottom chrome needed
-                Color.clear.frame(height: 0)
-            } else if keyboardVisible {
-                // System keyboard is up (merchant / note editing) — slim save bar only
-                VStack(spacing: 0) {
+        VStack(spacing: 0) {
+            Group {
+                if receiptImageAttached {
+                    // Done button lives in the nav bar — no bottom chrome needed
+                    Color.clear.frame(height: 0)
+                } else if keyboardVisible {
+                    // System keyboard is up (merchant / note editing) — slim save bar only
                     Button {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         saveExpense()
@@ -1369,17 +1369,29 @@ struct AddExpenseView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     .padding(.bottom, 8)
-
-                    if !appState.isPro { BannerAdView() }
+                } else {
+                    // Default manual mode: full custom keypad
+                    quickAddKeypadChrome
                 }
-                .background(Color(hex: "F0EDE6"))
-            } else {
-                // Default manual mode: full custom keypad
-                quickAddKeypadChrome
+            }
+            .animation(.easeInOut(duration: 0.2), value: keyboardVisible)
+            .animation(.easeInOut(duration: 0.2), value: receiptImageAttached)
+
+            // Single, persistent banner. Kept in the tree across the keypad ↔
+            // system-keyboard swap so the ad WebView is never destroyed and
+            // recreated (recreation spun up a fresh WebContent process and was
+            // the real cause of the merchant-field lag). Collapsed to zero
+            // height while a text field is up, per the monetisation brief
+            // (hide the Add Expense banner during text entry).
+            if !appState.isPro && !receiptImageAttached {
+                BannerAdView()
+                    .frame(height: keyboardVisible ? 0 : 51)   // 1pt divider + 50pt ad
+                    .opacity(keyboardVisible ? 0 : 1)
+                    .clipped()
+                    .animation(.easeInOut(duration: 0.2), value: keyboardVisible)
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: keyboardVisible)
-        .animation(.easeInOut(duration: 0.2), value: receiptImageAttached)
+        .background(Color(hex: "F0EDE6"))
     }
 
     // MARK: - Custom keypad chrome
@@ -1432,8 +1444,8 @@ struct AddExpenseView: View {
             .padding(.horizontal, 12)
             .padding(.top, 10)
             .padding(.bottom, 8)
-
-            if !appState.isPro { BannerAdView() }
+            // Banner is hoisted to stickySaveChrome so it persists across the
+            // keypad ↔ keyboard swap (avoids recreating the ad WebView).
         }
         .background(Color(hex: "F0EDE6"))
     }
