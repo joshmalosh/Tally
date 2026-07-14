@@ -931,16 +931,18 @@ struct ExpenseShredView: View {
             let baseX = geo.size.width / 2
             // Base line sits above the tab bar so the tilted receipt reads clearly.
             let baseY = geo.size.height - 104
+            // Offset to the left of the centred FAB.
+            let receiptOffsetX: CGFloat = -46
 
             ZStack {
-                // Receipt (tilted 35°) drawn down into the shredder — squashes
-                // toward its base along its own axis, then fades.
+                // Receipt (tilted 35° left) lowered straight down into the shred
+                // point and faded — no squash, it just descends to its endpoint.
                 receiptBody
                     .frame(width: receiptWidth, height: receiptHeight)
-                    .scaleEffect(x: 1, y: animate ? 0.04 : 1, anchor: .bottom)
-                    .rotationEffect(.degrees(35), anchor: .bottom)
+                    .rotationEffect(.degrees(-35), anchor: .bottom)
                     .opacity(animate ? 0 : 1)
-                    .position(x: baseX, y: baseY - receiptHeight / 2)
+                    .position(x: baseX + receiptOffsetX, y: baseY - receiptHeight / 2)
+                    .offset(y: animate ? 84 : 0)
 
                 // Shredded strips falling from the base line.
                 ForEach(strips) { s in
@@ -951,7 +953,7 @@ struct ExpenseShredView: View {
                                 .stroke(Color(hex: "DEDAD2"), lineWidth: 0.5)
                         )
                         .frame(width: s.width, height: 13)
-                        .position(x: baseX + s.xOffset, y: baseY)
+                        .position(x: baseX + receiptOffsetX + s.xOffset, y: baseY)
                         .offset(y: animate ? s.fall : -2)
                         .rotationEffect(.degrees(animate ? s.rotation : 0))
                         .opacity(animate ? 0 : 1)
@@ -964,7 +966,7 @@ struct ExpenseShredView: View {
                     Circle()
                         .fill(Color.white)
                         .frame(width: p.size, height: p.size)
-                        .position(x: baseX, y: baseY)
+                        .position(x: baseX + receiptOffsetX, y: baseY)
                         .offset(x: animate ? p.dx : 0, y: animate ? -p.rise : 0)
                         .opacity(animate ? 0 : 1)
                         .animation(.easeOut(duration: 0.8).delay(p.delay), value: animate)
