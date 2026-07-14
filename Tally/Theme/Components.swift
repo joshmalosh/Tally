@@ -962,19 +962,19 @@ struct ExpenseShredView: View {
                             LinearKeyframe(0, duration: 0.28)
                         }
                         KeyframeTrack(\.shakeX) {
-                            CubicKeyframe(-2.5, duration: 0.13)
-                            CubicKeyframe(2.5, duration: 0.13)
-                            CubicKeyframe(-2, duration: 0.13)
-                            CubicKeyframe(2, duration: 0.13)
-                            CubicKeyframe(-1.2, duration: 0.14)
+                            CubicKeyframe(-1.25, duration: 0.13)
+                            CubicKeyframe(1.25, duration: 0.13)
+                            CubicKeyframe(-1, duration: 0.13)
+                            CubicKeyframe(1, duration: 0.13)
+                            CubicKeyframe(-0.6, duration: 0.14)
                             CubicKeyframe(0, duration: 0.24)
                         }
                         KeyframeTrack(\.wobble) {
-                            CubicKeyframe(2.5, duration: 0.13)
-                            CubicKeyframe(-2.5, duration: 0.13)
-                            CubicKeyframe(2, duration: 0.13)
-                            CubicKeyframe(-2, duration: 0.13)
-                            CubicKeyframe(1, duration: 0.14)
+                            CubicKeyframe(1.25, duration: 0.13)
+                            CubicKeyframe(-1.25, duration: 0.13)
+                            CubicKeyframe(1, duration: 0.13)
+                            CubicKeyframe(-1, duration: 0.13)
+                            CubicKeyframe(0.5, duration: 0.14)
                             CubicKeyframe(0, duration: 0.24)
                         }
                     }
