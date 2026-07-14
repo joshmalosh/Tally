@@ -915,7 +915,7 @@ struct ExpenseShredView: View {
             let t = CGFloat(i) / CGFloat(max(1, count - 1))
             return Strip(
                 id: i,
-                xOffset: (t - 0.5) * (receiptWidthStatic - 4),
+                xOffset: (t - 0.5) * (Self.receiptWidthStatic - 4),
                 width: 3.5,
                 fall: 102 + CGFloat.random(in: 0...40),
                 rotation: Double.random(in: -55...55),
