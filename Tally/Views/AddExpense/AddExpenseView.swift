@@ -459,7 +459,7 @@ struct AddExpenseView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button { dismiss() } label: {
+                    Button { handleBackButton() } label: {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(Color(hex: "1C1C1E"))
@@ -593,6 +593,12 @@ struct AddExpenseView: View {
         quickAddExtrasRow
 
         quickAddRecurringCard
+
+        // Gentle OCR upsell for free users typing manually — held back until
+        // they've logged a few expenses so first impressions stay unmonetised.
+        if !appState.isPro && appState.totalExpenseCount >= 3 {
+            proUpsellCompactBanner
+        }
 
         if attachedFileURL != nil {
             pdfAttachmentCard
@@ -1209,9 +1215,13 @@ struct AddExpenseView: View {
 
             HStack(alignment: .center, spacing: 4) {
                 Button { showingCurrencyPicker = true } label: {
-                    Text(currencySymbol)
-                        .font(.system(size: 18, weight: .regular, design: .monospaced))
-                        .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
+                    HStack(spacing: 2) {
+                        Text(currencySymbol)
+                            .font(.system(size: 18, weight: .regular, design: .monospaced))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                    }
+                    .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
                 }
                 .buttonStyle(.plain)
 
@@ -1306,7 +1316,7 @@ struct AddExpenseView: View {
                 Image(systemName: "sparkles")
                     .font(.system(size: 12))
                     .foregroundStyle(Color(hex: "2F402E"))
-                Text("Upgrade to Pro for merchant & notes auto-fill")
+                Text("Still typing? Pro reads receipts and fills this in.")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Color(hex: "2F402E"))
                 Spacer(minLength: 0)
@@ -1649,6 +1659,34 @@ struct AddExpenseView: View {
     }
 
     @MainActor
+    /// Back from a picker-entered receipt review returns to the picker so a
+    /// wrong photo can be swapped without restarting the expense. The scanned
+    /// values are cleared — they belong to the discarded photo. Everywhere
+    /// else (manual entry, share-extension hand-off, editing) back dismisses.
+    private func handleBackButton() {
+        let cameFromPicker = enteredViaPhotoFlow && initialImage == nil && initialFileURL == nil
+        guard hasAttachment, cameFromPicker, !isEditing else {
+            dismiss()
+            return
+        }
+        let wasFile = attachedFileURL != nil
+        attachedImage = nil
+        attachedFileURL = nil
+        amountText = ""
+        merchant = ""
+        notes = ""
+        dateManuallyEdited = false
+        ocrPopulatedAnyField = false
+        formReady = false
+        if wasFile || initialMode == .uploadFile {
+            showingDocumentPicker = true
+        } else if lastImageSource == .camera {
+            showingCamera = true
+        } else {
+            showingPhotoPicker = true
+        }
+    }
+
     private func applyOCRResult(_ result: ReceiptOCRResult) {
         let isPro = appState.isPro
         var applied = false

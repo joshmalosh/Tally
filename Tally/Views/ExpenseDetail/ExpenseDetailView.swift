@@ -463,9 +463,13 @@ struct ExpenseDetailView: View {
 
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Button { showingCurrencyPicker = true } label: {
-                    Text(currencySymbol)
-                        .font(.system(size: 28, weight: .regular, design: .monospaced))
-                        .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
+                    HStack(spacing: 2) {
+                        Text(currencySymbol)
+                            .font(.system(size: 28, weight: .regular, design: .monospaced))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
                 }
                 .buttonStyle(.plain)
 
@@ -539,9 +543,13 @@ struct ExpenseDetailView: View {
 
             HStack(spacing: 3) {
                 Button { showingCurrencyPicker = true } label: {
-                    Text(currencySymbol)
-                        .font(.system(size: 14, weight: .regular, design: .monospaced))
-                        .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
+                    HStack(spacing: 2) {
+                        Text(currencySymbol)
+                            .font(.system(size: 14, weight: .regular, design: .monospaced))
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 8, weight: .semibold))
+                    }
+                    .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
                 }
                 .buttonStyle(.plain)
 

@@ -122,13 +122,14 @@ enum ReceiptOCRService {
     /// Note: "(GST incl.)" / "incl. GST" mark a tax-INCLUSIVE total and must
     /// NOT be excluded — the patterns below only match the tax-amount phrasings.
     private static let amountExclusionPattern = try! NSRegularExpression(
-        pattern: #"includes?\s+(gst|tax|vat)|\b(gst|tax|vat)\s*(of\b|:)|saving|discount|\bchange\b|rounding|cash\s*out|\btip\b|reward|points|\brrp\b|\bwas\s"#,
+        pattern: #"includes?\s+(gst|tax|vat)|\b(gst|tax|vat)\s*(of\b|:)|\btva\b|\bht\b|hors\s+taxe|saving|discount|\bchange\b|rounding|cash\s*out|\btip\b|reward|points|\brrp\b|\bwas\s"#,
         options: .caseInsensitive
     )
 
-    /// High-confidence total labels.
+    /// High-confidence total labels (English + common French receipt forms:
+    /// "MONTANT DU", "NET À PAYER", "TOTAL TTC").
     private static let strongTotalPattern = try! NSRegularExpression(
-        pattern: #"total\s+amount|grand\s+total|amount\s+due|balance\s+due|total\s+due|amount\s+payable|total\s*\(|total\s*:"#,
+        pattern: #"total\s+amount|grand\s+total|amount\s+due|balance\s+due|total\s+due|amount\s+payable|total\s*\(|total\s*:|montant\s+d[uû]|net\s+[aà]\s+payer|[aà]\s+payer|total\s+ttc"#,
         options: .caseInsensitive
     )
 
@@ -148,12 +149,14 @@ enum ReceiptOCRService {
     }
 
     /// Skew-tolerant same-line test: blocks share a line when their vertical
-    /// extents overlap (each expanded slightly), rather than requiring midpoints
-    /// within a fixed fraction of image height — tilted receipts fail the latter.
+    /// extents overlap by at least half the shorter block's height. Tilted
+    /// receipts still pass (same printed line overlaps substantially), but
+    /// adjacent rows never do — padding-based tests bridged a "Total" column
+    /// header to the first item row below it and stole its amount.
     private static func sameLine(_ a: CGRect, _ b: CGRect) -> Bool {
-        let padA = a.height * 0.4
-        let padB = b.height * 0.4
-        return (a.minY - padA) < b.maxY && (b.minY - padB) < a.maxY
+        let overlap = min(a.maxY, b.maxY) - max(a.minY, b.minY)
+        guard overlap > 0 else { return false }
+        return overlap >= min(a.height, b.height) * 0.5
     }
 
     /// Nearest amount in a block sharing a line with the keyword block.
