@@ -895,6 +895,15 @@ struct ExpenseShredView: View {
         let delay: Double
     }
 
+    /// Keyframe-driven receipt motion: lowers (y), fades (opacity), and shakes
+    /// (shakeX + wobble) on the way down.
+    private struct ShredValues {
+        var y: CGFloat = 0
+        var shakeX: CGFloat = 0
+        var wobble: Double = 0
+        var opacity: Double = 1
+    }
+
     private let receiptWidth: CGFloat = 46
     private let receiptHeight: CGFloat = 58
     private let strips: [Strip]
@@ -939,10 +948,37 @@ struct ExpenseShredView: View {
                 // behind the FAB while the body leans left.
                 receiptBody
                     .frame(width: receiptWidth, height: receiptHeight)
-                    .rotationEffect(.degrees(-20), anchor: .bottom)
-                    .opacity(animate ? 0 : 1)
+                    .keyframeAnimator(initialValue: ShredValues(), repeating: false) { content, v in
+                        content
+                            .rotationEffect(.degrees(-20 + v.wobble), anchor: .bottom)
+                            .offset(x: v.shakeX, y: v.y)
+                            .opacity(v.opacity)
+                    } keyframes: { _ in
+                        KeyframeTrack(\.y) {
+                            CubicKeyframe(84, duration: 0.9)
+                        }
+                        KeyframeTrack(\.opacity) {
+                            LinearKeyframe(1, duration: 0.62)
+                            LinearKeyframe(0, duration: 0.28)
+                        }
+                        KeyframeTrack(\.shakeX) {
+                            CubicKeyframe(-2.5, duration: 0.13)
+                            CubicKeyframe(2.5, duration: 0.13)
+                            CubicKeyframe(-2, duration: 0.13)
+                            CubicKeyframe(2, duration: 0.13)
+                            CubicKeyframe(-1.2, duration: 0.14)
+                            CubicKeyframe(0, duration: 0.24)
+                        }
+                        KeyframeTrack(\.wobble) {
+                            CubicKeyframe(2.5, duration: 0.13)
+                            CubicKeyframe(-2.5, duration: 0.13)
+                            CubicKeyframe(2, duration: 0.13)
+                            CubicKeyframe(-2, duration: 0.13)
+                            CubicKeyframe(1, duration: 0.14)
+                            CubicKeyframe(0, duration: 0.24)
+                        }
+                    }
                     .position(x: baseX, y: baseY - receiptHeight / 2)
-                    .offset(y: animate ? 84 : 0)
 
                 // Shredded strips falling from the base line.
                 ForEach(strips) { s in
