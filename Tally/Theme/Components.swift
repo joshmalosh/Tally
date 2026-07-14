@@ -878,6 +878,11 @@ private struct FilterRowLabel<Leading: View>: View {
 /// scale and spirit — a satisfying counterpart for deletion.
 struct ExpenseShredView: View {
     @State private var animate = false
+    // Oscillates between -amp and +amp to shake the receipt; also feeds a small
+    // rotation wobble. Driven by a repeating auto-reversing withAnimation, which
+    // fires reliably on appear (keyframeAnimator did not on device).
+    @State private var shake: CGFloat = 0
+    private let shakeAmp: CGFloat = 1.25
 
     private struct Strip: Identifiable {
         let id: Int
@@ -893,15 +898,6 @@ struct ExpenseShredView: View {
         let rise: CGFloat
         let size: CGFloat
         let delay: Double
-    }
-
-    /// Keyframe-driven receipt motion: lowers (y), fades (opacity), and shakes
-    /// (shakeX + wobble) on the way down.
-    private struct ShredValues {
-        var y: CGFloat = 0
-        var shakeX: CGFloat = 0
-        var wobble: Double = 0
-        var opacity: Double = 1
     }
 
     private let receiptWidth: CGFloat = 46
@@ -948,37 +944,13 @@ struct ExpenseShredView: View {
                 // behind the FAB while the body leans left.
                 receiptBody
                     .frame(width: receiptWidth, height: receiptHeight)
-                    .keyframeAnimator(initialValue: ShredValues(), repeating: false) { content, v in
-                        content
-                            .rotationEffect(.degrees(-20 + v.wobble), anchor: .bottom)
-                            .offset(x: v.shakeX, y: v.y)
-                            .opacity(v.opacity)
-                    } keyframes: { _ in
-                        KeyframeTrack(\.y) {
-                            CubicKeyframe(84, duration: 0.9)
-                        }
-                        KeyframeTrack(\.opacity) {
-                            LinearKeyframe(1, duration: 0.62)
-                            LinearKeyframe(0, duration: 0.28)
-                        }
-                        KeyframeTrack(\.shakeX) {
-                            CubicKeyframe(-1.25, duration: 0.13)
-                            CubicKeyframe(1.25, duration: 0.13)
-                            CubicKeyframe(-1, duration: 0.13)
-                            CubicKeyframe(1, duration: 0.13)
-                            CubicKeyframe(-0.6, duration: 0.14)
-                            CubicKeyframe(0, duration: 0.24)
-                        }
-                        KeyframeTrack(\.wobble) {
-                            CubicKeyframe(1.25, duration: 0.13)
-                            CubicKeyframe(-1.25, duration: 0.13)
-                            CubicKeyframe(1, duration: 0.13)
-                            CubicKeyframe(-1, duration: 0.13)
-                            CubicKeyframe(0.5, duration: 0.14)
-                            CubicKeyframe(0, duration: 0.24)
-                        }
-                    }
+                    // Wobble + horizontal jitter (shake); both keyed on `shake`.
+                    .rotationEffect(.degrees(-20 + Double(shake)), anchor: .bottom)
+                    .offset(x: shake)
+                    // Lower + fade; keyed on `animate`.
+                    .opacity(animate ? 0 : 1)
                     .position(x: baseX, y: baseY - receiptHeight / 2)
+                    .offset(y: animate ? 84 : 0)
 
                 // Shredded strips falling from the base line.
                 ForEach(strips) { s in
@@ -1010,7 +982,13 @@ struct ExpenseShredView: View {
             }
         }
         .onAppear {
-            withAnimation(.easeIn(duration: 0.85)) { animate = true }
+            // Lower + fade (drives receipt offset/opacity and the strips/sparks).
+            withAnimation(.easeIn(duration: 0.9)) { animate = true }
+            // Shake: start at -amp, oscillate to +amp and back several times.
+            shake = -shakeAmp
+            withAnimation(.easeInOut(duration: 0.11).repeatCount(8, autoreverses: true)) {
+                shake = shakeAmp
+            }
         }
     }
 
@@ -1031,5 +1009,6 @@ struct ExpenseShredView: View {
             RoundedRectangle(cornerRadius: 4, style: .continuous)
                 .stroke(Color(hex: "DEDAD2"), lineWidth: 0.5)
         )
+        .shadow(color: Color.black.opacity(0.18), radius: 5, x: 0, y: 3)
     }
 }
