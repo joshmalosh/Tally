@@ -558,6 +558,10 @@ struct AddExpenseView: View {
         .padding(.top, 12)
         .padding(.bottom, 16)
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: receiptImageAttached)
+        // Tap any empty space in the form to dismiss the keyboard/keypad.
+        // Fields and buttons consume their own taps, so only negative space hits this.
+        .contentShape(Rectangle())
+        .onTapGesture { focusedField = nil }
     }
 
     @ViewBuilder
@@ -701,9 +705,12 @@ struct AddExpenseView: View {
             .padding(.top, 14)
             .padding(.bottom, 8)
 
+            // Always dark: a conditional foregroundStyle on a vertical-axis
+            // TextField doesn't re-colour the text mid-edit (it stayed grey
+            // until blur). The built-in placeholder shows greyed when empty.
             TextField("A flat white before the meeting…", text: $notes, axis: .vertical)
                 .font(Font.dmSerifDisplay(17).italic())
-                .foregroundStyle(notes.isEmpty ? Color(hex: "C4BFB9") : Color(hex: "1C1C1E"))
+                .foregroundStyle(Color(hex: "1C1C1E"))
                 .focused($focusedField, equals: .notes)
                 .tint(Color(hex: "2F402E"))
                 .lineLimit(1...4)
@@ -927,6 +934,10 @@ struct AddExpenseView: View {
         .task {
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: 530_000_000)
+                // Pause the blink while a system-keyboard field (merchant/notes)
+                // is active — the periodic withAnimation re-render competed with
+                // the keyboard transition and caused lag switching to merchant.
+                guard focusedField == nil, !keyboardVisible else { continue }
                 withAnimation(.easeInOut(duration: 0.08)) { amountCursorVisible.toggle() }
             }
         }

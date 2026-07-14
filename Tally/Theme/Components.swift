@@ -937,20 +937,20 @@ struct ExpenseShredView: View {
             // Base line sits above the tab bar so the tilted receipt reads clearly.
             let baseY = geo.size.height - 104
 
+            // Everything is placed by offset from the ZStack's centre so that
+            // .rotationEffect composes with the small element (rotating around
+            // its own centre), never around the full-screen layer — the latter
+            // flung the strips to the edges and read as violent jitter.
+            let receiptDY = geo.size.height / 2 - (baseY - receiptHeight / 2)   // to receipt centre
+            let baseDY = geo.size.height / 2 - baseY                           // to shred line
+
             ZStack {
-                // Receipt (tilted 35° left) lowered straight down into the shred
-                // point and faded — no squash, it just descends to its endpoint.
-                // Rotation is anchored at the base, so the endpoint stays centred
-                // behind the FAB while the body leans left.
+                // Receipt (tilted 20° left) lowered straight down and faded.
                 receiptBody
                     .frame(width: receiptWidth, height: receiptHeight)
-                    // Wobble + horizontal jitter (shake); both keyed on `shake`.
                     .rotationEffect(.degrees(-20 + Double(shake)), anchor: .bottom)
-                    .offset(x: shake)
-                    // Lower + fade; keyed on `animate`.
                     .opacity(animate ? 0 : 1)
-                    .position(x: baseX, y: baseY - receiptHeight / 2)
-                    .offset(y: animate ? 84 : 0)
+                    .offset(x: shake, y: -receiptDY + (animate ? 84 : 0))
 
                 // Shredded strips falling from the base line.
                 ForEach(strips) { s in
@@ -961,11 +961,9 @@ struct ExpenseShredView: View {
                                 .stroke(Color(hex: "DEDAD2"), lineWidth: 0.5)
                         )
                         .frame(width: s.width, height: 13)
-                        .position(x: baseX + s.xOffset, y: baseY)
-                        .offset(y: animate ? s.fall : -2)
                         .rotationEffect(.degrees(animate ? s.rotation : 0))
                         .opacity(animate ? 0 : 1)
-                        // Longer distance, same speed as before → longer duration.
+                        .offset(x: s.xOffset, y: -baseDY + (animate ? s.fall : -2))
                         .animation(.easeIn(duration: 1.15).delay(s.delay), value: animate)
                 }
 
@@ -974,9 +972,8 @@ struct ExpenseShredView: View {
                     Circle()
                         .fill(Color.white)
                         .frame(width: p.size, height: p.size)
-                        .position(x: baseX, y: baseY)
-                        .offset(x: animate ? p.dx : 0, y: animate ? -p.rise : 0)
                         .opacity(animate ? 0 : 1)
+                        .offset(x: animate ? p.dx : 0, y: -baseDY + (animate ? -p.rise : 0))
                         .animation(.easeOut(duration: 0.8).delay(p.delay), value: animate)
                 }
             }
@@ -984,9 +981,9 @@ struct ExpenseShredView: View {
         .onAppear {
             // Lower + fade (drives receipt offset/opacity and the strips/sparks).
             withAnimation(.easeIn(duration: 0.9)) { animate = true }
-            // Shake: start at -amp, oscillate to +amp and back several times.
+            // Shake: start at -amp, oscillate to +amp and back a few times.
             shake = -shakeAmp
-            withAnimation(.easeInOut(duration: 0.11).repeatCount(8, autoreverses: true)) {
+            withAnimation(.easeInOut(duration: 0.13).repeatCount(6, autoreverses: true)) {
                 shake = shakeAmp
             }
         }
