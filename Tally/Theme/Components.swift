@@ -939,7 +939,7 @@ struct ExpenseShredView: View {
                 // behind the FAB while the body leans left.
                 receiptBody
                     .frame(width: receiptWidth, height: receiptHeight)
-                    .rotationEffect(.degrees(-35), anchor: .bottom)
+                    .rotationEffect(.degrees(-20), anchor: .bottom)
                     .opacity(animate ? 0 : 1)
                     .position(x: baseX, y: baseY - receiptHeight / 2)
                     .offset(y: animate ? 84 : 0)
