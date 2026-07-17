@@ -931,53 +931,52 @@ struct ExpenseShredView: View {
 
     private static let receiptWidthStatic: CGFloat = 46
 
+    // Distance from the physical bottom to the shred line — sits over the
+    // tab-bar / FAB zone. No GeometryReader: bottom alignment + padding places
+    // everything deterministically, immune to the parent's constant re-renders
+    // (thumbnail bumps, list changes) that made the geometry-based version jump.
+    private let bottomInset: CGFloat = 88
+
     var body: some View {
-        GeometryReader { geo in
-            let baseX = geo.size.width / 2
-            // Base line sits above the tab bar so the tilted receipt reads clearly.
-            let baseY = geo.size.height - 104
+        ZStack(alignment: .bottom) {
+            Color.clear
 
-            // Everything is placed by offset from the ZStack's centre so that
-            // .rotationEffect composes with the small element (rotating around
-            // its own centre), never around the full-screen layer — the latter
-            // flung the strips to the edges and read as violent jitter.
-            let receiptDY = geo.size.height / 2 - (baseY - receiptHeight / 2)   // to receipt centre
-            let baseDY = geo.size.height / 2 - baseY                           // to shred line
+            // Receipt (tilted 20° left) lowered straight down and faded.
+            receiptBody
+                .frame(width: receiptWidth, height: receiptHeight)
+                .rotationEffect(.degrees(-20 + Double(shake)), anchor: .bottom)
+                .offset(x: shake, y: animate ? 84 : 0)
+                .opacity(animate ? 0 : 1)
+                .padding(.bottom, bottomInset)
 
-            ZStack {
-                // Receipt (tilted 20° left) lowered straight down and faded.
-                receiptBody
-                    .frame(width: receiptWidth, height: receiptHeight)
-                    .rotationEffect(.degrees(-20 + Double(shake)), anchor: .bottom)
+            // Shredded strips falling from the base line.
+            ForEach(strips) { s in
+                RoundedRectangle(cornerRadius: 1, style: .continuous)
+                    .fill(Color.white)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 1, style: .continuous)
+                            .stroke(Color(hex: "DEDAD2"), lineWidth: 0.5)
+                    )
+                    .frame(width: s.width, height: 13)
+                    .rotationEffect(.degrees(animate ? s.rotation : 0))
+                    .offset(x: s.xOffset, y: animate ? s.fall : -2)
                     .opacity(animate ? 0 : 1)
-                    .offset(x: shake, y: -receiptDY + (animate ? 84 : 0))
+                    .padding(.bottom, bottomInset)
+                    .animation(.easeIn(duration: 1.15).delay(s.delay), value: animate)
+            }
 
-                // Shredded strips falling from the base line.
-                ForEach(strips) { s in
-                    RoundedRectangle(cornerRadius: 1, style: .continuous)
-                        .fill(Color.white)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 1, style: .continuous)
-                                .stroke(Color(hex: "DEDAD2"), lineWidth: 0.5)
-                        )
-                        .frame(width: s.width, height: 13)
-                        .rotationEffect(.degrees(animate ? s.rotation : 0))
-                        .opacity(animate ? 0 : 1)
-                        .offset(x: s.xOffset, y: -baseDY + (animate ? s.fall : -2))
-                        .animation(.easeIn(duration: 1.15).delay(s.delay), value: animate)
-                }
-
-                // White sparks shooting up from the base.
-                ForEach(sparks) { p in
-                    Circle()
-                        .fill(Color.white)
-                        .frame(width: p.size, height: p.size)
-                        .opacity(animate ? 0 : 1)
-                        .offset(x: animate ? p.dx : 0, y: -baseDY + (animate ? -p.rise : 0))
-                        .animation(.easeOut(duration: 0.8).delay(p.delay), value: animate)
-                }
+            // White sparks shooting up from the base.
+            ForEach(sparks) { p in
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: p.size, height: p.size)
+                    .offset(x: animate ? p.dx : 0, y: animate ? -p.rise : 0)
+                    .opacity(animate ? 0 : 1)
+                    .padding(.bottom, bottomInset)
+                    .animation(.easeOut(duration: 0.8).delay(p.delay), value: animate)
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             // Lower + fade (drives receipt offset/opacity and the strips/sparks).
             withAnimation(.easeIn(duration: 0.9)) { animate = true }
