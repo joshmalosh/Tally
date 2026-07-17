@@ -262,17 +262,29 @@ enum ReceiptOCRService {
             return best.value
         }
 
-        // No confident labelled total — e.g. a curled receipt where the label
-        // and its amount didn't pair. Prefer the most-confirmed amount: the
-        // largest value that appears at least twice. A real total is almost
-        // always restated (Total + card line); a large misread is not.
-        if let best = freq.filter({ $0.value >= 2 }).keys.map({ Double($0) / 100 }).max() {
+        // No confident labelled total — e.g. a curled/shadowed receipt where the
+        // label and its amount didn't pair. Prefer a cross-confirmed amount (a
+        // real total is restated on the card line; a misread is not).
+        let repeatedVals = freq.filter { $0.value >= 2 }.keys.map { Double($0) / 100 }
+
+        if let subtotal = subtotalFallback {
+            // A total is always >= the subtotal. This floor rejects item-name
+            // coincidences like "15 Wicked Wings $10" (value 10 appears in both
+            // the name and the price) that would otherwise look cross-confirmed.
+            if let best = repeatedVals.filter({ $0 >= subtotal - 0.01 }).max() {
+                return best
+            }
+            // No trustworthy total found — the subtotal is far closer to the true
+            // total than any stray item amount.
+            return subtotal
+        }
+
+        if let best = repeatedVals.max() {
             return best
         }
 
-        // Fallbacks: subtotal, then largest currency-marked amount, then the
-        // largest amount in the bottom half.
-        if let subtotalFallback { return subtotalFallback }
+        // Fallbacks: largest currency-marked amount, then the largest amount in
+        // the bottom half.
 
         var currencyAmounts: [Double] = []
         for block in blocks where !matches(amountExclusionPattern, block.text) {

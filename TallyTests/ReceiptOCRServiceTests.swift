@@ -101,6 +101,35 @@ final class ReceiptOCRServiceTests: XCTestCase {
         }
     }
 
+    // MARK: - KFC — an item name contains a "$" amount ("15 Wicked Wings $10")
+    // that coincides with its price, so the value 10 appears twice near the top.
+    // The real total ($26.55) is at the bottom and >= the subtotal.
+
+    func testKFC_total_notItemNamePrice() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("KFC Kellyville Village", x: 0.3, y: 0.95, w: 0.5),
+            blk("15 Wicked Wings $10", x: 0.1, y: 0.60, w: 0.5), blk("10.00", x: 0.8, y: 0.60),
+            blk("ZINGER BOX", x: 0.1, y: 0.57), blk("16.55", x: 0.8, y: 0.57),
+            blk("Subtotal", x: 0.1, y: 0.42), blk("24.14", x: 0.8, y: 0.42),
+            blk("Tax", x: 0.1, y: 0.40), blk("2.41", x: 0.8, y: 0.40),
+            blk("Take Away Total", x: 0.1, y: 0.37, w: 0.4), blk("26.55", x: 0.8, y: 0.37),
+            blk("Visa", x: 0.1, y: 0.33), blk("$26.55", x: 0.8, y: 0.33),
+        ]
+        amount(26.55, from: lines)
+    }
+
+    func testKFC_shadowed_totalDoesNotPair_subtotalFloorHolds() {
+        // Total labels don't pair (shadow). $26.55 still appears twice and is
+        // >= subtotal; the item's $10 is below the subtotal floor and is rejected.
+        let lines: [(text: String, box: CGRect)] = [
+            blk("15 Wicked Wings $10", x: 0.1, y: 0.60, w: 0.5), blk("10.00", x: 0.8, y: 0.58),
+            blk("Subtotal", x: 0.1, y: 0.42), blk("24.14", x: 0.8, y: 0.40),
+            blk("Take Away Total", x: 0.1, y: 0.37, w: 0.4), blk("26.55", x: 0.8, y: 0.35),
+            blk("Visa", x: 0.1, y: 0.33), blk("26.55", x: 0.8, y: 0.31),
+        ]
+        amount(26.55, from: lines)
+    }
+
     // MARK: - Monos — savings + GST-of lines must not win.
 
     func testMonos_total_notSavingsOrGst() {
