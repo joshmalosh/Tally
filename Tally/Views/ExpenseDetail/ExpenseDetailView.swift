@@ -926,7 +926,12 @@ struct FullImageView: View {
     @Environment(\.dismiss) private var dismiss
     let image: UIImage
 
-    @State private var dragOffset: CGFloat = 0
+    @State private var scale: CGFloat = 1
+    @State private var lastScale: CGFloat = 1
+    @State private var offset: CGSize = .zero
+    @State private var lastOffset: CGSize = .zero
+
+    private let maxScale: CGFloat = 6
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
@@ -936,24 +941,10 @@ struct FullImageView: View {
                 .resizable()
                 .aspectRatio(contentMode: .fit)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .offset(y: dragOffset)
-                .gesture(
-                    DragGesture()
-                        .onChanged { value in
-                            if value.translation.height > 0 {
-                                dragOffset = value.translation.height
-                            }
-                        }
-                        .onEnded { value in
-                            if value.translation.height > 100 {
-                                dismiss()
-                            } else {
-                                withAnimation(.easeOut(duration: 0.2)) {
-                                    dragOffset = 0
-                                }
-                            }
-                        }
-                )
+                .scaleEffect(scale)
+                .offset(offset)
+                .gesture(magnifyGesture.simultaneously(with: panGesture))
+                .onTapGesture(count: 2) { toggleZoom() }
 
             // White x on a translucent dark circle — visible on any receipt,
             // including white paper that fills the screen behind it.
@@ -964,5 +955,53 @@ struct FullImageView: View {
             }
             .padding(Spacing.lg)
         }
+    }
+
+    // Pinch to zoom (1×–6×), clamped.
+    private var magnifyGesture: some Gesture {
+        MagnifyGesture()
+            .onChanged { value in
+                scale = min(max(lastScale * value.magnification, 1), maxScale)
+            }
+            .onEnded { _ in
+                lastScale = scale
+                if scale <= 1 {
+                    withAnimation(.easeOut(duration: 0.2)) { resetZoom() }
+                }
+            }
+    }
+
+    // When zoomed: pan the image. When not zoomed: drag down to dismiss.
+    private var panGesture: some Gesture {
+        DragGesture()
+            .onChanged { value in
+                if scale > 1 {
+                    offset = CGSize(
+                        width: lastOffset.width + value.translation.width,
+                        height: lastOffset.height + value.translation.height
+                    )
+                } else if value.translation.height > 0 {
+                    offset = CGSize(width: 0, height: value.translation.height)
+                }
+            }
+            .onEnded { value in
+                if scale > 1 {
+                    lastOffset = offset
+                } else if value.translation.height > 100 {
+                    dismiss()
+                } else {
+                    withAnimation(.easeOut(duration: 0.2)) { offset = .zero }
+                }
+            }
+    }
+
+    private func toggleZoom() {
+        withAnimation(.easeInOut(duration: 0.25)) {
+            if scale > 1 { resetZoom() } else { scale = 2.5; lastScale = 2.5 }
+        }
+    }
+
+    private func resetZoom() {
+        scale = 1; lastScale = 1; offset = .zero; lastOffset = .zero
     }
 }

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import GoogleMobileAds
 
 // MARK: - PrimaryButton
@@ -146,10 +147,76 @@ struct AddTagPill: View {
 
 // MARK: - ExpenseCard
 
+/// Self-loading receipt thumbnail. Each instance owns its image state and
+/// loads on appear via its own `.task`, re-rendering itself when the image
+/// arrives — so List cells refresh reliably instead of depending on a global
+/// version bump (which left thumbnails "hit or miss" until you scrolled).
+struct ReceiptThumbnailView: View {
+    let cacheKey: String
+    let attachmentKey: String?
+    let attachmentData: Data?
+    var size: CGFloat = 38
+    var cornerRadius: CGFloat = Radius.sm
+
+    @State private var image: UIImage?
+
+    private static let cache: NSCache<NSString, UIImage> = {
+        let c = NSCache<NSString, UIImage>()
+        c.countLimit = 250
+        return c
+    }()
+
+    var body: some View {
+        Group {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: size, height: size)
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+            } else {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(Color.borderColor.opacity(0.28))
+                    .frame(width: size, height: size)
+            }
+        }
+        .task(id: cacheKey) { await load() }
+    }
+
+    private func load() async {
+        if let cached = Self.cache.object(forKey: cacheKey as NSString) {
+            image = cached
+            return
+        }
+        let key = attachmentKey
+        let data = attachmentData
+        let loaded: UIImage? = await Task.detached(priority: .userInitiated) {
+            if let key {
+                if let thumb = AttachmentService.shared.loadThumbnail(key: key) { return thumb }
+                // Thumbnail file missing — rebuild from the stored attachment and persist.
+                if let d = AttachmentService.shared.loadImageData(key: key),
+                   let thumb = AttachmentService.downsampledThumbnail(from: d) {
+                    await AttachmentService.shared.saveThumbnail(thumb, key: key)
+                    return thumb
+                }
+            }
+            if let data {
+                return AttachmentService.downsampledThumbnail(from: data) ?? UIImage(data: data)
+            }
+            return nil
+        }.value
+        if let loaded {
+            Self.cache.setObject(loaded, forKey: cacheKey as NSString)
+            image = loaded
+        }
+    }
+}
+
 struct ExpenseCard: View {
-    let thumbnailImage: Image?
-    /// When `true` and `thumbnailImage` is nil, a receipt exists but is still loading.
-    let hasReceiptAttachment: Bool
+    /// Receipt attachment identity for the self-loading thumbnail (nil = no receipt).
+    let receiptCacheKey: String?
+    let receiptAttachmentKey: String?
+    let receiptAttachmentData: Data?
     let iconSystemName: String
     let iconBackground: Color
     let description: String
@@ -193,16 +260,14 @@ struct ExpenseCard: View {
                 RoundedRectangle(cornerRadius: Radius.sm)
                     .fill(iconBackground)
                     .frame(width: Self.iconSlot, height: Self.iconSlot)
-                if let image = thumbnailImage {
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: Self.iconSlot, height: Self.iconSlot)
-                        .clipShape(RoundedRectangle(cornerRadius: Radius.sm))
-                } else if hasReceiptAttachment {
-                    RoundedRectangle(cornerRadius: Radius.sm)
-                        .fill(Color.borderColor.opacity(0.28))
-                        .frame(width: Self.iconSlot, height: Self.iconSlot)
+                if let cacheKey = receiptCacheKey {
+                    ReceiptThumbnailView(
+                        cacheKey: cacheKey,
+                        attachmentKey: receiptAttachmentKey,
+                        attachmentData: receiptAttachmentData,
+                        size: Self.iconSlot,
+                        cornerRadius: Radius.sm
+                    )
                 } else {
                     Image(systemName: iconSystemName)
                         .font(.system(size: 16, weight: .medium))

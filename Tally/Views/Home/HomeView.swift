@@ -14,12 +14,6 @@ struct HomeView: View {
     @State private var searchText = ""
     @State private var showingEntryPicker = false
     @State private var selectedEntryMode: AddEntryMode?
-    @State private var thumbnailVersion: Int = 0
-    private static let thumbnailCache: NSCache<NSString, UIImage> = {
-        let cache = NSCache<NSString, UIImage>()
-        cache.countLimit = 150
-        return cache
-    }()
     @State private var periodFilter: PeriodFilter = .allTime
     @State private var isHeaderCollapsed = false
     @State private var showingFilteredExport = false
@@ -411,7 +405,6 @@ struct HomeView: View {
             if phase == .active { consumeSharedInbox() }
         }
         .task { consumeSharedInbox() }
-        .task(id: activeExpenses.count) { await prewarmThumbnails() }
         .sheet(item: $appState.selectedExpenseId) { id in
             ExpenseDetailView(expenseId: id)
         }
@@ -773,8 +766,9 @@ struct HomeView: View {
                 }
 
                 ExpenseCard(
-                    thumbnailImage: thumbnailImage(for: expense),
-                    hasReceiptAttachment: hasReceiptPhoto(expense),
+                    receiptCacheKey: hasReceiptPhoto(expense) ? (expense.attachmentKey ?? expense.id) : nil,
+                    receiptAttachmentKey: expense.attachmentKey,
+                    receiptAttachmentData: expense.attachmentData,
                     iconSystemName: tagSymbol,
                     iconBackground: tagIconBg,
                     description: expense.expenseDescription ?? "Expense",
@@ -834,20 +828,6 @@ struct HomeView: View {
                 }
             }
         }
-        .task {
-            if await cacheThumbnailIfNeeded(for: expense) {
-                thumbnailVersion += 1
-            }
-        }
-    }
-
-    // MARK: - Thumbnails
-
-    private func thumbnailImage(for expense: ExpenseModel) -> Image? {
-        _ = thumbnailVersion
-        let cacheKey = expense.attachmentKey ?? expense.id
-        guard let uiImage = Self.thumbnailCache.object(forKey: cacheKey as NSString) else { return nil }
-        return Image(uiImage: uiImage)
     }
 
     private func deleteExpense(_ expense: ExpenseModel) {
@@ -864,60 +844,6 @@ struct HomeView: View {
             print("[Tally] ERROR deleting expense: \(error)")
             #endif
         }
-    }
-
-    // Runs file I/O on a background thread so the main thread is never blocked.
-    // Returns true when a new thumbnail landed in the cache; the caller decides
-    // when to bump thumbnailVersion (per-row immediately, prewarm once at end).
-    @MainActor
-    @discardableResult
-    private func cacheThumbnailIfNeeded(for expense: ExpenseModel) async -> Bool {
-        let cacheKey = expense.attachmentKey ?? expense.id
-        guard Self.thumbnailCache.object(forKey: cacheKey as NSString) == nil else { return false }
-
-        // Capture value-type copies before jumping off the main actor
-        let attachmentKey = expense.attachmentKey
-        let attachmentData = expense.attachmentData
-
-        let image: UIImage? = await Task.detached(priority: .userInitiated) {
-            if let key = attachmentKey {
-                if let thumb = AttachmentService.shared.loadThumbnail(key: key) {
-                    return thumb
-                }
-                // Thumbnail file missing (failed write, or attachment saved
-                // without one) — rebuild from the stored attachment and
-                // persist the thumbnail so next launch reads it directly.
-                if let data = AttachmentService.shared.loadImageData(key: key),
-                   let thumb = AttachmentService.downsampledThumbnail(from: data) {
-                    await AttachmentService.shared.saveThumbnail(thumb, key: key)
-                    return thumb
-                }
-            }
-            // No file at all (e.g. data-only expenses) — downsample the full
-            // data to a small decoded thumbnail rather than decoding the whole
-            // receipt on the main thread at draw time.
-            if let data = attachmentData {
-                return AttachmentService.downsampledThumbnail(from: data) ?? UIImage(data: data)
-            }
-            return nil
-        }.value
-
-        if let image {
-            Self.thumbnailCache.setObject(image, forKey: cacheKey as NSString)
-            return true
-        }
-        return false
-    }
-
-    /// Bulk-warms the thumbnail cache for the soonest-visible expenses so rows
-    /// render with their images immediately instead of popping in one by one.
-    private func prewarmThumbnails() async {
-        var loadedAny = false
-        for expense in activeExpenses.prefix(60) {
-            guard expense.attachmentKey != nil || expense.attachmentData != nil else { continue }
-            if await cacheThumbnailIfNeeded(for: expense) { loadedAny = true }
-        }
-        if loadedAny { thumbnailVersion += 1 }
     }
 
     // MARK: - Selection Bottom Toolbar
