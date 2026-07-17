@@ -942,10 +942,14 @@ struct ExpenseShredView: View {
             Color.clear
 
             // Receipt (tilted 20° left) lowered straight down and faded.
+            // `shake` drives ONLY the rotation (a subtle left-right rock). The
+            // lower is a SEPARATE y-offset — combining shake-x and lower-y in one
+            // .offset let the fast repeating shake animation bleed into the y and
+            // jerk the receipt vertically.
             receiptBody
                 .frame(width: receiptWidth, height: receiptHeight)
                 .rotationEffect(.degrees(-20 + Double(shake)), anchor: .bottom)
-                .offset(x: shake, y: animate ? 84 : 0)
+                .offset(y: animate ? 84 : 0)
                 .opacity(animate ? 0 : 1)
                 .padding(.bottom, bottomInset)
 
