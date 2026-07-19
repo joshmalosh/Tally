@@ -152,12 +152,35 @@ final class ReceiptOCRServiceTests: XCTestCase {
         // Worst case: the small print didn't OCR at all and only the large
         // savings text came through. Better to return nothing than the wrong
         // amount — the user then types it rather than silently saving $14.90.
+        // NOTE: "Specials" and "$14.90" arrive as SEPARATE blocks on one line,
+        // so the amount must inherit the label's exclusion.
         let lines: [(text: String, box: CGRect)] = [
             blk("Woolworths", x: 0.3, y: 0.95, w: 0.4),
             blk("You saved $14.90", x: 0.3, y: 0.22, w: 0.5),
             blk("Specials", x: 0.1, y: 0.18), blk("$14.90", x: 0.8, y: 0.18),
         ]
         let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertNotEqual(result.amount ?? -1, 14.90, accuracy: 0.001,
+                          "savings figure must never be used as the amount")
+    }
+
+    func testWoolworths_perKgRate_neverReturnsUnitPrice() {
+        // Weighed-item rate lines ("0.047 kg NET @ $33.00/kg") are unit prices,
+        // not amounts. With the small print illegible the scanner previously
+        // returned $33.00 — the highest currency-marked figure on the receipt.
+        let lines: [(text: String, box: CGRect)] = [
+            blk("Woolworths", x: 0.3, y: 0.95, w: 0.4),
+            blk("Carrot", x: 0.1, y: 0.80), blk("1.02", x: 0.8, y: 0.80),
+            blk("0.392 kg NET @ $2.60/kg", x: 0.12, y: 0.78, w: 0.5),
+            blk("Garlic", x: 0.1, y: 0.72), blk("1.55", x: 0.8, y: 0.72),
+            blk("0.047 kg NET @ $33.00/kg", x: 0.12, y: 0.70, w: 0.5),
+            blk("Qty  2 @  $7.00   each", x: 0.12, y: 0.64, w: 0.5), blk("14.00", x: 0.8, y: 0.64),
+            blk("You saved $14.90", x: 0.3, y: 0.22, w: 0.5),
+            blk("Specials", x: 0.1, y: 0.18), blk("$14.90", x: 0.8, y: 0.18),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertNotEqual(result.amount ?? -1, 33.00, accuracy: 0.001,
+                          "per-kg unit rate must never be used as the amount")
         XCTAssertNotEqual(result.amount ?? -1, 14.90, accuracy: 0.001,
                           "savings figure must never be used as the amount")
     }

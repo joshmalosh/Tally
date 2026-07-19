@@ -139,7 +139,7 @@ enum ReceiptOCRService {
     /// Note: "(GST incl.)" / "incl. GST" mark a tax-INCLUSIVE total and must
     /// NOT be excluded — the patterns below only match the tax-amount phrasings.
     private static let amountExclusionPattern = try! NSRegularExpression(
-        pattern: #"includes?\s+(gst|tax|vat)|\b(gst|tax|vat)\s+includ|\b(gst|tax|vat)\s*(of\b|:)|\btva\b|\bht\b|hors\s+taxe|\bsav(?:e|ed|es|ing|ings)\b|special|promotion|discount|\bchange\b|rounding|cash\s*out|\btip\b|reward|points|\brrp\b|\bwas\s"#,
+        pattern: #"includes?\s+(gst|tax|vat)|\b(gst|tax|vat)\s+includ|\b(gst|tax|vat)\s*(of\b|:)|\btva\b|\bht\b|hors\s+taxe|\bsav(?:e|ed|es|ing|ings)\b|special|promotion|discount|\bchange\b|rounding|cash\s*out|\btip\b|reward|points|\brrp\b|\bwas\s|@\s*\$?\d|/kg\b|/ea\b|\beach\b|\bper\s+(kg|item|unit)\b"#,
         options: .caseInsensitive
     )
 
@@ -163,6 +163,20 @@ enum ReceiptOCRService {
 
     private static func matches(_ regex: NSRegularExpression, _ text: String) -> Bool {
         regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+    }
+
+    /// Exclusion is a property of the printed LINE, not the block. Vision splits
+    /// a row into a left label and a right-aligned amount, so "Specials" and
+    /// "$14.90" arrive as separate blocks — excluding only the label left the
+    /// amount free to win a fallback. An amount block therefore inherits the
+    /// exclusion of any block sharing its line.
+    private static func isExcluded(_ block: TextBlock, in blocks: [TextBlock]) -> Bool {
+        if matches(amountExclusionPattern, block.text) { return true }
+        return blocks.contains { other in
+            (other.text != block.text || other.boundingBox != block.boundingBox)
+                && sameLine(other.boundingBox, block.boundingBox)
+                && matches(amountExclusionPattern, other.text)
+        }
     }
 
     /// Skew-tolerant same-line test: blocks share a line when their vertical
@@ -207,7 +221,7 @@ enum ReceiptOCRService {
         // one-off large misread.
         var freq: [Int: Int] = [:]
         var maxAmount: Double = 0
-        for block in blocks where !matches(amountExclusionPattern, block.text) {
+        for block in blocks where !isExcluded(block, in: blocks) {
             if let v = parseAmount(from: block.text), v > 0 {
                 freq[Int((v * 100).rounded()), default: 0] += 1
                 if v > maxAmount { maxAmount = v }
@@ -221,8 +235,8 @@ enum ReceiptOCRService {
         for block in blocks {
             let text = block.text
 
-            // Tax/savings/discount/change lines never nominate their amount.
-            if matches(amountExclusionPattern, text) { continue }
+            // Tax/savings/discount/change/rate lines never nominate their amount.
+            if isExcluded(block, in: blocks) { continue }
 
             let isSubtotal = matches(subtotalPattern, text)
             let isStrongTotal = !isSubtotal && matches(strongTotalPattern, text)
@@ -287,7 +301,7 @@ enum ReceiptOCRService {
         // the bottom half.
 
         var currencyAmounts: [Double] = []
-        for block in blocks where !matches(amountExclusionPattern, block.text) {
+        for block in blocks where !isExcluded(block, in: blocks) {
             if matches(currencySymbolPattern, block.text),
                let value = parseAmount(from: block.text), value > 0 {
                 currencyAmounts.append(value)
@@ -296,7 +310,7 @@ enum ReceiptOCRService {
         if let best = currencyAmounts.max() { return best }
 
         var bottomAmounts: [Double] = []
-        for block in blocks where block.boundingBox.origin.y < 0.5 && !matches(amountExclusionPattern, block.text) {
+        for block in blocks where block.boundingBox.origin.y < 0.5 && !isExcluded(block, in: blocks) {
             if let value = parseAmount(from: block.text), value > 0 {
                 bottomAmounts.append(value)
             }

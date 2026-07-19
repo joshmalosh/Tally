@@ -110,7 +110,7 @@ or wrong — gets pinned in `TallyTests/ReceiptOCRServiceTests.swift`.
 | Bunnings    | "GST included in the total"; date misread as future (2028) | $38.80 |
 | Monos       | "TOTAL SAVINGS"; "Total (GST incl.)" is the real total | $300.00 |
 | KFC         | item name "15 Wicked Wings $10" repeats the value 10   | $26.55  |
-| Woolworths  | large "You saved $14.90" + "Specials $14.90" outrank small-print TOTAL | $49.49 |
+| Woolworths  | savings ("You saved"/"Specials") + per-kg rate lines ("@ $33.00/kg") outrank the small-print TOTAL; label and amount are separate blocks | $49.49 |
 
 ### Adding a new reported receipt
 

@@ -65,7 +65,7 @@ run on the user's **Mac** via **Cmd+U** (or `xcodebuild test`). Therefore:
 | Bunnings    | "GST included in the total"; future-date misread       | $38.80  |
 | Monos       | "TOTAL SAVINGS"; "Total (GST incl.)"                   | $300.00 |
 | KFC         | item name "15 Wicked Wings $10" repeats value 10       | $26.55  |
-| Woolworths  | large "You saved $14.90" + "Specials $14.90" beat the small-print TOTAL | $49.49 |
+| Woolworths  | savings ("You saved"/"Specials") + per-kg rate lines ("@ $33.00/kg") beat the small-print TOTAL; label and amount are separate blocks | $49.49 |
 
 When a new receipt is reported, add a row here and a test case.
 
@@ -91,3 +91,23 @@ any of these ever coming back.
   nothing is better than returning a confidently wrong amount.
 - **Locale/label variance**: French (MONTANT DU, TTC, TVA, HT) and AU/UK phrasing
   ("Take Away Total", "TOTAL includes GST"). Expect more languages over time.
+- **Unit rates, not amounts**: weighed-item lines ("0.047 kg NET @ $33.00/kg")
+  and "Qty 2 @ $7.00 each" are per-unit prices. Excluded via `@ $n`, `/kg`,
+  `each`.
+- **Exclusion is a property of the LINE, not the block.** Vision splits a row
+  into a left label and a right-aligned amount, so "Specials" and "$14.90"
+  arrive separately. Excluding only the label leaves the amount free to win a
+  fallback — this is exactly how Woolworths returned $14.90 even after
+  "Specials" was added to the exclusion list. `isExcluded(_:in:)` makes an
+  amount inherit the exclusion of anything sharing its line; **use it, never
+  the raw `matches(amountExclusionPattern:)`, when scanning blocks for
+  amounts.**
+
+### A passing test does not mean the receipt works
+
+The synthetic layouts assume the lines you wrote actually OCR'd. A real photo
+may drop the small print entirely, so a test can pass while the receipt still
+fails. When a receipt fails in the field, add a **degraded** variant too — only
+the lines that plausibly survived OCR — and assert the wrong value is *never*
+returned. Returning `nil` (user types the amount) beats a confident wrong
+answer.
