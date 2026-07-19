@@ -1,15 +1,35 @@
 # Tally — Session Handover
 
-*A snapshot of the current state of work for whoever (human or AI) picks this up next. For the full product/design/monetisation context, read `Tally/Tally - Everything You Need To Know.md` first — this file only covers where things stand right now.*
+*A snapshot of the current state of work for whoever (human or AI) picks this up next. This file only covers where things stand right now.*
 
-Handover written: 2026-07-17
+Handover written: 2026-07-17 · last updated: 2026-07-19
+
+## Read these first (exact paths)
+
+The canonical doc's filename **contains spaces** — quote it, don't glob it.
+A previous session wasted two failed searches on this.
+
+```
+Tally/Tally - Everything You Need To Know.md      # full product/design/monetisation context
+MONETISATION_BRIEF.md                             # monetisation law (root of repo)
+.claude/skills/ocr-regression/SKILL.md            # OCR guardrail workflow
+TallyTests/ReceiptOCRServiceTests.swift           # the receipt regression corpus
+```
+
+To open the canonical doc, read it by exact path (quoted) rather than a glob:
+`Read "Tally/Tally - Everything You Need To Know.md"`.
+
+**Precedence when docs disagree: the code wins**, then `MONETISATION_BRIEF.md`
+for monetisation, then the canonical doc, then this handover. If you find a
+contradiction, verify against the code and fix the doc in the same session —
+don't leave it for later.
 
 ---
 
 ## 1. Snapshot
 
 - **Repo / branch:** working dir `E:\Projects\ASimpleLife` (Windows). App mirrors to **github.com/joshmalosh/Tally.git** via the `tally` remote. **Always push to `tally` `dev`.** Never `origin` (that's the website) and never `main`/`master` without explicit instruction.
-- **Latest commit on `tally/dev`:** `ea769fa` — "Add pinch-zoom to full receipt view; self-loading thumbnails". Local `dev` is in sync with `tally/dev`; working tree clean apart from intentionally-untracked dirs (`.claude/` except the committed skill, `TallyRepo/`, `Website/`, `assets/`, ChatGPT brief).
+- **Latest commit on `tally/dev`:** see `git log -1` — this line goes stale fast. As of the last update it was `c7dfd0e` (Woolworths savings/specials OCR fix + documented feedback loop). Local `dev` tracks `tally/dev`; working tree clean apart from intentionally-untracked dirs (`.claude/` except the committed skill, `TallyRepo/`, `Website/`, `assets/`, ChatGPT brief).
 - **Build/run happens on the user's Mac** (Xcode). This Windows box has **no Swift/Xcode toolchain** — you cannot compile, run, or execute tests here. The user pulls `dev` in Xcode via **⌥⌘X**, runs, and reports back (often with screenshots and device logs).
 - **Test suite:** `TallyTests` runs on the Mac with **⌘U** (87 tests, all green as of the last run, including `ReceiptOCRServiceTests`).
 
@@ -39,7 +59,7 @@ FAB opens the entry menu • celebrations/sounds stay • Home tag bar is user-c
 
 1. **Pro subscription is not purchasable yet.** RevenueCat logs show "offerings empty" every launch because the product **`com.asimplelife.tally.pro.monthly` doesn't exist in App Store Connect**. This is the biggest revenue leak — subscription income is currently $0. Create the app record + subscription in ASC. The user will likely want step-by-step help (they build on the Mac).
 2. **TestFlight** for friends/family: archive → upload → external group/public link. Needs a privacy-policy URL and export-compliance answer (consider `ITSAppUsesNonExemptEncryption = NO`). Switch AdMob to **test** ad units for the beta.
-3. **CloudKit is disabled** (`TallyApp.cloudKitEnabled = false`). Enable once Developer Program entitlements (iCloud) are configured. Note: adding the `isRecurring` model property relies on SwiftData lightweight migration — if a build ever fails to launch after a schema change, delete+reinstall resets the local store.
+3. **CloudKit is disabled** (`TallyApp.cloudKitEnabled = false`). Enable once Developer Program entitlements (iCloud) are configured. **Schema note (verified in code):** there is no store-version/delete-store mechanism — SwiftData does automatic lightweight migration, which is why adding the defaulted `isRecurring` property was safe. A failed migration throws → `fatalError` → crash on launch; recovery is delete + reinstall. Anything riskier than adding a defaulted property needs a real `VersionedSchema`/`MigrationPlan` before CloudKit is on. Full detail in the canonical doc §5.
 4. **SKAdNetwork list** — confirm it's current from Google's official page before App Store submission.
 5. **Deferred design debt:** bulk-import `TagLinkPickerSheet` restyle to the shared picker; a written "component constitution" / colour-token reconciliation (colours drifted across redesigns).
 

@@ -145,7 +145,11 @@ On save: coin sound + haptic + landing animation; confetti + monthly toast on mi
 - **No proprietary backend.** User data lives on-device and (when enabled) in the user's own iCloud. Messaging: *"Securely stored in your iCloud"* — never generic "cloud sync". This is a trust position, not just an architecture choice: no GDPR data-controller burden for content, no server costs, no breach surface.
 - **Attachments:** images/PDFs in the app's documents (Attachments/ + Thumbnails/, 20 MB cap, thumbnails downsampled via ImageIO off the main thread). Share-extension handoff via App Group container.
 - **OCR:** on-device Apple Vision. No third-party API, no per-scan cost.
-- **Schema changes:** dev builds use a store schema version in `TallyApp` that deletes and recreates the local store when bumped — no lightweight migration on that path. Adding/removing `@Model` properties requires coordinating that bump.
+- **Schema changes (verified against the code, 2026-07-17):** there is **no** store-version / delete-and-recreate mechanism, no `VersionedSchema` and no `MigrationPlan` anywhere in the sources. `TallyApp.init` builds the `ModelContainer` directly and calls `fatalError` if it throws. Practical consequences:
+  - SwiftData attempts **automatic lightweight migration**. Every `@Model` property carries a default value (CloudKit-friendly), so *adding* a defaulted property migrates cleanly — that's how `isRecurring` was added.
+  - Riskier edits (renaming, removing, or changing the type of an existing property) can defeat lightweight migration. If it fails, the container throws → `fatalError` → **the app crashes on launch**; there is no automatic recovery.
+  - Recovery for a dev build is **delete the app and reinstall** (local data is discarded). Before doing anything riskier than adding a defaulted property, discuss it with Josh — once CloudKit is enabled and there is real user data, this needs a proper `VersionedSchema` + `MigrationPlan` instead.
+  - *(An older store-version-bump mechanism is described in `AGENTS.md`; it no longer exists in the code. Code wins.)*
 
 ---
 
