@@ -157,7 +157,22 @@ final class AppState {
     }
 
     // Computed
+    #if DEBUG
+    /// Debug-only Pro override. Pro can't be purchased until the subscription
+    /// product exists in App Store Connect, so without this there is no way to
+    /// exercise Pro-gated features (OCR merchant/notes auto-fill, PDF export,
+    /// advanced filters, ad-free) on device. Persisted so it survives launches
+    /// and isn't clobbered by a subscription refresh. Never ships — DEBUG only.
+    private static let debugForceProKey = "debugForcePro"
+    /// Stored (not computed) so @Observable tracks it and Pro-dependent UI —
+    /// ads, paywalls, OCR gating — updates the moment it's toggled.
+    var debugForcePro: Bool = UserDefaults.standard.bool(forKey: "debugForcePro") {
+        didSet { UserDefaults.standard.set(debugForcePro, forKey: Self.debugForceProKey) }
+    }
+    var isPro: Bool { debugForcePro || subscriptionStatus == .pro }
+    #else
     var isPro: Bool { subscriptionStatus == .pro }
+    #endif
 
     enum SubscriptionStatus: String {
         case free, pro, expired, cancelled

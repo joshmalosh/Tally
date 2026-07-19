@@ -61,6 +61,24 @@ struct SettingsView: View {
                     }
                 }
 
+                #if DEBUG
+                Section("Debug") {
+                    Toggle(isOn: Binding(
+                        get: { appState.debugForcePro },
+                        set: { appState.debugForcePro = $0 }
+                    )) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Force Pro")
+                                .foregroundStyle(Color.textPrimary)
+                            Text("Unlocks Pro features for testing until the App Store product exists. Debug builds only.")
+                                .font(Fonts.caption(12))
+                                .foregroundStyle(Color.textSecondary)
+                        }
+                    }
+                    .tint(Color.brandPrimary)
+                }
+                #endif
+
                 Section("Preferences") {
                     Button { showingCurrencyPicker = true } label: {
                         HStack {

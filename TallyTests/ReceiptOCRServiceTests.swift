@@ -146,6 +146,9 @@ final class ReceiptOCRServiceTests: XCTestCase {
             blk("Specials", x: 0.1, y: 0.18), blk("$14.90", x: 0.8, y: 0.18),
         ]
         amount(49.49, from: lines)
+        // Extraction finds the merchant even though the UI only applies it for
+        // Pro users — this asserts the parser, not the paywall.
+        XCTAssertEqual(ReceiptOCRService.extractForTesting(lines).merchant, "Woolworths")
     }
 
     func testWoolworths_onlySavingsLegible_neverReturnsSavings() {
