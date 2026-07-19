@@ -46,7 +46,7 @@ final class AppState {
     // Export tracking (free tier — capped CSV exports per calendar month; Pro unlimited)
     private static let csvExportCountKey = "csvExportCount"
     private static let csvExportMonthKey = "csvExportMonth"
-    private static let freeTierCSVExportsPerMonth = 2
+    private static let freeTierCSVExportsPerMonth = 1
 
     var csvExportsThisMonth: Int {
         let stored = UserDefaults.standard.integer(forKey: Self.csvExportCountKey)
@@ -75,6 +75,93 @@ final class AppState {
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyy-MM"
         return fmt.string(from: Date())
+    }
+
+    // MARK: - OCR scan quota (free tier)
+    //
+    // Free users get a fixed number of *successful* receipt scans per calendar
+    // month, across every entry point — camera, photo library, file/PDF upload,
+    // share extension, bulk import. Pro is unlimited.
+    //
+    // The quota counts scans that actually returned an amount. A scan that
+    // failed to read the amount left the user typing the number themselves, so
+    // charging for it would make the allowance feel like a scam. See
+    // `recordOCRScan(extractedAmount:)`.
+    private static let ocrScanCountKey = "ocrScanCount"
+    private static let ocrScanMonthKey = "ocrScanMonth"
+    static let freeTierOCRScansPerMonth = 10
+
+    var ocrScansThisMonth: Int {
+        let storedMonth = UserDefaults.standard.string(forKey: Self.ocrScanMonthKey) ?? ""
+        return storedMonth == currentMonthKey
+            ? UserDefaults.standard.integer(forKey: Self.ocrScanCountKey)
+            : 0
+    }
+
+    /// Remaining free scans this month. Always `.max` for Pro.
+    var ocrScansRemaining: Int {
+        if isPro { return .max }
+        return max(0, Self.freeTierOCRScansPerMonth - ocrScansThisMonth)
+    }
+
+    /// Gate checked *before* running OCR. 10 usable scans; the 11th is blocked.
+    var canUseOCR: Bool {
+        if isPro { return true }
+        return ocrScansThisMonth < Self.freeTierOCRScansPerMonth
+    }
+
+    /// Call after every OCR attempt. Only a scan that produced an amount is
+    /// charged — a failed read costs the user nothing.
+    func recordOCRScan(extractedAmount: Bool) {
+        guard !isPro, extractedAmount else { return }
+        let month = currentMonthKey
+        let storedMonth = UserDefaults.standard.string(forKey: Self.ocrScanMonthKey) ?? ""
+        if storedMonth != month {
+            UserDefaults.standard.set(month, forKey: Self.ocrScanMonthKey)
+            UserDefaults.standard.set(1, forKey: Self.ocrScanCountKey)
+        } else {
+            let count = UserDefaults.standard.integer(forKey: Self.ocrScanCountKey)
+            UserDefaults.standard.set(count + 1, forKey: Self.ocrScanCountKey)
+        }
+    }
+
+    // MARK: - Daily upgrade prompt
+    //
+    // Shown on first open of the day, at most every 3 days, and never in the
+    // user's first 3 days — a prompt before the app has proved itself converts
+    // badly and taints the first impression.
+    private static let upgradePromptLastShownKey = "upgradePromptLastShown"
+    private static let firstLaunchDateKey = "firstLaunchDate"
+    private static let upgradePromptIntervalDays = 3
+    private static let upgradePromptGraceDays = 3
+
+    /// Stamped on first ever launch so the grace period has an anchor.
+    func recordFirstLaunchIfNeeded() {
+        if UserDefaults.standard.object(forKey: Self.firstLaunchDateKey) == nil {
+            UserDefaults.standard.set(Date(), forKey: Self.firstLaunchDateKey)
+        }
+    }
+
+    var shouldShowUpgradePrompt: Bool {
+        guard !isPro else { return false }
+        let cal = Calendar.current
+        let now = Date()
+
+        let firstLaunch = UserDefaults.standard.object(forKey: Self.firstLaunchDateKey) as? Date ?? now
+        let daysSinceFirstLaunch = cal.dateComponents([.day], from: cal.startOfDay(for: firstLaunch),
+                                                      to: cal.startOfDay(for: now)).day ?? 0
+        guard daysSinceFirstLaunch >= Self.upgradePromptGraceDays else { return false }
+
+        guard let lastShown = UserDefaults.standard.object(forKey: Self.upgradePromptLastShownKey) as? Date else {
+            return true
+        }
+        let daysSinceShown = cal.dateComponents([.day], from: cal.startOfDay(for: lastShown),
+                                                to: cal.startOfDay(for: now)).day ?? 0
+        return daysSinceShown >= Self.upgradePromptIntervalDays
+    }
+
+    func recordUpgradePromptShown() {
+        UserDefaults.standard.set(Date(), forKey: Self.upgradePromptLastShownKey)
     }
 
     // Pro benefits prompt (every 3rd expense, max 3/month)

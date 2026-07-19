@@ -47,7 +47,7 @@ struct SettingsView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Go Pro")
                                         .foregroundStyle(Color.brandPrimary)
-                                    Text("Unlimited exports, PDF, OCR, no ads")
+                                    Text("Unlimited scanning, exports, PDF, no ads")
                                         .font(Fonts.caption(12))
                                         .foregroundStyle(Color.textSecondary)
                                 }

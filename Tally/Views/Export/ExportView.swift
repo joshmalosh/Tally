@@ -103,11 +103,13 @@ struct ExportView: View {
                 .foregroundStyle(Color.textPrimary)
 
             VStack(spacing: Spacing.sm) {
+                // CSV is not Pro-only — free gets 1 per calendar month. The
+                // limit is enforced at export time via `canExportCSV`.
                 formatOption(
                     format: .csv,
                     title: "CSV",
                     subtitle: "Spreadsheet-compatible data file",
-                    proOnly: true
+                    proOnly: false
                 )
                 formatOption(
                     format: .pdf,
@@ -234,7 +236,8 @@ struct ExportView: View {
 
         switch selectedFormat {
         case .csv:
-            guard appState.isPro else {
+            guard appState.canExportCSV else {
+                proFeatureName = "CSV export"
                 showingProUpsell = true
                 return
             }

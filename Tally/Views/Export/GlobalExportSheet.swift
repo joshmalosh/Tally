@@ -656,7 +656,8 @@ struct GlobalExportSheet: View {
     }
 
     private func formatRow(_ opt: (icon: String, iconBg: Color, title: String, subtitle: String, badge: String?, format: ExportFormat)) -> some View {
-        let locked = !appState.isPro
+        // CSV only reads as locked once the free monthly export is spent.
+        let locked = opt.format == .csv ? !appState.canExportCSV : !appState.isPro
         return Button {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             selectedFormat = opt.format
@@ -753,7 +754,9 @@ struct GlobalExportSheet: View {
     // MARK: - Export Dispatch
 
     private func performExport(format: ExportFormat) {
-        guard appState.isPro else {
+        // CSV: free tier gets 1 per calendar month. Everything else is Pro-only.
+        let allowed = format == .csv ? appState.canExportCSV : appState.isPro
+        guard allowed else {
             proFeatureName = format == .csv ? "CSV export" : format == .pdf ? "PDF export" : "Export"
             showingProUpsell = true
             return
@@ -1040,7 +1043,7 @@ struct SelectedExportSheet: View {
     // MARK: - Export Actions
 
     private func exportCSV(includeReceipts: Bool) {
-        guard appState.isPro else {
+        guard appState.canExportCSV else {
             proFeatureName = "CSV export"
             showingProUpsell = true
             return
@@ -1367,7 +1370,11 @@ struct TagExportPickerSheet: View {
 
     private func exportFiltered(includeReceipts: Bool) {
         guard !matchingExpenses.isEmpty else { return }
-        guard appState.canExportCSV else { return }
+        guard appState.canExportCSV else {
+            proFeatureName = "CSV export"
+            showingProUpsell = true
+            return
+        }
 
         isExporting = true
 

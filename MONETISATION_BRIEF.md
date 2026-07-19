@@ -28,9 +28,7 @@ This is sustainable, clean monetisation. Free users never feel punished. Pro use
 | iCloud sync | Yes | Yes |
 | CSV export | 1 per calendar month | Unlimited |
 | PDF export | No | Yes |
-| Monthly auto-export | No | Yes |
-| OCR auto-fill (receipt scan) | No | Yes |
-| Advanced filters | No | Yes |
+| OCR receipt scanning | 10 successful scans per calendar month | Unlimited |
 | Ads | Banner ads | None |
 
 ---
@@ -61,12 +59,6 @@ Buttons:
 - PDF export available only for Pro users.
 - Free users who attempt PDF see the standard upgrade sheet.
 
-### Monthly Auto-Export (Pro only)
-
-- Automatically generates and saves a CSV/PDF of the current month's expenses.
-- Delivered to user's Files/iCloud on the 1st of each month.
-- Phase 2 feature.
-
 ### Export copy
 
 - Use "Export as CSV" and "Export as PDF".
@@ -79,10 +71,15 @@ Buttons:
 
 ### Where ads appear
 
+Free users see ads on every full screen. Revised 2026-07-20 to the MyFitnessPal
+model, which replaced the earlier "no inline sponsored rows" rule.
+
 | Location | Ad Type | Notes |
 |---|---|---|
-| Home screen | Banner (bottom) | Always visible for free users |
+| Home / Reports / Tags | Banner (bottom, above tab bar) | Always visible for free users |
+| Home expense list | Inline banner | One below the pinned tags above the first expense, then one after every 10th expense |
 | Add Expense screen | Banner (bottom) | Below Notes, above safe area. See keyboard rules below. |
+| Expense Detail | Banner | Below the delete button |
 
 ### Where ads do NOT appear
 
@@ -91,14 +88,24 @@ Buttons:
 - Settings screen
 - Confirmation states
 - Any modal/sheet overlay
-- Expense list (no inline sponsored rows)
+
+Sheets are deliberately excluded: they're opened for one deliberate action and
+are low-dwell, so they earn very little while doing the most damage to how the
+app feels.
 
 ### Ad types
 
-- **Banner ads only.** Fixed position at screen bottom.
-- **No interstitial ads.**
+- **Banner ads only.** Bottom-docked or inline in the expense list.
+- **No interstitial ads.** Considered and rejected 2026-07-20 — the core pitch
+  is logging an expense in five seconds, and an interstitial in that loop
+  attacks the one thing that makes Tally worth using. MyFitnessPal, the
+  reference for this model, does not run them either.
 - **No rewarded ads.**
-- **No inline sponsored rows** in the expense list.
+
+### Inline list ad cadence
+
+The "every 10th expense" count is **continuous across the whole list**, not per
+day group — otherwise a run of single-expense days stacks ads back to back.
 
 ### Add Expense banner behavior
 
@@ -117,23 +124,53 @@ Buttons:
 
 ---
 
-## OCR Auto-Fill (Pro Feature)
+## OCR Receipt Scanning (metered, not gated)
 
-### Current state: Placeholder
+**Free: 10 successful scans per calendar month. Pro: unlimited.**
 
-OCR is a Pro-only feature. Phase 1 is the monetisation gate only — full implementation follows.
+Superseded the old "OCR is Pro-only" model on 2026-07-20. Blanking individual
+fields for free users read as a broken scanner rather than a paid tier: constant
+low-grade friction, almost no demonstrated value, weak conversion. A volume
+quota instead lets every user experience the feature working completely, and
+puts the wall in front of exactly the heavy users who convert.
 
-### Settings UI
+### Quota rules
 
-Add a toggle row in Settings under a "Pro Features" section:
+- **10 scans per calendar month**, reset on the 1st.
+- **All entry points count against the same pool**: camera capture, photo
+  library, file/PDF upload, the share extension, and bulk import (importing 5
+  receipts consumes 5 scans).
+- **10 usable scans; the 11th is blocked.** Not gate-on-the-10th.
+- **Only successful scans are charged.** A scan is successful if it extracted
+  an **amount**. Amount is the whole reason to scan — if the user still has to
+  open the keypad and type the number, we did nothing for them, and charging
+  for it would make the allowance feel like a scam. Merchant or date alone do
+  not consume a scan.
+- Free users get the **full** extraction on those 10 — amount, date, merchant,
+  notes. No field-level gating.
+
+### Limit reached
 
 ```
-Receipt auto-fill (OCR)
-Automatically extract amount and merchant from receipts.
+Title: Scan limit reached
+
+Body: Free plan includes 10 receipt scans per month.
+      You can still add this expense manually.
+      Upgrade to Pro for unlimited scanning.
+
+Buttons:
+  [Upgrade to Pro]
+  [Enter manually]
 ```
 
-- If Pro: toggle is functional (once implemented).
-- If Free: show lock icon. Tapping shows the standard upgrade sheet.
+Manual entry must remain fully available — the gate never blocks logging an
+expense, only the automatic extraction.
+
+### Implementation
+
+- **On-device only.** Apple Vision (`VNRecognizeTextRequest`). No third-party
+  API, no cloud dependency, no per-scan cost.
+- User always reviews and confirms before saving.
 
 ### Implementation approach (when built)
 
@@ -152,10 +189,24 @@ Automatically extract amount and merchant from receipts.
 |---|---|
 | Second CSV export in a month | Export limit bottom sheet |
 | Tap PDF export (free user) | Standard upgrade sheet |
-| Tap OCR toggle (free user) | Standard upgrade sheet |
-| Tap Advanced Filters (free user) | Standard upgrade sheet |
+| 11th receipt scan in a month | Scan limit sheet (see OCR section) |
+| Home header "Go Pro" pill | Subscription view |
 | Settings "Go Pro" row | Subscription view |
+| First open of the day, every 3 days | Subscription view |
 | 3rd, 6th, and 9th expense saved in a month (free user) | Pro benefits card |
+
+### Go Pro pill (Home header)
+
+Persistent affordance for free users, immediately left of the Settings gear.
+White pill, brand-green text, `crown.fill` icon, label "Go Pro". Hidden for Pro.
+
+### Daily upgrade prompt
+
+- Shown on **first open of the day, at most once every 3 days**.
+- **Never in the user's first 3 days** — a prompt before the app has proved
+  itself converts badly and taints the first impression.
+- Suppressed while any other sheet is already presented, so prompts never stack.
+- Dismissible. Same calm tone rules as every other prompt.
 
 ### Pro benefits card
 
@@ -164,7 +215,7 @@ The only proactive prompt (every other trigger is reactive — the user tapped a
 - Shown after a free user saves their 3rd, 6th, or 9th expense of the calendar month.
 - Maximum 3 showings per calendar month. Counter resets on the 1st.
 - Never shown mid-batch during bulk import — one prompt per save moment, never stacked.
-- Lists real Pro benefits only: OCR auto-fill, unlimited CSV exports, PDF reports, no ads. Never claim a benefit the free tier also has.
+- Lists real Pro benefits only: unlimited receipt scanning, unlimited CSV exports, PDF reports, no ads. Never claim a benefit the free tier also has, and never a feature that isn't built.
 - Same tone rules as all prompts: [Upgrade to Pro] / [Not now]. No urgency.
 
 ### Tone rules
@@ -227,3 +278,4 @@ These are explicit prohibitions. Never implement any of these:
 | 2026-02-28 | Initial brief: CSV 1/month, PDF Pro, no interstitials, banner only |
 | 2026-02-28 | Upload caps removed (unlimited for all). iCloud-only storage. Monthly auto-export confirmed as Pro. Bulk delete ungated. Add Expense ad strategy refined (keyboard hiding, 3-expense threshold). Storage caps removed (user-owned iCloud). No Stripe/web subscription for now. |
 | 2026-07-12 | 15/month free expense cap removed from app (violated this brief; brief confirmed as source of truth). Pro benefits card documented: proactive prompt on 3rd/6th/9th expense per month, max 3/month, never mid-batch. |
+| 2026-07-20 | **Audit of code vs. brief found six divergences; resolved as follows.** (1) CSV free allowance was 2 in one place and 0 in four others — now 1 everywhere, enforced via `canExportCSV` on all six export paths. (2) OCR changed from Pro-only field gating to a **10 successful scans/month** quota with full extraction for everyone. (3) **"Advanced filters" deleted** — the label was never a real feature and no code ever gated it; it was a false paywall claim. (4) **Monthly auto-export deleted** from code, docs and paywall — never built, and it overcomplicates the app. (5) Ads extended to every full screen incl. Expense Detail and inline in the expense list; the old "no inline sponsored rows" rule is superseded. (6) Interstitials reconsidered and again rejected. Added: Go Pro pill in the Home header, and a daily upgrade prompt (every 3 days, 3-day grace). |

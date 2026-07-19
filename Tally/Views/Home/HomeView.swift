@@ -37,6 +37,10 @@ struct HomeView: View {
     @State private var showingCelebration = false
     @State private var celebrationAmountCents = 0
     @State private var celebrationCurrency = ""
+    @State private var showingProUpsell = false
+    @State private var proFeatureName = ""
+    @State private var showingSubscription = false
+    @State private var showingDailyUpgradePrompt = false
     private var periodExpenses: [ExpenseModel] {
         switch periodFilter {
         case .selected:
@@ -402,9 +406,25 @@ struct HomeView: View {
             AddExpenseView(initialMode: .photoLibrary, initialImage: item.image)
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { consumeSharedInbox() }
+            if phase == .active {
+                consumeSharedInbox()
+                maybeShowDailyUpgradePrompt()
+            }
         }
-        .task { consumeSharedInbox() }
+        .task {
+            consumeSharedInbox()
+            appState.recordFirstLaunchIfNeeded()
+            maybeShowDailyUpgradePrompt()
+        }
+        .sheet(isPresented: $showingProUpsell) {
+            ProFeatureSheet(featureName: proFeatureName)
+        }
+        .sheet(isPresented: $showingSubscription) {
+            SubscriptionView()
+        }
+        .sheet(isPresented: $showingDailyUpgradePrompt) {
+            SubscriptionView()
+        }
         .sheet(item: $appState.selectedExpenseId) { id in
             ExpenseDetailView(expenseId: id)
         }
@@ -458,6 +478,27 @@ struct HomeView: View {
                     Image(systemName: "wifi.slash")
                         .font(.system(size: 14))
                         .foregroundStyle(Color.danger)
+                }
+
+                // Persistent upgrade affordance for free users, left of Settings.
+                if !appState.isPro {
+                    Button {
+                        showingSubscription = true
+                    } label: {
+                        HStack(spacing: 5) {
+                            Image(systemName: "crown.fill")
+                                .font(.system(size: 11, weight: .semibold))
+                            Text("Go Pro")
+                                .font(.system(size: 13, weight: .semibold))
+                        }
+                        .foregroundStyle(Color.brandPrimary)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .background(Color.white)
+                        .clipShape(Capsule())
+                        .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+                    }
+                    .buttonStyle(.plain)
                 }
 
                 Button {
@@ -613,6 +654,30 @@ struct HomeView: View {
         }
     }
 
+    /// Flat position of each expense across all day groups, so the "every 10th"
+    /// ad cadence is continuous rather than restarting each day.
+    private var globalExpenseIndex: [String: Int] {
+        var map: [String: Int] = [:]
+        var i = 0
+        for group in dayGroups {
+            for expense in group.items {
+                map[expense.id] = i
+                i += 1
+            }
+        }
+        return map
+    }
+
+    private var inlineAdRow: some View {
+        BannerAdView()
+            .frame(height: 50)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Spacing.sm)
+            .listRowInsets(EdgeInsets())
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+    }
+
     private static let daySectionFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "EEE d MMM"
@@ -704,6 +769,12 @@ struct HomeView: View {
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
 
+            // Free tier: leading ad, below the pinned tags and above the first
+            // expense. Mirrors the placement MFP uses under its header.
+            if adManager.shouldShowBannerAd && !dayGroups.isEmpty {
+                inlineAdRow
+            }
+
             ForEach(dayGroups) { group in
                 Group {
                     Text(daySectionTitle(for: group.dayStart))
@@ -719,6 +790,16 @@ struct HomeView: View {
                     ForEach(Array(group.items.enumerated()), id: \.element.id) { index, expense in
                         LandingExpenseRow(isLanding: expense.id == landedExpenseId) {
                             groupedExpenseRow(group: group, index: index, expense: expense)
+                        }
+
+                        // Free tier: an ad after every 10th expense, counted
+                        // across the whole list rather than per day group —
+                        // otherwise a run of single-expense days would stack
+                        // ads back to back.
+                        if adManager.shouldShowBannerAd,
+                           let position = globalExpenseIndex[expense.id],
+                           (position + 1) % 10 == 0 {
+                            inlineAdRow
                         }
                     }
                 }
@@ -1002,9 +1083,23 @@ struct HomeView: View {
         return "\(names[0]) + \(names.count - 1) more"
     }
 
+    /// First open of the day, at most every 3 days, never in the first 3 days.
+    /// Suppressed while any other sheet is already up so prompts never stack.
+    private func maybeShowDailyUpgradePrompt() {
+        guard appState.shouldShowUpgradePrompt else { return }
+        guard !showingEntryPicker, !showingMultiReceipt, !appState.showingSettings,
+              !appState.showingExport, appState.selectedExpenseId == nil else { return }
+        appState.recordUpgradePromptShown()
+        showingDailyUpgradePrompt = true
+    }
+
     private func exportExpensesAsCSV(_ expenses: [ExpenseModel]) {
         guard !expenses.isEmpty else { return }
-        guard appState.canExportCSV else { return }
+        guard appState.canExportCSV else {
+            proFeatureName = "CSV export"
+            showingProUpsell = true
+            return
+        }
 
         let domainTags: [Tag] = tags.map {
             Tag(id: $0.id, userId: $0.userId, name: $0.name, colorId: $0.colorId, icon: $0.icon, sortOrder: $0.sortOrder, parentId: $0.parentId)

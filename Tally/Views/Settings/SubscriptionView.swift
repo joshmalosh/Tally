@@ -113,11 +113,13 @@ struct SubscriptionView: View {
 
     private var featuresSection: some View {
         VStack(spacing: Spacing.md) {
+            // Only list benefits that exist and that the free tier does not
+            // already have. "Monthly auto-export" and "Advanced filters" were
+            // removed — the former was never built, the latter never existed
+            // as a distinct feature.
+            featureRow(icon: "text.viewfinder", text: "Unlimited receipt scanning")
             featureRow(icon: "tablecells", text: "Unlimited CSV exports")
             featureRow(icon: "doc.richtext", text: "PDF export")
-            featureRow(icon: "calendar.badge.clock", text: "Monthly auto-export")
-            featureRow(icon: "text.viewfinder", text: "OCR auto-fill from receipts")
-            featureRow(icon: "line.3.horizontal.decrease.circle", text: "Advanced filters")
             featureRow(icon: "eye.slash.fill", text: "No ads, ever")
         }
         .padding(Spacing.lg)
