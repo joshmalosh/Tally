@@ -244,7 +244,7 @@ struct GlobalExportSheet: View {
             }
         }
         .sheet(isPresented: $showingProUpsell) {
-            ProFeatureSheet(featureName: proFeatureName)
+            ProFeatureSheet(featureName: proFeatureName, limitReached: proFeatureName == "CSV export")
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
@@ -917,7 +917,7 @@ struct SelectedExportSheet: View {
                 }
             }
             .sheet(isPresented: $showingProUpsell) {
-                ProFeatureSheet(featureName: proFeatureName)
+                ProFeatureSheet(featureName: proFeatureName, limitReached: proFeatureName == "CSV export")
                     .presentationDetents([.medium])
                     .presentationDragIndicator(.visible)
             }

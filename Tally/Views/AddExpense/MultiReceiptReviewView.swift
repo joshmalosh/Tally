@@ -41,6 +41,7 @@ struct MultiReceiptReviewView: View {
     @State private var datePickerDraftId: UUID? = nil
     @State private var isSaving = false
     @State private var showingAmountAlert = false
+    @State private var showingScanLimit = false
     @State private var fullscreenImageDraft: ReceiptDraft? = nil
     @FocusState private var focusedField: DraftField?
 
@@ -98,6 +99,11 @@ struct MultiReceiptReviewView: View {
             Text("All selected receipts need an amount. Fill in or uncheck any that are missing.")
         }
         .task { await runAllOCR() }
+        .sheet(isPresented: $showingScanLimit) {
+            ScanLimitSheet()
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
+        }
         .sheet(isPresented: $showingTagPicker) {
             if let id = tagPickerDraftId,
                let idx = drafts.firstIndex(where: { $0.id == id }) {
@@ -465,12 +471,24 @@ struct MultiReceiptReviewView: View {
         for i in drafts.indices {
             let image   = drafts[i].image
             let draftId = drafts[i].id
-            let isPro   = appState.isPro
+
+            // Bulk import draws from the same monthly pool — importing 5
+            // receipts consumes 5 scans. Once the quota is spent the remaining
+            // drafts stop processing and fall back to manual entry.
+            guard appState.canUseOCR else {
+                for idx in drafts.indices where drafts[idx].isProcessing {
+                    drafts[idx].isProcessing = false
+                }
+                showingScanLimit = true
+                return
+            }
+
             Task {
                 let result = await ReceiptOCRService.extract(from: image)
                 await MainActor.run {
                     guard let idx = drafts.firstIndex(where: { $0.id == draftId }) else { return }
                     drafts[idx].isProcessing = false
+                    appState.recordOCRScan(extractedAmount: result.amount != nil)
                     if let amount = result.amount {
                         drafts[idx].amountCents = Int(round(amount * 100))
                         drafts[idx].amountText  = usesDecimals
@@ -478,10 +496,8 @@ struct MultiReceiptReviewView: View {
                             : String(format: "%.0f", amount)
                     }
                     if let d = result.date { drafts[idx].date = d }
-                    if isPro {
-                        if let name = result.merchant { drafts[idx].merchant = name }
-                        if let n    = result.notes    { drafts[idx].notes    = n }
-                    }
+                    if let name = result.merchant { drafts[idx].merchant = name }
+                    if let n    = result.notes    { drafts[idx].notes    = n }
                 }
             }
         }

@@ -64,6 +64,7 @@ struct AddExpenseView: View {
     @State private var isSaving = false
     @State private var formReady = true
     @State private var isRunningOCR = false
+    @State private var showingScanLimit = false
     @State private var showingProBenefitsCard = false
     @State private var showingGoProFromOcrBanner = false
 
@@ -427,6 +428,11 @@ struct AddExpenseView: View {
             }
             .sheet(isPresented: $showingDocumentPicker) {
                 DocumentPicker(selectedFileURL: $attachedFileURL, selectedImage: $attachedImage)
+            }
+            .sheet(isPresented: $showingScanLimit) {
+                ScanLimitSheet()
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $showingTagPicker) {
                 SharedTagPickerSheet(selectedTagIds: $selectedTagIds)
@@ -1327,7 +1333,11 @@ struct AddExpenseView: View {
                 Image(systemName: "sparkles")
                     .font(.system(size: 12))
                     .foregroundStyle(Color(hex: "2F402E"))
-                Text("Still typing? Pro reads receipts and fills this in.")
+                // Must stay truthful now that free users get 10 scans a month:
+                // "Pro reads receipts" implied free users couldn't scan at all.
+                Text(appState.ocrScansRemaining > 0
+                     ? "\(appState.ocrScansRemaining) receipt \(appState.ocrScansRemaining == 1 ? "scan" : "scans") left this month. Pro is unlimited."
+                     : "You've used this month's scans. Pro is unlimited.")
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(Color(hex: "2F402E"))
                 Spacer(minLength: 0)
@@ -1639,6 +1649,7 @@ struct AddExpenseView: View {
     }
 
     private func runOCR(on image: UIImage) {
+        guard appState.canUseOCR else { showingScanLimit = true; return }
         isRunningOCR = true
         Task {
             let result = await ReceiptOCRService.extract(from: image)
@@ -1647,6 +1658,7 @@ struct AddExpenseView: View {
     }
 
     private func runOCROnPDF(url: URL) {
+        guard appState.canUseOCR else { showingScanLimit = true; return }
         guard let document = PDFDocument(url: url) else { return }
         isRunningOCR = true
         Task {
@@ -1712,8 +1724,11 @@ struct AddExpenseView: View {
     }
 
     private func applyOCRResult(_ result: ReceiptOCRResult) {
-        let isPro = appState.isPro
         var applied = false
+
+        // Charge the quota only when the scan produced an amount — see
+        // AppState.recordOCRScan. A failed read costs the user nothing.
+        appState.recordOCRScan(extractedAmount: result.amount != nil)
 
         if let amount = result.amount, amountText.isEmpty || amountText == "0" || amountText == "0.00" {
             // Receipt names its currency unambiguously (€, EUR, GBP…) — adopt it
@@ -1730,15 +1745,16 @@ struct AddExpenseView: View {
             date = extractedDate
             applied = true
         }
-        if isPro {
-            if let name = result.merchant, merchant.isEmpty {
-                merchant = name
-                applied = true
-            }
-            if let ocrNotes = result.notes, notes.isEmpty {
-                notes = ocrNotes
-                applied = true
-            }
+        // Merchant and notes are no longer Pro-gated. The tier line is scan
+        // volume, not which fields get filled — a permanently blank merchant
+        // read as a broken scanner rather than a paid feature.
+        if let name = result.merchant, merchant.isEmpty {
+            merchant = name
+            applied = true
+        }
+        if let ocrNotes = result.notes, notes.isEmpty {
+            notes = ocrNotes
+            applied = true
         }
 
         ocrPopulatedAnyField = applied

@@ -10,7 +10,10 @@ description: >
 
 # OCR regression guardrail
 
-Tally's OCR is a **paid** feature and its accuracy has repeatedly regressed
+Tally's OCR is **metered** — free users get 10 successful scans a month, Pro is
+unlimited, and a scan only counts as successful if it extracted an amount. That
+makes accuracy directly monetised: a wrong or empty amount both fails the user
+and refunds their scan. Its accuracy has repeatedly regressed
 when one fix broke a previously-working receipt. This workflow makes that
 impossible to do silently.
 

@@ -417,7 +417,7 @@ struct HomeView: View {
             maybeShowDailyUpgradePrompt()
         }
         .sheet(isPresented: $showingProUpsell) {
-            ProFeatureSheet(featureName: proFeatureName)
+            ProFeatureSheet(featureName: proFeatureName, limitReached: proFeatureName == "CSV export")
         }
         .sheet(isPresented: $showingSubscription) {
             SubscriptionView()
