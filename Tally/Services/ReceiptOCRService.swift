@@ -139,7 +139,7 @@ enum ReceiptOCRService {
     /// Note: "(GST incl.)" / "incl. GST" mark a tax-INCLUSIVE total and must
     /// NOT be excluded — the patterns below only match the tax-amount phrasings.
     private static let amountExclusionPattern = try! NSRegularExpression(
-        pattern: #"includes?\s+(gst|tax|vat)|\b(gst|tax|vat)\s+includ|\b(gst|tax|vat)\s*(of\b|:)|\btva\b|\bht\b|hors\s+taxe|saving|discount|\bchange\b|rounding|cash\s*out|\btip\b|reward|points|\brrp\b|\bwas\s"#,
+        pattern: #"includes?\s+(gst|tax|vat)|\b(gst|tax|vat)\s+includ|\b(gst|tax|vat)\s*(of\b|:)|\btva\b|\bht\b|hors\s+taxe|\bsav(?:e|ed|es|ing|ings)\b|special|promotion|discount|\bchange\b|rounding|cash\s*out|\btip\b|reward|points|\brrp\b|\bwas\s"#,
         options: .caseInsensitive
     )
 

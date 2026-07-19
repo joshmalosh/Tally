@@ -57,13 +57,37 @@ run on the user's **Mac** via **Cmd+U** (or `xcodebuild test`). Therefore:
 
 ## The corpus so far (keep this list current)
 
-| Receipt   | Trap                                              | Correct |
-|-----------|---------------------------------------------------|---------|
-| Hendry's  | tax line "$0.54" misread as "$54"; total restated | $5.89   |
-| Sushia    | "Sale Staff: Melissa"; tax line; tilted           | $30.90  |
-| Paris     | French "MONTANT DU"; TVA/HT; euro                 | €81.50  |
-| Bunnings  | "GST included in the total"; future-date misread  | $38.80  |
-| Monos     | "TOTAL SAVINGS"; "Total (GST incl.)"              | $300.00 |
-| KFC       | item name "15 Wicked Wings $10" repeats value 10  | $26.55  |
+| Receipt     | Trap                                                   | Correct |
+|-------------|--------------------------------------------------------|---------|
+| Hendry's    | tax line "$0.54" misread as "$54"; total restated      | $5.89   |
+| Sushia      | "Sale Staff: Melissa"; tax line; tilted                | $30.90  |
+| Paris       | French "MONTANT DU"; TVA/HT; euro                      | €81.50  |
+| Bunnings    | "GST included in the total"; future-date misread       | $38.80  |
+| Monos       | "TOTAL SAVINGS"; "Total (GST incl.)"                   | $300.00 |
+| KFC         | item name "15 Wicked Wings $10" repeats value 10       | $26.55  |
+| Woolworths  | large "You saved $14.90" + "Specials $14.90" beat the small-print TOTAL | $49.49 |
 
 When a new receipt is reported, add a row here and a test case.
+
+## This is a long-running loop, by design
+
+The scanner improves by absorbing real failures one at a time. The user will
+keep sending "here's another receipt that failed" — that is the process working,
+not a setback. Each pass: diagnose from the receipt photo + the app screenshot,
+pin the failure as a test, fix with a rule that generalises, re-check the corpus,
+add the row, hand off for ⌘U. The corpus is the accumulated memory that stops
+any of these ever coming back.
+
+### Recurring trap families seen so far
+
+- **Non-total lines that look total-ish**: tax/GST components, savings/specials/
+  promotional amounts, change, rounding, tips. Excluded outright by pattern.
+- **Coincidental repeats**: a value that appears twice for unrelated reasons
+  (an item name containing `$10` priced $10.00) can fake cross-confirmation —
+  the subtotal floor guards this, since a total is always ≥ the subtotal.
+- **Legibility bias**: large promotional print OCRs more reliably than the small
+  monospace total on long receipts shot at an angle, so the wrong figure can be
+  the *only* thing read. Exclusions must therefore be robust, and returning
+  nothing is better than returning a confidently wrong amount.
+- **Locale/label variance**: French (MONTANT DU, TTC, TVA, HT) and AU/UK phrasing
+  ("Take Away Total", "TOTAL includes GST"). Expect more languages over time.

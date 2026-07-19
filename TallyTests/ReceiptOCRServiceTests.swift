@@ -130,6 +130,38 @@ final class ReceiptOCRServiceTests: XCTestCase {
         amount(26.55, from: lines)
     }
 
+    // MARK: - Woolworths — big bottom "You saved $14.90" / "Specials $14.90"
+    // repeats the savings value twice, while the real TOTAL is small print.
+
+    func testWoolworths_total_notSavedOrSpecials() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("Woolworths", x: 0.3, y: 0.95, w: 0.4),
+            blk("WW Lean Beef Mince 1kg", x: 0.1, y: 0.70, w: 0.5), blk("19.35", x: 0.8, y: 0.70),
+            blk("10 SUBTOTAL", x: 0.1, y: 0.58, w: 0.4), blk("$49.49", x: 0.8, y: 0.58),
+            blk("TOTAL", x: 0.1, y: 0.55), blk("$49.49", x: 0.8, y: 0.55),
+            blk("PURCHASE", x: 0.1, y: 0.45), blk("$49.49", x: 0.8, y: 0.45),
+            blk("EFT", x: 0.1, y: 0.38), blk("$49.49", x: 0.8, y: 0.38),
+            blk("TOTAL includes GST", x: 0.1, y: 0.30, w: 0.5), blk("$1.27", x: 0.8, y: 0.30),
+            blk("You saved $14.90", x: 0.3, y: 0.22, w: 0.5),
+            blk("Specials", x: 0.1, y: 0.18), blk("$14.90", x: 0.8, y: 0.18),
+        ]
+        amount(49.49, from: lines)
+    }
+
+    func testWoolworths_onlySavingsLegible_neverReturnsSavings() {
+        // Worst case: the small print didn't OCR at all and only the large
+        // savings text came through. Better to return nothing than the wrong
+        // amount — the user then types it rather than silently saving $14.90.
+        let lines: [(text: String, box: CGRect)] = [
+            blk("Woolworths", x: 0.3, y: 0.95, w: 0.4),
+            blk("You saved $14.90", x: 0.3, y: 0.22, w: 0.5),
+            blk("Specials", x: 0.1, y: 0.18), blk("$14.90", x: 0.8, y: 0.18),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertNotEqual(result.amount ?? -1, 14.90, accuracy: 0.001,
+                          "savings figure must never be used as the amount")
+    }
+
     // MARK: - Monos — savings + GST-of lines must not win.
 
     func testMonos_total_notSavingsOrGst() {

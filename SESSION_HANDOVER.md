@@ -52,22 +52,45 @@ previously-working receipt. This is the guardrail. The full workflow lives in
 the **`ocr-regression` skill** (`.claude/skills/ocr-regression/SKILL.md`);
 the essentials are here so they can't be missed.
 
+### The loop (this is an ongoing, accumulating process)
+
+Tally's OCR is **not** "finished". It improves by absorbing real-world failures
+one at a time, and the corpus below is the accumulated memory of that:
+
+1. **The user scans a receipt and it comes out wrong** — they send a photo of
+   the receipt plus a screenshot of what Tally produced.
+2. **Diagnose from the pair**: work out which line the parser actually latched
+   onto and why (e.g. a savings figure that appears twice, a tax line, a staff
+   name, a foreign label, an item name containing a `$`).
+3. **Pin it as a test** in `ReceiptOCRServiceTests.swift` *before* fixing, so
+   the failure is captured permanently.
+4. **Fix with a general heuristic** that explains a whole class of receipts, not
+   a hack for this one — and re-check the existing corpus by hand so the new
+   rule doesn't break an older receipt.
+5. **Add a row to the corpus table** here and in the skill file.
+6. **The user runs ⌘U on the Mac** and re-scans the receipt to confirm.
+
+Every pass makes the scanner more versatile and can never make it less so —
+that's the whole point of the corpus. Expect this loop to keep running for a
+long time; treat each new failing receipt as normal, not as a setback.
+
 ### Hard rule
 
 **Never change `ReceiptOCRService.swift` without adding/updating a test case for
 the receipt that motivated the change.** Every receipt the user reports — right
 or wrong — gets pinned in `TallyTests/ReceiptOCRServiceTests.swift`.
 
-### The corpus (keep this current)
+### The corpus (keep this current — add a row per reported receipt)
 
-| Receipt   | Trap it guards against                                | Correct |
-|-----------|-------------------------------------------------------|---------|
-| Hendry's  | tax line "$0.54" misread as "$54"; total restated on card line | $5.89 |
-| Sushia    | "Sale Staff: Melissa" as merchant; tax line; tilted photo | $30.90 |
-| Paris     | French "MONTANT DU" / TVA / HT; euro currency          | €81.50  |
-| Bunnings  | "GST included in the total"; date misread as future (2028) | $38.80 |
-| Monos     | "TOTAL SAVINGS"; "Total (GST incl.)" is the real total | $300.00 |
-| KFC       | item name "15 Wicked Wings $10" repeats the value 10   | $26.55  |
+| Receipt     | Trap it guards against                                | Correct |
+|-------------|-------------------------------------------------------|---------|
+| Hendry's    | tax line "$0.54" misread as "$54"; total restated on card line | $5.89 |
+| Sushia      | "Sale Staff: Melissa" as merchant; tax line; tilted photo | $30.90 |
+| Paris       | French "MONTANT DU" / TVA / HT; euro currency          | €81.50  |
+| Bunnings    | "GST included in the total"; date misread as future (2028) | $38.80 |
+| Monos       | "TOTAL SAVINGS"; "Total (GST incl.)" is the real total | $300.00 |
+| KFC         | item name "15 Wicked Wings $10" repeats the value 10   | $26.55  |
+| Woolworths  | large "You saved $14.90" + "Specials $14.90" outrank small-print TOTAL | $49.49 |
 
 ### Adding a new reported receipt
 
