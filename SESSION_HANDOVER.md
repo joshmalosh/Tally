@@ -45,18 +45,68 @@ FAB opens the entry menu • celebrations/sounds stay • Home tag bar is user-c
 
 ---
 
-## 5. How to work here (conventions the user cares about)
+## 5. OCR regression testing (read before touching the scanner)
+
+OCR is a **paid** feature and it regressed repeatedly — one fix breaking a
+previously-working receipt. This is the guardrail. The full workflow lives in
+the **`ocr-regression` skill** (`.claude/skills/ocr-regression/SKILL.md`);
+the essentials are here so they can't be missed.
+
+### Hard rule
+
+**Never change `ReceiptOCRService.swift` without adding/updating a test case for
+the receipt that motivated the change.** Every receipt the user reports — right
+or wrong — gets pinned in `TallyTests/ReceiptOCRServiceTests.swift`.
+
+### The corpus (keep this current)
+
+| Receipt   | Trap it guards against                                | Correct |
+|-----------|-------------------------------------------------------|---------|
+| Hendry's  | tax line "$0.54" misread as "$54"; total restated on card line | $5.89 |
+| Sushia    | "Sale Staff: Melissa" as merchant; tax line; tilted photo | $30.90 |
+| Paris     | French "MONTANT DU" / TVA / HT; euro currency          | €81.50  |
+| Bunnings  | "GST included in the total"; date misread as future (2028) | $38.80 |
+| Monos     | "TOTAL SAVINGS"; "Total (GST incl.)" is the real total | $300.00 |
+| KFC       | item name "15 Wicked Wings $10" repeats the value 10   | $26.55  |
+
+### Adding a new reported receipt
+
+1. Add `func test<Merchant>_<trap>()` to `ReceiptOCRServiceTests.swift`.
+2. Lay the receipt out with the `blk(_:x:y:)` helper — label and right-aligned
+   amount as **separate blocks** sharing a `y`. Vision coordinates: `y` is
+   normalised and **increases upward** (top ≈ 0.9, bottom ≈ 0.3).
+3. Assert the amount via the `amount(_:from:)` helper; assert merchant /
+   currency / date too where the receipt exercised those.
+4. Add a row to the corpus table above **and** in the skill file.
+5. Fix the parser with a **general** heuristic (a rule that explains a class of
+   receipts), never a receipt-specific hack. Note the class in a code comment.
+6. Re-check the whole corpus by hand before claiming it works.
+
+### Running them (on the Mac — you cannot run them here)
+
+- **⌘U** runs everything (87 tests, ~0.05s). Green banner = no regressions.
+- **⌘6** opens the Test navigator to see per-test pass/fail; click a red one to
+  jump to the failing assertion ("expected 26.55, got 10.0").
+- To run **only** the OCR tests: open `ReceiptOCRServiceTests.swift` and click
+  the diamond ◇ beside the class name (or beside a single `func test…`).
+- Always end an OCR hand-off with an explicit "pull with ⌥⌘X, run ⌘U, re-scan
+  the reported receipt." Never call an OCR fix *verified* until the user
+  confirms a green run on the Mac.
+
+---
+
+## 6. How to work here (conventions the user cares about)
 
 - **Push:** commit + `git push tally dev`. End commit messages with `Co-Authored-By: Claude …`. Don't run the pre-push reviewer for `dev` (only `main`/`master`).
 - **Multi-step instructions to the user:** flat numbered steps, one action each, no branching; when re-explaining a step, restate all remaining steps; when many errors share a root cause, lead with the cause. (The user works on the Mac and doesn't want to jump between messages.)
-- **OCR changes:** invoke/obey the `ocr-regression` skill — add a test case for the reported receipt, reason against the whole corpus, and hand off with a "run ⌘U on the Mac" instruction. You cannot run the tests yourself.
+- **OCR changes:** see section 5 above and the `ocr-regression` skill. Every reported receipt becomes a test; you cannot run the tests yourself.
 - **Verification reality:** you can't build/run/test on Windows. State fixes as "pushed; pull with ⌥⌘X and test on device," never as "verified," unless the user has confirmed on the Mac.
 - **New source files** need manual registration in `Tally.xcodeproj/project.pbxproj` (old-style project, no synchronized groups). Same for test files (TallyTests target).
 - **Docs precedence:** code wins → `MONETISATION_BRIEF.md` (monetisation) → `Tally - Everything You Need To Know.md` → this handover.
 
 ---
 
-## 6. Key files
+## 7. Key files
 
 - App entry `Tally/TallyApp.swift`; state `Tally/AppState/AppState.swift`; models `Tally/Models/`.
 - OCR `Tally/Services/ReceiptOCRService.swift` (+ tests `TallyTests/ReceiptOCRServiceTests.swift`).
