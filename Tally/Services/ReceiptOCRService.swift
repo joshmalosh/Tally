@@ -190,6 +190,35 @@ enum ReceiptOCRService {
         return overlap >= min(a.height, b.height) * 0.5
     }
 
+    /// Strict "these two blocks are on the same *printed* line" test, for
+    /// deciding whether a candidate merchant is really half of a label-value
+    /// pair.
+    ///
+    /// `sameLine` divides by the *shorter* box, so a small block only has to
+    /// put half of itself inside a tall one to count. That's right for amounts
+    /// (a label and its right-aligned figure often differ in height) but wrong
+    /// here: a store name is printed large at the top with small print beneath
+    /// it, so on any receipt photographed at a slight angle the tagline or
+    /// address drifts into the wordmark's vertical band. The address then
+    /// "parses an amount" (street and phone numbers) and the real merchant is
+    /// discarded — which is exactly how a Woolworths receipt came back with a
+    /// blank merchant while the synthetic test, whose header sits alone with
+    /// nothing near it, passed.
+    ///
+    /// A genuine label-value pair is same-size text, side by side.
+    private static func sharesPrintedLine(_ a: CGRect, _ b: CGRect) -> Bool {
+        let overlap = min(a.maxY, b.maxY) - max(a.minY, b.minY)
+        guard overlap > 0 else { return false }
+        // Most of the taller box must be involved, not just the shorter one.
+        guard overlap >= max(a.height, b.height) * 0.6 else { return false }
+        // Same font-size class — a header and body text are not one line.
+        let ratio = max(a.height, b.height) / max(min(a.height, b.height), 0.0001)
+        guard ratio <= 2.0 else { return false }
+        // Side by side, not stacked: a label and its value don't overlap
+        // horizontally.
+        return a.maxX <= b.minX || b.maxX <= a.minX
+    }
+
     /// Nearest amount in a block sharing a line with the keyword block.
     private static func findAmountOnSameLine(as keywordBlock: TextBlock, in blocks: [TextBlock]) -> Double? {
         var candidates: [(Double, CGFloat)] = [] // (amount, horizontal distance)
@@ -542,6 +571,20 @@ enum ReceiptOCRService {
         "amount", "description", "service", "docket", "balance", "payment"
     ]
 
+    /// `merchantNoisePhrases` compiled with word boundaries, so a phrase only
+    /// matches as a whole word. Boundaries are applied only at ends that are
+    /// alphanumeric — `\b` before "." or after ":" would never match, which
+    /// would silently disable the "www.", ".com" and "tel:" entries.
+    private static let merchantNoisePatterns: [NSRegularExpression] = {
+        merchantNoisePhrases.compactMap { phrase in
+            let escaped = NSRegularExpression.escapedPattern(for: phrase)
+            let leading  = phrase.first.map  { $0.isLetter || $0.isNumber } ?? false ? #"\b"# : ""
+            let trailing = phrase.last.map   { $0.isLetter || $0.isNumber } ?? false ? #"\b"# : ""
+            return try? NSRegularExpression(pattern: leading + escaped + trailing,
+                                            options: .caseInsensitive)
+        }
+    }()
+
     /// Staff/role/contact labels: a block that IS one of these, or that shares a
     /// line with one, is a label-value pair ("Sale Staff : Melissa") — never a
     /// merchant name.
@@ -603,7 +646,7 @@ enum ReceiptOCRService {
             if matches(labelLinePattern, raw) { continue }
             let pairedWithLabelOrAmount = allBlocks.contains { other in
                 (other.text != block.text || other.boundingBox != block.boundingBox)
-                    && sameLine(other.boundingBox, block.boundingBox)
+                    && sharesPrintedLine(other.boundingBox, block.boundingBox)
                     && (matches(labelLinePattern, other.text) || (parseAmount(from: other.text) ?? 0) > 0)
             }
             if pairedWithLabelOrAmount { continue }
@@ -611,9 +654,17 @@ enum ReceiptOCRService {
             // URLs and emails are not merchant names.
             if matches(domainLikePattern, raw) { continue }
 
+            // Strip noise phrases as whole words. A plain substring replace ate
+            // any merchant whose name happened to contain one: "pos" turned
+            // "Post Office" into " t Office", "cash" turned "Cashmere Boutique"
+            // into "mere Boutique", "time" turned "Timezone" into "zone".
             var text = raw
-            for phrase in merchantNoisePhrases {
-                text = text.replacingOccurrences(of: phrase, with: " ", options: .caseInsensitive)
+            for pattern in merchantNoisePatterns {
+                text = pattern.stringByReplacingMatches(
+                    in: text,
+                    range: NSRange(text.startIndex..., in: text),
+                    withTemplate: " "
+                )
             }
             text = text
                 .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)

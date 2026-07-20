@@ -132,6 +132,7 @@ or wrong — gets pinned in `TallyTests/ReceiptOCRServiceTests.swift`.
 | Monos       | "TOTAL SAVINGS"; "Total (GST incl.)" is the real total | $300.00 |
 | KFC         | item name "15 Wicked Wings $10" repeats the value 10   | $26.55  |
 | Woolworths  | savings ("You saved"/"Specials") + per-kg rate lines ("@ $33.00/kg") outrank the small-print TOTAL; label and amount are separate blocks | $49.49 |
+| Woolworths (header) | large wordmark with three small lines beneath; on a skewed photo they drift into its band and the address line "parses an amount", so the merchant was discarded and extraction returned nil | merchant `Woolworths` |
 
 ### Adding a new reported receipt
 

@@ -151,6 +151,59 @@ final class ReceiptOCRServiceTests: XCTestCase {
         XCTAssertEqual(ReceiptOCRService.extractForTesting(lines).merchant, "Woolworths")
     }
 
+    // The header above was too kind: "Woolworths" sat alone with nothing near
+    // it, so the merchant assertion passed while the real photo returned a
+    // blank merchant. This is the actual header — a large wordmark with three
+    // small lines packed beneath it, shot at a slight angle so the tagline
+    // drifts into the wordmark's vertical band.
+    //
+    // The old same-line test divided by the *shorter* box, so the tagline
+    // counted as sharing the wordmark's line; the address line below it parses
+    // "an amount" out of its street and phone numbers, and "Woolworths" was
+    // discarded as half of a label-value pair. Every remaining candidate has
+    // digits, so extraction returned nil.
+    func testWoolworths_largeHeaderWithSmallPrintBeneath_stillFindsMerchant() {
+        // Explicit boxes: the wordmark is 3x the height of the body text and
+        // the tagline overlaps its band, which blk()'s uniform height can't
+        // express.
+        let lines: [(text: String, box: CGRect)] = [
+            ("Woolworths",            CGRect(x: 0.28, y: 0.900, width: 0.44, height: 0.060)),
+            ("The fresh food people", CGRect(x: 0.30, y: 0.892, width: 0.40, height: 0.018)),
+            ("1659 Kellyville Grove PH: 02 9624 9402",
+                                      CGRect(x: 0.12, y: 0.870, width: 0.76, height: 0.018)),
+            ("2 Hector Court",        CGRect(x: 0.12, y: 0.850, width: 0.40, height: 0.018)),
+            ("TAX INVOICE - ABN 88 000 014 675",
+                                      CGRect(x: 0.12, y: 0.830, width: 0.76, height: 0.018)),
+            blk("TOTAL", x: 0.1, y: 0.55), blk("$49.49", x: 0.8, y: 0.55),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertEqual(result.merchant, "Woolworths",
+                       "a large wordmark must survive small print drifting into its band")
+        XCTAssertEqual(result.amount ?? -1, 49.49, accuracy: 0.001)
+    }
+
+    // A genuine label-value pair — same text size, side by side — must still be
+    // rejected, or the stricter test above would be a licence to pick up staff
+    // names again.
+    func testLabelValuePairOnOneLine_stillRejected() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("Served By", x: 0.10, y: 0.90), blk("Melissa", x: 0.60, y: 0.90),
+            blk("TOTAL", x: 0.1, y: 0.55), blk("$30.90", x: 0.8, y: 0.55),
+        ]
+        XCTAssertNotEqual(ReceiptOCRService.extractForTesting(lines).merchant, "Melissa",
+                          "same-size text side by side is still a label-value pair")
+    }
+
+    // Noise phrases are stripped as whole words. Previously "cash" was removed
+    // as a bare substring, so this merchant came back as "mere Boutique".
+    func testMerchantContainingNoiseWordAsSubstring_isNotMangled() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("Cashmere Boutique", x: 0.3, y: 0.95, w: 0.4),
+            blk("TOTAL", x: 0.1, y: 0.55), blk("$80.00", x: 0.8, y: 0.55),
+        ]
+        XCTAssertEqual(ReceiptOCRService.extractForTesting(lines).merchant, "Cashmere Boutique")
+    }
+
     func testWoolworths_onlySavingsLegible_neverReturnsSavings() {
         // Worst case: the small print didn't OCR at all and only the large
         // savings text came through. Better to return nothing than the wrong
