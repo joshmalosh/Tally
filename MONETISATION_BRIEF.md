@@ -229,19 +229,24 @@ The only proactive prompt (every other trigger is reactive — the user tapped a
 
 ### Standard upgrade sheet
 
-Used for feature-locked items (PDF, OCR, Advanced Filters):
+Used for genuinely Pro-locked items. PDF export is the only one left — CSV and
+OCR are metered allowances, not locks, and get their own copy (above).
 
 ```
 Title: Pro Feature
 
 Body: [Feature name] is available with Tally Pro.
-      Unlock unlimited exports, PDF reports, OCR auto-fill,
-      and advanced filters.
+      Unlock unlimited receipt scanning, unlimited exports,
+      PDF reports, and no ads.
 
 Buttons:
   [Upgrade to Pro]
   [Not now]
 ```
+
+**Never say "Pro feature" to a user who has simply spent a monthly allowance** —
+it tells them something is locked when it isn't. `ProFeatureSheet` takes a
+`limitReached` flag that switches to the export-limit copy for that case.
 
 ---
 

@@ -52,12 +52,20 @@ Every existing tool in this space is overbuilt. Expensify, QuickBooks, Xero — 
 | iCloud sync | Yes | Yes |
 | CSV export | 1 per calendar month (resets on the 1st) | Unlimited |
 | PDF export | No | Yes |
-| Monthly auto-export | No | Yes (Phase 2) |
-| OCR auto-fill | No | Yes |
-| Advanced filters | No | Yes |
+| OCR receipt scanning | 10 **successful** scans per calendar month | Unlimited |
 | Ads | Banner only | None |
 
-There are **no caps on core tracking**. No expense caps, upload caps, or storage caps — storage is the user's own iCloud, so there's no cost pressure to gate it.
+There are **no caps on core tracking**. No expense caps, upload caps, or storage caps — storage is the user's own iCloud, so there's no cost pressure to gate it. The OCR quota is not an exception: it meters the *automatic extraction*, never the ability to log an expense. Manual entry always stays open, and the limit sheet offers "Enter manually" beside the upgrade.
+
+**The OCR scan quota (added 2026-07-20, replacing Pro-only field gating):**
+
+- 10 successful scans per calendar month, reset on the 1st.
+- **One pool across every entry point** — camera, photo library, file/PDF upload, share extension, bulk import. Importing 5 receipts spends 5 scans.
+- **10 usable scans; the 11th is blocked.** Not gate-on-the-10th.
+- **Only a scan that extracted an amount is charged.** Amount is the whole reason to scan — if the user still has to type the number, we did nothing for them, and billing for that makes the allowance feel like a scam. Merchant or date alone don't count.
+- Free users get the **full** extraction on those 10 (amount, date, merchant, notes). No field-level gating.
+
+Why it changed: merchant/notes were Pro-only while amount/date were free, so free users saw a permanently blank merchant on every scan. That read as a broken scanner rather than a paid tier — constant low-grade friction, little demonstrated value, weak conversion. Metering volume instead lets everyone see the feature work completely and puts the wall in front of the heavy users who actually convert.
 
 ### Upgrade prompts
 
@@ -65,22 +73,35 @@ All reactive triggers fire when the user touches a locked thing:
 
 | Trigger | Surface |
 |---|---|
-| 2nd CSV export in a month | Export-limit bottom sheet |
-| Tap PDF export / OCR toggle / Advanced Filters (free) | Standard upgrade sheet |
+| 2nd CSV export in a month | Export-limit sheet (`ProFeatureSheet(limitReached:)`) |
+| Tap PDF export (free) | Standard upgrade sheet |
+| 11th receipt scan in a month | `ScanLimitSheet` — Upgrade to Pro / Enter manually |
+| Home header **Go Pro pill** | Subscription view |
 | Settings "Go Pro" row | Subscription view |
-| **3rd, 6th, and 9th expense saved in a month (free)** | **Pro benefits card** — the one proactive prompt. Max 3 showings/month, never mid-batch, lists only real Pro benefits (OCR, unlimited CSV, PDF, no ads). |
+| **First open of the day, every 3 days** | Subscription view — proactive. Never in the user's first 3 days; suppressed while another sheet is up so prompts never stack. |
+| **3rd, 6th, and 9th expense saved in a month (free)** | **Pro benefits card** — proactive. Max 3 showings/month, never mid-batch, lists only real Pro benefits (unlimited scanning, unlimited CSV, PDF, no ads). |
+
+**Never claim a benefit the free tier already has, or a feature that isn't built.** The paywall previously advertised "Advanced filters" (never a real feature — no code ever gated it, so free users already had it) and "Monthly auto-export" (never built). Both were deleted on 2026-07-20.
+
+**Go Pro pill:** Home header, immediately left of the Settings gear. White pill, brand-green text, `crown.fill` icon. Hidden for Pro.
 
 **Tone rules (non-negotiable):** calm, never aggressive. No countdown timers, urgency language, or red. CTAs are "Upgrade to Pro" (sheets) and "Go Pro" (settings); dismiss is always "Not now".
 
 ### Ad placement
 
-- **Banner ads only** (AdMob), fixed at the bottom of **Home** and **Add Expense**.
-- Add Expense banner: hides while the keyboard is up; doesn't appear at all until the user has logged 3 total expenses (first impressions are never monetised).
-- **Never**: interstitials, rewarded ads, full-screen ads on export, ads in any sheet/modal (tag picker, export, settings, confirmations), or inline sponsored rows in the expense list.
+Revised 2026-07-20 to the MyFitnessPal model — ads on every full screen, including inline in the list. This **superseded** the earlier "no inline sponsored rows" rule.
+
+- **Banner ads only** (AdMob). Bottom-docked above the tab bar on **Home / Reports / Tags**; bottom of **Add Expense**; below the delete button on **Expense Detail**.
+- **Inline in the Home list:** one banner below the pinned tags above the first expense, then one after every 10th expense. The count is **continuous across the whole list**, not per day group — otherwise a run of single-expense days stacks ads back to back.
+- Add Expense banner: hides while the keyboard is up so it doesn't fight the number pad.
+- **Never**: ads in any sheet/modal (tag picker, export, settings, confirmations) — sheets are opened for one deliberate action and are low-dwell, so they earn little while doing the most damage to how the app feels.
+- **No interstitials, no rewarded ads.** Interstitials were reconsidered on 2026-07-20 and rejected again: the core pitch is logging an expense in five seconds, and an interstitial sits directly in that loop. MyFitnessPal, the reference for this ad model, doesn't run them either.
+- Note the naming trap: the *Add Expense banner* is a real AdMob ad; `proUpsellCompactBanner` on the same screen is an in-app upsell strip. Two different things.
 
 ### Subscription plumbing
 
-- **RevenueCat SDK** over StoreKit 2. Product ID: `com.asimplelife.tally.pro.monthly`. Pro status is `appState.isPro` (`subscriptionStatus == .pro`); on expiry the app reverts to free with all data preserved.
+- **RevenueCat SDK** over StoreKit 2. Product ID: `com.asimplelife.tally.pro.monthly`. Pro status is `appState.isPro`; on expiry the app reverts to free with all data preserved.
+- **Two DEBUG-only Pro overrides exist** — check both before concluding a gate is broken: `RevenueCatConfig.forcePro` (a compile-time constant, currently `true`, which sets `subscriptionStatus = .pro` on launch) and `appState.debugForcePro` (a persisted UserDefaults flag toggled from Settings → Debug). `isPro` is `debugForcePro || subscriptionStatus == .pro`. Both compile out of release builds. Because `forcePro` is `true`, **a DEBUG build is Pro by default** — free-tier behaviour has to be tested with it flipped off.
 - ⚠️ Current state: the subscription product does not yet exist in App Store Connect, so RevenueCat offerings come back empty ("Error fetching offerings") and the paywall can't complete a purchase. This must be set up before TestFlight testers can trial Pro.
 
 ---
@@ -118,7 +139,7 @@ Serif headline "How'd you spend it?" with five modes:
 
 ### Receipt review (photo/file attached)
 
-Uses **the same card language as Quick Add** (this was a deliberate unification — the two flows must read as one app): receipt hero image up top with VIEW RECEIPT / Replace / Remove, then a compact AMOUNT card (never the giant hero amount when a receipt is attached), the shared merchant/note/tag cards, date row, recurring card. OCR (Pro) fills amount/merchant/date/note with "Detecting…" placeholders and spinners; user always reviews before saving.
+Uses **the same card language as Quick Add** (this was a deliberate unification — the two flows must read as one app): receipt hero image up top with VIEW RECEIPT / Replace / Remove, then a compact AMOUNT card (never the giant hero amount when a receipt is attached), the shared merchant/note/tag cards, date row, recurring card. OCR fills amount/merchant/date/note with "Detecting…" placeholders and spinners — **all four fields for every tier**, drawing on the monthly scan quota (§2); user always reviews before saving.
 
 ### Share-to-Tally (share extension)
 
@@ -193,8 +214,12 @@ Wordmark "Tally" with the tally-mark built into the double-l (diagonal thinner t
 5. **Single-tag rule** (standalone / group / group+sub-tag) as described above.
 6. **The Home gradient is the bottom layer.** Everything renders opaquely above it.
 7. **No pre-filled tag "suggestion" chips** that read as selections.
-8. **MONETISATION_BRIEF.md is monetisation law.** No usage caps on core tracking; the 15/month cap was removed deliberately.
-9. **Multi-step instructions to Josh:** flat numbered steps, one action each, no branching; when re-explaining any step, restate all remaining steps; when many errors share one root cause, lead with the cause.
+8. **MONETISATION_BRIEF.md is monetisation law.** No usage caps on core tracking; the 15/month cap was removed deliberately. Metering the OCR *extraction* is not a core-tracking cap — logging an expense is never blocked.
+9. **OCR is metered by volume, not crippled by field.** 10 successful scans/month free, full extraction for everyone. Do not reintroduce field-level gating.
+10. **A failed scan is never charged.** Only an extraction that produced an amount consumes quota.
+11. **No interstitial ads.** Rejected twice (2026-02-28, 2026-07-20). Inline list banners are the agreed alternative.
+12. **The paywall may only list built features the free tier lacks.** "Advanced filters" and "Monthly auto-export" were removed for failing this.
+13. **Multi-step instructions to Josh:** flat numbered steps, one action each, no branching; when re-explaining any step, restate all remaining steps; when many errors share one root cause, lead with the cause.
 
 ---
 
@@ -217,14 +242,16 @@ Concise, professional, calm, slightly human. Actions as verb phrases ("Export yo
 
 ## 10. Current Status & Near-Term Roadmap
 
-**Working today:** all five capture flows, share-to-Tally with auto-open, single-tag system + unified picker, exports (CSV/PDF, free-tier limit), Reports with drill-down, Home gradient, celebrations, merchant history, on-device OCR, ads, ProBenefitsCard, bulk import with dates/editing.
+**Working today:** all five capture flows, share-to-Tally with auto-open, single-tag system + unified picker, exports (CSV/PDF, free-tier limit), Reports with drill-down, Home gradient, celebrations, merchant history, on-device OCR with monthly quota, ads (docked + inline), Go Pro pill, daily upgrade prompt, ProBenefitsCard, bulk import with dates/editing, expense shred animation.
+
+**⚠️ Unverified as of 2026-07-20:** commits `ef30412` and `68032a2` (the monetisation reconciliation and the OCR quota) were written on Windows with **no Swift toolchain — they have never been compiled**. They need a build before being trusted. `TallyTests/MonetisationGatingTests.swift` is a **new file not yet registered in `project.pbxproj`**; until it's added to the TallyTests target, ⌘U passes while running none of it.
 
 **Known gaps / next up:**
-- App Store Connect: create the app record and the `com.asimplelife.tally.pro.monthly` subscription (fixes empty RevenueCat offerings) — prerequisite for meaningful Pro testing.
+- **App Store Connect: create the `com.asimplelife.tally.pro.monthly` subscription.** Highest priority — Pro is literally unpurchasable, RevenueCat offerings come back empty, and subscription revenue is $0. Every monetisation change above is free-tier only and earns nothing until this exists.
 - **TestFlight** external beta for friends/family (archive → upload → external group/public link; needs privacy policy URL and export-compliance answer — consider `ITSAppUsesNonExemptEncryption = NO`).
-- Switch AdMob to test ad units for beta.
+- Switch AdMob to test ad units for beta. Verify the SKAdNetwork ID list is current before submission.
 - Enable CloudKit (`cloudKitEnabled = true`) once Developer Program entitlements are in place.
-- Phase 2 items: monthly auto-export (Pro), Vision-OCR refinements, advanced filters completion.
+- OCR accuracy: an ongoing accumulating loop — see §5 of `SESSION_HANDOVER.md` and the `ocr-regression` skill. Corpus is at 7 receipts.
 - Deferred design debt: bulk import's `TagLinkPickerSheet` restyle to the shared picker language; a written component constitution / design-token reconciliation (colors drifted screen-by-screen across redesigns).
 
 ---

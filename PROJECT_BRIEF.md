@@ -2,7 +2,7 @@
 
 ## 0) One-Paragraph Summary
 
-Tally is a modern, minimal, premium expense tracking app for individuals and small businesses. Users snap receipts, upload invoices, log manual expenses, tag them with unlimited custom tags, and export clean CSV and PDF files. It runs on iOS (SwiftUI) with data stored entirely in the user's iCloud via CloudKit — no proprietary backend, no server-side user data. Free users get unlimited expenses, unlimited uploads, unlimited tags, and 1 CSV export per month with banner ads; Pro ($4.99/month) removes ads and unlocks unlimited CSV exports, PDF export, monthly auto-export, OCR auto-fill, and advanced filters. It is NOT accounting software, NOT a reimbursement workflow, and NOT a finance dashboard — it is a capture + tag + export system.
+Tally is a modern, minimal, premium expense tracking app for individuals and small businesses. Users snap receipts, upload invoices, log manual expenses, tag them with unlimited custom tags, and export clean CSV and PDF files. It runs on iOS (SwiftUI) with data stored entirely in the user's iCloud via CloudKit — no proprietary backend, no server-side user data. Free users get unlimited expenses, unlimited uploads, unlimited tags, 10 receipt scans and 1 CSV export per month, with banner ads; Pro ($4.99/month) removes ads and unlocks unlimited receipt scanning, unlimited CSV exports, and PDF export. It is NOT accounting software, NOT a reimbursement workflow, and NOT a finance dashboard — it is a capture + tag + export system.
 
 ## 1) Product Goals and Non-Goals
 
@@ -70,9 +70,9 @@ The product should feel like a tool, not an app experiment.
 - Add custom tags (unlimited)
 - Export as CSV
 - Export as PDF (Pro)
-- OCR auto-fill from receipts (Pro)
+- OCR auto-fill from receipts (free: 10 successful scans/month; Pro: unlimited)
 - Simple search
-- Advanced filtering (Pro)
+- Filtering by tag, group, and recurring (all tiers)
 
 ### User Modes
 
@@ -86,22 +86,22 @@ The product should feel like a tool, not an app experiment.
 | iCloud sync | Yes | Yes |
 | CSV export | 1 per calendar month | Unlimited |
 | PDF export | No (upsell) | Yes |
-| Monthly auto-export | No | Yes |
-| OCR auto-fill | No (upsell) | Yes |
-| Advanced filters | No (upsell) | Yes |
+
+| OCR receipt scanning | 10 successful scans per calendar month | Unlimited |
+
 | Ads | Banner only | None |
 
 See `MONETISATION_BRIEF.md` for full monetisation rules, ad placement, and upgrade prompt behavior.
 
 ### Ad Rules
-- Banner ad at bottom of Home screen and Add Expense screen.
+- Banner ads on every full screen, plus inline in the Home list (below pinned tags, then every 10th expense).
 - Add Expense: hide banner while keyboard is visible, re-show on dismiss.
 - NO ads in: tag sheet, export sheet, settings, confirmation states.
-- No interstitial ads. No rewarded ads. No inline sponsored rows.
+- No interstitial ads. No rewarded ads. Inline list banners ARE used (see MONETISATION_BRIEF.md).
 - Pro users: zero ads, receipt-verified via StoreKit 2.
 
 ### Upgrade Prompt Rules
-- Trigger on: second CSV export in a month, PDF/OCR/Advanced Filters tap (free user), settings.
+- Trigger on: second CSV export in a month, PDF export tap, 11th receipt scan, Go Pro pill/settings, first open of the day every 3 days.
 - Tone: calm, not aggressive. No countdown timers. No urgency.
 - CTA: "Upgrade to Pro" in sheets, "Go Pro" in settings.
 - Dismiss: "Not now".
@@ -297,9 +297,9 @@ The brand should feel engineered, not illustrated.
 | CSV export | 1 per calendar month | Unlimited |
 | CSV export (at limit) | Show export limit sheet | N/A |
 | PDF export | Blocked, show upsell | Allowed |
-| OCR auto-fill | Blocked, show upsell | Allowed |
-| Advanced filters | Blocked, show upsell | Allowed |
-| Monthly auto-export | Not available | Automatic |
+| OCR scanning (at limit) | Show scan limit sheet; manual entry still allowed | Unlimited |
+
+
 | iCloud sync | Yes | Yes |
 | Manage tags | Full access, unlimited | Full access, unlimited |
 | Settings | Shows "Go Pro" option | Shows subscription management |
@@ -378,9 +378,9 @@ Concise, professional, calm. Slightly human, never corporate.
 ### Phase 2 — Feature Depth
 1. Camera capture + receipt upload flow.
 2. PDF export (Pro).
-3. OCR auto-fill via Vision framework (Pro).
-4. Advanced filters (Pro).
-5. Monthly auto-export (Pro).
+3. OCR auto-fill via Vision framework (metered on free).
+
+
 6. Usage analytics.
 
 ### Phase 3 — Growth
