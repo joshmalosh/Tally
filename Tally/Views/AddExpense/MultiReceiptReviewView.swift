@@ -468,20 +468,27 @@ struct MultiReceiptReviewView: View {
     // MARK: - OCR
 
     private func runAllOCR() async {
+        // Bulk import draws from the same monthly pool — importing 5 receipts
+        // consumes 5 scans. The budget must be decided here, up front, against a
+        // local counter: `canUseOCR` reads a stored count that is only
+        // incremented inside each Task *after* Vision returns, and this loop
+        // never awaits those Tasks. Re-checking shared state per iteration
+        // therefore reads the same stale value every time and launches a scan
+        // for every draft — 20 receipts would all run on a 5-scan allowance.
+        var remainingScans = appState.ocrScansRemaining
+
         for i in drafts.indices {
             let image   = drafts[i].image
             let draftId = drafts[i].id
 
-            // Bulk import draws from the same monthly pool — importing 5
-            // receipts consumes 5 scans. Once the quota is spent the remaining
-            // drafts stop processing and fall back to manual entry.
-            guard appState.canUseOCR else {
+            guard remainingScans > 0 else {
                 for idx in drafts.indices where drafts[idx].isProcessing {
                     drafts[idx].isProcessing = false
                 }
                 showingScanLimit = true
                 return
             }
+            remainingScans -= 1
 
             Task {
                 let result = await ReceiptOCRService.extract(from: image)

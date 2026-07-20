@@ -635,6 +635,10 @@ struct HomeView: View {
         let id: String
         let dayStart: Date
         let items: [ExpenseModel]
+        /// Position of this group's first expense in the flattened list, so the
+        /// inline-ad cadence can run continuously across day groups without a
+        /// per-row lookup.
+        let startIndex: Int
     }
 
     private var dayGroups: [DayExpenseGroup] {
@@ -645,27 +649,17 @@ struct HomeView: View {
             buckets[d, default: []].append(expense)
         }
         let sortedDays = buckets.keys.sorted(by: >)
+        var offset = 0
         return sortedDays.map { day in
-            DayExpenseGroup(
+            let items = (buckets[day] ?? []).sorted { $0.date > $1.date }
+            defer { offset += items.count }
+            return DayExpenseGroup(
                 id: "\(day.timeIntervalSince1970)",
                 dayStart: day,
-                items: (buckets[day] ?? []).sorted { $0.date > $1.date }
+                items: items,
+                startIndex: offset
             )
         }
-    }
-
-    /// Flat position of each expense across all day groups, so the "every 10th"
-    /// ad cadence is continuous rather than restarting each day.
-    private var globalExpenseIndex: [String: Int] {
-        var map: [String: Int] = [:]
-        var i = 0
-        for group in dayGroups {
-            for expense in group.items {
-                map[expense.id] = i
-                i += 1
-            }
-        }
-        return map
     }
 
     private var inlineAdRow: some View {
@@ -797,8 +791,7 @@ struct HomeView: View {
                         // otherwise a run of single-expense days would stack
                         // ads back to back.
                         if adManager.shouldShowBannerAd,
-                           let position = globalExpenseIndex[expense.id],
-                           (position + 1) % 10 == 0 {
+                           (group.startIndex + index + 1) % 10 == 0 {
                             inlineAdRow
                         }
                     }

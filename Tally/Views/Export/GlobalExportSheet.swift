@@ -1118,6 +1118,8 @@ struct TagExportPickerSheet: View {
     @State private var selectedIds: Set<String> = []
     @State private var isExporting = false
     @State private var showingReceiptSheet = false
+    @State private var showingProUpsell = false
+    @State private var proFeatureName = ""
 
     private var matchingHasReceipts: Bool {
         matchingExpenses.contains { $0.attachmentKey != nil || $0.attachmentData != nil }
@@ -1355,6 +1357,11 @@ struct TagExportPickerSheet: View {
                     onCSVOnly: { exportFiltered(includeReceipts: false) },
                     onWithPhotos: { exportFiltered(includeReceipts: true) }
                 )
+            }
+            .sheet(isPresented: $showingProUpsell) {
+                ProFeatureSheet(featureName: proFeatureName, limitReached: proFeatureName == "CSV export")
+                    .presentationDetents([.medium])
+                    .presentationDragIndicator(.visible)
             }
             .animation(.easeInOut(duration: 0.2), value: selectedIds)
         }
