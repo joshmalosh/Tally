@@ -217,7 +217,7 @@ advertised "Advanced filters" (never a real feature — no code ever gated it) a
   6. **Interstitials rejected again.**
   Added the **Go Pro pill** and the **daily upgrade prompt**. New
   `TallyTests/MonetisationGatingTests.swift` pins every number; registered in
-  `project.pbxproj` in `2f9c1e4`. All four docs reconciled in `0cc4b6c`.
+  `project.pbxproj` in `3272b01`. All four docs reconciled in `0cc4b6c`.
 - **Receipt viewer + thumbnails** (`ea769fa`): `FullImageView` has pinch-zoom
   (1×–6×), pan, double-tap, drag-to-dismiss. Thumbnails rebuilt as a self-loading
   `ReceiptThumbnailView` (each cell owns its state) — fixed "hit or miss until you
@@ -259,14 +259,14 @@ on every full screen and inline in the list, but never in sheets**.
 
 ## 8. Open items (prioritised)
 
-0. **Build and verify `ef30412`, `68032a2`, `aaf90bd`, `2f9c1e4` — they were
+0. **Build and verify `ef30412`, `68032a2`, `aaf90bd`, `3272b01` — they were
    written without a compiler.** On the Mac: **⌥⌘X** → **⌘U** (expect 14 OCR + 9
    gating tests) → set `RevenueCatConfig.forcePro = false` → Run and check the Go
    Pro pill, inline ad positions, the CSV limit sheet on a second export, the scan
    gate on the 11th scan, and **re-scan the Woolworths receipt to confirm the
    merchant populates.**
    `MonetisationGatingTests.swift` is now registered in `project.pbxproj`
-   (`2f9c1e4`) so no manual drag is needed — but that registration is itself
+   (`3272b01`) so no manual drag is needed — but that registration is itself
    unverified. If Xcode reports a corrupt project or the file is missing from the
    target, that commit is the suspect; a bad pbxproj fails loudly and immediately.
 1. **Pro is not purchasable.** `com.asimplelife.tally.pro.monthly` doesn't exist
