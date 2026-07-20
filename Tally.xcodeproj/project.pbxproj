@@ -68,6 +68,7 @@
 		ED724114CF6EAE1E98A6E684 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A5005165D2B9CF521F2AE1C /* ContentView.swift */; };
 		EF3A32C270B82B1F37299AF1 /* ExpenseCalculationsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4989641722195577197C5BFB /* ExpenseCalculationsTests.swift */; };
 		A1B2C30CReceipt0OCR0TEST01 /* ReceiptOCRServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C30CReceipt0OCR0TEST02 /* ReceiptOCRServiceTests.swift */; };
+		A1B2C30DMonetise0GATE0T01 /* MonetisationGatingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C30DMonetise0GATE0T02 /* MonetisationGatingTests.swift */; };
 		F919CD4EEAC20BEF60F2F638 /* CurrencyPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A88FA9B2D102A4E24B128E8 /* CurrencyPickerSheet.swift */; };
 		FB5CBE84CE58C8CE626274B4 /* CurrencyFormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD3BF55B40B696430484FB34 /* CurrencyFormatterTests.swift */; };
 		FF6C3E328548A7270D83C745 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0438430608549D75B2F651AE /* SettingsView.swift */; };
@@ -113,6 +114,7 @@
 		47DCB686D9E5B22C0E76DD13 /* DocumentPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPicker.swift; sourceTree = "<group>"; };
 		4989641722195577197C5BFB /* ExpenseCalculationsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpenseCalculationsTests.swift; sourceTree = "<group>"; };
 		A1B2C30CReceipt0OCR0TEST02 /* ReceiptOCRServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptOCRServiceTests.swift; sourceTree = "<group>"; };
+		A1B2C30DMonetise0GATE0T02 /* MonetisationGatingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MonetisationGatingTests.swift; sourceTree = "<group>"; };
 		4B9419A97620F3D6F9E5C932 /* ExpenseDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpenseDetailView.swift; sourceTree = "<group>"; };
 		4DCF1A5BC6FA366C4B658D35 /* Tally.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Tally.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5748F6BB81ECAC7C9BD5D567 /* AdManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdManager.swift; sourceTree = "<group>"; };
@@ -194,6 +196,7 @@
 				DD3BF55B40B696430484FB34 /* CurrencyFormatterTests.swift */,
 				4989641722195577197C5BFB /* ExpenseCalculationsTests.swift */,
 				DE580A1A003072AD757B48A2 /* ExpenseTypesTests.swift */,
+				A1B2C30DMonetise0GATE0T02 /* MonetisationGatingTests.swift */,
 				A1B2C30CReceipt0OCR0TEST02 /* ReceiptOCRServiceTests.swift */,
 				3C148F6D20D290FC046500B9 /* TestHelpers.swift */,
 			);
@@ -536,6 +539,7 @@
 				FB5CBE84CE58C8CE626274B4 /* CurrencyFormatterTests.swift in Sources */,
 				EF3A32C270B82B1F37299AF1 /* ExpenseCalculationsTests.swift in Sources */,
 				A1B2C30CReceipt0OCR0TEST01 /* ReceiptOCRServiceTests.swift in Sources */,
+				A1B2C30DMonetise0GATE0T01 /* MonetisationGatingTests.swift in Sources */,
 				6E6E89F7E052EAF1FE08322F /* ExpenseTypesTests.swift in Sources */,
 				ED1621F870C138936917FA95 /* TestHelpers.swift in Sources */,
 			);

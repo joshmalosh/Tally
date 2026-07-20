@@ -93,7 +93,14 @@ product owner and makes all product calls; bring him decisions, not surveys.
 - **New source files need manual registration** in
   `Tally.xcodeproj/project.pbxproj` (old-style project, no synchronized groups).
   This applies to test files too — a test file not added to the TallyTests
-  target means ⌘U passes while running none of it.
+  target means ⌘U passes while running none of it, which is a silent failure
+  and the worst kind. **You can edit `project.pbxproj` from here**; it's plain
+  text. Four places per file: `PBXBuildFile`, `PBXFileReference`, the group's
+  `children`, and the target's `Sources` build phase. Mirror an existing entry,
+  use a unique 24-char-ish ID, then sanity-check with `grep -c` (expect 4 hits)
+  and a brace-balance count. A malformed pbxproj fails loudly in Xcode, so this
+  is a safe thing to attempt blind — unlike Swift, which fails at compile time
+  you can't see.
 - **Targets:** `Tally` (`com.asimplelife.tally`), `TallyShare` (share extension,
   `com.asimplelife.tally.share`), `TallyTests`. Both app and extension declare
   App Group `group.com.asimplelife.tally`. The app's entitlement being empty once
@@ -209,8 +216,8 @@ advertised "Advanced filters" (never a real feature — no code ever gated it) a
      Supersedes the old "no inline sponsored rows" rule.
   6. **Interstitials rejected again.**
   Added the **Go Pro pill** and the **daily upgrade prompt**. New
-  `TallyTests/MonetisationGatingTests.swift` pins every number — **not yet in the
-  Xcode target.** All four docs reconciled in `0cc4b6c`.
+  `TallyTests/MonetisationGatingTests.swift` pins every number; registered in
+  `project.pbxproj` in `2f9c1e4`. All four docs reconciled in `0cc4b6c`.
 - **Receipt viewer + thumbnails** (`ea769fa`): `FullImageView` has pinch-zoom
   (1×–6×), pan, double-tap, drag-to-dismiss. Thumbnails rebuilt as a self-loading
   `ReceiptThumbnailView` (each cell owns its state) — fixed "hit or miss until you
@@ -252,12 +259,16 @@ on every full screen and inline in the list, but never in sheets**.
 
 ## 8. Open items (prioritised)
 
-0. **Build and verify `ef30412`, `68032a2`, `aaf90bd` — they were written without
-   a compiler.** On the Mac: ⌥⌘X → drag `TallyTests/MonetisationGatingTests.swift`
-   into the TallyTests target → **⌘U** (expect 14 OCR + 9 gating tests) → set
-   `RevenueCatConfig.forcePro = false` → Run and check the Go Pro pill, inline ad
-   positions, the CSV limit sheet on a second export, the scan gate on the 11th
-   scan, and **re-scan the Woolworths receipt to confirm the merchant populates.**
+0. **Build and verify `ef30412`, `68032a2`, `aaf90bd`, `2f9c1e4` — they were
+   written without a compiler.** On the Mac: **⌥⌘X** → **⌘U** (expect 14 OCR + 9
+   gating tests) → set `RevenueCatConfig.forcePro = false` → Run and check the Go
+   Pro pill, inline ad positions, the CSV limit sheet on a second export, the scan
+   gate on the 11th scan, and **re-scan the Woolworths receipt to confirm the
+   merchant populates.**
+   `MonetisationGatingTests.swift` is now registered in `project.pbxproj`
+   (`2f9c1e4`) so no manual drag is needed — but that registration is itself
+   unverified. If Xcode reports a corrupt project or the file is missing from the
+   target, that commit is the suspect; a bad pbxproj fails loudly and immediately.
 1. **Pro is not purchasable.** `com.asimplelife.tally.pro.monthly` doesn't exist
    in App Store Connect, so RevenueCat offerings come back empty every launch and
    subscription revenue is **$0**. Biggest open item by a distance — every
