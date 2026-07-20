@@ -106,12 +106,15 @@ product owner and makes all product calls; bring him decisions, not surveys.
   App Group `group.com.asimplelife.tally`. The app's entitlement being empty once
   silently broke the entire share handoff ("client is not entitled" in logs).
 - **URL scheme** `tally://`, used by the share-extension handoff.
-- ⚠️ **A DEBUG build is Pro by default.** `RevenueCatConfig.forcePro = true` sets
-  `subscriptionStatus = .pro` on launch. There's also a persisted
-  `Settings → Debug → Force Pro` toggle (`appState.debugForcePro`). `isPro` is
-  the OR of both. **To see any free-tier behaviour — ads, the Go Pro pill, the
-  scan quota, the CSV limit — `forcePro` must be flipped to `false`.** If a gate
-  "doesn't work," check these two first.
+- ⚠️ **Josh runs Pro. This is confirmed and settled — do not question it again.**
+  `RevenueCatConfig.forcePro = true` sets `subscriptionStatus = .pro` on launch,
+  and `isPro` is `debugForcePro || subscriptionStatus == .pro`. So when he reports
+  a bug, **he is a Pro user** — never explain a problem away as "the free-tier
+  gate working as designed." That answer was given once about a blank merchant,
+  was wrong, and wasted a real OCR bug.
+  Free-tier behaviour (ads, Go Pro pill, scan quota, CSV limit) is therefore
+  **not visible in his build**. Don't ask him to flip `forcePro` to check it
+  unless he specifically wants to test the free tier.
 - **Tests** run on the Mac with **⌘U**. ⌘6 opens the Test navigator; click a red
   test to jump to the failing assertion. Click the ◇ beside a class name to run
   one file.
@@ -261,14 +264,14 @@ on every full screen and inline in the list, but never in sheets**.
 
 0. **Build and verify `ef30412`, `68032a2`, `aaf90bd`, `3272b01` — they were
    written without a compiler.** On the Mac: **⌥⌘X** → **⌘U** (expect 14 OCR + 9
-   gating tests) → set `RevenueCatConfig.forcePro = false` → Run and check the Go
-   Pro pill, inline ad positions, the CSV limit sheet on a second export, the scan
-   gate on the 11th scan, and **re-scan the Woolworths receipt to confirm the
-   merchant populates.**
-   `MonetisationGatingTests.swift` is now registered in `project.pbxproj`
-   (`3272b01`) so no manual drag is needed — but that registration is itself
-   unverified. If Xcode reports a corrupt project or the file is missing from the
-   target, that commit is the suspect; a bad pbxproj fails loudly and immediately.
+   gating tests) → Run → **re-scan the Woolworths receipt to confirm the merchant
+   populates.**
+   Josh runs Pro, so the free-tier work in `ef30412` (ads, Go Pro pill, limit
+   sheets) won't appear in his build and doesn't need checking unless he asks.
+   `MonetisationGatingTests.swift` is registered in `project.pbxproj` (`3272b01`)
+   so no manual drag is needed — but that registration is itself unverified. If
+   Xcode reports a corrupt project, that commit is the suspect; a bad pbxproj
+   fails loudly and immediately.
 1. **Pro is not purchasable.** `com.asimplelife.tally.pro.monthly` doesn't exist
    in App Store Connect, so RevenueCat offerings come back empty every launch and
    subscription revenue is **$0**. Biggest open item by a distance — every
