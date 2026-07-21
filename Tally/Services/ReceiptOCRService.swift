@@ -614,6 +614,10 @@ enum ReceiptOCRService {
         options: .caseInsensitive
     )
 
+    /// Punctuation and stray glyphs that cling to the edges of a merchant name —
+    /// divider dashes, trailing colons, and a logo misread as `@` or `©`.
+    private static let merchantEdgeJunk = CharacterSet(charactersIn: ".,;:-=_*~•·@©®™|/\\ ")
+
     /// The wordmark, if the photo caught it. A store prints its own name far
     /// larger than anything else on the receipt, so the tallest text in the top
     /// third is the most direct signal available — no filters, no positional
@@ -634,7 +638,7 @@ enum ReceiptOCRService {
                    && $0.confidence >= 0.3 }
             .sorted { $0.boundingBox.height > $1.boundingBox.height }
             .lazy
-            .map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .map { $0.text.trimmingCharacters(in: Self.merchantEdgeJunk) }
             .first { text in
                 !text.contains(where: \.isNumber)
                     && text.contains(where: \.isLetter)
@@ -656,7 +660,7 @@ enum ReceiptOCRService {
                   !raw.contains(where: { $0.isNumber }),
                   !matches(domainLikePattern, raw),
                   raw.count >= 4, raw.count <= 45 else { continue }
-            let cleaned = raw.trimmingCharacters(in: CharacterSet(charactersIn: ".,;:-=_*~•·"))
+            let cleaned = raw.trimmingCharacters(in: Self.merchantEdgeJunk)
             if cleaned.count >= 3 { return cleaned }
         }
 
@@ -777,7 +781,7 @@ enum ReceiptOCRService {
             text = text
                 .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
                 .trimmingCharacters(in: .whitespacesAndNewlines)
-                .trimmingCharacters(in: CharacterSet(charactersIn: ".,;:-=_*~•·"))
+                .trimmingCharacters(in: Self.merchantEdgeJunk)
 
             guard text.count >= 2, text.count <= 45 else { continue }
             if text.contains(where: { $0.isNumber }) { continue }
