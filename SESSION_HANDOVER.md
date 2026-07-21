@@ -90,7 +90,7 @@ product owner and makes all product calls; bring him decisions, not surveys.
   without explicit instruction. `TallyRepo/` inside the monorepo is a separate
   clone — don't edit it.
 - **No Swift/Xcode toolchain on Windows.** You cannot compile, run, or test.
-  Josh pulls `dev` in Xcode (**⌥⌘X**), runs, and reports back with screenshots
+  Josh pulls `dev` in Xcode, runs, and reports back with screenshots
   and device logs.
 - **New source files need manual registration** in
   `Tally.xcodeproj/project.pbxproj` (old-style project, no synchronized groups).
@@ -264,10 +264,9 @@ on every full screen and inline in the list, but never in sheets**.
 
 ## 8. Open items (prioritised)
 
-0. **Build and verify `ef30412`…`4f8530d` — written without a compiler, and
-   pushed to both `tally/dev` and `tally/main` on 2026-07-20 while still
-   unbuilt.** On the Mac: **⌥⌘X** → **⌘U** (expect 14 OCR + 9 gating tests) →
-   Run → **re-scan the Woolworths receipt to confirm the merchant populates.**
+0. **Nothing from 2026-07-20 has been built.** `ef30412`…`09a2ada` went to both
+   `tally/dev` and `tally/main` unbuilt. Expect 18 OCR + 9 gating tests. The
+   open question is whether the Woolworths merchant now reads `WOOLWORTHS`.
    A pre-push review caught three defects in these commits, fixed in `4f8530d`:
    an undefined-symbol compile error in `TagExportPickerSheet`, a bulk-import
    quota that never enforced (the loop re-read a counter that only updates after
@@ -326,7 +325,7 @@ a time; the corpus is the accumulated memory of that.
 4. **Fix with a general heuristic** that explains a whole class of receipts, never
    a hack for this one — then re-check the existing corpus by hand.
 5. **Add a row** to the corpus table below **and** in the skill file.
-6. **Josh runs ⌘U** and re-scans to confirm.
+6. **Josh builds and re-scans on the Mac** to confirm.
 
 Expect this loop to keep running for a long time. A new failing receipt is the
 process working, not a setback.
@@ -391,5 +390,5 @@ process working, not a setback.
    the receipt exercised them.
 4. Add a corpus row here **and** in the skill file.
 5. Fix generally; note the class in a code comment.
-6. Re-check the whole corpus by hand, then hand off for ⌘U. **Never call an OCR
+6. Re-check the whole corpus by hand, then hand off. **Never call an OCR
    fix verified until Josh confirms a green run.**

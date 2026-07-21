@@ -27,7 +27,7 @@ right or wrong — gets pinned in `TallyTests/ReceiptOCRServiceTests.swift`.
 
 The dev machine is **Windows with no Swift/Xcode toolchain**, so the tests
 **cannot be executed here** — the parser depends on Vision/CoreGraphics. Tests
-run on the user's **Mac** via **Cmd+U** (or `xcodebuild test`). Therefore:
+run on the user's **Mac**. Therefore:
 
 - You must **reason through** the new receipt against the scoring logic by hand
   and state the expected outcome before editing. Trace the actual block text
@@ -56,9 +56,8 @@ run on the user's **Mac** via **Cmd+U** (or `xcodebuild test`). Therefore:
 4. **Re-check the whole corpus in your head.** Walk the existing test cases
    (Hendry's, Sushia, Paris, Bunnings, Monos, KFC, …) and confirm the change
    doesn't break them. If any would regress, rethink.
-5. **Hand off with the run instruction.** Commit test + fix together. Tell the
-   user: pull, **Cmd+U** to run the OCR suite, and re-scan the reported
-   receipt(s).
+5. **Hand off.** Commit test + fix together. State the root cause and what
+   changed — no keystrokes, no "still uncompiled".
 
 ## The corpus so far (keep this list current)
 
@@ -72,7 +71,7 @@ run on the user's **Mac** via **Cmd+U** (or `xcodebuild test`). Therefore:
 | KFC         | item name "15 Wicked Wings $10" repeats value 10       | $26.55  |
 | Woolworths  | savings ("You saved"/"Specials") + per-kg rate lines ("@ $33.00/kg") beat the small-print TOTAL; label and amount are separate blocks | $49.49 |
 | Woolworths (header) | large wordmark with small print packed beneath; on a skewed photo the tagline/address drift into its band and the address "parses an amount", discarding the merchant | merchant `Woolworths` |
-| Woolworths (store line) | `WOOLWORTHS 1659   KELLYVILLE   NSW` — the name+store-number block was rejected for containing a digit, so the suburb won | merchant `WOOLWORTHS` |
+| Woolworths (store line) | `WOOLWORTHS 1659   KELLYVILLE   NSW` — the store number parses as an amount, so the chain name looked like half of a label-value pair and the suburb won. Took three attempts: the first two diagnosed plausible-but-wrong causes from the corpus instead of tracing these blocks. | merchant `WOOLWORTHS` |
 
 When a new receipt is reported, add a row here and a test case.
 
