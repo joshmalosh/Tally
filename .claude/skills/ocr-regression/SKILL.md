@@ -70,6 +70,7 @@ run on the user's **Mac** via **Cmd+U** (or `xcodebuild test`). Therefore:
 | KFC         | item name "15 Wicked Wings $10" repeats value 10       | $26.55  |
 | Woolworths  | savings ("You saved"/"Specials") + per-kg rate lines ("@ $33.00/kg") beat the small-print TOTAL; label and amount are separate blocks | $49.49 |
 | Woolworths (header) | large wordmark with small print packed beneath; on a skewed photo the tagline/address drift into its band and the address "parses an amount", discarding the merchant | merchant `Woolworths` |
+| Woolworths (store line) | `WOOLWORTHS 1659   KELLYVILLE   NSW` — the name+store-number block was rejected for containing a digit, so the suburb won | merchant `WOOLWORTHS` |
 
 When a new receipt is reported, add a row here and a test case.
 

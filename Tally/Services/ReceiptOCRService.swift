@@ -608,7 +608,15 @@ enum ReceiptOCRService {
     )
 
     private static func extractMerchant(from blocks: [TextBlock]) -> String? {
-        let ordered = blocks.sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
+        // Reading order: top to bottom, then left to right. The x tiebreak
+        // matters on the store line — "WOOLWORTHS 1659   KELLYVILLE   NSW" puts
+        // the chain name and the suburb at the same y, and receipts always print
+        // the name first.
+        let ordered = blocks.sorted {
+            $0.boundingBox.origin.y != $1.boundingBox.origin.y
+                ? $0.boundingBox.origin.y > $1.boundingBox.origin.y
+                : $0.boundingBox.origin.x < $1.boundingBox.origin.x
+        }
 
         // Pass 0: an explicit registered-business name anywhere on the receipt.
         for block in ordered where block.confidence >= 0.4 {
@@ -631,14 +639,30 @@ enum ReceiptOCRService {
         return firstMerchantCandidate(in: ordered, allBlocks: blocks, minConfidence: 0.35)
     }
 
+    /// "WOOLWORTHS 1659" → "WOOLWORTHS". Only a single trailing all-digit token
+    /// is dropped, and only when nothing else in the line has a digit, so
+    /// addresses ("2 Hector Court", "1659 Kellyville Grove PH: 02 9624 9402")
+    /// and ABN lines keep their digits and stay disqualified.
+    private static func dropTrailingStoreNumber(_ text: String) -> String {
+        let tokens = text.split(separator: " ")
+        guard tokens.count >= 2,
+              let last = tokens.last, last.allSatisfy(\.isNumber),
+              !tokens.dropLast().contains(where: { $0.contains(where: \.isNumber) })
+        else { return text }
+        return tokens.dropLast().joined(separator: " ")
+    }
+
     private static func firstMerchantCandidate(in blocks: [TextBlock], allBlocks: [TextBlock], minConfidence: Float) -> String? {
         for block in blocks {
             guard block.confidence >= minConfidence else { continue }
 
-            let raw = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            // Digits usually mean amount, ABN, street number or item line — but
+            // chains print the store number after the name ("WOOLWORTHS 1659",
+            // "KMART 4021"), so drop a single *trailing* numeric token first.
+            // Leading numbers stay disqualifying, which is what separates a
+            // store line from an address ("2 Hector Court").
+            let raw = dropTrailingStoreNumber(block.text.trimmingCharacters(in: .whitespacesAndNewlines))
             guard raw.count >= 2 else { continue }
-
-            // Never use a line that contains any numeric character (amounts, ABN, street numbers, item lines).
             if raw.contains(where: { $0.isNumber }) { continue }
 
             // Never use a label-value line ("Sale Staff: Melissa") — whether the

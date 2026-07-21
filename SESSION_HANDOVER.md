@@ -355,6 +355,7 @@ process working, not a setback.
 | KFC | item name "15 Wicked Wings $10" repeats the value 10 | $26.55 |
 | Woolworths | savings ("You saved"/"Specials") + per-kg rates ("@ $33.00/kg") outrank the small-print TOTAL; label and amount are separate blocks | $49.49 |
 | Woolworths (header) | large wordmark with three small lines beneath; on a skewed photo they drift into its band and the address "parses an amount", discarding the merchant | merchant `Woolworths` |
+| Woolworths (store line) | `WOOLWORTHS 1659   KELLYVILLE   NSW` — name+store-number block rejected for containing a digit, so the suburb won | merchant `WOOLWORTHS` |
 
 ### Recurring trap families
 

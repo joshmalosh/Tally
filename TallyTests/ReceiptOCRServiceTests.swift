@@ -204,6 +204,39 @@ final class ReceiptOCRServiceTests: XCTestCase {
         XCTAssertEqual(ReceiptOCRService.extractForTesting(lines).merchant, "Cashmere Boutique")
     }
 
+    // Real receipt, 19 Jul 2026: merchant came back "KELLYVILLE" (the suburb).
+    // The store line is "WOOLWORTHS  1659   KELLYVILLE  NSW" — Vision splits it,
+    // "WOOLWORTHS 1659" was rejected for containing a digit, and the clean
+    // suburb won. Chains print the store number after the name, so a single
+    // trailing numeric token is now dropped before the digit test, and same-line
+    // blocks are read left to right.
+    func testWoolworths_storeNumberLine_merchantNotSuburb() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("Garlic", x: 0.10, y: 0.80), blk("1.55", x: 0.80, y: 0.80),
+            blk("TOTAL", x: 0.10, y: 0.60), blk("$49.49", x: 0.80, y: 0.60),
+            blk("WOOLWORTHS  1659", x: 0.10, y: 0.45, w: 0.30),
+            blk("KELLYVILLE", x: 0.50, y: 0.45, w: 0.20),
+            blk("NSW", x: 0.78, y: 0.45, w: 0.10),
+            blk("TAX INVOICE - ABN 88 000 014 675", x: 0.10, y: 0.40, w: 0.70),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertEqual(result.merchant, "WOOLWORTHS", "the chain, not the suburb")
+        XCTAssertEqual(result.amount ?? -1, 49.49, accuracy: 0.001)
+    }
+
+    // The trailing-number strip must not let addresses through: a leading street
+    // number, or more than one numeric token, still disqualifies the line.
+    func testAddressLines_stillRejectedAsMerchant() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("2 Hector Court", x: 0.10, y: 0.90, w: 0.40),
+            blk("1659 Kellyville Grove PH: 02 9624 9402", x: 0.10, y: 0.86, w: 0.70),
+            blk("TOTAL", x: 0.10, y: 0.60), blk("$12.00", x: 0.80, y: 0.60),
+        ]
+        let merchant = ReceiptOCRService.extractForTesting(lines).merchant
+        XCTAssertNotEqual(merchant, "Hector Court")
+        XCTAssertNotEqual(merchant, "Kellyville Grove PH:")
+    }
+
     func testWoolworths_onlySavingsLegible_neverReturnsSavings() {
         // Worst case: the small print didn't OCR at all and only the large
         // savings text came through. Better to return nothing than the wrong
