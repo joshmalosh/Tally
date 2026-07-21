@@ -608,15 +608,7 @@ enum ReceiptOCRService {
     )
 
     private static func extractMerchant(from blocks: [TextBlock]) -> String? {
-        // Reading order: top to bottom, then left to right. The x tiebreak
-        // matters on the store line — "WOOLWORTHS 1659   KELLYVILLE   NSW" puts
-        // the chain name and the suburb at the same y, and receipts always print
-        // the name first.
-        let ordered = blocks.sorted {
-            $0.boundingBox.origin.y != $1.boundingBox.origin.y
-                ? $0.boundingBox.origin.y > $1.boundingBox.origin.y
-                : $0.boundingBox.origin.x < $1.boundingBox.origin.x
-        }
+        let ordered = readingOrder(blocks)
 
         // Pass 0: an explicit registered-business name anywhere on the receipt.
         for block in ordered where block.confidence >= 0.4 {
@@ -638,6 +630,41 @@ enum ReceiptOCRService {
         // because the name itself scored under the primary threshold.
         return firstMerchantCandidate(in: ordered, allBlocks: blocks, minConfidence: 0.35)
     }
+
+    /// Blocks in reading order: printed lines top to bottom, blocks within a
+    /// line left to right.
+    ///
+    /// Sorting on `y` alone leaves same-line blocks in arbitrary order, and a
+    /// plain `x` tiebreak on exact `y` equality never fires — a hand-held photo
+    /// is always slightly skewed, so "WOOLWORTHS" and "KELLYVILLE" on one
+    /// printed line have different `y`. Grouping into lines first is what makes
+    /// left-to-right actually hold, and receipts print the chain before the
+    /// suburb.
+    private static func readingOrder(_ blocks: [TextBlock]) -> [TextBlock] {
+        var lines: [[TextBlock]] = []
+        for block in blocks.sorted(by: { $0.boundingBox.midY > $1.boundingBox.midY }) {
+            if let i = lines.indices.last, let first = lines[i].first,
+               sameLine(first.boundingBox, block.boundingBox) {
+                lines[i].append(block)
+            } else {
+                lines.append([block])
+            }
+        }
+        return lines.flatMap { $0.sorted { $0.boundingBox.origin.x < $1.boundingBox.origin.x } }
+    }
+
+    /// A price prints with cents or a currency symbol. A bare integer sitting
+    /// beside a name is a store number ("WOOLWORTHS  1659"), a quantity or a
+    /// terminal ID — not an amount. `parseAmount` happily reads `1659` as
+    /// 1659.0, which made the merchant filter treat the store line as a
+    /// label-value pair and discard the chain name.
+    private static func looksLikeMoney(_ text: String) -> Bool {
+        guard parseAmount(from: text) != nil else { return false }
+        return text.contains(where: { "$£€¥".contains($0) })
+            || matches(centsPattern, text)
+    }
+
+    private static let centsPattern = try! NSRegularExpression(pattern: #"\d[.,]\d{2}(?!\d)"#)
 
     /// "WOOLWORTHS 1659" → "WOOLWORTHS". Only a single trailing all-digit token
     /// is dropped, and only when nothing else in the line has a digit, so
@@ -671,7 +698,7 @@ enum ReceiptOCRService {
             let pairedWithLabelOrAmount = allBlocks.contains { other in
                 (other.text != block.text || other.boundingBox != block.boundingBox)
                     && sharesPrintedLine(other.boundingBox, block.boundingBox)
-                    && (matches(labelLinePattern, other.text) || (parseAmount(from: other.text) ?? 0) > 0)
+                    && (matches(labelLinePattern, other.text) || looksLikeMoney(other.text))
             }
             if pairedWithLabelOrAmount { continue }
 

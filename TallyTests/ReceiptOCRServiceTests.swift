@@ -224,6 +224,32 @@ final class ReceiptOCRServiceTests: XCTestCase {
         XCTAssertEqual(result.amount ?? -1, 49.49, accuracy: 0.001)
     }
 
+    // Same line, but split the way Vision actually splits it — the store number
+    // is its own block — and skewed, as a hand-held photo always is. Both
+    // details defeated the first attempt at this fix: "1659" parsed as an amount
+    // so "WOOLWORTHS" was dropped as a label-value pair, and the blocks' y
+    // values differ so an exact-equality x tiebreak never fired.
+    func testWoolworths_storeNumberSeparateBlockAndSkewed_merchantNotSuburb() {
+        let lines: [(text: String, box: CGRect)] = [
+            ("TOTAL",      CGRect(x: 0.10, y: 0.600, width: 0.15, height: 0.020)),
+            ("$49.49",     CGRect(x: 0.80, y: 0.596, width: 0.15, height: 0.020)),
+            ("WOOLWORTHS", CGRect(x: 0.10, y: 0.450, width: 0.22, height: 0.020)),
+            ("1659",       CGRect(x: 0.36, y: 0.447, width: 0.08, height: 0.020)),
+            ("KELLYVILLE", CGRect(x: 0.52, y: 0.443, width: 0.20, height: 0.020)),
+            ("NSW",        CGRect(x: 0.80, y: 0.440, width: 0.09, height: 0.020)),
+        ]
+        XCTAssertEqual(ReceiptOCRService.extractForTesting(lines).merchant, "WOOLWORTHS")
+    }
+
+    // The guard that "1659" defeated must still hold for real prices.
+    func testItemNameBesideItsPrice_stillRejectedAsMerchant() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("Flat White", x: 0.10, y: 0.90, w: 0.25), blk("$4.50", x: 0.80, y: 0.90),
+            blk("TOTAL", x: 0.10, y: 0.60), blk("$4.50", x: 0.80, y: 0.60),
+        ]
+        XCTAssertNotEqual(ReceiptOCRService.extractForTesting(lines).merchant, "Flat White")
+    }
+
     // The trailing-number strip must not let addresses through: a leading street
     // number, or more than one numeric token, still disqualifies the line.
     func testAddressLines_stillRejectedAsMerchant() {
