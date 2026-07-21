@@ -41,7 +41,14 @@ enum ReceiptOCRService {
     /// (text + normalized bounding box, Vision-style: y increases upward).
     /// Lets tests pin the behaviour on real receipt layouts without images.
     static func extractForTesting(_ lines: [(text: String, box: CGRect)]) -> ReceiptOCRResult {
-        let blocks = lines.map { TextBlock(text: $0.text, confidence: 1.0, boundingBox: $0.box) }
+        extractForTesting(lines.map { (text: $0.text, box: $0.box, confidence: Float(1.0)) })
+    }
+
+    /// Confidence-aware variant. Vision scores a crumpled letterhead well below
+    /// crisp body text, and which of them wins is a real source of misreads, so
+    /// tests need to be able to set it.
+    static func extractForTesting(_ lines: [(text: String, box: CGRect, confidence: Float)]) -> ReceiptOCRResult {
+        let blocks = lines.map { TextBlock(text: $0.text, confidence: $0.confidence, boundingBox: $0.box) }
         let merchant = extractMerchant(from: blocks)
         return ReceiptOCRResult(
             amount: extractAmount(from: blocks),
@@ -124,7 +131,11 @@ enum ReceiptOCRService {
     // MARK: - Amount Extraction
 
     private static let amountPattern = try! NSRegularExpression(
-        pattern: #"[\$£€¥]\s*\d{1,}[,.]?\d{0,2}|\d{1,}[,.]\d{2}\s*[\$£€¥]?|\d{1,}[,.]\d{2}"#,
+        // The first alternative is grouped thousands — "655,000", "1,150,000",
+        // "4,640,000" on an Indonesian receipt, optionally with cents. Without
+        // it, `\d+[,.]\d{2}` grabbed "655,00" out of "655,000" and the European
+        // decimal-comma rule turned that into 655.00.
+        pattern: #"[\$£€¥]?\s*\d{1,3}(?:,\d{3})+(?:\.\d{2})?(?!\d)|[\$£€¥]\s*\d{1,}[,.]?\d{0,2}|\d{1,}[,.]\d{2}\s*[\$£€¥]?|\d{1,}[,.]\d{2}"#,
         options: .caseInsensitive
     )
 
@@ -356,7 +367,7 @@ enum ReceiptOCRService {
     /// Explicit ISO codes and unambiguous symbols only — a bare "$" could be
     /// AUD/USD/NZD/CAD, so it never overrides the user's default currency.
     private static let currencyCodePattern = try! NSRegularExpression(
-        pattern: #"(?<![A-Z])(AUD|USD|EUR|GBP|NZD|CAD|JPY|CHF|SGD|HKD|CNY|INR)(?![A-Z])"#,
+        pattern: #"(?<![A-Z])(AUD|USD|EUR|GBP|NZD|CAD|JPY|CHF|SGD|HKD|CNY|INR|IDR|THB|MYR|PHP|VND)(?![A-Z])"#,
         options: []
     )
 
@@ -376,6 +387,10 @@ enum ReceiptOCRService {
             if text.contains("A$")  { codeVotes["AUD", default: 0] += 1 }
             if text.contains("NZ$") { codeVotes["NZD", default: 0] += 1 }
             if text.contains("C$")  { codeVotes["CAD", default: 0] += 1 }
+            // A currency symbol only means something next to a number. A stray
+            // glyph — a stylised logo misread as "€" — used to outvote the whole
+            // receipt and set the expense to euros on an Indonesian docket.
+            guard text.contains(where: \.isNumber) else { continue }
             if text.contains("€") { symbolVotes["EUR", default: 0] += 1 }
             if text.contains("£") { symbolVotes["GBP", default: 0] += 1 }
             if text.contains("¥") { symbolVotes["JPY", default: 0] += 1 }
@@ -664,14 +679,34 @@ enum ReceiptOCRService {
             if cleaned.count >= 3 { return cleaned }
         }
 
-        if let match = firstMerchantCandidate(in: ordered, allBlocks: blocks, minConfidence: 0.75) {
-            return match
+        // The name is printed at the top. Search the masthead first, so a crisp
+        // line further down can't beat a header that OCR'd poorly — a crumpled
+        // Deus receipt returned its bottom-of-docket promo banner ("AU-PROMO
+        // LEBARAN UP TO") because that scanned cleanly while the letterhead did
+        // not, and the high-confidence pass ran over the whole receipt before
+        // the low-confidence pass ever looked at the top.
+        let masthead = topOfReceipt(ordered, fraction: 0.4)
+        for candidates in [masthead, ordered] {
+            // Within each region, prefer a confident read; store names are often
+            // set in a display font that OCRs below the body text, so accept a
+            // weaker one rather than come up empty.
+            for confidence in [Float(0.75), Float(0.35)] {
+                if let match = firstMerchantCandidate(in: candidates, allBlocks: blocks,
+                                                      minConfidence: confidence) {
+                    return match
+                }
+            }
         }
-        // Fallback: store names are often printed in a large/bold header font that OCRs
-        // with lower confidence than the small monospace body text below it — don't let
-        // the whole extraction come up empty (or fall through to a divider line) just
-        // because the name itself scored under the primary threshold.
-        return firstMerchantCandidate(in: ordered, allBlocks: blocks, minConfidence: 0.35)
+        return nil
+    }
+
+    /// The top `fraction` of the receipt's own text extent — not the image's, so
+    /// it holds however the receipt sits in frame.
+    private static func topOfReceipt(_ blocks: [TextBlock], fraction: CGFloat) -> [TextBlock] {
+        let mids = blocks.map(\.boundingBox.midY)
+        guard let lowest = mids.min(), let highest = mids.max(), highest > lowest else { return blocks }
+        let cutoff = highest - (highest - lowest) * fraction
+        return blocks.filter { $0.boundingBox.midY >= cutoff }
     }
 
     #if DEBUG

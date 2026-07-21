@@ -71,6 +71,7 @@ run on the user's **Mac**. Therefore:
 | KFC         | item name "15 Wicked Wings $10" repeats value 10       | $26.55  |
 | Woolworths  | savings ("You saved"/"Specials") + per-kg rate lines ("@ $33.00/kg") beat the small-print TOTAL; label and amount are separate blocks | $49.49 |
 | Woolworths (header) | large wordmark + swirl logo, script tagline, address and ABN packed beneath. Largest-text pass now takes the wordmark directly. A stray `@` from the logo glyph used to disqualify it via the email pattern. | merchant `Woolworths` |
+| Deus (Bali, IDR) | grouped thousands "655,000" truncated to 655.00 by the cents regex; stylised logo OCR-ing as `€` set the currency to EUR; crisp promo banner at the foot beat the crumpled letterhead for merchant | $4,640,000 IDR, `PT. Deus Ex Machina Indonesia` |
 | Woolworths (store line) | `WOOLWORTHS 1659   KELLYVILLE   NSW` — the store number parses as an amount, so the chain name looked like half of a label-value pair and the suburb won. Took three attempts: the first two diagnosed plausible-but-wrong causes from the corpus instead of tracing these blocks. | merchant `WOOLWORTHS` |
 
 When a new receipt is reported, add a row here and a test case.

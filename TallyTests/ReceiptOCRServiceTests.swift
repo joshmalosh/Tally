@@ -275,6 +275,56 @@ final class ReceiptOCRServiceTests: XCTestCase {
         XCTAssertEqual(ReceiptOCRService.extractForTesting(lines).merchant, "Woolworths")
     }
 
+    // MARK: - Deus, Bali — Indonesian rupiah, grouped thousands, crumpled photo.
+
+    // Amounts are "1,150,000" style: comma groups of three, no cents. The regex
+    // used to grab "655,00" out of "655,000" and the European decimal-comma rule
+    // turned it into 655.00 — which is exactly what the app displayed.
+    func testDeus_groupedThousands_notTruncatedToCents() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("PT. Deus Ex Machina Indonesia", x: 0.20, y: 0.92, w: 0.55),
+            blk("ONE OUT TEAM CREW", x: 0.15, y: 0.70, w: 0.40), blk("1,150,000", x: 0.75, y: 0.70),
+            blk("RAPTOR TEE", x: 0.15, y: 0.66, w: 0.30), blk("655,000", x: 0.75, y: 0.66),
+            blk("SUPERSTITIOUS JACKET", x: 0.15, y: 0.62, w: 0.42), blk("2,835,000", x: 0.75, y: 0.62),
+            blk("SubTotal", x: 0.45, y: 0.50, w: 0.15), blk("4,640,000", x: 0.75, y: 0.50),
+            blk("Payment Amount ( CC&DC_0%", x: 0.15, y: 0.42, w: 0.45),
+            blk("4,640,000", x: 0.75, y: 0.42),
+        ]
+        amount(4_640_000, from: lines, "grouped thousands must not be read as cents")
+    }
+
+    // The letterhead is crumpled and OCRs poorly; the promo banner at the foot of
+    // the docket scans cleanly. The masthead must still win — the old two-pass
+    // order ran high-confidence over the whole receipt first, so the banner won.
+    func testDeus_crumpledHeader_beatsCleanPromoBannerAtFoot() {
+        let lines = [
+            (text: "PT. Deus Ex Machina Indonesia",
+             box: CGRect(x: 0.20, y: 0.915, width: 0.55, height: 0.018), confidence: Float(0.42)),
+            (text: "Jalan Batu Mejan No. 8, Canggu - Bali",
+             box: CGRect(x: 0.20, y: 0.895, width: 0.55, height: 0.014), confidence: Float(0.40)),
+            (text: "SubTotal", box: CGRect(x: 0.45, y: 0.500, width: 0.15, height: 0.014), confidence: 0.90),
+            (text: "4,640,000", box: CGRect(x: 0.75, y: 0.500, width: 0.18, height: 0.014), confidence: 0.90),
+            (text: "AU-PROMO LEBARAN UP TO",
+             box: CGRect(x: 0.40, y: 0.140, width: 0.45, height: 0.016), confidence: Float(0.95)),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertNotEqual(result.merchant, "AU-PROMO LEBARAN UP TO",
+                          "a promo banner at the foot of the docket is never the merchant")
+        XCTAssertEqual(result.merchant, "PT. Deus Ex Machina Indonesia")
+    }
+
+    // A stray glyph — the stylised DEUS shield misread as "€" — must not set the
+    // expense currency. A symbol only counts beside a number.
+    func testCurrencySymbolAloneInLogo_doesNotSetCurrency() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("€", x: 0.45, y: 0.95, w: 0.06),
+            blk("PT. Deus Ex Machina Indonesia", x: 0.20, y: 0.92, w: 0.55),
+            blk("SubTotal", x: 0.45, y: 0.50, w: 0.15), blk("4,640,000", x: 0.75, y: 0.50),
+        ]
+        XCTAssertNil(ReceiptOCRService.extractForTesting(lines).currencyCode,
+                     "a logo glyph is not a currency marker")
+    }
+
     // A visible wordmark wins outright — it's printed far larger than the body
     // text, which is a more direct signal than any of the filter passes.
     func testLargeWordmark_winsOverEverythingBelow() {
