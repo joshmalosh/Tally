@@ -241,6 +241,29 @@ final class ReceiptOCRServiceTests: XCTestCase {
         XCTAssertEqual(ReceiptOCRService.extractForTesting(lines).merchant, "WOOLWORTHS")
     }
 
+    // A visible wordmark wins outright — it's printed far larger than the body
+    // text, which is a more direct signal than any of the filter passes.
+    func testLargeWordmark_winsOverEverythingBelow() {
+        let lines: [(text: String, box: CGRect)] = [
+            ("BUNNINGS",   CGRect(x: 0.25, y: 0.900, width: 0.50, height: 0.070)),
+            ("Warehouse",  CGRect(x: 0.35, y: 0.870, width: 0.30, height: 0.018)),
+            ("Rouse Hill", CGRect(x: 0.35, y: 0.850, width: 0.30, height: 0.018)),
+            blk("TOTAL", x: 0.10, y: 0.55), blk("$38.80", x: 0.80, y: 0.55),
+        ]
+        XCTAssertEqual(ReceiptOCRService.extractForTesting(lines).merchant, "BUNNINGS")
+    }
+
+    // Uniform monospace with no wordmark — the header pass must find nothing and
+    // fall through rather than picking the tallest body line at random.
+    func testNoWordmark_fallsThroughToFilterPasses() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("WOOLWORTHS", x: 0.10, y: 0.45, w: 0.22),
+            blk("KELLYVILLE", x: 0.52, y: 0.45, w: 0.20),
+            blk("TOTAL", x: 0.10, y: 0.60), blk("$49.49", x: 0.80, y: 0.60),
+        ]
+        XCTAssertEqual(ReceiptOCRService.extractForTesting(lines).merchant, "WOOLWORTHS")
+    }
+
     // The guard that "1659" defeated must still hold for real prices.
     func testItemNameBesideItsPrice_stillRejectedAsMerchant() {
         let lines: [(text: String, box: CGRect)] = [

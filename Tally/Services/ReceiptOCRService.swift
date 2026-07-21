@@ -81,6 +81,10 @@ enum ReceiptOCRService {
                 )
             }
 
+        #if DEBUG
+        dumpBlocks(blocks)
+        #endif
+
         let amount = extractAmount(from: blocks)
         let merchant = extractMerchant(from: blocks)
         let date = extractDate(from: blocks)
@@ -607,8 +611,40 @@ enum ReceiptOCRService {
         options: .caseInsensitive
     )
 
+    /// The wordmark, if the photo caught it. A store prints its own name far
+    /// larger than anything else on the receipt, so the tallest text in the top
+    /// third is the most direct signal available — no filters, no positional
+    /// guessing.
+    ///
+    /// Nothing to find when the header is cropped out of frame or the receipt is
+    /// uniform monospace, which is common for supermarket dockets; callers fall
+    /// through to the filter passes below.
+    private static func largestHeaderText(in blocks: [TextBlock]) -> String? {
+        let heights = blocks.map(\.boundingBox.height).sorted()
+        guard !heights.isEmpty else { return nil }
+        let median = heights[heights.count / 2]
+        guard median > 0 else { return nil }
+
+        return blocks
+            .filter { $0.boundingBox.height >= median * 1.6
+                   && $0.boundingBox.midY >= 0.6
+                   && $0.confidence >= 0.3 }
+            .sorted { $0.boundingBox.height > $1.boundingBox.height }
+            .lazy
+            .map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { text in
+                !text.contains(where: \.isNumber)
+                    && text.contains(where: \.isLetter)
+                    && !matches(domainLikePattern, text)
+                    && !matches(labelLinePattern, text)
+                    && text.count >= 3 && text.count <= 45
+            }
+    }
+
     private static func extractMerchant(from blocks: [TextBlock]) -> String? {
         let ordered = readingOrder(blocks)
+
+        if let wordmark = largestHeaderText(in: blocks) { return wordmark }
 
         // Pass 0: an explicit registered-business name anywhere on the receipt.
         for block in ordered where block.confidence >= 0.4 {
@@ -630,6 +666,24 @@ enum ReceiptOCRService {
         // because the name itself scored under the primary threshold.
         return firstMerchantCandidate(in: ordered, allBlocks: blocks, minConfidence: 0.35)
     }
+
+    #if DEBUG
+    /// Ground truth for a misread receipt: exactly what Vision returned, and
+    /// how it chose to split the lines.
+    ///
+    /// The Woolworths store line took three wrong fixes because each one guessed
+    /// at that split — whether "WOOLWORTHS" and "1659" arrive as one block or
+    /// two changes which filter rejects the merchant, and the guess is
+    /// unfalsifiable without this. Filter Xcode's console for `OCR|`.
+    private static func dumpBlocks(_ blocks: [TextBlock]) {
+        print("OCR| ---- \(blocks.count) blocks (x, y, w, h, confidence) ----")
+        for b in blocks.sorted(by: { $0.boundingBox.midY > $1.boundingBox.midY }) {
+            let r = b.boundingBox
+            print(String(format: "OCR| %.3f %.3f %.3f %.3f  %.2f  |%@|",
+                         r.origin.x, r.origin.y, r.width, r.height, b.confidence, b.text))
+        }
+    }
+    #endif
 
     /// Blocks in reading order: printed lines top to bottom, blocks within a
     /// line left to right.
