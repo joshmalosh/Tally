@@ -38,7 +38,9 @@ final class CurrencyFormatter {
         SupportedCurrency(code: "CLP", name: "Chilean Peso", flag: "🇨🇱"),
     ]
 
-    private let currencyCodesWithNoDecimals: Set<String> = ["JPY", "KRW", "VND", "CLP"]
+    /// IDR carries two minor units on paper, but no Indonesian price, receipt or
+    /// payment terminal has ever shown them — "4,640,000.00" reads as a bug.
+    private let currencyCodesWithNoDecimals: Set<String> = ["JPY", "KRW", "VND", "CLP", "IDR", "ISK"]
 
     private static let currencyLocaleMap: [String: String] = [
         "USD": "en_US", "EUR": "de_DE", "GBP": "en_GB", "JPY": "ja_JP",
@@ -46,7 +48,8 @@ final class CurrencyFormatter {
         "KRW": "ko_KR", "INR": "en_IN", "NZD": "en_NZ", "SGD": "en_SG",
         "HKD": "zh_HK", "SEK": "sv_SE", "NOK": "nb_NO", "DKK": "da_DK",
         "BRL": "pt_BR", "MXN": "es_MX", "ZAR": "en_ZA", "VND": "vi_VN",
-        "CLP": "es_CL",
+        "CLP": "es_CL", "IDR": "id_ID", "THB": "th_TH", "MYR": "ms_MY",
+        "PHP": "en_PH", "ISK": "is_IS",
     ]
 
     private func formatter(for currencyCode: String) -> NumberFormatter {

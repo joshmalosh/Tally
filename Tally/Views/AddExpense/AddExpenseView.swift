@@ -189,15 +189,6 @@ struct AddExpenseView: View {
         receiptImageAttached && ocrPopulatedAnyField && !isRunningOCR
     }
 
-    private static let heroDateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "d MMM yyyy"
-        return f
-    }()
-
-    private var heroDateLabel: String {
-        Self.heroDateFormatter.string(from: date).uppercased()
-    }
 
     private var autoScannedBadgeView: some View {
         HStack(spacing: 4) {
@@ -1121,37 +1112,10 @@ struct AddExpenseView: View {
             }
         }
         .frame(height: 260)
-        // Bottom-left: date + merchant + amount display
-        .overlay(alignment: .bottomLeading) {
-            if attachedImage != nil {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(heroDateLabel)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.65))
-                        .tracking(1.2)
-                    if !merchant.isEmpty {
-                        Text(merchant)
-                            .font(Font.dmSerifDisplay(22))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                    }
-                    // Tappable amount — focuses the field in the detail cluster below
-                    HStack(alignment: .firstTextBaseline, spacing: 3) {
-                        Text(currencySymbol)
-                            .font(.system(size: 18, weight: .regular, design: .monospaced))
-                            .foregroundStyle(.white.opacity(0.72))
-                        Text(amountText.isEmpty ? "0.00" : amountText)
-                            .font(.system(size: 40, weight: .regular, design: .monospaced))
-                            .foregroundStyle(.white)
-                            .tracking(-1.5)
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture { amountFocusRequested = true }
-                }
-                .padding(.horizontal, 14)
-                .padding(.bottom, 14)
-            }
-        }
+        // Date, merchant and amount used to be overlaid here. They duplicated
+        // the editable fields directly below, and a long value (a merchant name,
+        // or a rupiah total) ran under the VIEW RECEIPT button and clipped. The
+        // hero now just shows the receipt.
         // Bottom-right: VIEW RECEIPT + Replace/Remove
         .overlay(alignment: .bottomTrailing) {
             if attachedImage != nil {
