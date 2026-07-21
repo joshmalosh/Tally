@@ -277,6 +277,58 @@ final class ReceiptOCRServiceTests: XCTestCase {
 
     // MARK: - Deus, Bali — Indonesian rupiah, grouped thousands, crumpled photo.
 
+    // The whole docket, top to bottom, at the confidences a crumpled photo
+    // actually produces. The tests below isolate one defect each; this one is
+    // the receipt itself, and asserts every field including the date — which
+    // came out right unaided and is pinned so it stays that way.
+    //
+    // Reported reading: amount 655.00, currency EUR, merchant
+    // "AL FROND LEBARAN UP TO". Only the date was correct.
+    func testDeus_wholeReceipt_allFields() {
+        let lines: [(text: String, box: CGRect, confidence: Float)] = [
+            ("€",                                  CGRect(x: 0.44, y: 0.930, width: 0.07, height: 0.022), 0.31),
+            ("PT. Deus Ex Machina Indonesia",      CGRect(x: 0.20, y: 0.905, width: 0.55, height: 0.016), 0.44),
+            ("Jalan Batu Mejan No. 8, Canggu - Bali", CGRect(x: 0.18, y: 0.888, width: 0.60, height: 0.013), 0.41),
+            ("Phone: +62 811 3883 15",             CGRect(x: 0.26, y: 0.872, width: 0.42, height: 0.013), 0.52),
+            ("Email: info@deus.co.id",             CGRect(x: 0.28, y: 0.857, width: 0.38, height: 0.013), 0.55),
+            ("NPWP: 31.182.580.2.906.000",         CGRect(x: 0.25, y: 0.842, width: 0.44, height: 0.013), 0.48),
+
+            ("110719512875",                       CGRect(x: 0.13, y: 0.740, width: 0.20, height: 0.012), 0.70),
+            ("1,150,000",                          CGRect(x: 0.72, y: 0.742, width: 0.16, height: 0.012), 0.86),
+            ("ONE OUT TEAM CREW - LIGHT GREY MARLE - M", CGRect(x: 0.13, y: 0.726, width: 0.62, height: 0.012), 0.66),
+            ("655,000",                            CGRect(x: 0.74, y: 0.700, width: 0.13, height: 0.012), 0.88),
+            ("RAPTOR TEE - DIRTY WHITE - M",       CGRect(x: 0.13, y: 0.686, width: 0.46, height: 0.012), 0.69),
+            ("2,835,000",                          CGRect(x: 0.72, y: 0.660, width: 0.16, height: 0.012), 0.87),
+            ("SUPERSTITIOUS JACKET - CHOC BROWN - S", CGRect(x: 0.13, y: 0.646, width: 0.58, height: 0.012), 0.68),
+
+            ("SubTotal",                           CGRect(x: 0.52, y: 0.560, width: 0.14, height: 0.012), 0.90),
+            ("4,640,000",                          CGRect(x: 0.72, y: 0.560, width: 0.16, height: 0.012), 0.91),
+            ("PPN",                                CGRect(x: 0.13, y: 0.530, width: 0.07, height: 0.012), 0.80),
+            ("458,820",                            CGRect(x: 0.42, y: 0.530, width: 0.13, height: 0.012), 0.85),
+            ("Payment Amount ( CC&DC_0%",          CGRect(x: 0.13, y: 0.480, width: 0.45, height: 0.012), 0.72),
+            ("4,640,000",                          CGRect(x: 0.72, y: 0.480, width: 0.16, height: 0.012), 0.90),
+
+            ("INV-V01/2504/46076",                 CGRect(x: 0.58, y: 0.420, width: 0.30, height: 0.012), 0.84),
+            ("25/04/2025 09:13",                   CGRect(x: 0.62, y: 0.402, width: 0.26, height: 0.012), 0.86),
+            ("CASH",                               CGRect(x: 0.78, y: 0.370, width: 0.10, height: 0.012), 0.88),
+            ("AU-PROMO LEBARAN UP TO",             CGRect(x: 0.46, y: 0.345, width: 0.42, height: 0.014), 0.95),
+            ("40%",                                CGRect(x: 0.80, y: 0.330, width: 0.08, height: 0.014), 0.93),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+
+        XCTAssertEqual(result.amount ?? -1, 4_640_000, accuracy: 0.001,
+                       "grouped thousands, not 655.00")
+        XCTAssertEqual(result.currencyCode, "IDR",
+                       "letterhead names Indonesia; the lone € is a logo glyph")
+        XCTAssertEqual(result.merchant, "PT. Deus Ex Machina Indonesia",
+                       "not the promo banner at the foot")
+
+        let parts = Calendar.current.dateComponents([.year, .month, .day], from: result.date ?? .distantPast)
+        XCTAssertEqual(parts.year, 2025)
+        XCTAssertEqual(parts.month, 4)
+        XCTAssertEqual(parts.day, 25)
+    }
+
     // Amounts are "1,150,000" style: comma groups of three, no cents. The regex
     // used to grab "655,00" out of "655,000" and the European decimal-comma rule
     // turned it into 655.00 — which is exactly what the app displayed.
