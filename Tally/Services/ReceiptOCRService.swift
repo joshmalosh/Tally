@@ -400,7 +400,47 @@ enum ReceiptOCRService {
         // An explicit code wins; otherwise an unambiguous symbol.
         if let best = codeVotes.max(by: { $0.value < $1.value }) { return best.key }
         if let best = symbolVotes.max(by: { $0.value < $1.value }) { return best.key }
-        return nil
+
+        // Last resort: the receipt names where it was issued. Shops print their
+        // country or state in the letterhead far more reliably than they print
+        // a currency code, and a place name is unambiguous in a way a bare "$"
+        // never is. Only reached when nothing above voted, so an explicit
+        // marker always beats it.
+        return currencyFromPlaceName(in: blocks)
+    }
+
+    /// Place names that pin a currency, matched whole-word and case-insensitively.
+    /// Deliberately short: countries and the few regions and cities that appear
+    /// on receipts without their country ("Bali", "Hong Kong"). Ambiguous names
+    /// are omitted — plenty of places share a name with somewhere else.
+    /// An array, not a dictionary — dictionary iteration order is unspecified, so
+    /// a receipt naming two places would resolve to a different currency run to
+    /// run. Most specific first: a country beats a city inside it.
+    private static let placeCurrencies: [(place: String, code: String)] = [
+        ("indonesia", "IDR"), ("new zealand", "NZD"), ("united kingdom", "GBP"),
+        ("united states", "USD"), ("hong kong", "HKD"), ("switzerland", "CHF"),
+        ("philippines", "PHP"), ("singapore", "SGD"), ("australia", "AUD"),
+        ("netherlands", "EUR"), ("malaysia", "MYR"), ("thailand", "THB"),
+        ("portugal", "EUR"), ("scotland", "GBP"), ("germany", "EUR"),
+        ("vietnam", "VND"), ("england", "GBP"), ("ireland", "EUR"),
+        ("jakarta", "IDR"), ("france", "EUR"), ("greece", "EUR"),
+        ("canada", "CAD"), ("canggu", "IDR"), ("china", "CNY"), ("india", "INR"),
+        ("italy", "EUR"), ("japan", "JPY"), ("spain", "EUR"), ("wales", "GBP"),
+        ("bali", "IDR"), ("usa", "USD")
+    ]
+
+    /// Compiled once. Word-boundary anchored so "chinatown" doesn't vote CNY and
+    /// "usain" doesn't vote USD.
+    private static let placePatterns: [(regex: NSRegularExpression, code: String)] =
+        placeCurrencies.compactMap { entry in
+            let pattern = #"(?<![a-z])"# + NSRegularExpression.escapedPattern(for: entry.place) + #"(?![a-z])"#
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { return nil }
+            return (regex, entry.code)
+        }
+
+    private static func currencyFromPlaceName(in blocks: [TextBlock]) -> String? {
+        let haystack = blocks.map { $0.text.lowercased() }.joined(separator: " ")
+        return placePatterns.first { matches($0.regex, haystack) }?.code
     }
 
     private static func parseAmount(from text: String) -> Double? {

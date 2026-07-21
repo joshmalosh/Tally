@@ -325,6 +325,37 @@ final class ReceiptOCRServiceTests: XCTestCase {
                      "a logo glyph is not a currency marker")
     }
 
+    // The letterhead names the country, which is a far more reliable signal than
+    // a currency marker — this receipt prints neither "IDR" nor "Rp".
+    func testDeus_countryInLetterhead_resolvesRupiah() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("PT. Deus Ex Machina Indonesia", x: 0.20, y: 0.92, w: 0.55),
+            blk("Jalan Batu Mejan No. 8, Canggu - Bali", x: 0.18, y: 0.90, w: 0.60),
+            blk("SubTotal", x: 0.45, y: 0.50, w: 0.15), blk("4,640,000", x: 0.75, y: 0.50),
+        ]
+        XCTAssertEqual(ReceiptOCRService.extractForTesting(lines).currencyCode, "IDR")
+    }
+
+    // A place name is the last resort. An explicit symbol beside a number still
+    // wins, so a euro receipt from a shop that happens to mention Australia
+    // stays in euros.
+    func testExplicitSymbol_beatsPlaceName() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("Souvenirs of Australia", x: 0.20, y: 0.92, w: 0.45),
+            blk("TOTAL", x: 0.10, y: 0.55), blk("€81.50", x: 0.80, y: 0.55),
+        ]
+        XCTAssertEqual(ReceiptOCRService.extractForTesting(lines).currencyCode, "EUR")
+    }
+
+    // Word-boundary anchored: a suburb called Chinatown is not a vote for yuan.
+    func testPlaceNameInsideAnotherWord_doesNotVote() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("Chinatown Noodle House", x: 0.20, y: 0.92, w: 0.45),
+            blk("TOTAL", x: 0.10, y: 0.55), blk("18.50", x: 0.80, y: 0.55),
+        ]
+        XCTAssertNil(ReceiptOCRService.extractForTesting(lines).currencyCode)
+    }
+
     // A visible wordmark wins outright — it's printed far larger than the body
     // text, which is a more direct signal than any of the filter passes.
     func testLargeWordmark_winsOverEverythingBelow() {
