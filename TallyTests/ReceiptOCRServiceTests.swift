@@ -241,6 +241,40 @@ final class ReceiptOCRServiceTests: XCTestCase {
         XCTAssertEqual(ReceiptOCRService.extractForTesting(lines).merchant, "WOOLWORTHS")
     }
 
+    // The real receipt, top to bottom: large "Woolworths" wordmark with a swirl
+    // logo beside it, script tagline, address, ABN, then uniform monospace body.
+    // The wordmark is the merchant; "KELLYVILLE" on the merchant-ID line further
+    // down is the suburb and must lose.
+    func testWoolworths_fullReceiptHeader_wordmarkWins() {
+        let lines: [(text: String, box: CGRect)] = [
+            ("Woolworths",            CGRect(x: 0.24, y: 0.940, width: 0.42, height: 0.028)),
+            ("The fresh food people", CGRect(x: 0.28, y: 0.915, width: 0.34, height: 0.013)),
+            ("1659 Kellyville Grove  PH: 02 9624 9402",
+                                      CGRect(x: 0.22, y: 0.895, width: 0.50, height: 0.011)),
+            ("2 Hector Court",        CGRect(x: 0.36, y: 0.882, width: 0.20, height: 0.011)),
+            ("TAX INVOICE - ABN 88 000 014 675",
+                                      CGRect(x: 0.24, y: 0.869, width: 0.46, height: 0.011)),
+            blk("TOTAL", x: 0.22, y: 0.560, w: 0.10), blk("$49.49", x: 0.62, y: 0.560, w: 0.10),
+            blk("WOOLWORTHS", x: 0.21, y: 0.480, w: 0.14),
+            blk("1659", x: 0.40, y: 0.479, w: 0.05),
+            blk("KELLYVILLE", x: 0.52, y: 0.478, w: 0.13),
+            blk("NSW", x: 0.68, y: 0.477, w: 0.05),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertEqual(result.merchant, "Woolworths")
+        XCTAssertEqual(result.amount ?? -1, 49.49, accuracy: 0.001)
+    }
+
+    // A stray `@` — a logo glyph misread beside a wordmark — must not disqualify
+    // a merchant. Only an email's shape should.
+    func testWordmarkWithLogoGlyph_notTreatedAsEmail() {
+        let lines: [(text: String, box: CGRect)] = [
+            ("Woolworths @",  CGRect(x: 0.24, y: 0.940, width: 0.42, height: 0.028)),
+            blk("TOTAL", x: 0.10, y: 0.55), blk("$49.49", x: 0.80, y: 0.55),
+        ]
+        XCTAssertEqual(ReceiptOCRService.extractForTesting(lines).merchant, "Woolworths")
+    }
+
     // A visible wordmark wins outright — it's printed far larger than the body
     // text, which is a more direct signal than any of the filter passes.
     func testLargeWordmark_winsOverEverythingBelow() {
@@ -254,7 +288,9 @@ final class ReceiptOCRServiceTests: XCTestCase {
     }
 
     // Uniform monospace with no wordmark — the header pass must find nothing and
-    // fall through rather than picking the tallest body line at random.
+    // fall through rather than picking the tallest body line at random. (Kept as
+    // a general case. It was written believing Josh's Woolworths photo had no
+    // wordmark; it does — that was a wrong reading of a cropped UI thumbnail.)
     func testNoWordmark_fallsThroughToFilterPasses() {
         let lines: [(text: String, box: CGRect)] = [
             blk("WOOLWORTHS", x: 0.10, y: 0.45, w: 0.22),

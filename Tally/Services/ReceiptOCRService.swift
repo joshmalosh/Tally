@@ -600,7 +600,10 @@ enum ReceiptOCRService {
     /// Domain/email-looking text ("account.monos.au") — a URL is where the
     /// receipt came from, not who the merchant is.
     private static let domainLikePattern = try! NSRegularExpression(
-        pattern: #"[a-z0-9][.][a-z]{2,}|@"#,
+        // The `@` half requires an email's shape. A bare `@` used to disqualify a
+        // candidate outright, and a logo glyph beside a wordmark — the swirl on a
+        // Woolworths receipt, say — can OCR as one.
+        pattern: #"[a-z0-9][.][a-z]{2,}|[a-z0-9]@[a-z0-9]"#,
         options: .caseInsensitive
     )
 

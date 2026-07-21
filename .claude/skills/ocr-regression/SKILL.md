@@ -70,7 +70,7 @@ run on the user's **Mac**. Therefore:
 | Monos       | "TOTAL SAVINGS"; "Total (GST incl.)"                   | $300.00 |
 | KFC         | item name "15 Wicked Wings $10" repeats value 10       | $26.55  |
 | Woolworths  | savings ("You saved"/"Specials") + per-kg rate lines ("@ $33.00/kg") beat the small-print TOTAL; label and amount are separate blocks | $49.49 |
-| Woolworths (header) | large wordmark with small print packed beneath; on a skewed photo the tagline/address drift into its band and the address "parses an amount", discarding the merchant | merchant `Woolworths` |
+| Woolworths (header) | large wordmark + swirl logo, script tagline, address and ABN packed beneath. Largest-text pass now takes the wordmark directly. A stray `@` from the logo glyph used to disqualify it via the email pattern. | merchant `Woolworths` |
 | Woolworths (store line) | `WOOLWORTHS 1659   KELLYVILLE   NSW` — the store number parses as an amount, so the chain name looked like half of a label-value pair and the suburb won. Took three attempts: the first two diagnosed plausible-but-wrong causes from the corpus instead of tracing these blocks. | merchant `WOOLWORTHS` |
 
 When a new receipt is reported, add a row here and a test case.
@@ -119,6 +119,14 @@ any of these ever coming back.
   amount inherit the exclusion of anything sharing its line; **use it, never
   the raw `matches(amountExclusionPattern:)`, when scanning blocks for
   amounts.**
+
+### Look at the receipt photo, not the app screenshot
+
+The app's hero image **crops** the receipt. A session read that thumbnail,
+concluded the source photo had no wordmark, and said so in a commit message —
+the full photo has a large clear one. Four wrong diagnoses of one receipt all
+came from inferring the input instead of looking at it. Ask for the original
+photo, and use the `OCR|` block dump for what Vision actually returned.
 
 ### A passing test does not mean the receipt works
 
