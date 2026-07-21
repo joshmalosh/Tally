@@ -262,10 +262,15 @@ on every full screen and inline in the list, but never in sheets**.
 
 ## 8. Open items (prioritised)
 
-0. **Build and verify `ef30412`, `68032a2`, `aaf90bd`, `3272b01` — they were
-   written without a compiler.** On the Mac: **⌥⌘X** → **⌘U** (expect 14 OCR + 9
-   gating tests) → Run → **re-scan the Woolworths receipt to confirm the merchant
-   populates.**
+0. **Build and verify `ef30412`…`4f8530d` — written without a compiler, and
+   pushed to both `tally/dev` and `tally/main` on 2026-07-20 while still
+   unbuilt.** On the Mac: **⌥⌘X** → **⌘U** (expect 14 OCR + 9 gating tests) →
+   Run → **re-scan the Woolworths receipt to confirm the merchant populates.**
+   A pre-push review caught three defects in these commits, fixed in `4f8530d`:
+   an undefined-symbol compile error in `TagExportPickerSheet`, a bulk-import
+   quota that never enforced (the loop re-read a counter that only updates after
+   the async Task completes), and an O(n²) rebuild on the Home list. The fixes
+   are themselves unverified — if the build fails, start there.
    Josh runs Pro, so the free-tier work in `ef30412` (ads, Go Pro pill, limit
    sheets) won't appear in his build and doesn't need checking unless he asks.
    `MonetisationGatingTests.swift` is registered in `project.pbxproj` (`3272b01`)
