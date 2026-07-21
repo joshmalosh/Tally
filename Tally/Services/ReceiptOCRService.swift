@@ -98,6 +98,11 @@ enum ReceiptOCRService {
         let notes = extractNotes(from: blocks, merchant: merchant)
         let currencyCode = detectCurrency(in: blocks)
 
+        #if DEBUG
+        print("OCR| => amount=\(amount as Any) merchant=\(merchant as Any) "
+              + "currency=\(currencyCode as Any) date=\(date as Any)")
+        #endif
+
         return ReceiptOCRResult(
             amount: amount, merchant: merchant, date: date,
             notes: notes, currencyCode: currencyCode
@@ -652,6 +657,16 @@ enum ReceiptOCRService {
         options: .caseInsensitive
     )
 
+    /// Marketing and boilerplate that prints at the foot of a docket. Never a
+    /// merchant name, wherever it lands in the block order — this is the
+    /// backstop for "AU-PROMO LEBARAN UP TO", which won on a Deus receipt even
+    /// after the masthead was searched first, because the masthead yielded no
+    /// candidate at all and the fallback scanned the whole receipt.
+    private static let merchantRejectPattern = try! NSRegularExpression(
+        pattern: #"\bpromo\w*|\bdiscount\w*|\bvoucher\b|\bcoupon\b|\bterms\b|\bconditions\b|\brefunds?\b|\bexchange\b|thank\s*you|\brewards?\b|\bsurvey\b|\bwarranty\b|\bpoints\b|\bvalid\b"#,
+        options: .caseInsensitive
+    )
+
     /// Domain/email-looking text ("account.monos.au") — a URL is where the
     /// receipt came from, not who the merchant is.
     private static let domainLikePattern = try! NSRegularExpression(
@@ -699,6 +714,7 @@ enum ReceiptOCRService {
                     && text.contains(where: \.isLetter)
                     && !matches(domainLikePattern, text)
                     && !matches(labelLinePattern, text)
+                    && !matches(merchantRejectPattern, text)
                     && text.count >= 3 && text.count <= 45
             }
     }
@@ -831,6 +847,7 @@ enum ReceiptOCRService {
             // Never use a label-value line ("Sale Staff: Melissa") — whether the
             // label is in this block or in a sibling block on the same line.
             if matches(labelLinePattern, raw) { continue }
+            if matches(merchantRejectPattern, raw) { continue }
             let pairedWithLabelOrAmount = allBlocks.contains { other in
                 (other.text != block.text || other.boundingBox != block.boundingBox)
                     && sharesPrintedLine(other.boundingBox, block.boundingBox)

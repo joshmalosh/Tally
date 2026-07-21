@@ -408,6 +408,30 @@ final class ReceiptOCRServiceTests: XCTestCase {
         XCTAssertNil(ReceiptOCRService.extractForTesting(lines).currencyCode)
     }
 
+    // Backstop: promo boilerplate is never the merchant, even when it is the
+    // only candidate left. Returning nothing beats returning a marketing slogan.
+    func testPromoBanner_neverBecomesMerchant() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("AU-PROMO LEBARAN UP TO", x: 0.40, y: 0.30, w: 0.45),
+            blk("TOTAL", x: 0.15, y: 0.55), blk("4,640,000", x: 0.75, y: 0.55),
+        ]
+        XCTAssertNil(ReceiptOCRService.extractForTesting(lines).merchant)
+    }
+
+    func testFooterBoilerplate_neverBecomesMerchant() {
+        for slogan in ["No Cash Refunds - Exchange only valid",
+                       "Thank You for shopping with us",
+                       "Terms and conditions apply",
+                       "Everyday Rewards"] {
+            let lines: [(text: String, box: CGRect)] = [
+                blk(slogan, x: 0.20, y: 0.30, w: 0.55),
+                blk("TOTAL", x: 0.15, y: 0.55), blk("12.00", x: 0.75, y: 0.55),
+            ]
+            XCTAssertNil(ReceiptOCRService.extractForTesting(lines).merchant,
+                         "\"\(slogan)\" is not a merchant")
+        }
+    }
+
     // A visible wordmark wins outright — it's printed far larger than the body
     // text, which is a more direct signal than any of the filter passes.
     func testLargeWordmark_winsOverEverythingBelow() {
