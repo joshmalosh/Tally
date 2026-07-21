@@ -67,9 +67,11 @@ product owner and makes all product calls; bring him decisions, not surveys.
   cause wasn't forgetfulness — the code genuinely disagreed with itself (CSV
   meant 2, 1, or 0 depending on which call site you read) and with the brief in
   four more places. Grep every call site and reconcile *before* answering.
-- **Never claim something is verified from the Windows box.** There is no Swift
-  toolchain here. Say "pushed; pull with ⌥⌘X and test," never "verified," until
-  he confirms a green run.
+- **Never claim something is verified from the Windows box** — no Swift toolchain
+  here. But say it once, if at all. Josh develops on the PC and tests on the Mac;
+  he knows the code is uncompiled and he knows how to pull and run it. **Do not
+  append "still uncompiled" to every message, and do not spell out ⌥⌘X / ⌘U
+  keystrokes.** Report what changed and why. He'll test it.
 - **Be precise with names.** On Add Expense, the "banner" is a real AdMob ad;
   `proUpsellCompactBanner` is an in-app upsell strip. Saying "banner" ambiguously
   cost a whole exchange.

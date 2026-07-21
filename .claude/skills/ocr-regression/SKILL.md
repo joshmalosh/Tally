@@ -30,11 +30,13 @@ The dev machine is **Windows with no Swift/Xcode toolchain**, so the tests
 run on the user's **Mac** via **Cmd+U** (or `xcodebuild test`). Therefore:
 
 - You must **reason through** the new receipt against the scoring logic by hand
-  and state the expected outcome before editing.
-- Every OCR change's hand-off message MUST end with an explicit instruction to
-  run the OCR test bundle on the Mac (Cmd+U) and re-scan the reported receipts.
+  and state the expected outcome before editing. Trace the actual block text
+  through every filter — reasoning from the corpus instead of from the reported
+  layout has shipped two wrong "fixes" for the same receipt.
 - Do not claim an OCR fix is "verified" — it's verified only after the Mac test
-  run passes. Say "added a test; run Cmd+U to confirm."
+  run passes.
+- **Don't restate that the code is uncompiled, and don't give keystrokes.** Josh
+  develops on the PC and tests on the Mac; he knows. Say what changed and why.
 
 ## Steps for every OCR change
 
@@ -80,7 +82,7 @@ The scanner improves by absorbing real failures one at a time. The user will
 keep sending "here's another receipt that failed" — that is the process working,
 not a setback. Each pass: diagnose from the receipt photo + the app screenshot,
 pin the failure as a test, fix with a rule that generalises, re-check the corpus,
-add the row, hand off for ⌘U. The corpus is the accumulated memory that stops
+add the row. The corpus is the accumulated memory that stops
 any of these ever coming back.
 
 ### Recurring trap families seen so far
