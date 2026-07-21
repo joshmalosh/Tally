@@ -574,9 +574,11 @@ struct AddExpenseView: View {
         // with the hero amount swapped for a compact amount card.
         receiptAmountCard
         quickAddMerchantCard
+        // Date sits directly under the merchant, above the note — same order as
+        // manual entry. (No Add receipt button here; one is already attached.)
+        receiptDateRow
         quickAddNoteCard
         quickAddTagCard
-        receiptDateRow
         quickAddRecurringCard
     }
 
@@ -587,11 +589,12 @@ struct AddExpenseView: View {
 
         quickAddMerchantCard
 
+        // Date and Add receipt sit directly under the merchant, above the note.
+        quickAddExtrasRow
+
         quickAddNoteCard
 
         quickAddTagCard
-
-        quickAddExtrasRow
 
         quickAddRecurringCard
 

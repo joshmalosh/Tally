@@ -133,6 +133,87 @@ final class ReceiptOCRServiceTests: XCTestCase {
     // MARK: - Woolworths — big bottom "You saved $14.90" / "Specials $14.90"
     // repeats the savings value twice, while the real TOTAL is small print.
 
+    // The whole docket as photographed: wordmark, letterhead, weighed items with
+    // per-kg rates, the merchant-ID block, the EFT block, and the rewards footer.
+    // Every Woolworths test below isolates one trap; this is the receipt.
+    //
+    // Reported readings across three scans: $33.00 (per-kg rate), $14.90
+    // (savings), $49.49 correct, then 49.00. Merchant: blank, KELLYVILLE, then
+    // Woolworths correct.
+    func testWoolworths_wholeReceipt_allFields() {
+        let lines: [(text: String, box: CGRect)] = [
+            ("Woolworths",            CGRect(x: 0.30, y: 0.952, width: 0.30, height: 0.020)),
+            ("The fresh food people", CGRect(x: 0.36, y: 0.936, width: 0.22, height: 0.008)),
+            blk("1659 Kellyville Grove  PH: 02 9624 9402", x: 0.30, y: 0.925, w: 0.40),
+            blk("2 Hector Court", x: 0.41, y: 0.917, w: 0.16),
+            blk("TAX INVOICE - ABN 88 000 014 675", x: 0.33, y: 0.909, w: 0.34),
+            blk("POS 065 TRANS 1547 09:33 19/07/2026", x: 0.32, y: 0.901, w: 0.37),
+
+            blk("Carrot", x: 0.30, y: 0.870, w: 0.08),
+            blk("0.392 kg NET @ $2.60/kg", x: 0.31, y: 0.862, w: 0.26), blk("1.02", x: 0.63, y: 0.862, w: 0.05),
+            blk("Zucchini Green Kg", x: 0.30, y: 0.853, w: 0.19),
+            blk("0.352 kg NET @ $4.90/kg", x: 0.31, y: 0.845, w: 0.26), blk("1.72", x: 0.63, y: 0.845, w: 0.05),
+            blk("Mushroom Cups Loose", x: 0.30, y: 0.836, w: 0.22),
+            blk("0.213 kg NET @ $12.90/kg", x: 0.31, y: 0.828, w: 0.27), blk("2.75", x: 0.63, y: 0.828, w: 0.05),
+            blk("Garlic", x: 0.30, y: 0.819, w: 0.08),
+            blk("0.047 kg NET @ $33.00/kg", x: 0.31, y: 0.811, w: 0.27), blk("1.55", x: 0.63, y: 0.811, w: 0.05),
+            blk("WW Lean Beef Mince 1kg", x: 0.30, y: 0.802, w: 0.25), blk("19.35", x: 0.62, y: 0.802, w: 0.06),
+            blk("Campbells Real Stock Beef 500ml", x: 0.30, y: 0.793, w: 0.33), blk("2.75", x: 0.63, y: 0.793, w: 0.05),
+            blk("^ Mutti Finely Chopped Tomatoes 790g", x: 0.30, y: 0.784, w: 0.36), blk("3.40", x: 0.63, y: 0.784, w: 0.05),
+            blk("San Remo Pasta Elbows No. 35 500g", x: 0.30, y: 0.775, w: 0.35), blk("2.95", x: 0.63, y: 0.775, w: 0.05),
+            blk("^#Up&go Energize Strawberry 6x250ml", x: 0.30, y: 0.766, w: 0.37),
+            blk("Qty   2 @   $7.00    each", x: 0.31, y: 0.757, w: 0.24), blk("14.00", x: 0.62, y: 0.757, w: 0.06),
+
+            blk("10 SUBTOTAL", x: 0.31, y: 0.735, w: 0.13), blk("$49.49", x: 0.61, y: 0.735, w: 0.07),
+            blk("TOTAL", x: 0.33, y: 0.726, w: 0.07), blk("$49.49", x: 0.61, y: 0.726, w: 0.07),
+
+            blk("WOOLWORTHS", x: 0.30, y: 0.690, w: 0.12),
+            blk("1659", x: 0.44, y: 0.690, w: 0.04),
+            blk("KELLYVILLE", x: 0.52, y: 0.689, w: 0.11),
+            blk("NSW", x: 0.66, y: 0.689, w: 0.04),
+            blk("MERCH ID:611000602001659", x: 0.30, y: 0.681, w: 0.24),
+            blk("TERM ID:", x: 0.50, y: 0.681, w: 0.09), blk("W1659065", x: 0.62, y: 0.681, w: 0.09),
+            blk("Visa DEBIT", x: 0.30, y: 0.672, w: 0.11), blk("CREDIT", x: 0.44, y: 0.672, w: 0.07),
+            blk("CARD:.............6043 T", x: 0.50, y: 0.672, w: 0.19),
+            blk("AID", x: 0.30, y: 0.663, w: 0.03), blk("A0000000031010", x: 0.37, y: 0.663, w: 0.14),
+            blk("PURCHASE", x: 0.50, y: 0.663, w: 0.10), blk("$49.49", x: 0.62, y: 0.663, w: 0.07),
+            blk("TVR", x: 0.30, y: 0.654, w: 0.03), blk("0000000000", x: 0.38, y: 0.654, w: 0.11),
+            blk("ARQC", x: 0.30, y: 0.645, w: 0.05), blk("0ED34F64FB014C61", x: 0.37, y: 0.645, w: 0.16),
+            blk("TOTAL", x: 0.50, y: 0.645, w: 0.06), blk("$49.49", x: 0.62, y: 0.645, w: 0.07),
+            blk("ATC", x: 0.30, y: 0.636, w: 0.03), blk("0292", x: 0.44, y: 0.636, w: 0.05),
+            blk("PSN", x: 0.50, y: 0.636, w: 0.04), blk("00", x: 0.66, y: 0.636, w: 0.03),
+            blk("19/07/26 09:33", x: 0.30, y: 0.627, w: 0.14), blk("001547", x: 0.44, y: 0.627, w: 0.07),
+            blk("APPROVED", x: 0.50, y: 0.627, w: 0.10), blk("00", x: 0.66, y: 0.627, w: 0.03),
+
+            blk("EFT", x: 0.33, y: 0.608, w: 0.04), blk("$49.49", x: 0.61, y: 0.608, w: 0.07),
+            blk("Change", x: 0.33, y: 0.599, w: 0.07), blk("$0.00", x: 0.62, y: 0.599, w: 0.06),
+            blk("^Promotional Price", x: 0.29, y: 0.583, w: 0.18),
+            blk("#Taxable Items", x: 0.29, y: 0.567, w: 0.15),
+            blk("TOTAL includes GST", x: 0.29, y: 0.559, w: 0.19), blk("$1.27", x: 0.62, y: 0.559, w: 0.06),
+
+            ("You saved $14.90", CGRect(x: 0.34, y: 0.537, width: 0.25, height: 0.014)),
+            ("Specials",         CGRect(x: 0.29, y: 0.522, width: 0.11, height: 0.013)),
+            ("$14.90",           CGRect(x: 0.60, y: 0.522, width: 0.09, height: 0.013)),
+            blk("Everyday Rewards", x: 0.38, y: 0.508, w: 0.17),
+            blk("Nice! You just collected 50 points.", x: 0.34, y: 0.500, w: 0.30),
+            blk("Enjoy $20 off your next shop*", x: 0.36, y: 0.484, w: 0.27),
+            blk("1234/2000", x: 0.58, y: 0.472, w: 0.10),
+            blk("Points balance", x: 0.31, y: 0.464, w: 0.14),
+            blk("*T&Cs apply. Visit everyday.com.au/terms", x: 0.30, y: 0.448, w: 0.38),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+
+        XCTAssertEqual(result.amount ?? -1, 49.49, accuracy: 0.001,
+                       "not 33.00 (per-kg), 14.90 (savings), 1.27 (GST) or 49.00")
+        XCTAssertEqual(result.merchant, "Woolworths", "the wordmark, not the suburb")
+        XCTAssertNil(result.currencyCode, "a bare $ must not pin a currency")
+
+        let parts = Calendar.current.dateComponents([.year, .month, .day], from: result.date ?? .distantPast)
+        XCTAssertEqual(parts.year, 2026)
+        XCTAssertEqual(parts.month, 7)
+        XCTAssertEqual(parts.day, 19)
+    }
+
     func testWoolworths_total_notSavedOrSpecials() {
         let lines: [(text: String, box: CGRect)] = [
             blk("Woolworths", x: 0.3, y: 0.95, w: 0.4),
