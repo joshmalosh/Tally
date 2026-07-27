@@ -447,11 +447,12 @@ final class ReceiptOCRServiceTests: XCTestCase {
     }
 
     // A stray glyph — the stylised DEUS shield misread as "€" — must not set the
-    // expense currency. A symbol only counts beside a number.
+    // expense currency. A symbol only counts beside a number. No country name
+    // here, so the place-name fallback stays out of it and the result is nil.
     func testCurrencySymbolAloneInLogo_doesNotSetCurrency() {
         let lines: [(text: String, box: CGRect)] = [
             blk("€", x: 0.45, y: 0.95, w: 0.06),
-            blk("PT. Deus Ex Machina Indonesia", x: 0.20, y: 0.92, w: 0.55),
+            blk("Corner Store", x: 0.20, y: 0.92, w: 0.30),
             blk("SubTotal", x: 0.45, y: 0.50, w: 0.15), blk("4,640,000", x: 0.75, y: 0.50),
         ]
         XCTAssertNil(ReceiptOCRService.extractForTesting(lines).currencyCode,
@@ -534,6 +535,41 @@ final class ReceiptOCRServiceTests: XCTestCase {
         XCTAssertEqual(result.merchant, "Cherry Beans Kellyvil",
                        "the wordmark, mid-frame, not the footer 'chip'")
         XCTAssertEqual(result.amount ?? -1, 35.83, accuracy: 0.001)
+    }
+
+    // Liquorland — long docket, wordmark at the top reading at the *same* size
+    // as the body and at low confidence (so the tall-wordmark pass does not fire
+    // and the fallback runs), a crisp "TOTAL (Inc GST)" in the middle. The
+    // whole-receipt high-confidence pass picked TOTAL. A total line is never a
+    // merchant, so it must be rejected; the top-of-receipt name wins instead.
+    // Reported: merchant "TOTAL (Inc GST)", amount 461 correct.
+    func testLiquorland_totalLineNeverMerchant() {
+        let lines: [(text: String, box: CGRect, confidence: Float)] = [
+            ("LIQUORLAND",          CGRect(x: 0.30, y: 0.940, width: 0.40, height: 0.012), 0.55),
+            ("ABN 82007512414",     CGRect(x: 0.34, y: 0.900, width: 0.32, height: 0.011), 0.85),
+            ("Description",         CGRect(x: 0.28, y: 0.720, width: 0.16, height: 0.011), 0.90),
+            ("TOTAL (Inc GST)",     CGRect(x: 0.28, y: 0.640, width: 0.20, height: 0.012), 0.95),
+            ("461.00",              CGRect(x: 0.66, y: 0.640, width: 0.08, height: 0.012), 0.95),
+            ("Paid by EFTPOS",      CGRect(x: 0.28, y: 0.610, width: 0.20, height: 0.011), 0.92),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertNotEqual(result.merchant, "TOTAL (Inc GST)", "a total line is never a merchant")
+        XCTAssertEqual(result.merchant, "LIQUORLAND", "the top-of-receipt name, found via the masthead pass")
+        XCTAssertEqual(result.amount ?? -1, 461.00, accuracy: 0.001)
+    }
+
+    // Receipt-structural labels are never a merchant, even alone. Guards the
+    // total/GST/EFTPOS/etc. additions to the reject pattern.
+    func testStructuralLabels_neverBecomeMerchant() {
+        for label in ["TOTAL (Inc GST)", "SUBTOTAL", "TAX INVOICE",
+                      "Paid by EFTPOS", "Description", "PURCHASE", "CREDIT ACCOUNT"] {
+            let lines: [(text: String, box: CGRect)] = [
+                blk(label, x: 0.20, y: 0.90, w: 0.40),
+                blk("Amount Due", x: 0.15, y: 0.55, w: 0.15), blk("12.00", x: 0.75, y: 0.55),
+            ]
+            XCTAssertNotEqual(ReceiptOCRService.extractForTesting(lines).merchant, label,
+                              "\"\(label)\" is not a merchant")
+        }
     }
 
     // A visible wordmark wins outright — it's printed far larger than the body

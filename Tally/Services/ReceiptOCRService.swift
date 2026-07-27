@@ -663,7 +663,13 @@ enum ReceiptOCRService {
     /// after the masthead was searched first, because the masthead yielded no
     /// candidate at all and the fallback scanned the whole receipt.
     private static let merchantRejectPattern = try! NSRegularExpression(
-        pattern: #"\bpromo\w*|\bdiscount\w*|\bvoucher\b|\bcoupon\b|\bterms\b|\bconditions\b|\brefunds?\b|\bexchange\b|thank\s*you|\brewards?\b|\bsurvey\b|\bwarranty\b|\bpoints\b|\bvalid\b"#,
+        // Marketing/footer boilerplate, plus receipt-structural labels. A crisp
+        // "TOTAL (Inc GST)" in the middle of a Liquorland docket beat the
+        // letter-spaced wordmark at the top, which OCR'd at lower confidence —
+        // so a total line must never be eligible as a merchant. `total\s*[(:]`
+        // catches "TOTAL (Inc GST)" / "TOTAL:" without rejecting a real store
+        // like "Total Tools".
+        pattern: #"\bpromo\w*|\bdiscount\w*|\bvoucher\b|\bcoupon\b|\bterms\b|\bconditions\b|\brefunds?\b|\bexchange\b|thank\s*you|\brewards?\b|\bsurvey\b|\bwarranty\b|\bpoints\b|\bvalid\b|total\s*[(:]|\bsub\s*total\b|tax\s+invoice|\bgst\b|\bdescription\b|paid\s+by|\beftpos\b|change\s+due|\bpurchase\b|credit\s+account|\bapproved\b"#,
         options: .caseInsensitive
     )
 
