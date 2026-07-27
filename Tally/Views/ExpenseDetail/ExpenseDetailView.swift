@@ -93,28 +93,6 @@ struct ExpenseDetailView: View {
         return tag.name
     }
 
-    private static let heroDateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "d MMM yyyy"
-        return f
-    }()
-
-    /// "18 APR 2026" style for hero overlay
-    private var heroDateLabel: String {
-        Self.heroDateFormatter.string(from: date).uppercased()
-    }
-
-    /// Split amountText into whole and decimal for the hero display
-    private var heroAmountParts: (whole: String, decimal: String?) {
-        let raw = amountText.isEmpty ? "0" : amountText
-        if let dotIdx = raw.firstIndex(of: ".") {
-            let whole = String(raw[raw.startIndex..<dotIdx])
-            let dec   = String(raw[raw.index(after: dotIdx)...])
-            return (whole, dec.isEmpty ? "00" : dec)
-        }
-        return (raw, nil)
-    }
-
     private static let datePillFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateStyle = .medium
@@ -336,6 +314,8 @@ struct ExpenseDetailView: View {
             .allowsHitTesting(false)
         }
         .frame(height: 260)
+        .contentShape(Rectangle())
+        .onTapGesture { showingFullImage = true }
         // Tag pill — top-left
         .overlay(alignment: .topLeading) {
             if !selectedTags.isEmpty, let tag = selectedTags.first {
@@ -364,63 +344,11 @@ struct ExpenseDetailView: View {
                 .padding(12)
             }
         }
-        // Date / merchant / amount — bottom-left
-        .overlay(alignment: .bottomLeading) {
-            let parts = heroAmountParts
-            VStack(alignment: .leading, spacing: 2) {
-                Text(heroDateLabel)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.7))
-                    .tracking(1.2)
-
-                Text(
-                    merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                        ? "Merchant"
-                        : merchant
-                )
-                .font(Font.dmSerifDisplay(24))
-                .foregroundStyle(.white)
-                .lineLimit(2)
-
-                HStack(alignment: .firstTextBaseline, spacing: 1) {
-                    Text(currencySymbol)
-                        .font(.system(size: 18, weight: .regular, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.85))
-                    Text(parts.whole)
-                        .font(.system(size: 36, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white)
-                    if let dec = parts.decimal {
-                        Text(".\(dec)")
-                            .font(.system(size: 20, weight: .bold, design: .monospaced))
-                            .foregroundStyle(.white.opacity(0.85))
-                            .baselineOffset(8)
-                    }
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.bottom, 14)
-            .allowsHitTesting(false)
-        }
-        // VIEW RECEIPT + Replace / Remove — bottom-right
+        // Replace / Remove — bottom-right. Date/merchant/amount overlay removed:
+        // it duplicated the editable fields below and clipped long values. Tap
+        // the receipt itself to view it full-screen.
         .overlay(alignment: .bottomTrailing) {
             VStack(alignment: .trailing, spacing: 8) {
-                Button { showingFullImage = true } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "doc.text.viewfinder")
-                            .font(.system(size: 11, weight: .semibold))
-                        Text("VIEW RECEIPT")
-                            .font(.system(size: 11, weight: .bold))
-                            .tracking(0.4)
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
-                    .background(Color.white.opacity(0.2))
-                    .overlay(Capsule().stroke(Color.white.opacity(0.4), lineWidth: 1))
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-
                 HStack(spacing: 12) {
                     Button { showingReplaceReceiptSources = true } label: {
                         Text("Replace")

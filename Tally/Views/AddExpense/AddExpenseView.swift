@@ -1119,26 +1119,11 @@ struct AddExpenseView: View {
         // the editable fields directly below, and a long value (a merchant name,
         // or a rupiah total) ran under the VIEW RECEIPT button and clipped. The
         // hero now just shows the receipt.
-        // Bottom-right: VIEW RECEIPT + Replace/Remove
+        // Bottom-right: Replace/Remove. VIEW RECEIPT removed — tap the receipt
+        // itself to open it full-screen.
         .overlay(alignment: .bottomTrailing) {
             if attachedImage != nil {
                 VStack(alignment: .trailing, spacing: 8) {
-                    Button { showingFullImage = true } label: {
-                        HStack(spacing: 5) {
-                            Image(systemName: "doc.viewfinder")
-                                .font(.system(size: 11, weight: .semibold))
-                            Text("VIEW RECEIPT")
-                                .font(.system(size: 11, weight: .bold))
-                                .tracking(0.3)
-                        }
-                        .foregroundStyle(.white)
-                        .padding(.vertical, 7)
-                        .padding(.horizontal, 12)
-                        .background(.ultraThinMaterial)
-                        .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
-
                     HStack(spacing: 12) {
                         Button { showingReplaceReceiptSources = true } label: {
                             Text("Replace")
