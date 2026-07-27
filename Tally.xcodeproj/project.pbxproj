@@ -48,6 +48,7 @@
 		9BDC7CB24BE5FAF687FD2A72 /* TagColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 154DC6BAE1EEB5F2B8A95FBB /* TagColors.swift */; };
 		9C4EA2BB4743FB5C5ED3DEF7 /* TagModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 25B338B02BFED8F0EDE29E3B /* TagModel.swift */; };
 		AD0E32D865CD5781D3BE7E29 /* TagPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E6C66AC70ED7811D106770C /* TagPickerSheet.swift */; };
+		A1B2C3D4TAGSORT00000001 /* TagSorting.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4TAGSORT00000002 /* TagSorting.swift */; };
 		AD8DE95ACB8257BF617E243E /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5D6B7193795721ECE292D29C /* DesignSystem.swift */; };
 		B8KACC111111111111111102 /* KeyboardAccessoryBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8KACC111111111111111101 /* KeyboardAccessoryBar.swift */; };
 		B8KACC222222222222222202 /* SubscriptionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8KACC222222222222222201 /* SubscriptionService.swift */; };
@@ -109,6 +110,7 @@
 		25B338B02BFED8F0EDE29E3B /* TagModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagModel.swift; sourceTree = "<group>"; };
 		260D0BF8B9EEBD835386A115 /* CurrencySetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrencySetupView.swift; sourceTree = "<group>"; };
 		2E6C66AC70ED7811D106770C /* TagPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagPickerSheet.swift; sourceTree = "<group>"; };
+		A1B2C3D4TAGSORT00000002 /* TagSorting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TagSorting.swift; sourceTree = "<group>"; };
 		353E2E5E865C87E7C05BC31D /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		3C148F6D20D290FC046500B9 /* TestHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestHelpers.swift; sourceTree = "<group>"; };
 		47DCB686D9E5B22C0E76DD13 /* DocumentPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentPicker.swift; sourceTree = "<group>"; };
@@ -273,6 +275,7 @@
 				A1B2C3D40102030405060712 /* TagsAndGroupsManagementRows.swift */,
 				9A580A9627AF63E6E23124DD /* TagCreationView.swift */,
 				2E6C66AC70ED7811D106770C /* TagPickerSheet.swift */,
+				A1B2C3D4TAGSORT00000002 /* TagSorting.swift */,
 				FA760FF7DABACC4706C0F32A /* UploadLimitView.swift */,
 			);
 			path = Tags;
@@ -596,6 +599,7 @@
 				E62148A42197D4CB99E2BEAA /* TagCreationView.swift in Sources */,
 				9C4EA2BB4743FB5C5ED3DEF7 /* TagModel.swift in Sources */,
 				AD0E32D865CD5781D3BE7E29 /* TagPickerSheet.swift in Sources */,
+				A1B2C3D4TAGSORT00000001 /* TagSorting.swift in Sources */,
 				35BBEA0B07AD308B03814152 /* TallyApp.swift in Sources */,
 				676E578C3319877F4C45D34D /* UploadLimitView.swift in Sources */,
 				A1B2C3D4010203040506070B /* FilterSheet.swift in Sources */,
