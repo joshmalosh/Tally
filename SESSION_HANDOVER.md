@@ -356,6 +356,7 @@ process working, not a setback.
 | KFC | item name "15 Wicked Wings $10" repeats the value 10 | $26.55 |
 | Woolworths | savings ("You saved"/"Specials") + per-kg rates ("@ $33.00/kg") outrank the small-print TOTAL; label and amount are separate blocks | $49.49 |
 | Woolworths (header) | large wordmark + swirl logo, script tagline, address and ABN beneath. Largest-text pass takes the wordmark directly. A stray `@` from the logo glyph used to disqualify it via the email pattern. | merchant `Woolworths` |
+| Cherry Beans | receipt floats mid-frame with table around it, so the wordmark sat below the image-relative top-40% gate and the merchant fell through to "chip" off the "Contactless chip" line. largestHeaderText now uses the receipt-relative top, like the masthead fallback. | merchant `Cherry Beans Kellyvil` |
 | Deus (Bali, IDR) | grouped thousands "655,000" truncated to 655.00 by the cents regex; stylised logo OCR-ing as `€` set the currency to EUR; crisp promo banner at the foot beat the crumpled letterhead for merchant. Currency now falls back to the country named in the letterhead — receipts print where they were issued far more reliably than a currency code. | $4,640,000 IDR, `PT. Deus Ex Machina Indonesia` |
 | Woolworths (store line) | `WOOLWORTHS 1659   KELLYVILLE   NSW` — name+store-number block rejected for containing a digit, so the suburb won | merchant `WOOLWORTHS` |
 

@@ -702,10 +702,14 @@ enum ReceiptOCRService {
         let median = heights[heights.count / 2]
         guard median > 0 else { return nil }
 
-        return blocks
-            .filter { $0.boundingBox.height >= median * 1.6
-                   && $0.boundingBox.midY >= 0.6
-                   && $0.confidence >= 0.3 }
+        // Top of the *receipt*, not the image. midY >= 0.6 (image-relative) only
+        // worked when the receipt filled the frame; a docket floating mid-photo
+        // with table around it put the wordmark below 0.6, so this returned nil
+        // and the merchant fell through to junk ("chip" off a Cherry Beans
+        // docket, the promo banner off a Deus one). topOfReceipt is the same
+        // receipt-relative region the masthead fallback already uses.
+        return topOfReceipt(blocks, fraction: 0.4)
+            .filter { $0.boundingBox.height >= median * 1.6 && $0.confidence >= 0.3 }
             .sorted { $0.boundingBox.height > $1.boundingBox.height }
             .lazy
             .map { $0.text.trimmingCharacters(in: Self.merchantEdgeJunk) }

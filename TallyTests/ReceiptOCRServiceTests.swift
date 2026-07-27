@@ -513,6 +513,29 @@ final class ReceiptOCRServiceTests: XCTestCase {
         }
     }
 
+    // Cherry Beans, Kellyville — the whole receipt sits mid-frame with table
+    // around it, so the wordmark's midY is well below the image's top 40%. The
+    // header must still win off the receipt's own extent. Reported readings:
+    // "chip" (off "Contactless chip" at the foot), then nothing.
+    // The name wraps two lines ("Cherry Beans Kellyvil" / "le"); the first line
+    // is accepted.
+    func testCherryBeans_receiptMidFrame_findsWordmarkNotFooter() {
+        let lines: [(text: String, box: CGRect)] = [
+            // Wordmark, large, but only at y≈0.72 — below the image's top 40%.
+            ("Cherry Beans Kellyvil", CGRect(x: 0.28, y: 0.720, width: 0.44, height: 0.024)),
+            ("le",                    CGRect(x: 0.47, y: 0.698, width: 0.06, height: 0.024)),
+            blk("ABN: 73 612 976 584", x: 0.34, y: 0.672, w: 0.32),
+            blk("Halloumi & Egg roll", x: 0.28, y: 0.560, w: 0.30), blk("11.90", x: 0.66, y: 0.560, w: 0.06),
+            blk("TOTAL", x: 0.28, y: 0.470, w: 0.08), blk("35.83", x: 0.66, y: 0.470, w: 0.06),
+            blk("Entry mode : Contactless chip", x: 0.28, y: 0.360, w: 0.34),
+            blk("APPROVED : approved", x: 0.28, y: 0.320, w: 0.24),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertEqual(result.merchant, "Cherry Beans Kellyvil",
+                       "the wordmark, mid-frame, not the footer 'chip'")
+        XCTAssertEqual(result.amount ?? -1, 35.83, accuracy: 0.001)
+    }
+
     // A visible wordmark wins outright — it's printed far larger than the body
     // text, which is a more direct signal than any of the filter passes.
     func testLargeWordmark_winsOverEverythingBelow() {
