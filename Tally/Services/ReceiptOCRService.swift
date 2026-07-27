@@ -752,6 +752,18 @@ enum ReceiptOCRService {
         // not, and the high-confidence pass ran over the whole receipt before
         // the low-confidence pass ever looked at the top.
         let masthead = topOfReceipt(ordered, fraction: 0.4)
+
+        // A word printed ALL CAPS at the top is almost always the store name —
+        // LIQUORLAND, WOOLWORTHS — even when it OCR'd at low confidence and the
+        // same-size body text around it did not. It runs through the same reject
+        // gates, so TOTAL / GST / TAX INVOICE / CARDHOLDER COPY (also all caps)
+        // are filtered out. Confidence floor is low because the caps signal is
+        // the strong one here.
+        if let caps = firstMerchantCandidate(in: masthead, allBlocks: blocks,
+                                             minConfidence: 0.3, requireAllCaps: true) {
+            return caps
+        }
+
         for candidates in [masthead, ordered] {
             // Within each region, prefer a confident read; store names are often
             // set in a display font that OCRs below the body text, so accept a
@@ -841,7 +853,15 @@ enum ReceiptOCRService {
         return tokens.dropLast().joined(separator: " ")
     }
 
-    private static func firstMerchantCandidate(in blocks: [TextBlock], allBlocks: [TextBlock], minConfidence: Float) -> String? {
+    /// A block whose letters are all uppercase (LIQUORLAND, WOOLWORTHS). ≥3
+    /// letters so "P" or "Rd" don't count.
+    private static func isAllCaps(_ text: String) -> Bool {
+        let letters = text.filter(\.isLetter)
+        return letters.count >= 3 && !letters.contains(where: \.isLowercase)
+    }
+
+    private static func firstMerchantCandidate(in blocks: [TextBlock], allBlocks: [TextBlock],
+                                               minConfidence: Float, requireAllCaps: Bool = false) -> String? {
         for block in blocks {
             guard block.confidence >= minConfidence else { continue }
 
@@ -892,6 +912,8 @@ enum ReceiptOCRService {
 
             let wordCount = text.split(whereSeparator: { $0.isWhitespace }).count
             guard wordCount <= 6 else { continue }
+
+            if requireAllCaps && !isAllCaps(text) { continue }
 
             return text
         }
