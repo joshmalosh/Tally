@@ -240,6 +240,7 @@ advertised "Advanced filters" (never a real feature — no code ever gated it) a
   caret, dark placeholder text, tap-to-dismiss keyboard, and the **merchant-field
   lag** — caused by a banner in both branches of a conditional, destroying and
   recreating the AdMob WebView on every keyboard toggle.
+- **Tag sort**: expense tag picker defaults to most-recently-used (derived from expense dates, no schema change); all tag lists gain an A–Z / Z–A / Recent filter button. `Tally/Views/Tags/TagSorting.swift`.
 - **Recurring filter** (`47129e6`), **Home "Rise" gradient** (bottom-most layer —
   never put UI translucency over it), **share-to-Tally** with auto-open,
   **SKAdNetwork IDs** (`61e5e95`).

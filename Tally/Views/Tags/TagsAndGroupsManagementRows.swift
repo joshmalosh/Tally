@@ -7,6 +7,10 @@ struct TagsAndGroupsManagementRows: View {
     @Environment(AppState.self) private var appState
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
+    @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil }) private var expenses: [ExpenseModel]
+
+    // Management list stays A–Z by default; the filter button can re-sort it.
+    @State private var sortOrder: TagSortOrder = .aToZ
 
     private enum TagSheet: Identifiable {
         case newTag, newGroup, edit(TagModel), groupDetail(TagModel)
@@ -22,14 +26,14 @@ struct TagsAndGroupsManagementRows: View {
 
     @State private var activeSheet: TagSheet?
 
+    private var recency: [String: Date] { tagRecency(from: expenses) }
+
     private var allTagsSorted: [TagModel] {
-        tags.filter { !$0.isGroup }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        tags.filter { !$0.isGroup }.sortedForDisplay(sortOrder, recency: recency)
     }
 
     private var groupsSorted: [TagModel] {
-        tags.filter { $0.isGroup }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        tags.filter { $0.isGroup }.sortedForDisplay(sortOrder, recency: recency)
     }
 
     private func childrenOf(_ group: TagModel) -> [TagModel] {
@@ -85,6 +89,8 @@ struct TagsAndGroupsManagementRows: View {
                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
                 }
                 .buttonStyle(.plain)
+
+                TagSortMenu(order: $sortOrder)
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 8)

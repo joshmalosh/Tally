@@ -7,32 +7,34 @@ import SwiftData
 struct SharedTagPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
+    @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil }) private var expenses: [ExpenseModel]
 
     @Binding private var selectedTagIds: [String]
 
     @State private var showingNewTag = false
     @State private var showingNewGroup = false
+    // Picker defaults to the tags you reach for most often.
+    @State private var sortOrder: TagSortOrder = .recent
 
     init(selectedTagIds: Binding<[String]>) {
         _selectedTagIds = selectedTagIds
     }
 
+    private var recency: [String: Date] { tagRecency(from: expenses) }
+
     private var standaloneTags: [TagModel] {
-        tags
-            .filter { !$0.isGroup && $0.parentId == nil }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        tags.filter { !$0.isGroup && $0.parentId == nil }
+            .sortedForDisplay(sortOrder, recency: recency)
     }
 
     private var groups: [TagModel] {
-        tags
-            .filter { $0.isGroup }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        tags.filter { $0.isGroup }
+            .sortedForDisplay(sortOrder, recency: recency)
     }
 
     private func childTags(of group: TagModel) -> [TagModel] {
-        tags
-            .filter { $0.parentId == group.id }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        tags.filter { $0.parentId == group.id }
+            .sortedForDisplay(sortOrder, recency: recency)
     }
 
     private var selectedId: String? { selectedTagIds.first }
@@ -56,6 +58,7 @@ struct SharedTagPickerSheet: View {
                         createButton(icon: "folder.badge.plus", title: "Add folder") {
                             showingNewGroup = true
                         }
+                        TagSortMenu(order: $sortOrder)
                     }
                     .padding(.horizontal, 16)
                     .padding(.bottom, 16)
