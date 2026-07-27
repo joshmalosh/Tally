@@ -529,13 +529,27 @@ struct AddExpenseView: View {
             Color.bgPrimary.ignoresSafeArea()
 
             if formReady {
-                ScrollView {
-                    formScrollStack
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .scrollDismissesKeyboard(.interactively)
-                .safeAreaInset(edge: .bottom, spacing: 0) {
-                    stickySaveChrome
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        formScrollStack
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .scrollDismissesKeyboard(.interactively)
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        stickySaveChrome
+                    }
+                    // The merchant autocomplete chips sit right under the field,
+                    // so the keyboard covers them. Pull the card to the top when
+                    // it focuses; the delay lets the keyboard finish animating in
+                    // so the scroll lands above it.
+                    .onChange(of: focusedField) { _, field in
+                        guard field == .merchant else { return }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                proxy.scrollTo("merchant", anchor: .top)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -686,6 +700,7 @@ struct AddExpenseView: View {
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
         .padding(.horizontal, 16)
         .animation(.easeInOut(duration: 0.15), value: showChips)
+        .id("merchant")
     }
 
     // MARK: - Quick Add: Note card
