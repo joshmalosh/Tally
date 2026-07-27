@@ -1791,11 +1791,29 @@ struct AddExpenseView: View {
     private func historicalTagIds(for merchantName: String) -> [String]? {
         let q = merchantName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !q.isEmpty else { return nil }
-        let match = allExpenses
-            .filter { ($0.merchant ?? "").lowercased() == q && !$0.resolvedTagIds.isEmpty }
-            .sorted { $0.updatedAt > $1.updatedAt }
-            .first
-        return match?.resolvedTagIds
+
+        // The tag you apply to this merchant *most often*, not just last time —
+        // Sushia is "Meals" even if the one work lunch was the most recent visit.
+        // Ties break toward the most recently used, so a deliberate recent change
+        // still wins once it's as common as the old habit.
+        let past = allExpenses.filter {
+            ($0.merchant ?? "").lowercased() == q && !$0.resolvedTagIds.isEmpty
+        }
+        guard !past.isEmpty else { return nil }
+
+        var count: [String: Int] = [:]
+        var lastUsed: [String: Date] = [:]
+        for expense in past {
+            for id in expense.resolvedTagIds {
+                count[id, default: 0] += 1
+                lastUsed[id] = max(lastUsed[id] ?? .distantPast, expense.updatedAt)
+            }
+        }
+        guard let top = count.keys.max(by: {
+            count[$0]! != count[$1]! ? count[$0]! < count[$1]!
+                                     : lastUsed[$0]! < lastUsed[$1]!
+        }) else { return nil }
+        return [top]
     }
 
     private func totalSpent(at merchantName: String) -> Int {
