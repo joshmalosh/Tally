@@ -225,12 +225,17 @@ struct AddToHomeBarSheet: View {
     @Query(sort: \TagModel.sortOrder) private var allTags: [TagModel]
     @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil }) private var expenses: [ExpenseModel]
     @State private var sortOrder: TagSortOrder = .aToZ
+    @State private var searchText = ""
+    @FocusState private var searchFocused: Bool
 
     // Home bar holds standalone tags only.
     private var eligibleTags: [TagModel] {
         allTags.filter { !$0.isGroup }
+            .filter { searchText.isEmpty || $0.name.localizedCaseInsensitiveContains(searchText) }
             .sortedForDisplay(sortOrder, recency: tagRecency(from: expenses))
     }
+
+    private var hasAnyTag: Bool { allTags.contains { !$0.isGroup } }
 
     var body: some View {
         NavigationStack {
@@ -249,7 +254,7 @@ struct AddToHomeBarSheet: View {
                         .padding(.horizontal, 16)
                         .padding(.bottom, 12)
 
-                    if eligibleTags.isEmpty {
+                    if !hasAnyTag {
                         VStack(spacing: 12) {
                             Image(systemName: "tag.slash")
                                 .font(.system(size: 40))
@@ -265,41 +270,31 @@ struct AddToHomeBarSheet: View {
                         .frame(maxWidth: .infinity)
                         .padding(.top, 60)
                     } else {
-                        HStack {
-                            Spacer()
-                            TagSortMenu(order: $sortOrder)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 12)
+                        // Search + sort row — mirrors the Home page search/filter row.
+                        searchAndSortRow
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 12)
 
-                        VStack(spacing: 0) {
-                            ForEach(Array(eligibleTags.enumerated()), id: \.element.id) { index, tag in
-                                FilterRow(
-                                    title: tag.name,
-                                    titleFont: .system(size: 17),
-                                    isSelected: tag.showOnHome,
-                                    checkmarkFont: .system(size: 15, weight: .semibold),
-                                    horizontalPadding: 16,
-                                    verticalPadding: 16,
-                                    leading: {
-                                        Circle()
-                                            .fill(tag.tagColor.primaryColor)
-                                            .frame(width: 12, height: 12)
+                        if eligibleTags.isEmpty {
+                            Text("No tags match “\(searchText)”.")
+                                .font(.system(size: 14))
+                                .foregroundStyle(Color(hex: "8F9E94"))
+                                .frame(maxWidth: .infinity)
+                                .padding(.top, 40)
+                        } else {
+                            VStack(spacing: 0) {
+                                ForEach(Array(eligibleTags.enumerated()), id: \.element.id) { index, tag in
+                                    tagRow(tag)
+                                    if index < eligibleTags.count - 1 {
+                                        Divider().padding(.leading, 44)
                                     }
-                                ) {
-                                    tag.showOnHome.toggle()
-                                    try? modelContext.save()
-                                    UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
-                                }
-                                if index < eligibleTags.count - 1 {
-                                    Divider().padding(.leading, 44)
                                 }
                             }
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 24)
                         }
-                        .background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 24)
                     }
                 }
             }
@@ -312,5 +307,63 @@ struct AddToHomeBarSheet: View {
                 }
             }
         }
+    }
+
+    // Search field (fills the space) + sort control on the right — the same
+    // layout as the Home page search/filter row.
+    private var searchAndSortRow: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .font(.system(size: 15))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+                TextField("Search tags…", text: $searchText)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+                    .focused($searchFocused)
+                if !searchText.isEmpty {
+                    Button { searchText = "" } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color(hex: "8F9E94"))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 40)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(searchFocused ? Color(hex: "2F402E") : Color(hex: "DEDAD2"),
+                            lineWidth: searchFocused ? 1 : 0.5)
+            )
+
+            TagSortMenu(order: $sortOrder)
+        }
+    }
+
+    private func tagRow(_ tag: TagModel) -> some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(tag.tagColor.primaryColor)
+                .frame(width: 12, height: 12)
+            Text(tag.name)
+                .font(.system(size: 17))
+                .foregroundStyle(Color(hex: "1C1C1E"))
+            Spacer()
+            HomeToggle(isOn: tag.showOnHome) { toggleHome(tag) }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+        .onTapGesture { toggleHome(tag) }
+    }
+
+    private func toggleHome(_ tag: TagModel) {
+        tag.showOnHome.toggle()
+        try? modelContext.save()
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
     }
 }
