@@ -740,7 +740,7 @@ enum ReceiptOCRService {
     /// the same winner the single-value passes produced before; the rest are the
     /// gate-passing lines that ranked lower — clean names only, never the
     /// rejected total/GST junk — for the "Doesn't look right?" picker.
-    static func rankedMerchants(from blocks: [TextBlock]) -> [String] {
+    private static func rankedMerchants(from blocks: [TextBlock]) -> [String] {
         let ordered = readingOrder(blocks)
         let masthead = topOfReceipt(ordered, fraction: 0.4)
 
