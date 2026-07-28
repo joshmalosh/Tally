@@ -793,9 +793,9 @@ struct HomeToggle: View {
     let isOn: Bool
     let onToggle: () -> Void
 
-    private let width: CGFloat = 46
-    private let height: CGFloat = 26
-    private let thumbSize: CGFloat = 22
+    private let width: CGFloat = 60
+    private let height: CGFloat = 34
+    private let thumbSize: CGFloat = 28
 
     var body: some View {
         Button(action: onToggle) {
@@ -810,7 +810,7 @@ struct HomeToggle: View {
                     .frame(width: thumbSize, height: thumbSize)
                     .overlay(
                         Image(systemName: "house.fill")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundStyle(.white)
                             .opacity(isOn ? 1 : 0)
                     )

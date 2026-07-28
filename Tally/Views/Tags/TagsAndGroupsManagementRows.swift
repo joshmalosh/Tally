@@ -119,7 +119,7 @@ struct TagsAndGroupsManagementRows: View {
                             print("[Tally] ERROR toggling showOnHome: \(error)")
                             #endif
                         }
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
                     }
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .semibold))
