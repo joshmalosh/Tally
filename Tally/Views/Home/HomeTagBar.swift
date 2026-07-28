@@ -223,79 +223,87 @@ struct AddToHomeBarSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \TagModel.sortOrder) private var allTags: [TagModel]
-    @State private var searchText = ""
+    @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil }) private var expenses: [ExpenseModel]
+    @State private var sortOrder: TagSortOrder = .aToZ
 
+    // Home bar holds standalone tags only.
     private var eligibleTags: [TagModel] {
-        allTags
-            .filter { !$0.isGroup }
-            .filter {
-                searchText.isEmpty || $0.name.localizedCaseInsensitiveContains(searchText)
-            }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        allTags.filter { !$0.isGroup }
+            .sortedForDisplay(sortOrder, recency: tagRecency(from: expenses))
     }
 
     var body: some View {
         NavigationStack {
-            Group {
-                if eligibleTags.isEmpty && !searchText.isEmpty {
-                    ContentUnavailableView.search(text: searchText)
-                } else if allTags.filter({ !$0.isGroup }).isEmpty {
-                    VStack(spacing: 12) {
-                        Image(systemName: "tag.slash")
-                            .font(.system(size: 40))
-                            .foregroundStyle(Color(hex: "8F9E94"))
-                        Text("No tags yet")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Color(hex: "1C1C1E"))
-                        Text("Create tags first, then pin them here.")
-                            .font(.system(size: 14))
-                            .foregroundStyle(Color(hex: "8F9E94"))
-                            .multilineTextAlignment(.center)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    List {
-                        Section {
-                            Text("Tap a tag to toggle it on your home bar.")
-                                .font(.system(size: 13))
-                                .foregroundStyle(Color(hex: "8F9E94"))
-                                .listRowBackground(Color.clear)
-                                .listRowSeparator(.hidden)
-                        }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Home bar tags")
+                        .font(.dmSerifDisplay(28))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
 
-                        Section {
-                            ForEach(eligibleTags) { tag in
-                                Button {
-                                    tag.showOnHome.toggle()
-                                    try? modelContext.save()
-                                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                                } label: {
-                                    HStack(spacing: 12) {
+                    Text("Tap a tag to pin or unpin it from your home bar.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color(hex: "8F9E94"))
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 12)
+
+                    if eligibleTags.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "tag.slash")
+                                .font(.system(size: 40))
+                                .foregroundStyle(Color(hex: "8F9E94"))
+                            Text("No tags yet")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(Color(hex: "1C1C1E"))
+                            Text("Create tags first, then pin them here.")
+                                .font(.system(size: 14))
+                                .foregroundStyle(Color(hex: "8F9E94"))
+                                .multilineTextAlignment(.center)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 60)
+                    } else {
+                        HStack {
+                            Spacer()
+                            TagSortMenu(order: $sortOrder)
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 12)
+
+                        VStack(spacing: 0) {
+                            ForEach(Array(eligibleTags.enumerated()), id: \.element.id) { index, tag in
+                                FilterRow(
+                                    title: tag.name,
+                                    titleFont: .system(size: 17),
+                                    isSelected: tag.showOnHome,
+                                    checkmarkFont: .system(size: 15, weight: .semibold),
+                                    horizontalPadding: 16,
+                                    verticalPadding: 16,
+                                    leading: {
                                         Circle()
                                             .fill(tag.tagColor.primaryColor)
-                                            .frame(width: 10, height: 10)
-                                        Text(tag.name)
-                                            .font(.system(size: 16))
-                                            .foregroundStyle(Color(hex: "1C1C1E"))
-                                        Spacer()
-                                        if tag.showOnHome {
-                                            Image(systemName: "checkmark")
-                                                .font(.system(size: 14, weight: .semibold))
-                                                .foregroundStyle(Color(hex: "346049"))
-                                        }
+                                            .frame(width: 12, height: 12)
                                     }
-                                    .contentShape(Rectangle())
+                                ) {
+                                    tag.showOnHome.toggle()
+                                    try? modelContext.save()
+                                    UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
                                 }
-                                .buttonStyle(.plain)
+                                if index < eligibleTags.count - 1 {
+                                    Divider().padding(.leading, 44)
+                                }
                             }
                         }
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 24)
                     }
-                    .scrollContentBackground(.hidden)
-                    .background(Color(hex: "F0EDE6").ignoresSafeArea())
                 }
             }
-            .searchable(text: $searchText, prompt: "Search tags")
-            .navigationTitle("Home bar tags")
+            .background(Color(hex: "F0EDE6").ignoresSafeArea())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
