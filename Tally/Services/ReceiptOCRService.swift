@@ -750,11 +750,16 @@ enum ReceiptOCRService {
         if let wordmark = largestHeaderText(in: blocks) { ranked.append(wordmark) }
 
         // 2. A registered-business name (Pty/Ltd/…) anywhere on the receipt.
+        //    The reject/label gates run here too: "TOTAL (Inc GST)" matches the
+        //    business-suffix pattern on "Inc" (Including, not Incorporated), and
+        //    without the gate this pass handed it back as the merchant.
         for block in ordered where block.confidence >= 0.4 {
             let raw = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard matches(businessSuffixPattern, raw),
                   !raw.contains(where: { $0.isNumber }),
                   !matches(domainLikePattern, raw),
+                  !matches(merchantRejectPattern, raw),
+                  !matches(labelLinePattern, raw),
                   raw.count >= 4, raw.count <= 45 else { continue }
             let cleaned = raw.trimmingCharacters(in: Self.merchantEdgeJunk)
             if cleaned.count >= 3 { ranked.append(cleaned) }
