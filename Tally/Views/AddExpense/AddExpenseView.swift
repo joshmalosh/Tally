@@ -65,6 +65,9 @@ struct AddExpenseView: View {
     @State private var formReady = true
     @State private var isRunningOCR = false
     @State private var showingScanLimit = false
+    /// Lower-ranked merchant guesses from the last OCR pass, for "Doesn't look right?".
+    @State private var merchantAlternates: [String] = []
+    @State private var showMerchantAlternates = false
     @State private var showingProBenefitsCard = false
     @State private var showingGoProFromOcrBanner = false
 
@@ -342,7 +345,14 @@ struct AddExpenseView: View {
             .onChange(of: selectedTagIds) { _, newValue in
                 if !newValue.isEmpty {
                     withAnimation(.easeInOut(duration: 0.2)) { tallySuggestion = nil }
+                    // Picking a tag means the user has moved past merchant.
+                    dismissMerchantAlternates()
                 }
+            }
+            .onChange(of: focusedField) { _, field in
+                // Moving to a field below Date (the note) retires the merchant
+                // alternates affordance.
+                if field == .notes { dismissMerchantAlternates() }
             }
             .onChange(of: showingTagPicker) { _, isShowing in
                 // Picker dismissed with a user selection — clear the auto-apply flag
@@ -693,6 +703,13 @@ struct AddExpenseView: View {
                 .padding(.top, 10)
                 .transition(.opacity)
             }
+
+            // "Doesn't look right?" — the OCR's other merchant guesses. Shown
+            // only after an OCR pass produced alternates, and not while the field
+            // is focused (the autocomplete chips own that space).
+            if !merchantAlternates.isEmpty && focusedField != .merchant {
+                merchantAlternatesView
+            }
         }
         .padding(.bottom, 14)
         .background(Color.white)
@@ -700,7 +717,58 @@ struct AddExpenseView: View {
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
         .padding(.horizontal, 16)
         .animation(.easeInOut(duration: 0.15), value: showChips)
+        .animation(.easeInOut(duration: 0.15), value: showMerchantAlternates)
         .id("merchant")
+    }
+
+    @ViewBuilder
+    private var merchantAlternatesView: some View {
+        if showMerchantAlternates {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(merchantAlternates.prefix(5), id: \.self) { name in
+                        Button {
+                            merchant = name
+                            dismissMerchantAlternates()
+                        } label: {
+                            Text(name)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color(hex: "2F402E"))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 6)
+                                .background(Color(hex: "F0EDE6"))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 14)
+            }
+            .padding(.top, 10)
+            .transition(.opacity)
+        } else {
+            Button {
+                showMerchantAlternates = true
+            } label: {
+                Text("Doesn't look right?")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.brandPrimary)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 14)
+            .padding(.top, 10)
+        }
+    }
+
+    /// Clears the "Doesn't look right?" affordance — after a pick, or once the
+    /// user moves on to a field below Date.
+    private func dismissMerchantAlternates() {
+        showMerchantAlternates = false
+        merchantAlternates = []
     }
 
     // MARK: - Quick Add: Note card
@@ -1719,6 +1787,9 @@ struct AddExpenseView: View {
             merchant = name
             applied = true
         }
+        // Keep the OCR's other guesses for the "Doesn't look right?" chip.
+        merchantAlternates = result.merchantAlternates
+        showMerchantAlternates = false
         if let ocrNotes = result.notes, notes.isEmpty {
             notes = ocrNotes
             applied = true

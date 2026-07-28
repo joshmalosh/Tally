@@ -9,6 +9,9 @@ struct ReceiptOCRResult {
     /// ISO 4217 code when the receipt names its currency unambiguously
     /// (€ → EUR, £ → GBP, "AUD" → AUD…). A bare "$" stays nil.
     var currencyCode: String?
+    /// Lower-ranked merchant guesses (clean, gate-passing names only) for the
+    /// "Doesn't look right?" picker. Excludes the chosen `merchant`.
+    var merchantAlternates: [String] = []
 }
 
 enum ReceiptOCRService {
@@ -49,13 +52,15 @@ enum ReceiptOCRService {
     /// tests need to be able to set it.
     static func extractForTesting(_ lines: [(text: String, box: CGRect, confidence: Float)]) -> ReceiptOCRResult {
         let blocks = lines.map { TextBlock(text: $0.text, confidence: $0.confidence, boundingBox: $0.box) }
-        let merchant = extractMerchant(from: blocks)
+        let ranked = rankedMerchants(from: blocks)
+        let merchant = ranked.first
         return ReceiptOCRResult(
             amount: extractAmount(from: blocks),
             merchant: merchant,
             date: extractDate(from: blocks),
             notes: extractNotes(from: blocks, merchant: merchant),
-            currencyCode: detectCurrency(in: blocks)
+            currencyCode: detectCurrency(in: blocks),
+            merchantAlternates: Array(ranked.dropFirst().prefix(5))
         )
     }
     #endif
@@ -93,19 +98,21 @@ enum ReceiptOCRService {
         #endif
 
         let amount = extractAmount(from: blocks)
-        let merchant = extractMerchant(from: blocks)
+        let ranked = rankedMerchants(from: blocks)
+        let merchant = ranked.first
         let date = extractDate(from: blocks)
         let notes = extractNotes(from: blocks, merchant: merchant)
         let currencyCode = detectCurrency(in: blocks)
 
         #if DEBUG
         print("OCR| => amount=\(amount as Any) merchant=\(merchant as Any) "
-              + "currency=\(currencyCode as Any) date=\(date as Any)")
+              + "currency=\(currencyCode as Any) date=\(date as Any) alts=\(ranked.dropFirst().prefix(5))")
         #endif
 
         return ReceiptOCRResult(
             amount: amount, merchant: merchant, date: date,
-            notes: notes, currencyCode: currencyCode
+            notes: notes, currencyCode: currencyCode,
+            merchantAlternates: Array(ranked.dropFirst().prefix(5))
         )
     }
 
@@ -729,12 +736,20 @@ enum ReceiptOCRService {
             }
     }
 
-    private static func extractMerchant(from blocks: [TextBlock]) -> String? {
+    /// The merchant and its alternates, in priority order, deduped. `.first` is
+    /// the same winner the single-value passes produced before; the rest are the
+    /// gate-passing lines that ranked lower — clean names only, never the
+    /// rejected total/GST junk — for the "Doesn't look right?" picker.
+    static func rankedMerchants(from blocks: [TextBlock]) -> [String] {
         let ordered = readingOrder(blocks)
+        let masthead = topOfReceipt(ordered, fraction: 0.4)
 
-        if let wordmark = largestHeaderText(in: blocks) { return wordmark }
+        var ranked: [String] = []
 
-        // Pass 0: an explicit registered-business name anywhere on the receipt.
+        // 1. A clearly-largest wordmark at the top.
+        if let wordmark = largestHeaderText(in: blocks) { ranked.append(wordmark) }
+
+        // 2. A registered-business name (Pty/Ltd/…) anywhere on the receipt.
         for block in ordered where block.confidence >= 0.4 {
             let raw = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard matches(businessSuffixPattern, raw),
@@ -742,40 +757,24 @@ enum ReceiptOCRService {
                   !matches(domainLikePattern, raw),
                   raw.count >= 4, raw.count <= 45 else { continue }
             let cleaned = raw.trimmingCharacters(in: Self.merchantEdgeJunk)
-            if cleaned.count >= 3 { return cleaned }
+            if cleaned.count >= 3 { ranked.append(cleaned) }
         }
 
-        // The name is printed at the top. Search the masthead first, so a crisp
-        // line further down can't beat a header that OCR'd poorly — a crumpled
-        // Deus receipt returned its bottom-of-docket promo banner ("AU-PROMO
-        // LEBARAN UP TO") because that scanned cleanly while the letterhead did
-        // not, and the high-confidence pass ran over the whole receipt before
-        // the low-confidence pass ever looked at the top.
-        let masthead = topOfReceipt(ordered, fraction: 0.4)
+        // 3. An ALL-CAPS word at the top (LIQUORLAND, WOOLWORTHS) — a strong
+        //    signal that survives low OCR confidence; runs the reject gates so
+        //    TOTAL / GST / CARDHOLDER COPY (also caps) are filtered out.
+        ranked += merchantCandidates(in: masthead, allBlocks: blocks, minConfidence: 0.3, requireAllCaps: true)
 
-        // A word printed ALL CAPS at the top is almost always the store name —
-        // LIQUORLAND, WOOLWORTHS — even when it OCR'd at low confidence and the
-        // same-size body text around it did not. It runs through the same reject
-        // gates, so TOTAL / GST / TAX INVOICE / CARDHOLDER COPY (also all caps)
-        // are filtered out. Confidence floor is low because the caps signal is
-        // the strong one here.
-        if let caps = firstMerchantCandidate(in: masthead, allBlocks: blocks,
-                                             minConfidence: 0.3, requireAllCaps: true) {
-            return caps
-        }
+        // 4. The masthead, then the whole receipt, high confidence before low —
+        //    same order the single-value passes used, so `.first` is unchanged.
+        ranked += merchantCandidates(in: masthead, allBlocks: blocks, minConfidence: 0.75)
+        ranked += merchantCandidates(in: masthead, allBlocks: blocks, minConfidence: 0.35)
+        ranked += merchantCandidates(in: ordered, allBlocks: blocks, minConfidence: 0.75)
+        ranked += merchantCandidates(in: ordered, allBlocks: blocks, minConfidence: 0.35)
 
-        for candidates in [masthead, ordered] {
-            // Within each region, prefer a confident read; store names are often
-            // set in a display font that OCRs below the body text, so accept a
-            // weaker one rather than come up empty.
-            for confidence in [Float(0.75), Float(0.35)] {
-                if let match = firstMerchantCandidate(in: candidates, allBlocks: blocks,
-                                                      minConfidence: confidence) {
-                    return match
-                }
-            }
-        }
-        return nil
+        // Dedupe case-insensitively, keeping priority order.
+        var seen = Set<String>()
+        return ranked.filter { seen.insert($0.lowercased()).inserted }
     }
 
     /// The top `fraction` of the receipt's own text extent — not the image's, so
@@ -862,6 +861,15 @@ enum ReceiptOCRService {
 
     private static func firstMerchantCandidate(in blocks: [TextBlock], allBlocks: [TextBlock],
                                                minConfidence: Float, requireAllCaps: Bool = false) -> String? {
+        merchantCandidates(in: blocks, allBlocks: allBlocks,
+                           minConfidence: minConfidence, requireAllCaps: requireAllCaps).first
+    }
+
+    /// Every gate-passing candidate in `blocks`, in reading order. `firstMerchant
+    /// Candidate` is `.first`; the rest feed the "Doesn't look right?" alternates.
+    private static func merchantCandidates(in blocks: [TextBlock], allBlocks: [TextBlock],
+                                           minConfidence: Float, requireAllCaps: Bool = false) -> [String] {
+        var out: [String] = []
         for block in blocks {
             guard block.confidence >= minConfidence else { continue }
 
@@ -915,10 +923,10 @@ enum ReceiptOCRService {
 
             if requireAllCaps && !isAllCaps(text) { continue }
 
-            return text
+            out.append(text)
         }
 
-        return nil
+        return out
     }
 
     // MARK: - Notes Extraction (Pro only)

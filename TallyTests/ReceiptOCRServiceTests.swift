@@ -558,6 +558,23 @@ final class ReceiptOCRServiceTests: XCTestCase {
         XCTAssertEqual(result.amount ?? -1, 461.00, accuracy: 0.001)
     }
 
+    // rankedMerchants exposes lower-ranked *clean* guesses for the "Doesn't look
+    // right?" picker. The winner is excluded from its own alternates, and
+    // rejected junk (TOTAL) never appears.
+    func testMerchantAlternates_cleanCandidatesOnly() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("LIQUORLAND", x: 0.30, y: 0.94, w: 0.40),
+            blk("SAY NO TO PLASTIC BAGS", x: 0.30, y: 0.90, w: 0.40),
+            blk("TOTAL (Inc GST)", x: 0.28, y: 0.60, w: 0.20), blk("461.00", x: 0.66, y: 0.60),
+        ]
+        let r = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertEqual(r.merchant, "LIQUORLAND")
+        XCTAssertFalse(r.merchantAlternates.contains("LIQUORLAND"), "winner excluded from its own alternates")
+        XCTAssertFalse(r.merchantAlternates.contains("TOTAL (Inc GST)"), "rejected junk never offered")
+        XCTAssertTrue(r.merchantAlternates.contains("SAY NO TO PLASTIC BAGS"), "a clean lower-ranked line is offered")
+        XCTAssertLessThanOrEqual(r.merchantAlternates.count, 5)
+    }
+
     // Receipt-structural labels are never a merchant, even alone. Guards the
     // total/GST/EFTPOS/etc. additions to the reject pattern.
     func testStructuralLabels_neverBecomeMerchant() {
