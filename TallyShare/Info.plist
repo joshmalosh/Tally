@@ -8,17 +8,20 @@
 	<dict>
 		<key>NSExtensionAttributes</key>
 		<dict>
+			<!--
+			  Dictionary form, not the SUBQUERY string predicate. The string
+			  form silently dropped Tally from the share sheet when a shared
+			  image registered a type identifier that didn't cleanly conform to
+			  public.image. The count keys are the reliable way to activate for
+			  images and files (PDFs share as file URLs).
+			-->
 			<key>NSExtensionActivationRule</key>
-			<string>SUBQUERY (
-    extensionItems,
-    $extensionItem,
-    SUBQUERY (
-        $extensionItem.attachments,
-        $attachment,
-        ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.image"
-        || ANY $attachment.registeredTypeIdentifiers UTI-CONFORMS-TO "public.pdf"
-    ).@count &gt;= 1
-).@count &gt;= 1</string>
+			<dict>
+				<key>NSExtensionActivationSupportsImageWithMaxCount</key>
+				<integer>10</integer>
+				<key>NSExtensionActivationSupportsFileWithMaxCount</key>
+				<integer>5</integer>
+			</dict>
 		</dict>
 		<key>NSExtensionPointIdentifier</key>
 		<string>com.apple.share-services</string>
