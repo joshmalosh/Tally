@@ -4,7 +4,7 @@
 is, how it makes money, how it's built, how Josh works, what's shipped, what's
 broken, and what to do next. Read it top to bottom before touching code.*
 
-Last updated: 2026-07-20
+Last updated: 2026-07-31
 
 ---
 
@@ -197,7 +197,43 @@ advertised "Advanced filters" (never a real feature — no code ever gated it) a
 
 ## 6. Current state — what's shipped (newest first)
 
-- **⚠️ Merchant extraction fix** (`aaf90bd`) — **uncompiled.** A Woolworths
+Everything below through the OCR/merchant/monetisation batch has now been built
+and tested on the Mac — the suite runs green (124 tests). Two defects surfaced
+only on the Mac run and were fixed: `rankedMerchants` had to be `private` (its
+param uses the private `TextBlock` type), and `"TOTAL (Inc GST)"` slipped through
+as a merchant because it matches the business-suffix pattern on "Inc" — the
+business-suffix pass now runs the reject gates too.
+
+- **Share extension activation** (`6c1b08e`): Tally wasn't appearing in the iOS
+  share sheet for images. The activation rule was the flaky string `SUBQUERY`
+  predicate; switched to the dictionary form (`SupportsImageWithMaxCount` /
+  `SupportsFileWithMaxCount`). If it still doesn't appear after a **clean
+  install** (iOS caches extension registrations — delete+reinstall, don't just
+  rebuild), the cause is Xcode-side: `TallyShare.appex` must be embedded in the
+  app target.
+- **Home-bar tags sheet** (`13afc3a`): `AddToHomeBarSheet` rebuilt in the styled
+  language — `HomeToggle` pill instead of a tick, and a search field + sort
+  control mirroring the Home search/filter row.
+- **"Doesn't look right?" merchant alternates** (`c5c2804`): OCR now returns
+  ranked merchant guesses (`rankedMerchants`). Add Expense shows a green pill
+  after a scan; tapping it offers up to 5 clean (gate-passing) alternates.
+- **OCR merchant accuracy, many passes** (`fa64438`→`5b4c340`): read the wordmark
+  by the *receipt's* top not the image's (fixed Cherry Beans / any mid-frame
+  docket); an **all-caps masthead pass** (LIQUORLAND, WOOLWORTHS survive low
+  confidence); reject total/structural labels as merchants; country-name currency
+  fallback; IDR/grouped-thousands amount fix; store-number line → chain not suburb.
+  Every reported receipt is pinned — see §9 corpus.
+- **Tag pill + haptic** (`e3d475c`): `HomeToggle` enlarged, toggle haptic → rigid.
+- **Merchant→tag auto-apply** (`9ef845b`): filling the merchant (incl. via OCR)
+  auto-applies the tag used *most often* at that merchant, only when none is
+  picked yet.
+- **Receipt hero cleanup** (`c428a03`): removed the date/merchant/amount overlay
+  from both receipt heroes (it duplicated the fields below and clipped long
+  values) and the VIEW RECEIPT button — tap the receipt to open it.
+- **Keyboard + merchant** (`99ba126`): the merchant card scrolls above the
+  keyboard so its autocomplete chips aren't covered.
+- **Portrait lock** (`50f9991`): `Info.plist` now declares Portrait only.
+- **Merchant extraction fix** (`aaf90bd`): A Woolworths
   receipt returned a blank merchant on device while the synthetic test asserting
   `merchant == "Woolworths"` passed. `sameLine` divides vertical overlap by the
   *shorter* box, so on a skewed photo the small tagline under a large wordmark
@@ -207,8 +243,8 @@ advertised "Advanced filters" (never a real feature — no code ever gated it) a
   ratio, horizontally disjoint) for merchant pairing only; `sameLine` is untouched
   so the amount corpus is unaffected. Also fixed noise-phrase stripping to match
   whole words ("cash" was turning "Cashmere Boutique" into "mere Boutique").
-- **⚠️ Monetisation reconciliation + OCR scan quota** (`ef30412`, `68032a2`,
-  `0cc4b6c`) — **uncompiled.** An audit of code vs. brief found six divergences:
+- **Monetisation reconciliation + OCR scan quota** (`ef30412`, `68032a2`,
+  `0cc4b6c`): An audit of code vs. brief found six divergences:
   1. **CSV was incoherent** — the constant said 2, four of six export paths
      ignored it and hard-gated on `isPro` (0). Now **1 everywhere** via
      `canExportCSV`; the two paths that failed *silently* at the cap now show the
@@ -265,20 +301,13 @@ on every full screen and inline in the list, but never in sheets**.
 
 ## 8. Open items (prioritised)
 
-0. **Nothing from 2026-07-20 has been built.** `ef30412`…`09a2ada` went to both
-   `tally/dev` and `tally/main` unbuilt. Expect 18 OCR + 9 gating tests. The
-   open question is whether the Woolworths merchant now reads `WOOLWORTHS`.
-   A pre-push review caught three defects in these commits, fixed in `4f8530d`:
-   an undefined-symbol compile error in `TagExportPickerSheet`, a bulk-import
-   quota that never enforced (the loop re-read a counter that only updates after
-   the async Task completes), and an O(n²) rebuild on the Home list. The fixes
-   are themselves unverified — if the build fails, start there.
-   Josh runs Pro, so the free-tier work in `ef30412` (ads, Go Pro pill, limit
-   sheets) won't appear in his build and doesn't need checking unless he asks.
-   `MonetisationGatingTests.swift` is registered in `project.pbxproj` (`3272b01`)
-   so no manual drag is needed — but that registration is itself unverified. If
-   Xcode reports a corrupt project, that commit is the suspect; a bad pbxproj
-   fails loudly and immediately.
+0. **Build is green (124 tests) as of 2026-07-28.** All the monetisation, tag,
+   and OCR work is built and passing. The live loop now is **field-testing OCR
+   on real receipts** — Josh scans, sends the photo + the app result (+ the
+   `OCR|` console dump for merchant misses), and each reported receipt gets
+   pinned as a test (§9). Open OCR threads at last check: Liquorland merchant
+   should now read `LIQUORLAND` (all-caps pass) — confirm on a real scan; and
+   the share extension needs a **clean install** to re-register (§6).
 1. **Pro is not purchasable.** `com.asimplelife.tally.pro.monthly` doesn't exist
    in App Store Connect, so RevenueCat offerings come back empty every launch and
    subscription revenue is **$0**. Biggest open item by a distance — every
@@ -298,7 +327,14 @@ on every full screen and inline in the list, but never in sheets**.
    submission.
 5. **Deferred design debt:** bulk-import `TagLinkPickerSheet` restyle to the
    shared picker language; a written component constitution / colour-token
-   reconciliation (colours drifted screen-by-screen across redesigns).
+   reconciliation (~525 hardcoded `Color(hex:)` literals that have tokens in
+   `DesignSystem.swift`).
+6. **Dead export surfaces (ponytail audit, safe to cut):** `ExportExpenseSheet`
+   (whole file, 0 refs) and the `ExportView` struct (never renders — it and
+   `GlobalExportSheet` both bind `.sheet` to `appState.showingExport`, and the
+   deeper `GlobalExportSheet` wins). Keep `ProFeatureSheet`/`ScanLimitSheet`,
+   which live in ExportView.swift and are used. Deleting both removes the
+   ambiguity that spawned the six inconsistent CSV-limit call sites.
 
 ---
 
