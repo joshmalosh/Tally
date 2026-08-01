@@ -589,6 +589,30 @@ final class ReceiptOCRServiceTests: XCTestCase {
         }
     }
 
+    // Berry General Store — the wordmark splits across two lines ("BERRY" /
+    // "GENERAL STORE"), "BERRY NSW" leaves a bare "NSW", and the name recurs in
+    // the letterhead ("The Berry General Store"). Reported: merchant "NSW" (the
+    // state, an all-caps token). A state is never a merchant, and the recurring
+    // name should win.
+    func testBerryGeneralStore_stateTokenNotMerchant_recurringNameWins() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("BERRY", x: 0.35, y: 0.94, w: 0.20),
+            blk("GENERAL STORE", x: 0.28, y: 0.92, w: 0.40),
+            blk("Get Your Goods", x: 0.32, y: 0.90, w: 0.30),
+            blk("23 PRINCE ALFRED ST", x: 0.30, y: 0.885, w: 0.35),
+            blk("BERRY", x: 0.40, y: 0.870, w: 0.10),
+            blk("NSW", x: 0.55, y: 0.870, w: 0.08),
+            blk("The Berry General Store", x: 0.28, y: 0.820, w: 0.45),
+            blk("Berry, NSW 2535", x: 0.28, y: 0.790, w: 0.28),
+            blk("TOTAL", x: 0.28, y: 0.55, w: 0.10), blk("$44.48", x: 0.66, y: 0.55, w: 0.10),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertNotEqual(result.merchant, "NSW", "a state is not a merchant")
+        XCTAssertEqual(result.merchant?.lowercased().contains("berry"), true,
+                       "the recurring Berry name wins")
+        XCTAssertEqual(result.amount ?? -1, 44.48, accuracy: 0.001)
+    }
+
     // A visible wordmark wins outright — it's printed far larger than the body
     // text, which is a more direct signal than any of the filter passes.
     func testLargeWordmark_winsOverEverythingBelow() {
