@@ -607,9 +607,10 @@ final class ReceiptOCRServiceTests: XCTestCase {
             blk("TOTAL", x: 0.28, y: 0.55, w: 0.10), blk("$44.48", x: 0.66, y: 0.55, w: 0.10),
         ]
         let result = ReceiptOCRService.extractForTesting(lines)
+        let m = result.merchant?.lowercased() ?? ""
         XCTAssertNotEqual(result.merchant, "NSW", "a state is not a merchant")
-        XCTAssertEqual(result.merchant?.lowercased().contains("berry"), true,
-                       "the recurring Berry name wins")
+        XCTAssertTrue(m.contains("berry") && m.contains("general store"),
+                      "the full name, not the 'General Store' fragment")
         XCTAssertEqual(result.amount ?? -1, 44.48, accuracy: 0.001)
     }
 
@@ -617,6 +618,9 @@ final class ReceiptOCRServiceTests: XCTestCase {
     // priced; totals/subtotals/surcharges are not items.
     func testNotes_singleItem_becomesTheNote() {
         let lines: [(text: String, box: CGRect)] = [
+            // Date/time in the header must not be read as an item, even if a
+            // stray number shares its line.
+            blk("1 Aug 2026", x: 0.55, y: 0.80, w: 0.20), blk("8:06am", x: 0.55, y: 0.78, w: 0.12),
             blk("Ricotta Hotcakes x 2", x: 0.28, y: 0.70, w: 0.35), blk("$40.00", x: 0.70, y: 0.70),
             blk("($20.00 each)", x: 0.28, y: 0.68, w: 0.20),
             blk("Subtotal", x: 0.28, y: 0.55, w: 0.12), blk("$40.00", x: 0.70, y: 0.55),

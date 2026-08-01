@@ -746,6 +746,11 @@ enum ReceiptOCRService {
 
         var ranked: [String] = []
 
+        // 0. A wordmark stacked across the top lines ("BERRY" / "GENERAL STORE"
+        //    → "BERRY GENERAL STORE"). Reconstructed so the full name wins over
+        //    a single-line fragment.
+        if let stacked = stackedWordmark(in: masthead) { ranked.append(stacked) }
+
         // 1. A clearly-largest wordmark at the top.
         if let wordmark = largestHeaderText(in: blocks) { ranked.append(wordmark) }
 
@@ -886,6 +891,30 @@ enum ReceiptOCRService {
         return letters.count >= 3 && !letters.contains(where: \.isLowercase)
     }
 
+    /// Reconstruct a wordmark printed across stacked lines at the very top —
+    /// "BERRY" then "GENERAL STORE" → "BERRY GENERAL STORE". Joins the leading
+    /// run of all-caps, digit-free, gate-passing lines (max 3 lines / 6 words),
+    /// stopping at the first line that breaks the run. Returns nil if the run is
+    /// a single line (that path is already covered elsewhere).
+    private static func stackedWordmark(in masthead: [TextBlock]) -> String? {
+        var parts: [String] = []
+        for block in readingOrder(masthead) {
+            let raw = block.text.trimmingCharacters(in: Self.merchantEdgeJunk)
+            guard isAllCaps(raw),
+                  !raw.contains(where: \.isNumber),
+                  !matches(merchantRejectPattern, raw),
+                  !matches(labelLinePattern, raw),
+                  !matches(domainLikePattern, raw)
+            else { break }
+            parts.append(raw)
+            if parts.count >= 3 { break }
+        }
+        let joined = parts.joined(separator: " ")
+        let wordCount = joined.split(whereSeparator: \.isWhitespace).count
+        guard parts.count >= 2, wordCount >= 2, wordCount <= 6, joined.count <= 45 else { return nil }
+        return joined
+    }
+
 
     private static func firstMerchantCandidate(in blocks: [TextBlock], allBlocks: [TextBlock],
                                                minConfidence: Float, requireAllCaps: Bool = false) -> String? {
@@ -961,6 +990,8 @@ enum ReceiptOCRService {
 
     /// A line that carries an amount but is NOT a purchased item — totals,
     /// tax, surcharges, payment lines, headers. Items are what's left.
+    private static let timePattern = try! NSRegularExpression(pattern: #"\d{1,2}:\d{2}"#)
+
     private static let nonItemLinePattern = try! NSRegularExpression(
         pattern: #"sub\s*total|\btotal\b|\btax\b|\bgst\b|surcharge|\bchange\b|\bbalance\b|rounding|\btip\b|amount\s+due|\bpaid\b|\beftpos\b|\bvisa\b|\bmaster|\bamex\b|\bcash\b|\bcard\b|\beach\b|\bqty\b|\bsubtotal\b|discount|\bsaving"#,
         options: .caseInsensitive
@@ -982,6 +1013,9 @@ enum ReceiptOCRService {
                   parseAmount(from: text) == nil,                 // the description, not the price
                   !matches(nonItemLinePattern, text),
                   !matches(labelLinePattern, text),
+                  !matches(datePattern, text),                    // "1 Aug 2026" is not an item
+                  !matches(writtenDatePattern, text),
+                  !matches(timePattern, text),
                   findAmountOnSameLine(as: block, in: blocks) != nil  // priced → a line item
             else { continue }
             // Strip a trailing "x 2" quantity into a compact "×2".
