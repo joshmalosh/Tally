@@ -308,6 +308,8 @@ on every full screen and inline in the list, but never in sheets**.
    pinned as a test (§9). Open OCR threads at last check: Liquorland merchant
    should now read `LIQUORLAND` (all-caps pass) — confirm on a real scan; and
    the share extension needs a **clean install** to re-register (§6).
+   **Launch gate (Josh): every receipt in the §9 corpus must scan correctly
+   before release — the full OCR suite green, no corpus receipt regressed.**
 1. **Pro is not purchasable.** `com.asimplelife.tally.pro.monthly` doesn't exist
    in App Store Connect, so RevenueCat offerings come back empty every launch and
    subscription revenue is **$0**. Biggest open item by a distance — every
@@ -397,6 +399,7 @@ process working, not a setback.
 | Cherry Beans | receipt floats mid-frame with table around it, so the wordmark sat below the image-relative top-40% gate and the merchant fell through to "chip" off the "Contactless chip" line. largestHeaderText now uses the receipt-relative top, like the masthead fallback. | merchant `Cherry Beans Kellyvil` |
 | Deus (Bali, IDR) | grouped thousands "655,000" truncated to 655.00 by the cents regex; stylised logo OCR-ing as `€` set the currency to EUR; crisp promo banner at the foot beat the crumpled letterhead for merchant. Currency now falls back to the country named in the letterhead — receipts print where they were issued far more reliably than a currency code. | $4,640,000 IDR, `PT. Deus Ex Machina Indonesia` |
 | Woolworths (store line) | `WOOLWORTHS 1659   KELLYVILLE   NSW` — name+store-number block rejected for containing a digit, so the suburb won | merchant `WOOLWORTHS` |
+| Berry General Store | wordmark split across stacked lines; a lone "NSW" won. Reconstruct stacked all-caps header lines; a recurring 2+ word phrase beats a one-word token. Date line was grabbed as the note; dates excluded from items. | merchant `BERRY GENERAL STORE`; note `Ricotta Hotcakes ×2` |
 
 ### Recurring trap families
 

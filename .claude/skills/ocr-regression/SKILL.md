@@ -23,6 +23,10 @@ impossible to do silently.
 for the receipt that motivated the change.** Every receipt a user reports —
 right or wrong — gets pinned in `TallyTests/ReceiptOCRServiceTests.swift`.
 
+**Launch gate: every receipt in the corpus below must pass before release.**
+These are all real receipts Josh reported. The whole suite (⌘U) must be green,
+with no corpus receipt regressed, as a condition of shipping.
+
 ## Environment reality
 
 The dev machine is **Windows with no Swift/Xcode toolchain**, so the tests
@@ -75,6 +79,7 @@ run on the user's **Mac**. Therefore:
 | Cherry Beans | receipt floats mid-frame with table around it, so the wordmark sat below the image-relative top-40% gate and the merchant fell through to "chip" off the "Contactless chip" line. largestHeaderText now uses the receipt-relative top, like the masthead fallback. | merchant `Cherry Beans Kellyvil` |
 | Deus (Bali, IDR) | grouped thousands "655,000" truncated to 655.00 by the cents regex; stylised logo OCR-ing as `€` set the currency to EUR; crisp promo banner at the foot beat the crumpled letterhead for merchant. Currency now falls back to the country named in the letterhead — receipts print where they were issued far more reliably than a currency code. | $4,640,000 IDR, `PT. Deus Ex Machina Indonesia` |
 | Woolworths (store line) | `WOOLWORTHS 1659   KELLYVILLE   NSW` — the store number parses as an amount, so the chain name looked like half of a label-value pair and the suburb won. Took three attempts: the first two diagnosed plausible-but-wrong causes from the corpus instead of tracing these blocks. | merchant `WOOLWORTHS` |
+| Berry General Store | wordmark "BERRY GENERAL STORE" split across two stacked lines; a lone "NSW" won the all-caps pass. Fixes: reconstruct stacked all-caps header lines into the wordmark; a recurring 2+ word phrase beats a one-word token (no place list). The auto-note grabbed the "1 Aug 2026" date line, so dates/times are excluded from item detection. | merchant `BERRY GENERAL STORE`; note `Ricotta Hotcakes ×2` |
 
 When a new receipt is reported, add a row here and a test case.
 
