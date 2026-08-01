@@ -591,10 +591,10 @@ final class ReceiptOCRServiceTests: XCTestCase {
 
     // Berry General Store — the wordmark splits across two lines ("BERRY" /
     // "GENERAL STORE"), "BERRY NSW" leaves a bare "NSW", and the name recurs in
-    // the letterhead ("The Berry General Store"). Reported: merchant "NSW" (the
-    // state, an all-caps token). A state is never a merchant, and the recurring
-    // name should win.
-    func testBerryGeneralStore_stateTokenNotMerchant_recurringNameWins() {
+    // the letterhead ("The Berry General Store"). Reported: merchant "NSW".
+    // "NSW" is one word so it can't be the recurring-phrase winner; the
+    // two-word "General Store" recurs, and its fullest form wins. No place list.
+    func testBerryGeneralStore_recurringPhraseWins_notLoneToken() {
         let lines: [(text: String, box: CGRect)] = [
             blk("BERRY", x: 0.35, y: 0.94, w: 0.20),
             blk("GENERAL STORE", x: 0.28, y: 0.92, w: 0.40),

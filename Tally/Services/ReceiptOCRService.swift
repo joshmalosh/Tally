@@ -781,18 +781,27 @@ enum ReceiptOCRService {
         var seen = Set<String>()
         let deduped = ranked.filter { seen.insert($0.lowercased()).inserted }
 
-        // Cross-confirmation: a merchant name is usually printed more than once —
-        // a bold wordmark up top and again in the letterhead ("BERRY GENERAL
-        // STORE" / "The Berry General Store"). A candidate whose text appears in
-        // two or more blocks is far more likely the real merchant than a one-off
-        // token, so those rank first (stable within each group).
+        // A multi-word name printed more than once is the merchant. A store
+        // prints its name as a wordmark up top and again in the letterhead
+        // ("BERRY GENERAL STORE" then "The Berry General Store"), so a
+        // two-or-more-word phrase appearing in two or more blocks is a strong
+        // signal. This needs no list of place names: a lone "NSW" is one word,
+        // so it never qualifies.
         func appearances(_ s: String) -> Int {
             let needle = s.lowercased()
             return blocks.filter { $0.text.lowercased().contains(needle) }.count
         }
-        let confirmed = deduped.filter { appearances($0) >= 2 }
-        let singles = deduped.filter { appearances($0) < 2 }
-        return confirmed + singles
+        let recurringPhrase = deduped
+            .filter { $0.split(whereSeparator: \.isWhitespace).count >= 2 && appearances($0) >= 2 }
+            .max { $0.count < $1.count }
+        if let anchor = recurringPhrase {
+            // Return the fullest form of that name, e.g. the letterhead
+            // "The Berry General Store" over the wordmark fragment "GENERAL STORE".
+            let best = deduped.filter { $0.lowercased().contains(anchor.lowercased()) }
+                .max { $0.count < $1.count } ?? anchor
+            return [best] + deduped.filter { $0.lowercased() != best.lowercased() }
+        }
+        return deduped
     }
 
     /// The top `fraction` of the receipt's own text extent — not the image's, so
@@ -877,12 +886,6 @@ enum ReceiptOCRService {
         return letters.count >= 3 && !letters.contains(where: \.isLowercase)
     }
 
-    /// A whole block that is just a state/territory — a location, never a
-    /// merchant. "BERRY NSW" split into a bare "NSW" was winning the all-caps
-    /// pass as the merchant.
-    private static let bareLocationTokens: Set<String> = [
-        "nsw", "vic", "qld", "sa", "wa", "tas", "nt", "act", "au", "aus"
-    ]
 
     private static func firstMerchantCandidate(in blocks: [TextBlock], allBlocks: [TextBlock],
                                                minConfidence: Float, requireAllCaps: Bool = false) -> String? {
@@ -946,7 +949,6 @@ enum ReceiptOCRService {
             let wordCount = text.split(whereSeparator: { $0.isWhitespace }).count
             guard wordCount <= 6 else { continue }
 
-            if bareLocationTokens.contains(text.lowercased()) { continue }
             if requireAllCaps && !isAllCaps(text) { continue }
 
             out.append(text)
