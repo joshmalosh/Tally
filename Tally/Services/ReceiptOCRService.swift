@@ -955,67 +955,67 @@ enum ReceiptOCRService {
         return out
     }
 
-    // MARK: - Notes Extraction (Pro only)
+    // MARK: - Notes Extraction
+
+    /// A line that carries an amount but is NOT a purchased item — totals,
+    /// tax, surcharges, payment lines, headers. Items are what's left.
+    private static let nonItemLinePattern = try! NSRegularExpression(
+        pattern: #"sub\s*total|\btotal\b|\btax\b|\bgst\b|surcharge|\bchange\b|\bbalance\b|rounding|\btip\b|amount\s+due|\bpaid\b|\beftpos\b|\bvisa\b|\bmaster|\bamex\b|\bcash\b|\bcard\b|\beach\b|\bqty\b|\bsubtotal\b|discount|\bsaving"#,
+        options: .caseInsensitive
+    )
+
+    /// A best-guess note describing the transaction — what was bought — shown by
+    /// default and overwritten the moment the user types their own. Prefers the
+    /// item line(s); falls back to a service descriptor ("Eat in"). The merchant
+    /// is deliberately omitted: it has its own field.
+    private static func extractNotes(from blocks: [TextBlock], merchant: String?) -> String? {
+        // Item lines: a text block sharing a printed line with a real amount,
+        // that isn't itself a total/tax/surcharge/payment line.
+        var items: [String] = []
+        var seen = Set<String>()
+        for block in readingOrder(blocks) {
+            let text = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard text.count >= 3, text.count <= 40,
+                  text.contains(where: \.isLetter),
+                  parseAmount(from: text) == nil,                 // the description, not the price
+                  !matches(nonItemLinePattern, text),
+                  !matches(labelLinePattern, text),
+                  findAmountOnSameLine(as: block, in: blocks) != nil  // priced → a line item
+            else { continue }
+            // Strip a trailing "x 2" quantity into a compact "×2".
+            let cleaned = text
+                .replacingOccurrences(of: #"\s*[x×]\s*(\d+)\s*$"#, with: " ×$1",
+                                      options: .regularExpression)
+                .trimmingCharacters(in: .whitespaces)
+            if seen.insert(cleaned.lowercased()).inserted { items.append(cleaned) }
+        }
+
+        if !items.isEmpty {
+            let note: String
+            if items.count == 1 {
+                note = items[0]
+            } else {
+                note = "\(items[0]) +\(items.count - 1) more"
+            }
+            return note.count <= 60 ? note : String(note.prefix(57)) + "…"
+        }
+
+        // Fallback: a service descriptor (Eat in / Takeaway / Dine in).
+        for block in blocks where block.confidence >= 0.6 {
+            let lower = block.text.lowercased()
+            for kw in noteDescriptorKeywords where lower.contains(kw) {
+                return kw.split(separator: " ").map { $0.prefix(1).uppercased() + $0.dropFirst() }
+                    .joined(separator: " ")
+            }
+        }
+        return nil
+    }
 
     private static let noteDescriptorKeywords = [
-        "takeout", "take away", "take-away", "online order", "dine in", "dine-in",
-        "delivery", "pickup", "pick up", "drive thru", "drive-through",
-        "to go", "to-go", "counter"
+        "eat in", "eat-in", "sit in", "dine in", "dine-in",
+        "takeout", "take away", "take-away", "takeaway",
+        "online order", "delivery", "pickup", "pick up", "drive thru", "to go"
     ]
-
-    /// Assemble short note (max 60 chars) from merchant + descriptors. High confidence only.
-    private static func extractNotes(from blocks: [TextBlock], merchant: String?) -> String? {
-        guard let merchant, !merchant.isEmpty else { return nil }
-
-        var descriptor: String?
-        let topBlocks = blocks
-            .sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
-            .prefix(12)
-
-        for block in topBlocks {
-            guard block.confidence >= 0.75 else { continue }
-            let lower = block.text.lowercased()
-            for kw in noteDescriptorKeywords {
-                if lower.contains(kw) {
-                    let cleaned = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if cleaned.count <= 25 && !cleaned.isEmpty {
-                        descriptor = cleaned.prefix(1).uppercased() + cleaned.dropFirst().lowercased()
-                        break
-                    }
-                }
-            }
-            if descriptor != nil { break }
-        }
-
-        // Also check for "TABLE 4", "ORDER #123" style
-        if descriptor == nil {
-            let tablePattern = try? NSRegularExpression(pattern: #"table\s*#?\s*\d+"#, options: .caseInsensitive)
-            let orderPattern = try? NSRegularExpression(pattern: #"order\s*#?\s*\d*"#, options: .caseInsensitive)
-            for block in topBlocks {
-                guard block.confidence >= 0.75 else { continue }
-                let text = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                if let t = tablePattern?.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
-                   let r = Range(t.range, in: text) {
-                    descriptor = String(text[r]).prefix(1).uppercased() + String(text[r]).dropFirst().lowercased()
-                    break
-                }
-                if let o = orderPattern?.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
-                   let r = Range(o.range, in: text) {
-                    descriptor = String(text[r]).prefix(1).uppercased() + String(text[r]).dropFirst().lowercased()
-                    break
-                }
-            }
-        }
-
-        let merchantPart = String(merchant.prefix(40)).trimmingCharacters(in: .whitespaces)
-        let note: String
-        if let d = descriptor, !d.isEmpty {
-            note = "\(d) — \(merchantPart)"
-        } else {
-            return nil  // Only populate if we have a descriptor (high confidence)
-        }
-        return note.count <= 60 ? note : String(note.prefix(57)) + "..."
-    }
 }
 
 private struct TextBlock {

@@ -613,6 +613,29 @@ final class ReceiptOCRServiceTests: XCTestCase {
         XCTAssertEqual(result.amount ?? -1, 44.48, accuracy: 0.001)
     }
 
+    // Auto-note: describe what was bought, not the merchant. The item line is
+    // priced; totals/subtotals/surcharges are not items.
+    func testNotes_singleItem_becomesTheNote() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("Ricotta Hotcakes x 2", x: 0.28, y: 0.70, w: 0.35), blk("$40.00", x: 0.70, y: 0.70),
+            blk("($20.00 each)", x: 0.28, y: 0.68, w: 0.20),
+            blk("Subtotal", x: 0.28, y: 0.55, w: 0.12), blk("$40.00", x: 0.70, y: 0.55),
+            blk("Weekend Surcharge (10%)", x: 0.28, y: 0.52, w: 0.35), blk("$4.00", x: 0.70, y: 0.52),
+            blk("Total", x: 0.28, y: 0.48, w: 0.10), blk("$44.48", x: 0.70, y: 0.48),
+        ]
+        XCTAssertEqual(ReceiptOCRService.extractForTesting(lines).notes, "Ricotta Hotcakes ×2")
+    }
+
+    // Totals/surcharges are never items, so a receipt with no line items gives
+    // no auto-note rather than "Total".
+    func testNotes_onlyTotals_noNote() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("Subtotal", x: 0.28, y: 0.55, w: 0.12), blk("$40.00", x: 0.70, y: 0.55),
+            blk("Total", x: 0.28, y: 0.48, w: 0.10), blk("$44.48", x: 0.70, y: 0.48),
+        ]
+        XCTAssertNil(ReceiptOCRService.extractForTesting(lines).notes)
+    }
+
     // A visible wordmark wins outright — it's printed far larger than the body
     // text, which is a more direct signal than any of the filter passes.
     func testLargeWordmark_winsOverEverythingBelow() {
