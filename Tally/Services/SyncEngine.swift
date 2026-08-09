@@ -8,6 +8,10 @@ import CoreData
 final class SyncEngine {
     private(set) var isOnline = true
     private(set) var lastSyncDate: Date?
+    /// Whether the device is signed into iCloud. Backup only works when it is.
+    /// Read from the ubiquity token, which needs no CloudKit entitlement, so it
+    /// is accurate even before CloudKit sync is switched on.
+    private(set) var isSignedIntoiCloud = FileManager.default.ubiquityIdentityToken != nil
 
     private let monitor = NWPathMonitor()
     private let monitorQueue = DispatchQueue(label: "com.tally.network-monitor")
@@ -18,10 +22,28 @@ final class SyncEngine {
         lastSyncDate = UserDefaults.standard.object(forKey: Self.lastSyncKey) as? Date
         startMonitoring()
         observeCloudKitSync()
+        observeAccountChanges()
     }
 
     deinit {
         monitor.cancel()
+    }
+
+    /// The user can sign in or out of iCloud in the Settings app while Tally is
+    /// running; refresh when that happens.
+    private func observeAccountChanges() {
+        NotificationCenter.default.addObserver(
+            forName: .NSUbiquityIdentityDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.isSignedIntoiCloud = FileManager.default.ubiquityIdentityToken != nil
+        }
+    }
+
+    /// Re-check on foreground, in case the account changed while backgrounded.
+    func refreshAccountStatus() {
+        isSignedIntoiCloud = FileManager.default.ubiquityIdentityToken != nil
     }
 
     private func startMonitoring() {

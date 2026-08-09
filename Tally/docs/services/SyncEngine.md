@@ -7,10 +7,12 @@ Observes network reachability and CloudKit sync completion events so the UI can 
 - `final class SyncEngine` (`Tally/Services/SyncEngine.swift:8`), `@Observable`
 - `private(set) var isOnline: Bool` (`:9`) — updated from `NWPathMonitor`.
 - `private(set) var lastSyncDate: Date?` (`:10`) — updated on successful CloudKit export events, persisted to `UserDefaults` under `"lastCloudKitSyncDate"`.
+- `private(set) var isSignedIntoiCloud: Bool` — whether the device has an iCloud account, from `FileManager.ubiquityIdentityToken` (no CloudKit entitlement needed). Auto-updates on `.NSUbiquityIdentityDidChange`.
+- `func refreshAccountStatus()` — re-checks the iCloud account; call on foreground / when Settings appears.
 
 ## Depends on
 
-`Network` (`NWPathMonitor`), `CoreData` (`NSPersistentCloudKitContainer.eventChangedNotification`), `UserDefaults`.
+`Network` (`NWPathMonitor`), `CoreData` (`NSPersistentCloudKitContainer.eventChangedNotification`), `Foundation` (`FileManager.ubiquityIdentityToken`, `.NSUbiquityIdentityDidChange`), `UserDefaults`.
 
 ## Used by
 

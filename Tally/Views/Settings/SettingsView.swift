@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -118,34 +119,60 @@ struct SettingsView: View {
                 }
 
                 Section("iCloud") {
-                    HStack {
-                        Image(systemName: appState.isOffline ? "wifi.slash" : "checkmark.icloud")
-                            .foregroundStyle(appState.isOffline ? Color.danger : Color.success)
-
-                        if appState.isOffline {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("iCloud unavailable")
-                                    .foregroundStyle(Color.textPrimary)
-                                Text("Data saved locally")
-                                    .font(Fonts.caption(12))
-                                    .foregroundStyle(Color.textMuted)
+                    if !syncEngine.isSignedIntoiCloud {
+                        // Not signed into iCloud: backup can't run. Point them to
+                        // the Settings app, which is the only place to sign in.
+                        Button {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                openURL(url)
                             }
-                        } else {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("iCloud Sync")
-                                    .foregroundStyle(Color.textPrimary)
-                                if let lastSync = syncEngine.lastSyncDate {
-                                    Text("Last backup \(lastSync, format: .relative(presentation: .named))")
-                                        .font(Fonts.caption(12))
-                                        .foregroundStyle(Color.textMuted)
-                                } else {
-                                    Text("Waiting for first sync...")
+                        } label: {
+                            HStack {
+                                Image(systemName: "icloud.slash")
+                                    .foregroundStyle(Color.danger)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Not signed in to iCloud")
+                                        .foregroundStyle(Color.textPrimary)
+                                    Text("Sign in to back up your expenses. Tap to open Settings.")
                                         .font(Fonts.caption(12))
                                         .foregroundStyle(Color.textMuted)
                                 }
+                                Spacer()
+                                Image(systemName: "arrow.up.right.square")
+                                    .font(.system(size: 14))
+                                    .foregroundStyle(Color.textMuted)
                             }
                         }
-                        Spacer()
+                    } else {
+                        HStack {
+                            Image(systemName: appState.isOffline ? "wifi.slash" : "checkmark.icloud")
+                                .foregroundStyle(appState.isOffline ? Color.danger : Color.success)
+
+                            if appState.isOffline {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("iCloud unavailable")
+                                        .foregroundStyle(Color.textPrimary)
+                                    Text("Data saved locally")
+                                        .font(Fonts.caption(12))
+                                        .foregroundStyle(Color.textMuted)
+                                }
+                            } else {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("iCloud Sync")
+                                        .foregroundStyle(Color.textPrimary)
+                                    if let lastSync = syncEngine.lastSyncDate {
+                                        Text("Last backup \(lastSync, format: .relative(presentation: .named))")
+                                            .font(Fonts.caption(12))
+                                            .foregroundStyle(Color.textMuted)
+                                    } else {
+                                        Text("Waiting for first sync...")
+                                            .font(Fonts.caption(12))
+                                            .foregroundStyle(Color.textMuted)
+                                    }
+                                }
+                            }
+                            Spacer()
+                        }
                     }
                 }
 
@@ -187,6 +214,7 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear { syncEngine.refreshAccountStatus() }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Done") { dismiss() }
