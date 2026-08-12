@@ -12,9 +12,11 @@ struct TallyApp: App {
 
     let modelContainer: ModelContainer
 
-    // Flip to true once enrolled in Apple Developer Program and
-    // entitlements are configured for iCloud + Push Notifications.
-    static let cloudKitEnabled = false
+    // iCloud + Push Notifications + Background Modes capabilities are configured
+    // on the Tally target, so CloudKit sync is on. Expenses and receipt images
+    // (stored on the expense via .externalStorage) back up to the user's private
+    // iCloud automatically.
+    static let cloudKitEnabled = true
 
     init() {
         let schema = Schema([
