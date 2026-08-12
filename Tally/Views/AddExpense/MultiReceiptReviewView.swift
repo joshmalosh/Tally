@@ -58,6 +58,11 @@ struct MultiReceiptReviewView: View {
     }
 
     private var checkedCount: Int { drafts.filter(\.isChecked).count }
+    // Free-tier scan allowance left this month (.max for Pro). A scan is charged
+    // per receipt actually added, not per preview, so this stays fixed while the
+    // user ticks/unticks and `overBy` tracks live.
+    private var remainingScans: Int { appState.ocrScansRemaining }
+    private var overBy: Int { checkedCount > remainingScans ? checkedCount - remainingScans : 0 }
     private var currencyCode: String { appState.defaultCurrency }
     private var currencySymbol: String { CurrencyFormatter.shared.symbol(for: currencyCode) }
     private var usesDecimals: Bool { CurrencyFormatter.shared.usesDecimals(for: currencyCode) }
@@ -457,9 +462,34 @@ struct MultiReceiptReviewView: View {
     // MARK: - Bottom bar
 
     private var bottomBar: some View {
-        VStack(spacing: 0) {
+        let blocked = overBy > 0
+        return VStack(spacing: 0) {
             LinearGradient(colors: [.clear, Color(hex: "F0EDE6")], startPoint: .top, endPoint: .bottom)
                 .frame(height: 36).allowsHitTesting(false)
+
+            // Over the monthly free-scan limit: warn and say by how many, live.
+            if blocked {
+                Button { showingScanLimit = true } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                        Text("\(overBy) over your free monthly limit. Untick \(overBy) or go Pro.")
+                            .font(.system(size: 13, weight: .medium))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .foregroundStyle(Color(hex: "8A3A2E"))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 10).padding(.horizontal, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color(hex: "F6E4DF"))
+                    )
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 8)
+                }
+                .buttonStyle(.plain)
+            }
+
             Button { addExpenses() } label: {
                 Group {
                     if isSaving {
@@ -476,12 +506,12 @@ struct MultiReceiptReviewView: View {
                 .frame(maxWidth: .infinity)
                 .background(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(Color(hex: "2F402E").opacity(checkedCount > 0 ? 1 : 0.4))
+                        .fill(Color(hex: "2F402E").opacity(checkedCount > 0 && !blocked ? 1 : 0.4))
                 )
                 .padding(.horizontal, 16)
             }
             .buttonStyle(.plain)
-            .disabled(checkedCount == 0 || isSaving)
+            .disabled(checkedCount == 0 || isSaving || blocked)
             .padding(.bottom, 34)
         }
         .background(Color(hex: "F0EDE6"))
@@ -516,34 +546,21 @@ struct MultiReceiptReviewView: View {
     // MARK: - OCR
 
     private func runAllOCR() async {
-        // Bulk import draws from the same monthly pool — importing 5 receipts
-        // consumes 5 scans. The budget must be decided here, up front, against a
-        // local counter: `canUseOCR` reads a stored count that is only
-        // incremented inside each Task *after* Vision returns, and this loop
-        // never awaits those Tasks. Re-checking shared state per iteration
-        // therefore reads the same stale value every time and launches a scan
-        // for every draft — 20 receipts would all run on a 5-scan allowance.
-        var remainingScans = appState.ocrScansRemaining
-
+        // Preview every selected receipt. The free-tier scan quota is charged per
+        // receipt actually *added* (in addExpenses), never per preview, so the
+        // user can untick down to their remaining allowance on this screen and
+        // the `overBy` counter moves live. Pro is unlimited either way.
+        // ponytail: one Task per receipt, unbounded; add a semaphore only if huge
+        // batches (20+) actually strain Vision on device.
         for i in drafts.indices {
             let image   = drafts[i].image
             let draftId = drafts[i].id
-
-            guard remainingScans > 0 else {
-                for idx in drafts.indices where drafts[idx].isProcessing {
-                    drafts[idx].isProcessing = false
-                }
-                showingScanLimit = true
-                return
-            }
-            remainingScans -= 1
 
             Task {
                 let result = await ReceiptOCRService.extract(from: image)
                 await MainActor.run {
                     guard let idx = drafts.firstIndex(where: { $0.id == draftId }) else { return }
                     drafts[idx].isProcessing = false
-                    appState.recordOCRScan(extractedAmount: result.amount != nil)
                     if let amount = result.amount {
                         drafts[idx].amountCents = Int(round(amount * 100))
                         drafts[idx].amountText  = usesDecimals
@@ -563,6 +580,10 @@ struct MultiReceiptReviewView: View {
     // MARK: - Save
 
     private func addExpenses() {
+        // Free users can't add more than their monthly scan allowance. The button
+        // is disabled while over, but guard here too so it can never slip through.
+        guard overBy == 0 else { showingScanLimit = true; return }
+
         let checked = drafts.filter(\.isChecked)
         let missingAmount = checked.filter {
             guard let val = Double($0.amountText.trimmingCharacters(in: .whitespacesAndNewlines))
@@ -606,6 +627,9 @@ struct MultiReceiptReviewView: View {
 
             await MainActor.run {
                 try? modelContext.save()
+                // Charge the free-tier scan quota for each receipt kept (Pro is
+                // unlimited, so this is a no-op past the cap for them).
+                for _ in checked { appState.recordOCRScan(extractedAmount: true) }
                 appState.totalExpenseCount += checked.count
                 appState.clearFilters()
                 isSaving = false
