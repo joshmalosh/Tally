@@ -14,6 +14,10 @@ struct ReceiptDraft: Identifiable {
     var notes: String = ""
     var selectedTagIds: [String] = []
     var isChecked: Bool = true
+    /// OCR's lower-ranked merchant guesses, for the per-row "Doesn't look right?"
+    /// picker — same affordance as the single Add-expense page.
+    var merchantAlternates: [String] = []
+    var showAlternates: Bool = false
 }
 
 // MARK: - Focus field identifier
@@ -34,7 +38,8 @@ struct MultiReceiptReviewView: View {
     let onDone: () -> Void
 
     @State private var drafts: [ReceiptDraft]
-    @State private var expandedIds: Set<UUID> = []
+    // Only one row open at a time — opening another closes the current one.
+    @State private var expandedId: UUID? = nil
     @State private var showingTagPicker = false
     @State private var tagPickerDraftId: UUID? = nil
     @State private var showingDatePicker = false
@@ -166,7 +171,7 @@ struct MultiReceiptReviewView: View {
 
     private func accordionCard(idx: Int) -> some View {
         let d = drafts[idx]
-        let isExpanded = expandedIds.contains(d.id)
+        let isExpanded = expandedId == d.id
 
         return VStack(spacing: 0) {
             // Header row
@@ -227,8 +232,7 @@ struct MultiReceiptReviewView: View {
                 guard !d.isProcessing else { return }
                 focusedField = nil
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                    if isExpanded { expandedIds.remove(d.id) }
-                    else          { expandedIds.insert(d.id) }
+                    expandedId = isExpanded ? nil : d.id
                 }
             }
 
@@ -281,10 +285,16 @@ struct MultiReceiptReviewView: View {
 
             // Merchant
             fieldRow(label: "Merchant") {
-                TextField("Where did you pay?", text: $drafts[idx].merchant)
-                    .font(.system(size: 15))
-                    .textInputAutocapitalization(.words)
-                    .focused($focusedField, equals: .merchant(draftId))
+                VStack(alignment: .leading, spacing: 0) {
+                    TextField("Where did you pay?", text: $drafts[idx].merchant)
+                        .font(.system(size: 15))
+                        .textInputAutocapitalization(.words)
+                        .focused($focusedField, equals: .merchant(draftId))
+                    if !d.merchantAlternates.isEmpty {
+                        merchantAlternatesRow(idx: idx)
+                            .padding(.top, 8)
+                    }
+                }
             }
 
             rowDivider
@@ -377,6 +387,44 @@ struct MultiReceiptReviewView: View {
 
     private var rowDivider: some View {
         Color(hex: "F0EFE9").frame(height: 1)
+    }
+
+    /// The per-row "Doesn't look right?" affordance — mirrors the single Add-
+    /// expense page: a chip that expands to the OCR's other merchant guesses.
+    @ViewBuilder
+    private func merchantAlternatesRow(idx: Int) -> some View {
+        if drafts[idx].showAlternates {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(drafts[idx].merchantAlternates.prefix(5), id: \.self) { name in
+                        Button {
+                            drafts[idx].merchant = name
+                            drafts[idx].showAlternates = false
+                        } label: {
+                            Text(name)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color(hex: "2F402E"))
+                                .padding(.horizontal, 12).padding(.vertical, 6)
+                                .background(Color(hex: "F0EDE6"))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        } else {
+            Button {
+                drafts[idx].showAlternates = true
+            } label: {
+                Text("Doesn't look right?")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .background(Color.brandPrimary)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+        }
     }
 
     /// "Group · Child" for a group's sub-tag, plain name otherwise.
@@ -505,6 +553,8 @@ struct MultiReceiptReviewView: View {
                     if let d = result.date { drafts[idx].date = d }
                     if let name = result.merchant { drafts[idx].merchant = name }
                     if let n    = result.notes    { drafts[idx].notes    = n }
+                    drafts[idx].merchantAlternates = result.merchantAlternates
+                    drafts[idx].showAlternates = false
                 }
             }
         }
