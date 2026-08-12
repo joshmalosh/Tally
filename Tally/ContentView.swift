@@ -188,9 +188,6 @@ struct ContentView: View {
         .sheet(isPresented: $appState.showingSettings) {
             SettingsView()
         }
-        .sheet(isPresented: $appState.showingExport) {
-            ExportView()
-        }
         .onChange(of: syncEngine.isOnline) { _, online in
             appState.isOffline = !online
         }
