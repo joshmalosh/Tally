@@ -120,6 +120,8 @@ Josh far more time than a short pause to check, and it can break his real files.
   instruction. End commit messages with `Co-Authored-By: Claude …`.
 - Josh's Mac clone names the remote `origin`, not `tally`. On his machine the
   push is plain `git push`.
+- Run the pre-push-reviewer only before pushes to `main`/`master`. Skip it for
+  `dev` and feature branches.
 
 ---
 
