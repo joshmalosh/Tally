@@ -356,6 +356,24 @@ final class ReceiptOCRServiceTests: XCTestCase {
         XCTAssertEqual(ReceiptOCRService.extractForTesting(lines).merchant, "Woolworths")
     }
 
+    // MARK: - Orientation — the Woolworths photo Vision read sideways.
+
+    // The real miss wasn't the block scoring (the header tests above already
+    // pass): the camera photo was stored sideways with a `.right` flag, and the
+    // OCR ran on the raw buffer without it, so every block came back rotated 90°
+    // (each one taller than wide) and "top of receipt" pointed at the receipt's
+    // edge instead of its head. The suburb won. The fix hands Vision the flag;
+    // this pins the mapping so a future refactor can't drop it. Name-to-name is
+    // correct — the two enums number their cases differently.
+    func testImageOrientation_mappedForVision_notByRawValue() {
+        XCTAssertEqual(ReceiptOCRService.orientationForTesting(.up), .up)
+        XCTAssertEqual(ReceiptOCRService.orientationForTesting(.right), .right)
+        XCTAssertEqual(ReceiptOCRService.orientationForTesting(.left), .left)
+        XCTAssertEqual(ReceiptOCRService.orientationForTesting(.down), .down)
+        XCTAssertEqual(ReceiptOCRService.orientationForTesting(.upMirrored), .upMirrored)
+        XCTAssertEqual(ReceiptOCRService.orientationForTesting(.rightMirrored), .rightMirrored)
+    }
+
     // MARK: - Deus, Bali — Indonesian rupiah, grouped thousands, crumpled photo.
 
     // The whole docket, top to bottom, at the confidences a crumpled photo

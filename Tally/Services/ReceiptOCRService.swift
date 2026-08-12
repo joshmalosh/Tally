@@ -19,18 +19,22 @@ enum ReceiptOCRService {
     /// Extract full raw text from image for bulk import. Returns concatenated text blocks.
     static func extractFullText(from image: UIImage) async -> String {
         let cgImage: CGImage
+        var orientation: CGImagePropertyOrientation = .up
         if let cg = image.cgImage {
             cgImage = cg
+            orientation = cgOrientation(from: image.imageOrientation)
         } else if let ciImage = image.ciImage {
             let context = CIContext()
             guard let cg = context.createCGImage(ciImage, from: ciImage.extent) else { return "" }
             cgImage = cg
+            orientation = cgOrientation(from: image.imageOrientation)
         } else if let data = image.pngData(), let reloaded = UIImage(data: data)?.cgImage {
+            // pngData() bakes the orientation in, so the reload is already upright.
             cgImage = reloaded
         } else {
             return ""
         }
-        let observations = await recognizeText(in: cgImage)
+        let observations = await recognizeText(in: cgImage, orientation: orientation)
         let blocks = observations
             .sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
             .compactMap { obs -> String? in
@@ -45,6 +49,13 @@ enum ReceiptOCRService {
     /// Lets tests pin the behaviour on real receipt layouts without images.
     static func extractForTesting(_ lines: [(text: String, box: CGRect)]) -> ReceiptOCRResult {
         extractForTesting(lines.map { (text: $0.text, box: $0.box, confidence: Float(1.0)) })
+    }
+
+    /// Test hook for the orientation mapping. Camera photos store pixels sideways
+    /// with a `.right` display flag; feeding that flag to Vision is what keeps a
+    /// receipt from being read rotated (which sank the merchant heuristics).
+    static func orientationForTesting(_ ui: UIImage.Orientation) -> CGImagePropertyOrientation {
+        cgOrientation(from: ui)
     }
 
     /// Confidence-aware variant. Vision scores a crumpled letterhead well below
@@ -67,21 +78,25 @@ enum ReceiptOCRService {
 
     static func extract(from image: UIImage) async -> ReceiptOCRResult {
         let cgImage: CGImage
+        var orientation: CGImagePropertyOrientation = .up
         if let cg = image.cgImage {
             cgImage = cg
+            orientation = cgOrientation(from: image.imageOrientation)
         } else if let ciImage = image.ciImage {
             let context = CIContext()
             guard let cg = context.createCGImage(ciImage, from: ciImage.extent) else {
                 return ReceiptOCRResult()
             }
             cgImage = cg
+            orientation = cgOrientation(from: image.imageOrientation)
         } else if let data = image.pngData(), let reloaded = UIImage(data: data)?.cgImage {
+            // pngData() bakes the orientation in, so the reload is already upright.
             cgImage = reloaded
         } else {
             return ReceiptOCRResult()
         }
 
-        let observations = await recognizeText(in: cgImage)
+        let observations = await recognizeText(in: cgImage, orientation: orientation)
         let blocks = observations
             .sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
             .compactMap { obs -> TextBlock? in
@@ -118,7 +133,28 @@ enum ReceiptOCRService {
 
     // MARK: - Vision
 
-    private static func recognizeText(in cgImage: CGImage) async -> [VNRecognizedTextObservation] {
+    /// Map a UIImage's display orientation to the Vision/CoreGraphics enum so the
+    /// handler can undo it. A camera photo's pixels are stored sideways with a
+    /// `.right` orientation flag; the display applies the flag but `image.cgImage`
+    /// is the raw sideways buffer, so Vision must be told the flag or it reads the
+    /// receipt rotated (every merchant/top-of-receipt heuristic then misfires).
+    /// Name-to-name is the correct mapping; the two enums' raw values differ.
+    private static func cgOrientation(from ui: UIImage.Orientation) -> CGImagePropertyOrientation {
+        switch ui {
+        case .up: return .up
+        case .down: return .down
+        case .left: return .left
+        case .right: return .right
+        case .upMirrored: return .upMirrored
+        case .downMirrored: return .downMirrored
+        case .leftMirrored: return .leftMirrored
+        case .rightMirrored: return .rightMirrored
+        @unknown default: return .up
+        }
+    }
+
+    private static func recognizeText(in cgImage: CGImage,
+                                      orientation: CGImagePropertyOrientation = .up) async -> [VNRecognizedTextObservation] {
         await withCheckedContinuation { continuation in
             // Dispatch to a background queue — handler.perform is synchronous and
             // would block the main thread if called directly from an @MainActor context.
@@ -130,7 +166,7 @@ enum ReceiptOCRService {
                 request.recognitionLevel = .accurate
                 request.usesLanguageCorrection = true
 
-                let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
+                let handler = VNImageRequestHandler(cgImage: cgImage, orientation: orientation, options: [:])
                 do {
                     try handler.perform([request])
                 } catch {
