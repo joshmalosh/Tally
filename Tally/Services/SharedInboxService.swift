@@ -66,3 +66,13 @@ struct SharedImageItem: Identifiable {
     let image: UIImage
     let id = UUID().uuidString
 }
+
+/// Identifiable wrapper carrying a batch of picked/shared images so multi-receipt
+/// review can be driven by fullScreenCover(item:). Presenting off a separate Bool
+/// plus an images array raced — the cover could build before the array settled,
+/// giving an empty "Review receipts" screen. Binding the images to the item makes
+/// presentation and data atomic.
+struct MultiReceiptBatch: Identifiable {
+    let images: [UIImage]
+    let id = UUID().uuidString
+}

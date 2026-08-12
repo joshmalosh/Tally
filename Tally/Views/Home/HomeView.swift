@@ -29,8 +29,11 @@ struct HomeView: View {
     @State private var homeBarTagId: String? = nil
     @AppStorage("homeHeroPeriod") private var selectedHeroPeriod: HeroPeriod = .month
     @State private var showingPeriodDetail = false
-    @State private var multiReceiptImages: [UIImage] = []
-    @State private var showingMultiReceipt = false
+    @State private var multiReceiptBatch: MultiReceiptBatch?
+    // Images picked inside the Add-expense cover, held until that cover finishes
+    // dismissing — SwiftUI can't present the review cover while another is still
+    // dismissing, so it's handed over in the cover's onDismiss, not on a timer.
+    @State private var pendingReviewImages: [UIImage] = []
     @State private var sharedPDFItem: SharedPDFItem?
     @State private var sharedImageItem: SharedImageItem?
     @State private var landedExpenseId: String? = nil
@@ -116,7 +119,7 @@ struct HomeView: View {
     /// leftovers are picked up when the current cover dismisses or on the
     /// next foreground.
     private func consumeSharedInbox() {
-        guard !showingMultiReceipt, selectedEntryMode == nil,
+        guard multiReceiptBatch == nil, selectedEntryMode == nil,
               sharedPDFItem == nil, sharedImageItem == nil else { return }
         let items = SharedInboxService.pendingItems()
         guard !items.isEmpty else { return }
@@ -132,14 +135,9 @@ struct HomeView: View {
             return
         }
         if !images.isEmpty {
-            multiReceiptImages = images
-            // Delay presentation one beat so the cover is built after the
-            // images state settles — presenting in the same tick produced an
-            // empty review screen (matches the 0.55s pattern used when
-            // arriving from AddExpenseView).
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                showingMultiReceipt = true
-            }
+            // Nothing else is presenting here (guarded above), so bind the images
+            // to the item and present directly — no timer needed.
+            multiReceiptBatch = MultiReceiptBatch(images: images)
             return
         }
 
@@ -367,32 +365,36 @@ struct HomeView: View {
             .presentationDragIndicator(.hidden)
             .presentationBackground(Color(hex: "F0EDE6"))
         }
-        .fullScreenCover(item: $selectedEntryMode) { mode in
+        .fullScreenCover(item: $selectedEntryMode, onDismiss: {
+            // The Add-expense cover has now fully dismissed; safe to present the
+            // review cover with the images it handed over. Doing this here rather
+            // than on a timer removes the empty-screen race for good.
+            if !pendingReviewImages.isEmpty {
+                multiReceiptBatch = MultiReceiptBatch(images: pendingReviewImages)
+                pendingReviewImages = []
+            }
+        }) { mode in
             if mode == .bulkImport {
                 AddMultipleExpensesView()
             } else {
                 AddExpenseView(
                     initialMode: mode,
                     onMultiReceiptImages: { images in
-                        // Dismiss AddExpenseView, then present MultiReceiptReviewView
-                        // as a sibling fullScreenCover at this level — never nested.
+                        // Stash the images and dismiss AddExpenseView; the review
+                        // cover is presented in this cover's onDismiss above.
+                        pendingReviewImages = images
                         selectedEntryMode = nil
-                        multiReceiptImages = images
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) {
-                            showingMultiReceipt = true
-                        }
                     }
                 )
             }
         }
-        .fullScreenCover(isPresented: $showingMultiReceipt, onDismiss: {
-            multiReceiptImages = []
+        .fullScreenCover(item: $multiReceiptBatch, onDismiss: {
             consumeSharedInbox()
-        }) {
+        }) { batch in
             MultiReceiptReviewView(
-                images: multiReceiptImages,
-                onCancel: { showingMultiReceipt = false },
-                onDone: { showingMultiReceipt = false }
+                images: batch.images,
+                onCancel: { multiReceiptBatch = nil },
+                onDone: { multiReceiptBatch = nil }
             )
         }
         .fullScreenCover(item: $sharedPDFItem, onDismiss: {
@@ -1080,7 +1082,7 @@ struct HomeView: View {
     /// Suppressed while any other sheet is already up so prompts never stack.
     private func maybeShowDailyUpgradePrompt() {
         guard appState.shouldShowUpgradePrompt else { return }
-        guard !showingEntryPicker, !showingMultiReceipt, !appState.showingSettings,
+        guard !showingEntryPicker, multiReceiptBatch == nil, !appState.showingSettings,
               !appState.showingExport, appState.selectedExpenseId == nil else { return }
         appState.recordUpgradePromptShown()
         showingDailyUpgradePrompt = true
