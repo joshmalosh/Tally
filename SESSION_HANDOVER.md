@@ -4,16 +4,17 @@
 is, how it makes money, how it's built, how Josh works, what's shipped, what's
 broken, and what to do next. Read it top to bottom before touching code.*
 
-Last updated: 2026-07-31
+Last updated: 2026-08-12
 
 ---
 
 ## 0. Orientation — read these, in this order
 
 ```
+CLAUDE.md                                         # how to work with Josh — always-on rules
 SESSION_HANDOVER.md                               # this file — start here
+PROJECT_BRIEF.md                                  # product spec + monetisation law (consolidated)
 Tally/Tally - Everything You Need To Know.md      # deep product/design/flow reference
-MONETISATION_BRIEF.md                             # monetisation law (repo root)
 .claude/skills/ocr-regression/SKILL.md            # OCR guardrail workflow
 TallyTests/ReceiptOCRServiceTests.swift           # the receipt regression corpus
 ```
@@ -22,8 +23,8 @@ The canonical doc's filename **contains spaces** — quote it, don't glob it:
 `Read "Tally/Tally - Everything You Need To Know.md"`. A previous session burned
 two failed searches on this.
 
-**Precedence when sources disagree: the code wins**, then `MONETISATION_BRIEF.md`
-for monetisation, then the canonical doc, then this file. If you find a
+**Precedence when sources disagree: the code wins**, then `PROJECT_BRIEF.md`
+(its Monetisation part) for monetisation, then the canonical doc, then this file. If you find a
 contradiction, verify against the code and fix the doc **in the same session**.
 Leaving it is how the mess in §6 happened.
 
@@ -54,6 +55,9 @@ on-device OCR. RevenueCat over StoreKit 2. AdMob banners.
 
 Josh (`joshmalosh`) — builds on a Mac, develops the repo on Windows. He is the
 product owner and makes all product calls; bring him decisions, not surveys.
+
+**`CLAUDE.md` at the repo root holds the always-on rules for working with Josh.
+Read it. The points below are the project-specific extension of those rules.**
 
 **Conventions he cares about, learned the hard way:**
 
@@ -158,8 +162,8 @@ uses bottom-alignment + padding instead).
 
 ## 5. The product model (free vs Pro)
 
-`MONETISATION_BRIEF.md` is authoritative; these numbers were reconciled with the
-code on 2026-07-20 and currently agree.
+`PROJECT_BRIEF.md` (Monetisation part) is authoritative; these numbers were
+reconciled with the code on 2026-07-20 and currently agree.
 
 | Capability | Free | Pro ($4.99/mo) |
 |---|---|---|
@@ -288,8 +292,8 @@ business-suffix pass now runs the reject gates too.
 FAB opens the entry menu • celebrations/sounds stay • Home tag bar is the user's
 explicit choice • Reports keeps its tab, Export keeps its button • single-tag rule
 (standalone / group / group+sub-tag) • **Home gradient is the bottom layer** • no
-pre-filled tag "suggestion" chips that read as selections • `MONETISATION_BRIEF.md`
-is monetisation law; no usage caps on core tracking • **no interstitial ads**
+pre-filled tag "suggestion" chips that read as selections • `PROJECT_BRIEF.md`
+(Monetisation part) is monetisation law; no usage caps on core tracking • **no interstitial ads**
 (rejected twice) • shred is a rotation-only rumble centred under the FAB.
 
 Added 2026-07-20: **OCR is metered by volume, never crippled by field** • **a
