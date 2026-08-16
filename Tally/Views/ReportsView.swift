@@ -5,6 +5,7 @@ struct ReportsView: View {
     @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil },
            sort: \ExpenseModel.date, order: .reverse) private var expenses: [ExpenseModel]
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
+    @Environment(AppState.self) private var appState
 
     @State private var selectedPeriod: ReportPeriod = .sixMonths
     @State private var selectedMonthOffset: Int = 0
@@ -426,7 +427,7 @@ struct ReportsView: View {
                     .font(Font.dmSerifDisplay(18))
                     .foregroundStyle(Color(hex: "1C1C1E"))
                 Spacer()
-                Text("USD")
+                Text(appState.defaultCurrency)
                     .font(.system(size: 11))
                     .foregroundStyle(Color(hex: "8F9E94"))
             }
