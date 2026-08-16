@@ -14,14 +14,22 @@ final class AppState {
     var groupFilterIds: Set<String> = []
     /// Show only expenses marked recurring (subscriptions etc.).
     var filterRecurringOnly = false
+    /// When set, totals and lists are scoped to this currency; otherwise the
+    /// default currency is used. Only currencies the user actually has appear as
+    /// filter options.
+    var filterCurrency: String? = nil
+
+    /// Currency that totals/lists resolve to right now.
+    var activeCurrency: String { filterCurrency ?? defaultCurrency }
 
     var hasTagFilters: Bool { !activeFilterIds.isEmpty }
-    var hasAnyFilter: Bool { !activeFilterIds.isEmpty || filterRecurringOnly }
+    var hasAnyFilter: Bool { !activeFilterIds.isEmpty || filterRecurringOnly || filterCurrency != nil }
 
     func clearFilters() {
         activeFilterIds.removeAll()
         groupFilterIds.removeAll()
         filterRecurringOnly = false
+        filterCurrency = nil
     }
 
     func toggleFilter(id: String, isGroup: Bool) {

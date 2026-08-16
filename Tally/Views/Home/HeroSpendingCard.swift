@@ -210,7 +210,7 @@ struct SpendingSummaryCard: View {
     /// Called when the user taps the Export pill.
     let onExportTap: () -> Void
 
-    private var currency: String { appState.defaultCurrency }
+    private var currency: String { appState.activeCurrency }
 
     // MARK: - Computed helpers
 

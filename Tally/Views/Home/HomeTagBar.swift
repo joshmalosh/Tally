@@ -37,7 +37,7 @@ struct HomeTagBar: View {
     @State private var showingAddSheet = false
     @State private var editingTag: TagModel?
 
-    private var currency: String { appState.defaultCurrency }
+    private var currency: String { appState.activeCurrency }
 
     private var homeTags: [TagModel] {
         allTags.filter { $0.showOnHome && !$0.isGroup }

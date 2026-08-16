@@ -32,7 +32,7 @@ struct ReportsView: View {
     /// Expenses in the default currency only — mixing currencies without a rate
     /// makes every total meaningless (an IDR expense blew up the sum).
     private var currencyExpenses: [ExpenseModel] {
-        expenses.filter { $0.currency == appState.defaultCurrency }
+        expenses.filter { $0.currency == appState.activeCurrency }
     }
 
     /// Expenses within the selected display period.
@@ -433,7 +433,7 @@ struct ReportsView: View {
                     .font(Font.dmSerifDisplay(18))
                     .foregroundStyle(Color(hex: "1C1C1E"))
                 Spacer()
-                Text(appState.defaultCurrency)
+                Text(appState.activeCurrency)
                     .font(.system(size: 11))
                     .foregroundStyle(Color(hex: "8F9E94"))
             }

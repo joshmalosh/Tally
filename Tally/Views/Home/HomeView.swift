@@ -65,6 +65,11 @@ struct HomeView: View {
             let cal = Calendar.current
             guard let lastMonth = cal.date(byAdding: .month, value: -1, to: Date()) else { return [] }
             return activeExpenses.filter { cal.isDate($0.date, equalTo: lastMonth, toGranularity: .month) }
+        case .custom(let start, let end):
+            let cal = Calendar.current
+            let from = cal.startOfDay(for: start)
+            let to = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: end)) ?? end
+            return activeExpenses.filter { $0.date >= from && $0.date < to }
         }
     }
 
@@ -78,6 +83,12 @@ struct HomeView: View {
 
         if appState.filterRecurringOnly {
             result = result.filter { $0.isRecurring }
+        }
+
+        // A currency filter narrows the list to that currency (the total already
+        // resolves to it via activeCurrency).
+        if let fc = appState.filterCurrency {
+            result = result.filter { $0.currency == fc }
         }
 
         if appState.hasTagFilters {
@@ -1315,13 +1326,14 @@ private final class ScrollObserverUIView: UIView {
 
 // MARK: - Period Filter
 
-enum PeriodFilter {
+enum PeriodFilter: Equatable {
     case selected
     case allTime
     case thisFinancialYear
     case thisYear
     case thisMonth
     case lastMonth
+    case custom(start: Date, end: Date)
 
     var label: String {
         switch self {
@@ -1331,8 +1343,11 @@ enum PeriodFilter {
         case .thisYear: "This Year"
         case .thisMonth: "This Month"
         case .lastMonth: "Last Month"
+        case .custom: "Custom"
         }
     }
+
+    var isCustom: Bool { if case .custom = self { return true }; return false }
 }
 
 extension String: @retroactive Identifiable {
