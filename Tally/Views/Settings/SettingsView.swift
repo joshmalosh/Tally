@@ -226,7 +226,7 @@ struct SettingsView: View {
                     get: { appState.defaultCurrency },
                     set: { appState.defaultCurrency = $0 }
                 ))
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $showingFinancialYearPicker) {

@@ -213,7 +213,7 @@ struct ExpenseDetailView: View {
                 }
                 .sheet(isPresented: $showingCurrencyPicker) {
                     CurrencyPickerSheet(selectedCode: $currency)
-                        .presentationDetents([.medium, .large])
+                        .presentationDetents([.large])
                         .presentationDragIndicator(.visible)
                 }
                 .confirmationDialog(

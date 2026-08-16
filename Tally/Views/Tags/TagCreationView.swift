@@ -17,6 +17,7 @@ struct TagCreationView: View {
     @State private var selectedIcon: String? = nil
     @State private var showingColorPicker = false
     @State private var showingIconPicker = false
+    @State private var showingDuplicateAlert = false
 
     var editingTag: TagModel? = nil
     var initialParentId: String? = nil
@@ -108,6 +109,11 @@ struct TagCreationView: View {
             Button("Delete", role: .destructive) { performDeleteTag() }
         } message: {
             Text("This will remove the tag from all expenses. This cannot be undone.")
+        }
+        .alert("Already exists", isPresented: $showingDuplicateAlert) {
+            Button("OK") {}
+        } message: {
+            Text("A \(isGroupMode ? "group" : "tag") named \"\(name.trimmingCharacters(in: .whitespaces))\" already exists.")
         }
         .sheet(isPresented: $showingColorPicker) {
             TagColorPickerSheet(selectedColorId: $selectedColorId)
@@ -359,6 +365,19 @@ struct TagCreationView: View {
     private func save() {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
+
+        // Block duplicates: same name (case-insensitive) at the same level — a
+        // group, or a tag under the same parent. Different groups can each hold a
+        // "Groceries", so parent and isGroup are part of the identity.
+        let parent = isGroupMode ? nil : selectedParentId
+        let isDuplicate = allTags.contains { other in
+            other.id != editingTag?.id
+                && other.isGroup == isGroupMode
+                && other.parentId == parent
+                && other.name.trimmingCharacters(in: .whitespaces)
+                    .caseInsensitiveCompare(trimmed) == .orderedSame
+        }
+        guard !isDuplicate else { showingDuplicateAlert = true; return }
 
         if let tag = editingTag {
             tag.name = trimmed
