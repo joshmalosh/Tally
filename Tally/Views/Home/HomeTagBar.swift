@@ -35,6 +35,7 @@ struct HomeTagBar: View {
     private var activeExpenses: [ExpenseModel]
     @Binding var selectedTagId: String?
     @State private var showingAddSheet = false
+    @State private var editingTag: TagModel?
 
     private var currency: String { appState.defaultCurrency }
 
@@ -93,7 +94,8 @@ struct HomeTagBar: View {
                         currency: currency,
                         iconBg: iconBg,
                         iconColor: primary,
-                        isSelected: selectedTagId == tag.id
+                        isSelected: selectedTagId == tag.id,
+                        onLongPress: { editingTag = tag }
                     ) {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         withAnimation(.easeInOut(duration: 0.15)) {
@@ -117,6 +119,9 @@ struct HomeTagBar: View {
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
+        .sheet(item: $editingTag) { tag in
+            TagCreationView(editingTag: tag)
+        }
     }
 }
 
@@ -130,6 +135,7 @@ private struct TagFilterCard: View {
     let iconBg: Color
     let iconColor: Color
     let isSelected: Bool
+    var onLongPress: (() -> Void)? = nil
     let onTap: () -> Void
 
     var body: some View {
@@ -176,6 +182,13 @@ private struct TagFilterCard: View {
         }
         .buttonStyle(.plain)
         .animation(.easeInOut(duration: 0.15), value: isSelected)
+        .simultaneousGesture(
+            LongPressGesture(minimumDuration: 0.4).onEnded { _ in
+                guard let onLongPress else { return }
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                onLongPress()
+            }
+        )
     }
 }
 
