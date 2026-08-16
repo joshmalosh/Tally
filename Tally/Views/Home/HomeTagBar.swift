@@ -50,17 +50,20 @@ struct HomeTagBar: View {
         let yearStart = cal.dateInterval(of: .year, for: now)?.start ?? now
         return activeExpenses
             .filter { $0.date >= yearStart && $0.date <= now }
+            .filter { $0.currency == currency }
             .filter { $0.resolvedTagIds.contains(tagId) }
             .reduce(0) { $0 + $1.amountCents }
     }
 
-    /// Sum of this year's expenses across all tags.
+    /// Sum of this year's expenses across all tags, in the default currency only
+    /// — summing mixed currencies without a rate produces a meaningless total.
     private var yearlyTotalAll: Int {
         let cal = Calendar.current
         let now = Date()
         let yearStart = cal.dateInterval(of: .year, for: now)?.start ?? now
         return activeExpenses
             .filter { $0.date >= yearStart && $0.date <= now }
+            .filter { $0.currency == currency }
             .reduce(0) { $0 + $1.amountCents }
     }
 
@@ -139,7 +142,6 @@ private struct TagFilterCard: View {
     let onTap: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
             VStack(spacing: 4) {
                 // Icon square
                 ZStack {
@@ -179,16 +181,17 @@ private struct TagFilterCard: View {
                     )
             )
             .shadow(color: .black.opacity(0.05), radius: 6, x: 0, y: 2)
-        }
-        .buttonStyle(.plain)
-        .animation(.easeInOut(duration: 0.15), value: isSelected)
-        .simultaneousGesture(
-            LongPressGesture(minimumDuration: 0.4).onEnded { _ in
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .animation(.easeInOut(duration: 0.15), value: isSelected)
+            // Tap and long-press as separate, mutually-exclusive gestures — a
+            // Button plus a simultaneous long-press fired both, and the tap's
+            // re-render dismissed the just-opened editor on the first try.
+            .onTapGesture { onTap() }
+            .onLongPressGesture(minimumDuration: 0.4) {
                 guard let onLongPress else { return }
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 onLongPress()
             }
-        )
     }
 }
 

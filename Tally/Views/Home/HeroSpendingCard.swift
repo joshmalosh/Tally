@@ -218,6 +218,9 @@ struct SpendingSummaryCard: View {
     private var periodExpenses: [ExpenseModel] {
         let range = selectedPeriod.dateRange(financialYearStart: appState.currentFinancialYearStart)
         var result = allExpenses.filter { $0.date >= range.start && $0.date <= range.end }
+        // Only the default currency — a foreign-currency expense (e.g. IDR) must
+        // not be added into the total without a conversion rate.
+        result = result.filter { $0.currency == currency }
         if let tagId = homeBarTagId {
             result = result.filter { $0.resolvedTagIds.contains(tagId) }
         }

@@ -29,19 +29,25 @@ struct ReportsView: View {
         }
     }
 
+    /// Expenses in the default currency only — mixing currencies without a rate
+    /// makes every total meaningless (an IDR expense blew up the sum).
+    private var currencyExpenses: [ExpenseModel] {
+        expenses.filter { $0.currency == appState.defaultCurrency }
+    }
+
     /// Expenses within the selected display period.
     private var filteredExpenses: [ExpenseModel] {
         let calendar = Calendar.current
         let now = Date()
         switch selectedPeriod {
         case .threeMonths:
-            return expenses.filter { $0.date >= calendar.date(byAdding: .month, value: -3,  to: now)! }
+            return currencyExpenses.filter { $0.date >= calendar.date(byAdding: .month, value: -3,  to: now)! }
         case .sixMonths:
-            return expenses.filter { $0.date >= calendar.date(byAdding: .month, value: -6,  to: now)! }
+            return currencyExpenses.filter { $0.date >= calendar.date(byAdding: .month, value: -6,  to: now)! }
         case .oneYear:
-            return expenses.filter { $0.date >= calendar.date(byAdding: .year,  value: -1,  to: now)! }
+            return currencyExpenses.filter { $0.date >= calendar.date(byAdding: .year,  value: -1,  to: now)! }
         case .allTime:
-            return expenses
+            return currencyExpenses
         }
     }
 
@@ -53,15 +59,15 @@ struct ReportsView: View {
         case .threeMonths:
             let end   = calendar.date(byAdding: .month, value: -3,  to: now)!
             let start = calendar.date(byAdding: .month, value: -6,  to: now)!
-            return expenses.filter { $0.date >= start && $0.date < end }
+            return currencyExpenses.filter { $0.date >= start && $0.date < end }
         case .sixMonths:
             let end   = calendar.date(byAdding: .month, value: -6,  to: now)!
             let start = calendar.date(byAdding: .month, value: -12, to: now)!
-            return expenses.filter { $0.date >= start && $0.date < end }
+            return currencyExpenses.filter { $0.date >= start && $0.date < end }
         case .oneYear:
             let end   = calendar.date(byAdding: .year,  value: -1,  to: now)!
             let start = calendar.date(byAdding: .year,  value: -2,  to: now)!
-            return expenses.filter { $0.date >= start && $0.date < end }
+            return currencyExpenses.filter { $0.date >= start && $0.date < end }
         case .allTime:
             return []
         }
@@ -116,7 +122,7 @@ struct ReportsView: View {
         case .sixMonths:   months = 6
         case .oneYear:     months = 12
         case .allTime:
-            let oldest = expenses.last?.date ?? Date()
+            let oldest = currencyExpenses.last?.date ?? Date()
             months = max(1, Double(Calendar.current.dateComponents([.month], from: oldest, to: Date()).month ?? 1))
         }
         return total / months
@@ -214,7 +220,7 @@ struct ReportsView: View {
         let now = Date()
         let targetDate = calendar.date(byAdding: .month, value: -(selectedMonthOffset + 1), to: now)!
         let comps = calendar.dateComponents([.year, .month], from: targetDate)
-        return expenses.filter {
+        return currencyExpenses.filter {
             let ec = calendar.dateComponents([.year, .month], from: $0.date)
             return ec.year == comps.year && ec.month == comps.month
         }

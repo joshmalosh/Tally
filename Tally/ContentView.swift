@@ -188,6 +188,12 @@ struct ContentView: View {
         .sheet(isPresented: $appState.showingSettings) {
             SettingsView()
         }
+        // Present the expense detail from the root so tapping an expense from any
+        // tab (home, reports drill-down) opens it in place instead of routing
+        // through the home tab and colliding with its presentations.
+        .sheet(item: $appState.selectedExpenseId) { id in
+            ExpenseDetailView(expenseId: id)
+        }
         .onChange(of: syncEngine.isOnline) { _, online in
             appState.isOffline = !online
         }

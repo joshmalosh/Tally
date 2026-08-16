@@ -427,9 +427,6 @@ struct HomeView: View {
         .sheet(isPresented: $showingDailyUpgradePrompt) {
             SubscriptionView()
         }
-        .sheet(item: $appState.selectedExpenseId) { id in
-            ExpenseDetailView(expenseId: id)
-        }
         .sheet(isPresented: $appState.showingExport) {
             GlobalExportSheet()
         }
@@ -641,11 +638,11 @@ struct HomeView: View {
         /// inline-ad cadence can run continuously across day groups without a
         /// per-row lookup.
         let startIndex: Int
-        /// This group is the first of its calendar year going down the list, so
-        /// a year divider is drawn above it (the list runs newest → oldest, so
-        /// scrolling back past January reveals the previous year's marker).
-        let showYearHeader: Bool
-        let year: Int
+        /// Year to print as a divider *above* this group — the year that just
+        /// ended. The list runs newest → oldest, so at the 2026→2025 boundary the
+        /// divider caps the 2026 section and reads "2026", sitting right before
+        /// December 2025. nil for the first group (no marker at the very top).
+        let yearHeader: Int?
     }
 
     private var dayGroups: [DayExpenseGroup] {
@@ -662,15 +659,15 @@ struct HomeView: View {
             let items = (buckets[day] ?? []).sorted { $0.date > $1.date }
             defer { offset += items.count }
             let year = cal.component(.year, from: day)
-            let showYear = prevYear != year
+            // Label the year that is ending (the group above), only at a boundary.
+            let header: Int? = (prevYear != nil && prevYear != year) ? prevYear : nil
             prevYear = year
             return DayExpenseGroup(
                 id: "\(day.timeIntervalSince1970)",
                 dayStart: day,
                 items: items,
                 startIndex: offset,
-                showYearHeader: showYear,
-                year: year
+                yearHeader: header
             )
         }
     }
@@ -784,13 +781,13 @@ struct HomeView: View {
 
             ForEach(dayGroups) { group in
                 Group {
-                    if group.showYearHeader {
-                        Text(String(group.year))
+                    if let headerYear = group.yearHeader {
+                        Text(String(headerYear))
                             .font(Font.dmSerifDisplay(24))
                             .foregroundStyle(Color(hex: "1C1C1E"))
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.leading, 20)
-                            .padding(.top, group.startIndex == 0 ? 2 : 22)
+                            .padding(.top, 22)
                             .padding(.bottom, 6)
                             .listRowInsets(EdgeInsets())
                             .listRowSeparator(.hidden)
