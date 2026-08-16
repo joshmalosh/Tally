@@ -12,6 +12,9 @@ struct PeriodDetailView: View {
     @Environment(AppState.self) private var appState
     @State private var showingExport = false
     @State private var expandedCategoryId: String? = nil
+    // A tapped bar (week/day/month/year) filters the breakdown below to that
+    // bucket, the same way tapping a month drills in on the reports page.
+    @State private var selectedBarId: String? = nil
 
     // MARK: - Computed totals
 
@@ -141,16 +144,36 @@ struct PeriodDetailView: View {
         let percent: Double
     }
 
+    /// The bucket id an expense belongs to, matching `displayBars`' ids so a
+    /// tapped bar can filter to its own expenses across every period type.
+    private func barKey(for e: ExpenseModel) -> String {
+        let cal = Calendar.current
+        switch period {
+        case .month, .lastMonth:        return "w\(cal.component(.weekOfMonth, from: e.date))"
+        case .week:                     return "d\(cal.component(.weekday, from: e.date))"
+        case .year, .thisFinancialYear: return "m\(cal.component(.month, from: e.date))"
+        case .allTime:                  return "y\(cal.component(.year, from: e.date))"
+        }
+    }
+
+    /// Expenses shown in the breakdown: the whole period, or one bar's bucket.
+    private var visibleExpenses: [ExpenseModel] {
+        guard let id = selectedBarId else { return expenses }
+        return expenses.filter { barKey(for: $0) == id }
+    }
+
+    private var visibleTotalCents: Int { visibleExpenses.reduce(0) { $0 + $1.amountCents } }
+
     private var categoryRows: [CategoryRow] {
-        guard totalCents > 0 else { return [] }
+        guard visibleTotalCents > 0 else { return [] }
         var buckets: [String: Int] = [:]
-        for expense in expenses {
+        for expense in visibleExpenses {
             let key = expense.resolvedTagIds.first ?? "__none__"
             buckets[key, default: 0] += expense.amountCents
         }
         let tagMap = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0) })
         return buckets.map { key, cents in
-            let percent = Double(cents) / Double(totalCents) * 100.0
+            let percent = Double(cents) / Double(visibleTotalCents) * 100.0
             if key == "__none__" {
                 return CategoryRow(id: key, name: "Uncategorised",
                                    color: Color(hex: "8F9E94"),
@@ -168,7 +191,7 @@ struct PeriodDetailView: View {
     }
 
     private func expensesForCategory(_ id: String) -> [ExpenseModel] {
-        expenses.filter { ($0.resolvedTagIds.first ?? "__none__") == id }
+        visibleExpenses.filter { ($0.resolvedTagIds.first ?? "__none__") == id }
     }
 
     // MARK: - Weekly bars
@@ -441,13 +464,14 @@ struct PeriodDetailView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .bottom, spacing: 10) {
                     ForEach(displayBars) { bar in
+                        let isHighlighted = selectedBarId == nil ? bar.isCurrentWeek : (bar.id == selectedBarId)
                         VStack(spacing: 5) {
                             if bar.totalCents > 0 {
                                 Text(formatCents(bar.totalCents)
                                     .replacingOccurrences(of: ".00", with: ""))
                                     .font(.system(size: 8, weight: .medium))
                                     .foregroundStyle(
-                                        bar.isCurrentWeek
+                                        isHighlighted
                                         ? Color(hex: "2F402E")
                                         : Color(hex: "8F9E94")
                                     )
@@ -456,7 +480,7 @@ struct PeriodDetailView: View {
                             }
 
                             RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(bar.isCurrentWeek
+                                .fill(isHighlighted
                                       ? Color(hex: "2F402E")
                                       : Color(hex: "D8EBE0"))
                                 .frame(
@@ -481,6 +505,13 @@ struct PeriodDetailView: View {
                                 // out of alignment with neighboring bars (HStack aligns the
                                 // whole column to the bottom, not the bar itself).
                                 .frame(height: 24, alignment: .top)
+                        }
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            withAnimation(.easeInOut(duration: 0.15)) {
+                                selectedBarId = (selectedBarId == bar.id) ? nil : bar.id
+                            }
                         }
                     }
                 }
