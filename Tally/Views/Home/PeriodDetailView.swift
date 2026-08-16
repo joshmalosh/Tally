@@ -9,6 +9,7 @@ struct PeriodDetailView: View {
     var titleOverride: String? = nil
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppState.self) private var appState
     @State private var showingExport = false
     @State private var expandedCategoryId: String? = nil
 
@@ -96,6 +97,39 @@ struct PeriodDetailView: View {
         return "$\(ws).\(String(format: "%02d", frac))"
     }
 
+    /// A drill-down expense row that mirrors the home list: receipt thumbnail,
+    /// merchant/notes, amount and tag, tappable to open the expense. Reuses the
+    /// same `ExpenseCard` the home page uses so the two stay identical.
+    @ViewBuilder
+    private func expenseCardRow(_ expense: ExpenseModel) -> some View {
+        let tag = expense.resolvedTagIds.first.flatMap { id in tags.first { $0.id == id } }
+        let label: String? = tag.map { t in
+            if let pid = t.parentId, let g = tags.first(where: { $0.id == pid }) {
+                return "\(g.name) › \(t.name)"
+            }
+            return t.name
+        }
+        let hasReceipt = expense.attachmentKey != nil || expense.attachmentData != nil
+        ExpenseCard(
+            receiptCacheKey: hasReceipt ? (expense.attachmentKey ?? expense.id) : nil,
+            receiptAttachmentKey: expense.attachmentKey,
+            receiptAttachmentData: expense.attachmentData,
+            iconSystemName: tag?.icon ?? "tag.fill",
+            iconBackground: tag?.tagColor.primaryColor.opacity(0.15) ?? Color(hex: "EDEBE6"),
+            description: expense.expenseDescription ?? "Expense",
+            merchant: expense.merchant,
+            notes: expense.notes,
+            amountCents: expense.amountCents,
+            currency: expense.currency,
+            primaryTagLabel: label,
+            primaryTagColor: tag?.tagColor,
+            additionalTagCount: max(0, expense.resolvedTagIds.count - 1)
+        )
+        .padding(.vertical, 4)
+        .contentShape(Rectangle())
+        .onTapGesture { appState.selectedExpenseId = expense.id }
+    }
+
     // MARK: - Category breakdown
 
     private struct CategoryRow: Identifiable {
@@ -136,19 +170,6 @@ struct PeriodDetailView: View {
     private func expensesForCategory(_ id: String) -> [ExpenseModel] {
         expenses.filter { ($0.resolvedTagIds.first ?? "__none__") == id }
     }
-
-    private func expenseTitle(_ expense: ExpenseModel) -> String {
-        if let merchant = expense.merchant, !merchant.isEmpty { return merchant }
-        if let description = expense.expenseDescription, !description.isEmpty { return description }
-        if let notes = expense.notes, !notes.isEmpty { return notes }
-        return "Expense"
-    }
-
-    private static let expenseRowDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "d MMM"
-        return formatter
-    }()
 
     // MARK: - Weekly bars
 
@@ -547,28 +568,13 @@ struct PeriodDetailView: View {
                             let categoryExpenses = expensesForCategory(row.id)
                             VStack(spacing: 0) {
                                 ForEach(Array(categoryExpenses.enumerated()), id: \.element.id) { index, expense in
-                                    HStack(spacing: 10) {
-                                        Text(Self.expenseRowDateFormatter.string(from: expense.date))
-                                            .font(.system(size: 11))
-                                            .foregroundStyle(Color(hex: "8F9E94"))
-                                            .frame(width: 42, alignment: .leading)
-                                        Text(expenseTitle(expense))
-                                            .font(.system(size: 13))
-                                            .foregroundStyle(Color(hex: "1C1C1E"))
-                                            .lineLimit(1)
-                                        Spacer()
-                                        Text(formatCents(expense.amountCents))
-                                            .font(.system(size: 13, weight: .medium).monospaced())
-                                            .foregroundStyle(Color(hex: "1C1C1E"))
-                                    }
-                                    .padding(.vertical, 8)
-
+                                    expenseCardRow(expense)
                                     if index < categoryExpenses.count - 1 {
                                         Divider()
                                     }
                                 }
                             }
-                            .padding(.leading, 48)
+                            .padding(.leading, 8)
                             .padding(.top, 2)
                             .transition(.opacity.combined(with: .move(edge: .top)))
                         }
