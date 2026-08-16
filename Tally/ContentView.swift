@@ -194,6 +194,9 @@ struct ContentView: View {
         .sheet(item: $appState.selectedExpenseId) { id in
             ExpenseDetailView(expenseId: id)
         }
+        .sheet(isPresented: $appState.showingSubscription) {
+            SubscriptionView()
+        }
         .onChange(of: syncEngine.isOnline) { _, online in
             appState.isOffline = !online
         }

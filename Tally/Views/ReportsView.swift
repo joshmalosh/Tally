@@ -272,6 +272,8 @@ struct ReportsView: View {
                     metricsRow
                     barChartCard
                     breakdownCTA
+                    InlineUpgradeAd()
+                        .padding(.horizontal, 16)
                     Spacer(minLength: 100)
                 }
             }

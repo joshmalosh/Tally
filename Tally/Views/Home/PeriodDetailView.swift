@@ -348,6 +348,11 @@ struct PeriodDetailView: View {
                         .padding(.horizontal, 20)
                         .padding(.bottom, 24)
 
+                    // Free tier: ad directly under the total.
+                    InlineUpgradeAd()
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 14)
+
                     // Weekly/daily/monthly chart
                     if !displayBars.isEmpty {
                         weekChartCard

@@ -684,8 +684,7 @@ struct HomeView: View {
     }
 
     private var inlineAdRow: some View {
-        BannerAdView()
-            .frame(height: 50)
+        InlineUpgradeAd()
             .frame(maxWidth: .infinity)
             .padding(.vertical, Spacing.sm)
             .listRowInsets(EdgeInsets())
@@ -784,12 +783,6 @@ struct HomeView: View {
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
 
-            // Free tier: leading ad, below the pinned tags and above the first
-            // expense. Mirrors the placement MFP uses under its header.
-            if adManager.shouldShowBannerAd && !dayGroups.isEmpty {
-                inlineAdRow
-            }
-
             ForEach(dayGroups) { group in
                 Group {
                     if let headerYear = group.yearHeader {
@@ -820,12 +813,12 @@ struct HomeView: View {
                             groupedExpenseRow(group: group, index: index, expense: expense)
                         }
 
-                        // Free tier: an ad after every 10th expense, counted
+                        // Free tier: an ad after every 15th expense, counted
                         // across the whole list rather than per day group —
                         // otherwise a run of single-expense days would stack
                         // ads back to back.
                         if adManager.shouldShowBannerAd,
-                           (group.startIndex + index + 1) % 10 == 0 {
+                           (group.startIndex + index + 1) % 15 == 0 {
                             inlineAdRow
                         }
                     }

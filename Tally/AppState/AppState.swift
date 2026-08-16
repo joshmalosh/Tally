@@ -6,6 +6,9 @@ final class AppState {
     var showingAddExpense = false
     var showingExport = false
     var showingSettings = false
+    /// Global upsell trigger (e.g. the "upgrade now" link under an ad); presented
+    /// from the app root so it works from any tab.
+    var showingSubscription = false
     var showingTagCreation = false
     var selectedExpenseId: String?
 

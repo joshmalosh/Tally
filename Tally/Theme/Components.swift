@@ -452,6 +452,32 @@ struct BannerAdView: View {
     }
 }
 
+/// A banner plus an "upgrade to remove ads" caption. Free tier only — renders
+/// nothing for Pro. Reused in the expense list, reports, and period detail.
+struct InlineUpgradeAd: View {
+    @Environment(AdManager.self) private var adManager
+    @Environment(AppState.self) private var appState
+
+    var body: some View {
+        if adManager.shouldShowBannerAd {
+            VStack(spacing: 6) {
+                BannerAdView()
+                Button {
+                    appState.showingSubscription = true
+                } label: {
+                    Text("Get ad-free expenses in premium - ")
+                        .foregroundColor(Color(hex: "8F9E94"))
+                    + Text("upgrade now")
+                        .foregroundColor(Color.brandPrimary)
+                }
+                .font(.system(size: 11))
+                .buttonStyle(.plain)
+                .padding(.bottom, 4)
+            }
+        }
+    }
+}
+
 private struct BannerAdRepresentable: UIViewRepresentable {
     func makeUIView(context: Context) -> GADBannerView {
         let banner = GADBannerView()
