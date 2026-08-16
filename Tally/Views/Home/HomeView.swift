@@ -641,6 +641,11 @@ struct HomeView: View {
         /// inline-ad cadence can run continuously across day groups without a
         /// per-row lookup.
         let startIndex: Int
+        /// This group is the first of its calendar year going down the list, so
+        /// a year divider is drawn above it (the list runs newest → oldest, so
+        /// scrolling back past January reveals the previous year's marker).
+        let showYearHeader: Bool
+        let year: Int
     }
 
     private var dayGroups: [DayExpenseGroup] {
@@ -652,14 +657,20 @@ struct HomeView: View {
         }
         let sortedDays = buckets.keys.sorted(by: >)
         var offset = 0
+        var prevYear: Int? = nil
         return sortedDays.map { day in
             let items = (buckets[day] ?? []).sorted { $0.date > $1.date }
             defer { offset += items.count }
+            let year = cal.component(.year, from: day)
+            let showYear = prevYear != year
+            prevYear = year
             return DayExpenseGroup(
                 id: "\(day.timeIntervalSince1970)",
                 dayStart: day,
                 items: items,
-                startIndex: offset
+                startIndex: offset,
+                showYearHeader: showYear,
+                year: year
             )
         }
     }
@@ -773,6 +784,19 @@ struct HomeView: View {
 
             ForEach(dayGroups) { group in
                 Group {
+                    if group.showYearHeader {
+                        Text(String(group.year))
+                            .font(Font.dmSerifDisplay(24))
+                            .foregroundStyle(Color(hex: "1C1C1E"))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.leading, 20)
+                            .padding(.top, group.startIndex == 0 ? 2 : 22)
+                            .padding(.bottom, 6)
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                    }
+
                     Text(daySectionTitle(for: group.dayStart))
                         .font(.system(size: 12, weight: .regular))
                         .foregroundStyle(Color(hex: "8F9E94"))
