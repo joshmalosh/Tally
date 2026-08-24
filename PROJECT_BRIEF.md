@@ -700,6 +700,11 @@ totals are single-currency, never mixed across currencies.
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-08-25 | The monthly report (period detail opened from the Home hero) pages between months by swiping left/right on the By Week chart. | Reviewing one month at a time is the natural motion; swiping the chart keeps navigation where the eye already is, without a separate month picker. Capped at the current month (no future). |
+| 2026-08-25 | Expanding a category slides its rows out from *behind* the header, never over it. | The rows ghosting across the heading during the open/close read as a rendering bug. The drop-down motion stays; the header+progress bar became an opaque block the rows pass behind, and the cell clips so nothing paints above it. |
+| 2026-08-25 | All circular header/nav icon buttons are one size: 36×36 with an `EDEAE4` fill. | The period-view share button was 34pt with a white fill and border — a visible outlier next to the 36pt Home gear and Reports arrow. Buttons of the same role should read as the same control everywhere. |
+| 2026-08-25 | A selected pinned tag fills solid dark Tally green (`2F402E`) with light text, not a light-green border. | The light-green selected border was too subtle to tell active from inactive at a glance. A dark fill makes the current tag unmistakable. |
+| 2026-08-25 | The period label in the report header is enlarged and darkened. | The month / "ALL TIME" label was small grey-green and easy to miss; it anchors the whole screen (and now changes as you swipe months), so it earns prominence. |
 | 2026-08-25 | Totals are always single-currency, scoped to `activeCurrency`; foreign-currency expenses show as rows but are never summed into the headline. | The app stores a currency per expense and has **no FX** (a deliberate non-goal). Adding amounts across currencies produces a meaningless number — a ₹608,600 receipt was reading as $608,600 in the period view. One rule everywhere means reports, sheets and exports agree, which Josh values as reliable data with no loose ends. |
 | 2026-08-25 | Free-tier banner moved from the bottom tab bar to beneath the pinned tags on Home. | The docked banner sat under the FAB overhang and covered the + button no matter the padding — a hard no. It can't go lower (it's already at the safe-area bottom), so it moved up into the header where it's clear of every control. |
 | 2026-08-25 | Tags & Groups rows use an enlarged circular colour swatch with the tag's emoji inside. | Matches the home row's icon treatment (recognisable), but circular; the 12pt dot was too small to carry an icon and read only as a colour. |
@@ -786,6 +791,11 @@ free-tier banner moved into the Home header, 2026-08-25).
 
 ## Current state — what's shipped (newest first)
 
+- **Monthly report polish** (2026-08-25): the period detail (opened from the Home
+  hero) now pages months by swiping the By Week chart; category rows slide out from
+  behind the header instead of ghosting over it; the period title is more
+  prominent; the share button and the two sheet close buttons are normalised to the
+  36pt icon-button standard; the selected pinned tag on Home fills dark Tally green.
 - **Currency consolidation + SKAdNetwork** (`5e0a115`, `b939b15`, 2026-08-25):
   `PeriodDetailView` summed `amountCents` across currencies (₹608,600 read as
   $608,600). Now scoped to `activeCurrency` via `ExpenseModel.inCurrency` /

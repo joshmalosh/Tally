@@ -162,7 +162,7 @@ private struct TagFilterCard: View {
                 // Tag name
                 Text(label)
                     .font(.system(size: 11, weight: .regular))
-                    .foregroundStyle(Color(hex: "6B7A6A"))
+                    .foregroundStyle(isSelected ? Color.white.opacity(0.85) : Color(hex: "6B7A6A"))
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -170,20 +170,21 @@ private struct TagFilterCard: View {
                 // Amount
                 Text(CurrencyFormatter.shared.format(cents: amountCents, currencyCode: currency))
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
+                    .foregroundStyle(isSelected ? Color.white : Color(hex: "1C1C1E"))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .frame(maxWidth: .infinity, alignment: .center)
             }
             .padding(8)
             .frame(width: 89, height: 89)
-            .background(Color.white)
+            // Selected: filled dark Tally green so the active tag is unmistakable.
+            .background(isSelected ? Color(hex: "2F402E") : Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 19, style: .continuous)
                     .stroke(
-                        isSelected ? Color(hex: "B8D4C0") : Color(hex: "DEDAD2").opacity(0.6),
-                        lineWidth: isSelected ? 2 : 0.5
+                        isSelected ? Color.clear : Color(hex: "DEDAD2").opacity(0.6),
+                        lineWidth: isSelected ? 0 : 0.5
                     )
             )
             .shadow(color: .black.opacity(0.05), radius: 7, x: 0, y: 2)

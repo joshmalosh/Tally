@@ -7,6 +7,9 @@ struct PeriodDetailView: View {
     let tags: [TagModel]
     var previousExpenses: [ExpenseModel] = []
     var titleOverride: String? = nil
+    /// Full active-expense list (already tag-filtered) so the monthly report can
+    /// swipe to other months. Empty = no month paging (renders `expenses` as-is).
+    var allExpenses: [ExpenseModel] = []
 
     @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
@@ -19,6 +22,60 @@ struct PeriodDetailView: View {
     // shared app-root binding — this view is itself often a sheet, and two sheets
     // fighting over the same binding is what left the detail unable to open.
     @State private var detailExpenseId: String? = nil
+    /// Months back from the current month when paging the monthly report (0 = now).
+    @State private var monthOffset = 0
+
+    // MARK: - Month paging (monthly report only)
+
+    /// Swipe between months only on the plain monthly report — not the Reports
+    /// drill-down, which passes its own month and previous set via `titleOverride`.
+    private var monthPagingEnabled: Bool {
+        period == .month && titleOverride == nil && !allExpenses.isEmpty
+    }
+
+    private var displayedMonthAnchor: Date {
+        Calendar.current.date(byAdding: .month, value: monthOffset, to: Date()) ?? Date()
+    }
+
+    private func monthExpenses(around anchor: Date) -> [ExpenseModel] {
+        let cal = Calendar.current
+        return allExpenses.filter { cal.isDate($0.date, equalTo: anchor, toGranularity: .month) }
+    }
+
+    /// The set this view renders — the paged month when paging is on, otherwise
+    /// the set passed in by the caller.
+    private var displayedExpenses: [ExpenseModel] {
+        monthPagingEnabled ? monthExpenses(around: displayedMonthAnchor) : expenses
+    }
+
+    private var displayedPreviousExpenses: [ExpenseModel] {
+        guard monthPagingEnabled else { return previousExpenses }
+        let prev = Calendar.current.date(byAdding: .month, value: -1, to: displayedMonthAnchor) ?? displayedMonthAnchor
+        return monthExpenses(around: prev)
+    }
+
+    private func changeMonth(to newOffset: Int) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            monthOffset = newOffset
+            selectedBarId = nil
+            expandedCategoryId = nil
+        }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    /// Horizontal swipe on the chart pages months; capped at the current month
+    /// (can't page into the future).
+    private var monthSwipe: some Gesture {
+        DragGesture(minimumDistance: 24)
+            .onEnded { value in
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                if value.translation.width < -40 {
+                    if monthOffset < 0 { changeMonth(to: monthOffset + 1) }   // → next (future)
+                } else if value.translation.width > 40 {
+                    changeMonth(to: monthOffset - 1)                          // → previous
+                }
+            }
+    }
 
     // MARK: - Currency scoping
 
@@ -29,11 +86,11 @@ struct PeriodDetailView: View {
     private var currency: String { appState.activeCurrency }
 
     private var scopedExpenses: [ExpenseModel] {
-        expenses.inCurrency(currency)
+        displayedExpenses.inCurrency(currency)
     }
 
     private var scopedPreviousExpenses: [ExpenseModel] {
-        previousExpenses.inCurrency(currency)
+        displayedPreviousExpenses.inCurrency(currency)
     }
 
     // MARK: - Computed totals
@@ -61,7 +118,7 @@ struct PeriodDetailView: View {
         case .month:
             let formatter = DateFormatter()
             formatter.dateFormat = "MMMM yyyy"
-            return formatter.string(from: now).uppercased()
+            return formatter.string(from: displayedMonthAnchor).uppercased()
         case .week:
             return "THIS WEEK"
         case .year:
@@ -83,7 +140,7 @@ struct PeriodDetailView: View {
         let now = Date()
         switch period {
         case .month:
-            let prevDate = cal.date(byAdding: .month, value: -1, to: now) ?? now
+            let prevDate = cal.date(byAdding: .month, value: -1, to: displayedMonthAnchor) ?? now
             return prevDate.formatted(.dateTime.month(.wide))
         case .week:
             return "last week"
@@ -233,11 +290,12 @@ struct PeriodDetailView: View {
         let isCurrentWeek: Bool
     }
 
-    /// This month's expenses bucketed by week-of-month, with the current week called out.
+    /// This month's expenses bucketed by week-of-month, with the current week called
+    /// out — but only when viewing the live month (a paged-back month has none).
     private var weekBars: [WeekBar] {
         let cal = Calendar.current
-        let now = Date()
-        let currentWeekOfMonth = cal.component(.weekOfMonth, from: now)
+        let showsCurrent = (monthOffset == 0)
+        let currentWeekOfMonth = cal.component(.weekOfMonth, from: Date())
 
         var buckets: [Int: Int] = [:]
         for e in scopedExpenses {
@@ -245,10 +303,11 @@ struct PeriodDetailView: View {
             buckets[w, default: 0] += e.amountCents
         }
 
-        // Build bars 1…max week seen (or up to current)
-        let maxWeek = max(currentWeekOfMonth, buckets.keys.max() ?? 1)
+        // Build bars 1…max week seen (or up to the current week when it's this month)
+        let maxWeek = showsCurrent ? max(currentWeekOfMonth, buckets.keys.max() ?? 1)
+                                   : (buckets.keys.max() ?? 1)
         return (1...maxWeek).map { w in
-            let isCurrent = (w == currentWeekOfMonth)
+            let isCurrent = showsCurrent && (w == currentWeekOfMonth)
             let label = isCurrent ? "THIS\nWEEK" : "W\(w)"
             return WeekBar(id: "w\(w)", label: label,
                            totalCents: buckets[w] ?? 0, isCurrentWeek: isCurrent)
@@ -343,7 +402,7 @@ struct PeriodDetailView: View {
         case .month:
             let formatter = DateFormatter()
             formatter.dateFormat = "MMMM"
-            return formatter.string(from: now)
+            return formatter.string(from: displayedMonthAnchor)
         case .week:
             return "this week"
         case .year:
@@ -407,7 +466,7 @@ struct PeriodDetailView: View {
         .background(Color(hex: "F0EDE6").ignoresSafeArea())
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showingExport) {
-            GlobalExportSheet(initialSelection: expenses)
+            GlobalExportSheet(initialSelection: displayedExpenses)
         }
         .sheet(item: $detailExpenseId) { id in
             ExpenseDetailView(expenseId: id)
@@ -435,12 +494,11 @@ struct PeriodDetailView: View {
                 showingExport = true
             } label: {
                 Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.system(size: 18))
                     .foregroundStyle(Color(hex: "4A5E50"))
-                    .frame(width: 34, height: 34)
-                    .background(Color.white)
+                    .frame(width: 36, height: 36)
+                    .background(Color(hex: "EDEAE4"))
                     .clipShape(Circle())
-                    .overlay(Circle().stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
             }
             .buttonStyle(.plain)
         }
@@ -451,9 +509,9 @@ struct PeriodDetailView: View {
     private var summaryHeader: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(titleText)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color(hex: "4A5E50"))
-                .tracking(1.0)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(Color(hex: "2F402E"))
+                .tracking(1.2)
 
             HStack(alignment: .top, spacing: 0) {
                 Text(currencySymbol)
@@ -496,73 +554,99 @@ struct PeriodDetailView: View {
 
     private var weekChartCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(chartTitle.uppercased())
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(Color(hex: "8F9E94"))
-                .tracking(0.5)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .bottom, spacing: 10) {
-                    ForEach(displayBars) { bar in
-                        let isHighlighted = selectedBarId == nil ? bar.isCurrentWeek : (bar.id == selectedBarId)
-                        VStack(spacing: 5) {
-                            if bar.totalCents > 0 {
-                                Text(formatCents(bar.totalCents)
-                                    .replacingOccurrences(of: ".00", with: ""))
-                                    .font(.system(size: 8, weight: .medium))
-                                    .foregroundStyle(
-                                        isHighlighted
-                                        ? Color(hex: "2F402E")
-                                        : Color(hex: "8F9E94")
-                                    )
-                            } else {
-                                Text(" ").font(.system(size: 8))
-                            }
-
-                            RoundedRectangle(cornerRadius: 7, style: .continuous)
-                                .fill(isHighlighted
-                                      ? Color(hex: "2F402E")
-                                      : Color(hex: "D8EBE0"))
-                                .frame(
-                                    width: 38,
-                                    height: maxBarCents > 0
-                                        ? max(6, 90 * CGFloat(bar.totalCents) / CGFloat(maxBarCents))
-                                        : 6
-                                )
-
-                            Text(bar.label)
-                                .font(.system(size: bar.isCurrentWeek ? 8 : 10,
-                                             weight: bar.isCurrentWeek ? .semibold : .regular))
-                                .foregroundStyle(
-                                    bar.isCurrentWeek
-                                    ? Color(hex: "2F402E")
-                                    : Color(hex: "8F9E94")
-                                )
-                                .multilineTextAlignment(.center)
-                                .lineLimit(2)
-                                // Fixed height regardless of 1-line ("W1") vs 2-line ("THIS
-                                // WEEK") labels — otherwise the taller label pushes its bar
-                                // out of alignment with neighboring bars (HStack aligns the
-                                // whole column to the bottom, not the bar itself).
-                                .frame(height: 24, alignment: .top)
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                selectedBarId = (selectedBarId == bar.id) ? nil : bar.id
-                            }
-                        }
-                    }
+            HStack(spacing: 6) {
+                Text(chartTitle.uppercased())
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+                    .tracking(0.5)
+                if monthPagingEnabled {
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 9, weight: .semibold))
+                    Text("swipe")
+                        .font(.system(size: 9, weight: .medium))
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(monthOffset < 0 ? Color(hex: "8F9E94") : Color(hex: "D3CDBF"))
                 }
-                .frame(height: 130)
-                .padding(.horizontal, 2)
+            }
+            .foregroundStyle(Color(hex: "8F9E94"))
+
+            // Paged month: no horizontal scroll so the swipe pages months instead
+            // of scrolling bars (a month's ~5 week bars fit without scrolling).
+            if monthPagingEnabled {
+                barsRow
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
+                    .gesture(monthSwipe)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    barsRow
+                }
             }
         }
         .padding(16)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
+    }
+
+    private var barsRow: some View {
+        HStack(alignment: .bottom, spacing: 10) {
+            ForEach(displayBars) { bar in
+                let isHighlighted = selectedBarId == nil ? bar.isCurrentWeek : (bar.id == selectedBarId)
+                VStack(spacing: 5) {
+                    if bar.totalCents > 0 {
+                        Text(formatCents(bar.totalCents)
+                            .replacingOccurrences(of: ".00", with: ""))
+                            .font(.system(size: 8, weight: .medium))
+                            .foregroundStyle(
+                                isHighlighted
+                                ? Color(hex: "2F402E")
+                                : Color(hex: "8F9E94")
+                            )
+                    } else {
+                        Text(" ").font(.system(size: 8))
+                    }
+
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(isHighlighted
+                              ? Color(hex: "2F402E")
+                              : Color(hex: "D8EBE0"))
+                        .frame(
+                            width: 38,
+                            height: maxBarCents > 0
+                                ? max(6, 90 * CGFloat(bar.totalCents) / CGFloat(maxBarCents))
+                                : 6
+                        )
+
+                    Text(bar.label)
+                        .font(.system(size: bar.isCurrentWeek ? 8 : 10,
+                                     weight: bar.isCurrentWeek ? .semibold : .regular))
+                        .foregroundStyle(
+                            bar.isCurrentWeek
+                            ? Color(hex: "2F402E")
+                            : Color(hex: "8F9E94")
+                        )
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        // Fixed height regardless of 1-line ("W1") vs 2-line ("THIS
+                        // WEEK") labels — otherwise the taller label pushes its bar
+                        // out of alignment with neighboring bars (HStack aligns the
+                        // whole column to the bottom, not the bar itself).
+                        .frame(height: 24, alignment: .top)
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        selectedBarId = (selectedBarId == bar.id) ? nil : bar.id
+                    }
+                }
+            }
+        }
+        .frame(height: 130)
+        .padding(.horizontal, 2)
     }
 
     // MARK: - Category card
@@ -578,61 +662,68 @@ struct PeriodDetailView: View {
                 ForEach(categoryRows) { row in
                     let isExpanded = expandedCategoryId == row.id
                     VStack(spacing: 8) {
-                        HStack(spacing: 12) {
-                            // Colored icon circle
-                            ZStack {
-                                Circle()
-                                    .fill(row.color)
-                                    .frame(width: 36, height: 36)
-                                Text(row.emoji)
-                                    .font(.system(size: 17))
-                            }
+                        // Header + progress form one opaque block (white, above the
+                        // rows) so the expanding list slides out from behind it
+                        // instead of ghosting over the heading.
+                        VStack(spacing: 8) {
+                            HStack(spacing: 12) {
+                                // Colored icon circle
+                                ZStack {
+                                    Circle()
+                                        .fill(row.color)
+                                        .frame(width: 36, height: 36)
+                                    Text(row.emoji)
+                                        .font(.system(size: 17))
+                                }
 
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(row.name)
-                                    .font(.system(size: 14, weight: .medium))
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(row.name)
+                                        .font(.system(size: 14, weight: .medium))
+                                        .foregroundStyle(Color(hex: "1C1C1E"))
+                                    Text(String(format: "%.0f%% of total", row.percent))
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(Color(hex: "8F9E94"))
+                                }
+
+                                Spacer()
+
+                                Text(formatCents(row.totalCents))
+                                    .font(.system(size: 14, weight: .semibold).monospaced())
                                     .foregroundStyle(Color(hex: "1C1C1E"))
-                                Text(String(format: "%.0f%% of total", row.percent))
-                                    .font(.system(size: 11))
+
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 11, weight: .semibold))
                                     .foregroundStyle(Color(hex: "8F9E94"))
+                                    .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                            }
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    expandedCategoryId = isExpanded ? nil : row.id
+                                }
                             }
 
-                            Spacer()
-
-                            Text(formatCents(row.totalCents))
-                                .font(.system(size: 14, weight: .semibold).monospaced())
-                                .foregroundStyle(Color(hex: "1C1C1E"))
-
-                            Image(systemName: "chevron.down")
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(Color(hex: "8F9E94"))
-                                .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                expandedCategoryId = isExpanded ? nil : row.id
+                            // Progress bar
+                            GeometryReader { geo in
+                                ZStack(alignment: .leading) {
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(Color(hex: "F0EDEA"))
+                                        .frame(height: 5)
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(row.color.opacity(0.7))
+                                        .frame(
+                                            width: totalCents > 0
+                                                ? geo.size.width * CGFloat(row.totalCents) / CGFloat(totalCents)
+                                                : 0,
+                                            height: 5
+                                        )
+                                }
                             }
+                            .frame(height: 5)
+                            .padding(.leading, 48)
                         }
-
-                        // Progress bar
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(Color(hex: "F0EDEA"))
-                                    .frame(height: 5)
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(row.color.opacity(0.7))
-                                    .frame(
-                                        width: totalCents > 0
-                                            ? geo.size.width * CGFloat(row.totalCents) / CGFloat(totalCents)
-                                            : 0,
-                                        height: 5
-                                    )
-                            }
-                        }
-                        .frame(height: 5)
-                        .padding(.leading, 48)
+                        .background(Color.white)
+                        .zIndex(1)
 
                         if isExpanded {
                             let categoryExpenses = expensesForCategory(row.id)
@@ -646,9 +737,11 @@ struct PeriodDetailView: View {
                             }
                             .padding(.leading, 8)
                             .padding(.top, 2)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                            .zIndex(0)
                         }
                     }
+                    .clipped()
                 }
             }
         }

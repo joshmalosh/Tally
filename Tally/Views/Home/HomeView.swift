@@ -176,6 +176,13 @@ struct HomeView: View {
         return result
     }
 
+    /// All active expenses, filtered only by the pinned home-bar tag (no period
+    /// window) — the monthly report pages across months from this.
+    private var homeBarFilteredExpenses: [ExpenseModel] {
+        guard let tagId = homeBarTagId else { return activeExpenses }
+        return activeExpenses.filter { $0.resolvedTagIds.contains(tagId) }
+    }
+
     // Built once per render; all per-row tag lookups use this instead of linear scans.
     private var tagById: [String: TagModel] {
         Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0) })
@@ -460,7 +467,8 @@ struct HomeView: View {
             PeriodDetailView(
                 period: selectedHeroPeriod,
                 expenses: periodExpensesForHero(selectedHeroPeriod),
-                tags: Array(tags)
+                tags: Array(tags),
+                allExpenses: homeBarFilteredExpenses
             )
             .presentationDragIndicator(.visible)
         }

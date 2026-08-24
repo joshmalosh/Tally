@@ -278,9 +278,9 @@ struct GlobalExportSheet: View {
             HStack {
                 Button { dismiss() } label: {
                     Image(systemName: "xmark")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Color(hex: "1C1C1E"))
-                        .frame(width: 32, height: 32)
+                        .frame(width: 36, height: 36)
                         .background(Color(hex: "EDEAE4"))
                         .clipShape(Circle())
                 }
