@@ -16,7 +16,6 @@ struct TagCreationView: View {
     @State private var showingNewGroup = false
     @State private var selectedIcon: String? = nil
     @State private var showingColorPicker = false
-    @State private var showingIconPicker = false
     @State private var showingDuplicateAlert = false
 
     var editingTag: TagModel? = nil
@@ -99,7 +98,9 @@ struct TagCreationView: View {
                 name = tag.name
                 selectedColorId = tag.colorId
                 selectedParentId = tag.parentId
-                selectedIcon = tag.icon
+                // Only keep the stored icon if it's already an emoji; legacy
+                // SF-symbol icons start empty so the field never shows a raw name.
+                selectedIcon = (tag.icon?.isSingleEmoji == true) ? tag.icon : nil
             } else {
                 selectedParentId = initialParentId
             }
@@ -117,9 +118,6 @@ struct TagCreationView: View {
         }
         .sheet(isPresented: $showingColorPicker) {
             TagColorPickerSheet(selectedColorId: $selectedColorId)
-        }
-        .sheet(isPresented: $showingIconPicker) {
-            TagIconPickerSheet(selectedIcon: $selectedIcon, accentColor: accentColor)
         }
     }
 
@@ -262,38 +260,34 @@ struct TagCreationView: View {
     }
 
     private var iconCard: some View {
-        Button { showingIconPicker = true } label: {
-            HStack(spacing: 8) {
-                ZStack {
-                    Circle()
-                        .fill(accentColor.opacity(0.15))
-                        .frame(width: 22, height: 22)
-                    if let icon = selectedIcon {
-                        Image(systemName: icon)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(accentColor)
-                    } else {
-                        Image(systemName: "questionmark")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(Color(hex: "8F9E94"))
-                    }
+        HStack(spacing: 8) {
+            Text("Icon")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color(hex: "2F402E").opacity(0.75))
+            Text("Tap to pick an emoji")
+                .font(.system(size: 11))
+                .foregroundStyle(Color(hex: "8F9E94"))
+            Spacer(minLength: 0)
+            ZStack {
+                Circle()
+                    .fill(accentColor.opacity(0.15))
+                    .frame(width: 34, height: 34)
+                EmojiInput(emoji: Binding(
+                    get: { selectedIcon ?? "" },
+                    set: { selectedIcon = $0.isEmpty ? nil : $0 }
+                ))
+                .frame(width: 34, height: 34)
+                if (selectedIcon ?? "").isEmpty {
+                    Text("🏷️").font(.system(size: 15)).opacity(0.35).allowsHitTesting(false)
                 }
-                Text("Icon")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color(hex: "2F402E").opacity(0.75))
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color(hex: "C4BFB9"))
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 11)
-            .frame(maxWidth: .infinity)
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 11)
+        .frame(maxWidth: .infinity)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
     }
 
     // MARK: - Delete + Save
@@ -620,5 +614,58 @@ struct TagIconPickerSheet: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+    }
+}
+
+// MARK: - Native emoji picker
+
+/// A text field that only offers the system emoji keyboard, so tapping it lets
+/// the user pick any native iOS emoji. Captures a single emoji and dismisses.
+private struct EmojiInput: UIViewRepresentable {
+    @Binding var emoji: String
+
+    func makeUIView(context: Context) -> UITextField {
+        let tf = EmojiOnlyTextField()
+        tf.delegate = context.coordinator
+        tf.textAlignment = .center
+        tf.font = .systemFont(ofSize: 24)
+        tf.tintColor = .clear                 // hide the caret
+        tf.backgroundColor = .clear
+        tf.text = emoji
+        return tf
+    }
+
+    func updateUIView(_ uiView: UITextField, context: Context) {
+        if uiView.text != emoji { uiView.text = emoji }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        let parent: EmojiInput
+        init(_ parent: EmojiInput) { self.parent = parent }
+
+        func textField(_ textField: UITextField,
+                       shouldChangeCharactersIn range: NSRange,
+                       replacementString string: String) -> Bool {
+            if string.isEmpty {                // backspace clears it
+                parent.emoji = ""
+                textField.text = ""
+                return false
+            }
+            let picked = String(string.suffix(1))   // keep only the last emoji
+            parent.emoji = picked
+            textField.text = picked
+            textField.resignFirstResponder()
+            return false
+        }
+    }
+}
+
+/// UITextField subclass that forces the emoji keyboard.
+private final class EmojiOnlyTextField: UITextField {
+    override var textInputContextIdentifier: String? { "" }
+    override var textInputMode: UITextInputMode? {
+        UITextInputMode.activeInputModes.first { $0.primaryLanguage == "emoji" }
     }
 }

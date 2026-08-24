@@ -226,7 +226,7 @@ struct HomeView: View {
                 )
                 .padding(.top, 6)
                 .padding(.bottom, 4)
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
             }
 
             // Search bar — always visible
@@ -765,7 +765,7 @@ struct HomeView: View {
             // UIKit KVO-based detector — SwiftUI preference keys don't propagate
             // reliably from inside List cells (UICollectionView) on iOS 16+.
             ListScrollDetector { offset, maxOffset in
-                withAnimation(.easeInOut(duration: 0.2)) {
+                withAnimation(.easeInOut(duration: 0.4)) {
                     // Collapsing the hero makes this list taller, shrinking the
                     // max scroll offset by the hero's height. With a barely
                     // overflowing list (seen at exactly 4 expenses) the offset
@@ -870,6 +870,7 @@ struct HomeView: View {
                     receiptCacheKey: hasReceiptPhoto(expense) ? (expense.attachmentKey ?? expense.id) : nil,
                     receiptAttachmentKey: expense.attachmentKey,
                     receiptAttachmentData: expense.attachmentData,
+                    iconEmoji: tag?.displayEmoji,
                     iconSystemName: tagSymbol,
                     iconBackground: tagIconBg,
                     description: expense.expenseDescription ?? "Expense",

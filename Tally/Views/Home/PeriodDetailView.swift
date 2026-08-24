@@ -120,6 +120,7 @@ struct PeriodDetailView: View {
                 receiptCacheKey: hasReceipt ? (expense.attachmentKey ?? expense.id) : nil,
                 receiptAttachmentKey: expense.attachmentKey,
                 receiptAttachmentData: expense.attachmentData,
+                iconEmoji: tag?.displayEmoji,
                 iconSystemName: tag?.icon ?? "tag.fill",
                 iconBackground: tag?.tagColor.primaryColor.opacity(0.15) ?? Color(hex: "EDEBE6"),
                 description: expense.expenseDescription ?? "Expense",
@@ -144,6 +145,7 @@ struct PeriodDetailView: View {
         let name: String
         let color: Color
         let symbol: String
+        let emoji: String
         let totalCents: Int
         let percent: Double
     }
@@ -182,6 +184,7 @@ struct PeriodDetailView: View {
                 return CategoryRow(id: key, name: "Uncategorised",
                                    color: Color(hex: "8F9E94"),
                                    symbol: "ellipsis.circle.fill",
+                                   emoji: "🏷️",
                                    totalCents: cents, percent: percent)
             }
             let tag = tagMap[key]
@@ -189,6 +192,7 @@ struct PeriodDetailView: View {
                                name: tag?.name ?? "Unknown",
                                color: tag?.tagColor.primaryColor ?? Color(hex: "8F9E94"),
                                symbol: tag?.symbolName ?? (tag?.isGroup == true ? "folder.fill" : "tag.fill"),
+                               emoji: tag?.displayEmoji ?? "🏷️",
                                totalCents: cents,
                                percent: percent)
         }.sorted { $0.totalCents > $1.totalCents }
@@ -553,9 +557,8 @@ struct PeriodDetailView: View {
                                 Circle()
                                     .fill(row.color)
                                     .frame(width: 36, height: 36)
-                                Image(systemName: row.symbol)
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundStyle(.white)
+                                Text(row.emoji)
+                                    .font(.system(size: 17))
                             }
 
                             VStack(alignment: .leading, spacing: 2) {

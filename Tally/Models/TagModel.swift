@@ -1,6 +1,22 @@
 import Foundation
 import SwiftData
 
+extension Character {
+    /// A real pictographic emoji (excludes ASCII digits/symbols that Unicode also
+    /// flags as emoji).
+    var isEmoji: Bool {
+        guard let scalar = unicodeScalars.first else { return false }
+        return scalar.properties.isEmoji && (scalar.value >= 0x203C || unicodeScalars.count > 1)
+    }
+}
+
+extension String {
+    /// True when the whole string is a single emoji glyph.
+    var isSingleEmoji: Bool {
+        count == 1 && (first?.isEmoji ?? false)
+    }
+}
+
 @Model
 final class TagModel {
     var id: String = UUID().uuidString
@@ -44,6 +60,23 @@ final class TagModel {
     var tagColor: TagColor {
         TagColors.forId(colorId)
     }
+
+    /// The emoji to show for this tag. User tags store an emoji in `icon`; system
+    /// tags (and any legacy SF-symbol icon) map to a sensible emoji so nothing
+    /// shows a raw symbol name.
+    var displayEmoji: String {
+        if let icon, icon.isSingleEmoji { return icon }
+        if let symbolName, let e = Self.symbolEmojiMap[symbolName] { return e }
+        if let icon, let e = Self.symbolEmojiMap[icon] { return e }
+        return isGroup ? "📁" : "🏷️"
+    }
+
+    static let symbolEmojiMap: [String: String] = [
+        "cart.fill": "🛒", "fork.knife": "🍴", "car.fill": "🚗", "house.fill": "🏠",
+        "bag.fill": "🛍️", "creditcard.fill": "💳", "heart.fill": "❤️", "airplane": "✈️",
+        "briefcase.fill": "💼", "ticket.fill": "🎟️", "bolt.fill": "⚡️", "gift.fill": "🎁",
+        "book.fill": "📚", "ellipsis.circle.fill": "🏷️", "folder.fill": "📁",
+    ]
 
     var isChild: Bool { parentId != nil }
 

@@ -217,6 +217,9 @@ struct ExpenseCard: View {
     let receiptCacheKey: String?
     let receiptAttachmentKey: String?
     let receiptAttachmentData: Data?
+    /// When set, the icon slot shows this emoji (a tag's chosen emoji) instead of
+    /// the SF Symbol. Falls back to `iconSystemName` when nil (e.g. untagged).
+    var iconEmoji: String? = nil
     let iconSystemName: String
     let iconBackground: Color
     let description: String
@@ -268,6 +271,9 @@ struct ExpenseCard: View {
                         size: Self.iconSlot,
                         cornerRadius: Radius.sm
                     )
+                } else if let iconEmoji {
+                    Text(iconEmoji)
+                        .font(.system(size: 18))
                 } else {
                     Image(systemName: iconSystemName)
                         .font(.system(size: 16, weight: .medium))

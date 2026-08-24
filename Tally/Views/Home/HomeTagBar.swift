@@ -92,6 +92,7 @@ struct HomeTagBar: View {
 
                     TagFilterCard(
                         icon: symbol,
+                        iconEmoji: tag.displayEmoji,
                         label: tag.name,
                         amountCents: yearlyTotal(for: tag.id),
                         currency: currency,
@@ -132,6 +133,7 @@ struct HomeTagBar: View {
 
 private struct TagFilterCard: View {
     let icon: String
+    var iconEmoji: String? = nil
     let label: String
     let amountCents: Int
     let currency: String
@@ -148,9 +150,13 @@ private struct TagFilterCard: View {
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
                         .fill(iconBg)
                         .frame(width: 30, height: 30)
-                    Image(systemName: icon)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(iconColor)
+                    if let iconEmoji {
+                        Text(iconEmoji).font(.system(size: 15))
+                    } else {
+                        Image(systemName: icon)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(iconColor)
+                    }
                 }
 
                 // Tag name
