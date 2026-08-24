@@ -159,24 +159,25 @@ him: App Store text, release notes, the website, marketing.
   types, extensions and helpers in an existing file that already compiles (the
   model file, the view that uses it). Only create a standalone file when it truly
   earns one, and then register it in the pbxproj in the same commit. See
-  `SESSION_HANDOVER.md` §3 for the exact recipe.
+  `PROJECT_BRIEF.md` → Engineering & Session State → Environment for the recipe.
 
 ---
 
 ## 10. Where the rest lives, and keeping it current
 
-- Only three docs, each with one job: this file (`CLAUDE.md`, how to work with
-  Josh), `PROJECT_BRIEF.md` (product spec plus monetisation, the source of truth
-  for anything money-related), and `SESSION_HANDOVER.md` (current state and open
-  work).
+- Two docs, each with one job: this file (`CLAUDE.md`, how to work with Josh) and
+  `PROJECT_BRIEF.md` (everything else about Tally — product spec, monetisation law,
+  engineering, current state, open items, the OCR corpus, and the product/design
+  **decisions log**). `SESSION_HANDOVER.md` was folded into the brief on 2026-08-25;
+  there is no separate handover file.
 - Memory index: `.claude\projects\E--Projects-ASimpleLife\memory\MEMORY.md`.
   This file is the always-on version of the behavioural rules. If they ever
   conflict, this file wins for how to work with Josh.
-- When you learn something durable, fold it into the right one of the three docs
-  before the session ends. Tighten an existing line rather than adding a
-  near-duplicate. Keep it a sharp brief, not a log.
-- **Keeping the living project doc current is your job, not Josh's.** Update it as
-  part of the work, in the same session, not when asked. When a change alters the
-  product, a feature, monetisation, the current state, or anything the doc states,
-  update it in that same turn — it is the source of truth, so leaving it stale is a
-  bug. Never end a turn that shipped a meaningful change with the doc left behind.
+- **Keeping `PROJECT_BRIEF.md` current is every session's job, not Josh's.** Pick it
+  up at the start, and before the turn ends fold in what you changed: update the
+  current state, open items, and — whenever Josh makes or confirms a product/design
+  decision — append a dated entry to the **decisions log** with the *why*, so later
+  sessions can reason over intent instead of relitigating. A change that alters the
+  product, a feature, monetisation, or the state must update the brief in the same
+  turn; it is the source of truth, so leaving it stale is a bug. Tighten an existing
+  line rather than adding a near-duplicate.

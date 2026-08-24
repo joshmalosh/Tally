@@ -1,7 +1,10 @@
 # Tally — Project & Monetisation Brief
 
-*Consolidated brief. Product spec first, then the monetisation model. The
-Monetisation part is the source of truth for anything money-related.*
+*The single living project doc. Product spec first, then the monetisation model,
+then engineering and session state at the end. The Monetisation part is the
+source of truth for anything money-related. Keep this current in the same turn
+as the work — a stale brief is a bug. `CLAUDE.md` holds the rules for working
+with Josh; everything else about Tally lives here.*
 
 ## 0) One-Paragraph Summary
 
@@ -341,10 +344,10 @@ tag management, monthly totals, core screens (Home, Add Expense, Expense Detail,
 Settings), CSV export (1/month free, unlimited Pro), AdMob banners, and
 subscriptions on StoreKit 2 (via RevenueCat).
 
-Two launch-blockers sit outside the feature work and are tracked in
-`SESSION_HANDOVER.md`: the Pro subscription product does not yet exist in App
-Store Connect, so Pro is not purchasable; and CloudKit sync is coded but disabled
-pending iCloud entitlements.
+Two launch-blockers sit outside the feature work and are tracked in **Open
+items** below: the Pro subscription product does not yet exist in App Store
+Connect, so Pro is not purchasable; and CloudKit sync (now enabled) plus its
+entitlements.
 
 ### Phase 2 — Feature Depth
 1. Camera capture + receipt upload flow. — DONE
@@ -457,8 +460,10 @@ model, which replaced the earlier "no inline sponsored rows" rule.
 
 | Location | Ad Type | Notes |
 |---|---|---|
-| Home / Reports / Tags | Banner (bottom, above tab bar) | Always visible for free users |
-| Home expense list | Inline banner | One below the pinned tags above the first expense, then one after every 10th expense |
+| Home | Banner beneath the pinned tags | Fixed in the header, above the list. Moved here 2026-08-25 — the old bottom-docked banner sat under the FAB (+) overhang and covered the button no matter the padding. |
+| Home expense list | Inline banner | After every 10th expense, counted continuously across the list (not per day group). |
+| Reports | Inline banner | `InlineUpgradeAd` above the content. |
+| Tags | None yet | The shared bottom-docked banner (which covered Home/Reports/Tags) was removed 2026-08-25 when the Home banner moved up. The Tags tab has no ad slot as a result — see Open items. |
 | Add Expense screen | Banner (bottom) | Below Notes, above safe area. See keyboard rules below. |
 | Expense Detail | Banner | Below the delete button |
 
@@ -660,4 +665,247 @@ These are explicit prohibitions. Never implement any of these:
 | 2026-02-28 | Upload caps removed (unlimited for all). iCloud-only storage. Monthly auto-export confirmed as Pro. Bulk delete ungated. Add Expense ad strategy refined (keyboard hiding, 3-expense threshold). Storage caps removed (user-owned iCloud). No Stripe/web subscription for now. |
 | 2026-07-12 | 15/month free expense cap removed from app (violated this brief; brief confirmed as source of truth). Pro benefits card documented: proactive prompt on 3rd/6th/9th expense per month, max 3/month, never mid-batch. |
 | 2026-07-20 | **Audit of code vs. brief found six divergences; resolved as follows.** (1) CSV free allowance was 2 in one place and 0 in four others — now 1 everywhere, enforced via `canExportCSV` on all six export paths. (2) OCR changed from Pro-only field gating to a **10 successful scans/month** quota with full extraction for everyone. (3) **"Advanced filters" deleted** — the label was never a real feature and no code ever gated it; it was a false paywall claim. (4) **Monthly auto-export deleted** from code, docs and paywall — never built, and it overcomplicates the app. (5) Ads extended to every full screen incl. Expense Detail and inline in the expense list; the old "no inline sponsored rows" rule is superseded. (6) Interstitials reconsidered and again rejected. Added: Go Pro pill in the Home header, and a daily upgrade prompt (every 3 days, 3-day grace). |
+| 2026-08-25 | **Home banner moved out of the tab bar** to beneath the pinned tags (it overhung the FAB and covered the + button). The shared bottom-docked banner that covered Home/Reports/Tags is gone; Reports keeps its own inline ad, but the **Tags tab now has no ad** — open item. |
 
+
+---
+
+# Engineering & Session State
+
+*Folded in from the former `SESSION_HANDOVER.md` (2026-08-25). This is the
+how-it's-built, what's-shipped, and what's-open half of the doc. **Every session
+is responsible for keeping this document current** — pick it up, read it, and
+before the session ends, log what you changed and any decision made. Precedence
+when sources disagree: **the code wins**, then this brief's Monetisation part for
+money, then the canonical reference `Tally/Tally - Everything You Need To Know.md`
+(quote that filename, it has spaces). Fix a contradiction in the same session you
+find it.*
+
+## Product & design decisions log (self-updating — keep this current)
+
+**This log is the memory of *why*.** Whenever Josh makes or confirms a product,
+design, or UX decision — or reverses one — append a dated entry here with the
+reasoning, newest first, so any later session can reason over the intent instead
+of guessing or relitigating. Record the *why*, not just the *what*: a decision
+without its reason gets re-argued. Keep each entry tight. This is distinct from
+the Monetisation Changelog above (money mechanics) and from shipped code
+(**Current state** below) — this is the rationale record.
+
+**Do-not-relitigate shortlist** (the settled calls; the entries below carry the
+reasoning): FAB opens the entry menu • single-tag rule (standalone / group /
+group+sub-tag) • Home gradient is the bottom-most layer • no interstitial ads
+(rejected twice) • OCR metered by volume, never crippled by field • a failed scan
+is never charged • the paywall only lists built features the free tier lacks •
+totals are single-currency, never mixed across currencies.
+
+| Date | Decision | Why |
+|---|---|---|
+| 2026-08-25 | Totals are always single-currency, scoped to `activeCurrency`; foreign-currency expenses show as rows but are never summed into the headline. | The app stores a currency per expense and has **no FX** (a deliberate non-goal). Adding amounts across currencies produces a meaningless number — a ₹608,600 receipt was reading as $608,600 in the period view. One rule everywhere means reports, sheets and exports agree, which Josh values as reliable data with no loose ends. |
+| 2026-08-25 | Free-tier banner moved from the bottom tab bar to beneath the pinned tags on Home. | The docked banner sat under the FAB overhang and covered the + button no matter the padding — a hard no. It can't go lower (it's already at the safe-area bottom), so it moved up into the header where it's clear of every control. |
+| 2026-08-25 | Tags & Groups rows use an enlarged circular colour swatch with the tag's emoji inside. | Matches the home row's icon treatment (recognisable), but circular; the 12pt dot was too small to carry an icon and read only as a colour. |
+| 2026-08-25 | Logs never contain user data in clear; only errors persist in release. | Diagnostics must not leak amounts, merchants, notes, receipt text or IDs (privacy + data-sovereignty stance). `privacy: .private` redacts them in release and any sysdiagnose; `.debug` isn't persisted so release stays quiet. |
+| 2026-07-20 | Ads follow the MyFitnessPal model (every full screen + inline in the list), superseding "no inline sponsored rows". | Inline list ads earn materially more and MFP proves users tolerate them in a list; the earlier rule left too much revenue unclaimed. Sheets stay ad-free (below). |
+| 2026-07-20 | No ads in any sheet or modal. | Sheets are opened for one deliberate, low-dwell action — they earn little while doing the most damage to how the app feels. |
+| 2026-07-20 | No interstitial ads (re-confirmed). | The core pitch is logging an expense in ~5 seconds; an interstitial in that loop attacks the one thing that makes Tally worth using. MFP, the reference model, runs none either. |
+| 2026-07-20 | OCR metered by volume (10 successful scans/month), not gated by field; a scan counts only if it extracted an amount. | Blanking fields for free users read as a broken scanner, not a paid tier — constant low-grade friction, weak conversion. A volume quota lets everyone feel the feature work fully and puts the wall in front of heavy users who convert. Charging for a scan that didn't get the amount would feel like a scam. |
+| 2026-07-20 | The paywall may only list built features the free tier lacks. | It had advertised "Advanced filters" (never built, never gated) and "Monthly auto-export" (never built) — false claims that erode trust. Both deleted. |
+| Ongoing | Resist feature creep toward accounting/dashboard/budgeting. | Tally wins by staying a capture → tag → export tool. The biggest risk is becoming Expensify-lite. Restraint is the product. |
+
+## Environment & repo reality
+
+- **Working dir** `E:\Projects\ASimpleLife` (Windows). Mirrors to
+  **github.com/joshmalosh/Tally.git** via the `tally` remote. **Always push to
+  `tally` `dev`.** Never `origin` (that's the website repo), never `main`/`master`
+  without explicit instruction. `TallyRepo/` inside the monorepo is a separate
+  clone — don't edit it. Josh's Mac clone names the remote `origin`, so on his
+  machine the push is plain `git push`.
+- **No Swift/Xcode toolchain on Windows.** You cannot compile, run, or test. Josh
+  pulls `dev` in Xcode, runs on a physical iPhone, and reports back with
+  screenshots and device logs. Don't append "still uncompiled" to every message.
+- **A new `.swift` file only compiles once registered in
+  `Tally.xcodeproj/project.pbxproj`** — four entries per file: `PBXBuildFile`,
+  `PBXFileReference`, the group's `children`, and the target's `Sources` build
+  phase. Dropping a file on disk is not enough; the build fails on the Mac even
+  after a pull (this bit us on 2026-08-25 with `ExpenseModelTotals.swift`).
+  **Default to putting new types/extensions/helpers in an existing file that
+  already compiles.** Only create a standalone file when it earns one, and
+  register it in the pbxproj in the same commit. Test files too. You *can* edit
+  `project.pbxproj` from here; mirror an existing entry, unique ~24-char id,
+  sanity-check with `grep -c` (expect 4 hits) and a brace balance — a malformed
+  pbxproj fails loudly in Xcode, so it's safe to attempt blind.
+- **Targets:** `Tally` (`com.asimplelife.tally`), `TallyShare` (share extension,
+  `com.asimplelife.tally.share`), `TallyTests`. Both app and extension declare
+  App Group `group.com.asimplelife.tally`. URL scheme `tally://` (share handoff).
+- ⚠️ **Josh runs Pro. Settled — do not question it.** When he reports a bug he is a
+  Pro user, so never explain a problem away as "the free-tier gate working as
+  designed." Free-tier behaviour (ads, Go Pro pill, scan quota, CSV limit) is not
+  visible in his build unless he flips Force Pro in Settings → Debug.
+- **Tests** run on the Mac with **⌘U**. ⌘6 opens the Test navigator.
+
+## Architecture & key files
+
+- **Entry** `Tally/TallyApp.swift`. **Models** `Tally/Models/` (SwiftData `@Model`;
+  soft delete via `deletedAt`; `ExpenseModel.swift` also holds the currency-safe
+  aggregation helpers `inCurrency` / `totalCents(in:)`). **Domain** `Tally/Domain/`
+  (parsing, calculations). **Theme** `Tally/Theme/` (tokens, shared components,
+  `CurrencyFormatter`).
+- **`Tally/AppState/AppState.swift` owns every free-tier limit** and the currency
+  state — `activeCurrency` (= `filterCurrency ?? defaultCurrency`), `canExportCSV`,
+  `canUseOCR`/`ocrScansRemaining`, `isPro`, plus the central `Log` enum. **Change a
+  limit here, never at a call site.** Pinned by `TallyTests/MonetisationGatingTests.swift`.
+- **OCR** `Tally/Services/ReceiptOCRService.swift` (+ corpus
+  `TallyTests/ReceiptOCRServiceTests.swift`). See OCR regression testing below.
+- **Home** `Tally/Views/Home/HomeView.swift` — list, Rise gradient (bottom-most
+  layer, never put UI translucency over it), shred host, filters, inline ads,
+  Go Pro pill. Also the **shell for Reports and Tags tabs** (opacity-switched).
+  `PeriodDetailView.swift` is the drill-down; `HeroSpendingCard.swift` the hero.
+- **Add/edit** `AddExpenseView.swift`; `MultiReceiptReviewView.swift` (bulk).
+  **Detail** `ExpenseDetailView.swift`.
+- **Export** `Views/Export/GlobalExportSheet.swift` — six CSV/PDF call sites that
+  must agree on the limit; `ProFeatureSheet`/`ScanLimitSheet` in `ExportView.swift`.
+  Ad plumbing `Services/AdManager.swift`, `Services/RevenueCatConfig.swift`.
+- **Share extension** `TallyShare/` + `Services/SharedInboxService.swift`.
+
+**Currency is single-currency by design (no FX).** Every aggregate is scoped to
+`appState.activeCurrency`: filter to it, total only those, format via
+`CurrencyFormatter`. Use `ExpenseModel.inCurrency` / `totalCents(in:)` for any new
+total so they can't drift.
+
+**Unified logging** (`Log` enum in `AppState.swift`): `os.Logger`, subsystem
+`com.asimplelife.tally`, categories app/sync/data/ocr/subscription/ads/attachments.
+User data is `privacy: .private`; only non-identifying diagnostics `.public`.
+DEBUG-only in-app viewer at Settings → Debug → View logs. Filter in Xcode/Console
+by the subsystem. No `print()`.
+
+**SwiftUI gotchas already paid for:** `.rotationEffect` after `.position()` rotates
+around the *parent's* centre; two independently-animated values in one `.offset`
+bleed into each other; GeometryReader re-measures on parent re-renders (caused the
+shred drift). The bottom tab bar is an `alignment: .bottom` overlay and the FAB
+overhangs it, so anything docked below the bar collides with the + button (why the
+free-tier banner moved into the Home header, 2026-08-25).
+
+## Current state — what's shipped (newest first)
+
+- **Currency consolidation + SKAdNetwork** (`5e0a115`, `b939b15`, 2026-08-25):
+  `PeriodDetailView` summed `amountCents` across currencies (₹608,600 read as
+  $608,600). Now scoped to `activeCurrency` via `ExpenseModel.inCurrency` /
+  `totalCents(in:)` (in `ExpenseModel.swift`), formatted through `CurrencyFormatter`.
+  Added the 8 SKAdNetwork identifiers Google flagged as missing.
+- **Home banner relocation + circular tag icons** (`dcc24e7`, `d8d4597`,
+  2026-08-25): banner moved from the tab bar to beneath the pinned tags; Tags rows
+  show a 34pt circular colour swatch with the tag's emoji.
+- **Unified logging** (`36ff57e`, 2026-08-25): see Architecture. `PrivacyInfo.xcprivacy`
+  created at `Tally/PrivacyInfo.xcprivacy` (strict no-tracking) but **not yet added
+  to the Xcode target** — see Open items.
+- Everything through the OCR/merchant/monetisation batch is built and green on the
+  Mac (124 tests at last full run).
+- **Share-extension activation** (`6c1b08e`): needs a **clean install** to
+  re-register. **OCR accuracy, many passes** — see the corpus below (a blank
+  merchant is a parser bug, not the Pro gate). Plus Rise gradient, recurring
+  filter, share-to-Tally auto-open, shred animation, receipt viewer + lazy
+  thumbnails, tag sort, merchant→tag auto-apply, Go Pro pill + daily prompt.
+
+## Open items (prioritised)
+
+1. **Pro is not purchasable.** `com.asimplelife.tally.pro.monthly` doesn't exist in
+   App Store Connect, so RevenueCat offerings come back empty every launch and
+   subscription revenue is **$0**. Biggest open item. The "offerings empty" log
+   error is this, not a bug. Josh will want step-by-step help.
+2. **`PrivacyInfo.xcprivacy` not in the target.** Josh must add
+   `Tally/PrivacyInfo.xcprivacy` to the Tally target in Xcode (or register in
+   pbxproj). Apple requires it for AdMob + RevenueCat at submission.
+3. **Regional compliance / ad consent (GDPR).** No Google UMP consent flow;
+   `banner.load(GADRequest())` defaults to personalised ads. Strict path: UMP
+   consent + non-personalised fallback (no IDFA, `NSPrivacyTracking` false, no ATT).
+   Needs the GoogleUserMessagingPlatform SPM package (Josh, in Xcode) then a short
+   consent call at launch. App Store privacy labels also owed. Data sovereignty is
+   otherwise strong by design (on-device + user's private iCloud, no Tally backend).
+4. **Export sheet currency mixing.** `GlobalExportSheet` totals `amountCents` across
+   currencies (formats with `defaultCurrency`). Decision owed: (a) scope exports to
+   the active currency like the rest of the app, or (b) list all with per-currency
+   subtotals. The CSV writer also divides every amount by 100, wrong for no-minor-unit
+   currencies (JPY/IDR/KRW/VND/CLP/ISK) — fix alongside.
+5. **Tags tab has no ad** after the 2026-08-25 banner move. Decide whether it needs
+   one (e.g. below the Add tag / Add folder buttons) or stays ad-free.
+6. **CloudKit** is enabled (`TallyApp.cloudKitEnabled = true`). No store-version
+   mechanism — SwiftData does automatic lightweight migration. A failed migration
+   throws → `fatalError` → crash; recovery is delete + reinstall. Anything riskier
+   than a defaulted property needs a real `VersionedSchema`/`MigrationPlan`.
+7. **TestFlight**: needs a privacy-policy URL and export-compliance answer
+   (`ITSAppUsesNonExemptEncryption = NO`). AdMob is already test units in DEBUG.
+8. **Deferred debt:** bulk-import `TagLinkPickerSheet` restyle; ~525 hardcoded
+   `Color(hex:)` literals with tokens in `DesignSystem.swift`; dead export surfaces
+   `ExportExpenseSheet` (0 refs) and the `ExportView` struct (never renders).
+
+## OCR regression testing (read before touching the scanner)
+
+OCR is **metered** — 10 successful scans/month free, a scan counts only if it
+extracted an **amount**. A wrong amount fails the user; an empty one silently
+refunds their scan. **A reported blank merchant is a parser bug, not the Pro gate.**
+The `ocr-regression` skill drives this workflow.
+
+### The loop (ongoing and accumulating, by design)
+
+1. Josh scans a receipt and it's wrong — he sends the photo + a screenshot of what
+   Tally produced (+ the `OCR|` console dump for merchant misses).
+2. Diagnose from the pair: which line the parser latched onto and why.
+3. **Pin it as a test *before* fixing.**
+4. Fix with a **general heuristic** for a class of receipts, never a one-off hack;
+   re-check the existing corpus by hand.
+5. Add a row to the corpus below **and** in the skill file.
+6. Josh builds and re-scans on the Mac to confirm. Never call an OCR fix verified
+   until he confirms a green run.
+
+### Hard rules
+
+- **Never change `ReceiptOCRService.swift` without adding/updating a test for the
+  receipt that motivated it.**
+- **A passing synthetic test does not mean the receipt works.** `blk()` gives every
+  block the same height; real geometry hides bugs. Reproduce the **real** geometry
+  (explicit `CGRect`s when heights matter) and add a **degraded** variant with only
+  the lines that plausibly survived OCR.
+- **Returning `nil` beats a confident wrong answer.**
+
+### The corpus (add a row per reported receipt)
+
+| Receipt | Trap it guards against | Correct |
+|---|---|---|
+| Hendry's | tax line "$0.54" misread as "$54"; total restated on card line | $5.89 |
+| Sushia | "Sale Staff: Melissa" as merchant; tax line; tilted photo | $30.90 |
+| Paris | French "MONTANT DU" / TVA / HT; euro currency | €81.50 |
+| Bunnings | "GST included in the total"; date misread as future (2028) | $38.80 |
+| Monos | "TOTAL SAVINGS"; "Total (GST incl.)" is the real total | $300.00 |
+| KFC | item name "15 Wicked Wings $10" repeats the value 10 | $26.55 |
+| Woolworths | savings + per-kg rates ("@ $33.00/kg") outrank the small-print TOTAL; label and amount are separate blocks | $49.49 |
+| Woolworths (header) | large wordmark + swirl logo, script tagline, address/ABN beneath; a stray `@` from the logo tripped the email pattern | merchant `Woolworths` |
+| Liquorland | letter-spaced wordmark OCR'd low-confidence, so "TOTAL (Inc GST)" was taken as merchant. Total/structural labels now rejected as merchant | merchant not a total line |
+| Cherry Beans | receipt floats mid-frame; wordmark fell below the image-relative top gate. largestHeaderText now uses the receipt-relative top | merchant `Cherry Beans Kellyvil` |
+| Deus (Bali, IDR) | grouped thousands "655,000" truncated by the cents regex; stylised logo OCR'd as `€`; currency now falls back to the country in the letterhead | $4,640,000 IDR, `PT. Deus Ex Machina Indonesia` |
+| Woolworths (store line) | `WOOLWORTHS 1659 KELLYVILLE NSW` — name+store-number block rejected for a digit, so the suburb won | merchant `WOOLWORTHS` |
+| Berry General Store | wordmark split across stacked lines; a lone "NSW" won. Reconstruct stacked all-caps header lines; a recurring 2+ word phrase beats a one-word token | merchant `BERRY GENERAL STORE`; note `Ricotta Hotcakes ×2` |
+
+### Recurring trap families
+
+- **Non-total lines that look total-ish**: tax/GST, savings, specials, change,
+  rounding, tips. Excluded by pattern.
+- **Coincidental repeats** can fake cross-confirmation — the subtotal floor guards
+  it (a total is always ≥ the subtotal).
+- **Legibility bias**: large promo print OCRs more reliably than the small monospace
+  total on a long, angled receipt.
+- **Unit rates, not amounts**: "@ $33.00/kg", "Qty 2 @ $7.00 each".
+- **Locale/label variance**: French (MONTANT DU, TTC, TVA, HT), AU/UK phrasing.
+- **Exclusion is a property of the LINE, not the block** — use `isExcluded(_:in:)`.
+- **"Same line" is not one test.** `sameLine` (÷ the *shorter* box) for amounts;
+  `sharesPrintedLine` (÷ the *taller* box, ≤2× height ratio, horizontally disjoint)
+  for merchant pairing.
+
+### Adding a new receipt
+
+1. `func test<Merchant>_<trap>()` in `ReceiptOCRServiceTests.swift`.
+2. Lay out with `blk(_:x:y:)` — label and right-aligned amount as **separate blocks**
+   sharing a `y`. Vision `y` is normalised, **increases upward** (top ≈ 0.9). Explicit
+   `CGRect`s when relative text size is part of the bug.
+3. Assert the amount via `amount(_:from:)`; assert merchant/currency/date where used.
+4. Add a corpus row here **and** in the skill file.
+5. Fix generally; note the class in a code comment. Re-check the corpus by hand.
+   Never call it verified until Josh confirms a green run.
