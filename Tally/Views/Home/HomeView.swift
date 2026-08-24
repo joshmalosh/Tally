@@ -244,6 +244,13 @@ struct HomeView: View {
                 .animation(.easeOut(duration: 0.2), value: appState.activeFilterIds)
                 .animation(.easeOut(duration: 0.2), value: periodFilter)
 
+            // Free tier: banner sits beneath the pinned tags, above the list —
+            // well clear of the FAB and tab bar at the bottom of the screen.
+            if adManager.shouldShowBannerAd {
+                BannerAdView()
+                    .padding(.top, 4)
+            }
+
             if filteredExpenses.isEmpty && !isSelecting {
                 emptyState
             } else {
@@ -312,19 +319,8 @@ struct HomeView: View {
             }
 
             if !isKeyboardVisible {
-                VStack(spacing: 0) {
-                    TallyTabBar(selectedTab: $selectedTab) {
-                        showingEntryPicker = true
-                    }
-                    // Free tier: ad sits directly beneath the home bar, raising
-                    // the bar by the banner's height. The top padding is white
-                    // (extends the bar) and clears the FAB, which overhangs the
-                    // bar's bottom edge — the ad must sit below it.
-                    if adManager.shouldShowBannerAd {
-                        BannerAdView()
-                            .padding(.top, 40)
-                            .background(Color.white)
-                    }
+                TallyTabBar(selectedTab: $selectedTab) {
+                    showingEntryPicker = true
                 }
                 .ignoresSafeArea(edges: .bottom)
                 .zIndex(60)
@@ -831,9 +827,9 @@ struct HomeView: View {
 
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            // Reserve the tab bar, plus the banner's height on the free tier so
-            // the last expenses clear the raised bar.
-            Color.clear.frame(height: adManager.shouldShowBannerAd ? 167 : 90)
+            // Reserve the tab bar height. The banner now sits above the list
+            // (beneath the pinned tags), so it needs no bottom clearance.
+            Color.clear.frame(height: 90)
         }
         .listStyle(.plain)
         .environment(\.defaultMinListRowHeight, 0)
