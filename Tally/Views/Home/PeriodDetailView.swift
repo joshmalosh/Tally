@@ -113,24 +113,28 @@ struct PeriodDetailView: View {
             return t.name
         }
         let hasReceipt = expense.attachmentKey != nil || expense.attachmentData != nil
-        ExpenseCard(
-            receiptCacheKey: hasReceipt ? (expense.attachmentKey ?? expense.id) : nil,
-            receiptAttachmentKey: expense.attachmentKey,
-            receiptAttachmentData: expense.attachmentData,
-            iconSystemName: tag?.icon ?? "tag.fill",
-            iconBackground: tag?.tagColor.primaryColor.opacity(0.15) ?? Color(hex: "EDEBE6"),
-            description: expense.expenseDescription ?? "Expense",
-            merchant: expense.merchant,
-            notes: expense.notes,
-            amountCents: expense.amountCents,
-            currency: expense.currency,
-            primaryTagLabel: label,
-            primaryTagColor: tag?.tagColor,
-            additionalTagCount: max(0, expense.resolvedTagIds.count - 1)
-        )
-        .padding(.vertical, 4)
-        .contentShape(Rectangle())
-        .onTapGesture { appState.selectedExpenseId = expense.id }
+        Button {
+            appState.selectedExpenseId = expense.id
+        } label: {
+            ExpenseCard(
+                receiptCacheKey: hasReceipt ? (expense.attachmentKey ?? expense.id) : nil,
+                receiptAttachmentKey: expense.attachmentKey,
+                receiptAttachmentData: expense.attachmentData,
+                iconSystemName: tag?.icon ?? "tag.fill",
+                iconBackground: tag?.tagColor.primaryColor.opacity(0.15) ?? Color(hex: "EDEBE6"),
+                description: expense.expenseDescription ?? "Expense",
+                merchant: expense.merchant,
+                notes: expense.notes,
+                amountCents: expense.amountCents,
+                currency: expense.currency,
+                primaryTagLabel: label,
+                primaryTagColor: tag?.tagColor,
+                additionalTagCount: max(0, expense.resolvedTagIds.count - 1)
+            )
+            .padding(.vertical, 4)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Category breakdown

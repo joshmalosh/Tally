@@ -78,6 +78,11 @@ struct ContentView: View {
         .onChange(of: appState.subscriptionStatus) { _, _ in
             adManager.configure(isPro: appState.isPro)
         }
+        .onChange(of: appState.debugForcePro) { _, _ in
+            // Force Pro is separate from subscriptionStatus, so refresh ads when
+            // it toggles or the debug switch wouldn't show/hide them live.
+            adManager.configure(isPro: appState.isPro)
+        }
         .onChange(of: hasCompletedOnboarding) { _, completed in
             if completed {
                 dismissSplash()
