@@ -55,15 +55,24 @@ struct TagsAndGroupsManagementRows: View {
 
     var body: some View {
         Group {
-            Text("Tags & Groups")
-                .font(.dmSerifDisplay(28))
-                .foregroundStyle(Color(hex: "1C1C1E"))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 4)
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
+            // Header mirrors the Reports page — eyebrow label + serif title — so
+            // the Tags tab reads as part of the same platform.
+            VStack(alignment: .leading, spacing: 4) {
+                Text("ORGANISE")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(Color(hex: "4A5E50"))
+                    .tracking(1.2)
+                Text("Tags & groups")
+                    .font(.dmSerifDisplay(30))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 8)
+            .listRowInsets(EdgeInsets())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
 
             // Add tag / Add folder buttons
             HStack(spacing: 10) {

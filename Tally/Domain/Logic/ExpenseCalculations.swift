@@ -1,51 +1,10 @@
 import Foundation
 
 enum ExpenseCalculations {
-    static func monthlyTotal(expenses: [Expense], month: Date, currency: String) -> MonthlyTotal {
-        let calendar = Calendar.current
-        let filtered = expenses.filter { expense in
-            expense.deletedAt == nil
-                && expense.currency == currency
-                && calendar.isDate(expense.date, equalTo: month, toGranularity: .month)
-        }
-        let total = filtered.reduce(0) { $0 + $1.amountCents }
-        return MonthlyTotal(month: month, totalCents: total, currency: currency, expenseCount: filtered.count)
-    }
-
-    static func groupByTag(expenses: [Expense]) -> [String: [Expense]] {
-        var result: [String: [Expense]] = [:]
-        for expense in expenses where expense.deletedAt == nil {
-            for tagId in expense.tagIds {
-                result[tagId, default: []].append(expense)
-            }
-        }
-        return result
-    }
-
     static func sortedByDate(expenses: [Expense], ascending: Bool = false) -> [Expense] {
         expenses
             .filter { $0.deletedAt == nil }
             .sorted { ascending ? $0.date < $1.date : $0.date > $1.date }
-    }
-
-    static func filterByDateRange(expenses: [Expense], start: Date, end: Date) -> [Expense] {
-        expenses.filter { expense in
-            expense.deletedAt == nil
-                && expense.date >= start
-                && expense.date <= end
-        }
-    }
-
-    static func filterByTag(expenses: [Expense], tagId: String) -> [Expense] {
-        expenses.filter { $0.deletedAt == nil && $0.tagIds.contains(tagId) }
-    }
-
-    /// Filter expenses by a group tag — returns expenses that have any child tag of the given parent.
-    static func filterByGroup(expenses: [Expense], groupId: String, tags: [Tag]) -> [Expense] {
-        let childIds = Set(tags.filter { $0.parentId == groupId }.map(\.id))
-        return expenses.filter { expense in
-            expense.deletedAt == nil && !expense.tagIds.filter({ childIds.contains($0) }).isEmpty
-        }
     }
 
     /// Generate CSV content. `receiptFilenames` maps expense ID → filename in the receipts folder.

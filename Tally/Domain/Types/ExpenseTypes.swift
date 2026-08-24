@@ -32,10 +32,3 @@ struct Tag: Identifiable, Codable {
     var sortOrder: Int
     var parentId: String?
 }
-
-struct MonthlyTotal {
-    let month: Date
-    let totalCents: Int
-    let currency: String
-    let expenseCount: Int
-}

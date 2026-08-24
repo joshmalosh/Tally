@@ -700,6 +700,7 @@ totals are single-currency, never mixed across currencies.
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-08-25 | The Tags tab header matches the Reports page: an eyebrow label over a 30pt serif title, pinned at the top. | The bare title buried low in a list didn't read as part of the platform. Reusing the Reports header shape makes the tabs feel like one app. Eyebrow copy "ORGANISE" is a placeholder Josh can reword. |
 | 2026-08-25 | The monthly report (period detail opened from the Home hero) pages between months by swiping left/right on the By Week chart. | Reviewing one month at a time is the natural motion; swiping the chart keeps navigation where the eye already is, without a separate month picker. Capped at the current month (no future). |
 | 2026-08-25 | Expanding a category slides its rows out from *behind* the header, never over it. | The rows ghosting across the heading during the open/close read as a rendering bug. The drop-down motion stays; the header+progress bar became an opaque block the rows pass behind, and the cell clips so nothing paints above it. |
 | 2026-08-25 | All circular header/nav icon buttons are one size: 36×36 with an `EDEAE4` fill. | The period-view share button was 34pt with a white fill and border — a visible outlier next to the 36pt Home gear and Reports arrow. Buttons of the same role should read as the same control everywhere. |
@@ -791,6 +792,11 @@ free-tier banner moved into the Home header, 2026-08-25).
 
 ## Current state — what's shipped (newest first)
 
+- **Tags tab header + dead-code cull** (2026-08-25): the Tags & Groups header now
+  mirrors the Reports page (eyebrow "ORGANISE" + 30pt serif title) and sits at the
+  top instead of buried low in the list. Deleted the ponytail-audit dead code:
+  `HeroSpendingCard`/`HeroPeriodPage`, five unused `ExpenseCalculations` helpers
+  plus the `MonthlyTotal` struct, and `APIService.swift` (with its pbxproj entries).
 - **Home hero shows the active currency** (2026-08-25): the big "Total spent" total
   used a hardcoded `$` and Western digit grouping, so a filtered INR total read as
   `$608,600` instead of `₹6,08,600`. Now uses the active currency's symbol, decimals
@@ -849,12 +855,11 @@ free-tier banner moved into the Home header, 2026-08-25).
    than a defaulted property needs a real `VersionedSchema`/`MigrationPlan`.
 7. **TestFlight**: needs a privacy-policy URL and export-compliance answer
    (`ITSAppUsesNonExemptEncryption = NO`). AdMob is already test units in DEBUG.
-8. **Deferred debt:** bulk-import `TagLinkPickerSheet` restyle; ~525 hardcoded
-   `Color(hex:)` literals with tokens in `DesignSystem.swift`; dead export surfaces
-   `ExportExpenseSheet` (0 refs) and the `ExportView` struct (never renders); dead
-   `HeroSpendingCard` + `HeroPeriodPage` in `HeroSpendingCard.swift` (0 refs — the
-   live card is `SpendingSummaryCard` in the same file; the dead one still hardcodes
-   `$` and doesn't currency-filter).
+8. **Deferred debt:** bulk-import `TagLinkPickerSheet` restyle; ~538 hardcoded
+   `Color(hex:)` literals with tokens in `DesignSystem.swift`. (The 2026-08-25
+   ponytail audit's dead code — `HeroSpendingCard`/`HeroPeriodPage`, the unused
+   `ExpenseCalculations` helpers, `APIService.swift` — has been deleted;
+   `ExportExpenseSheet`/`ExportView` no longer exist and were never real.)
 
 ## OCR regression testing (read before touching the scanner)
 

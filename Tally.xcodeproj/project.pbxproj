@@ -23,7 +23,6 @@
 		593777D5398DD1A2163D8C6B /* CurrencyFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B23719619830D783B4A5D67 /* CurrencyFormatter.swift */; };
 		5A69146139E526666C5D9D7A /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19DCF3F03F14D6ABF5FE82D0 /* AppState.swift */; };
 		676E578C3319877F4C45D34D /* UploadLimitView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA760FF7DABACC4706C0F32A /* UploadLimitView.swift */; };
-		68B7C2848372ED2B4E6D8864 /* APIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF8ADCE89F2C2027BC34AC3D /* APIService.swift */; };
 		6E6E89F7E052EAF1FE08322F /* ExpenseTypesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE580A1A003072AD757B48A2 /* ExpenseTypesTests.swift */; };
 		7A11AA22BB33CC44DD55EE66 /* SharedInboxService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B22BB33CC44DD55EE66FF77 /* SharedInboxService.swift */; };
 		7B5BBDDCD13BA9F47FA80BC2 /* ExportView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA158A21249AC0F22E9E802E /* ExportView.swift */; };
@@ -169,7 +168,6 @@
 		B8KACC222222222222222201 /* SubscriptionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionService.swift; sourceTree = "<group>"; };
 		BD07A89C9EF367D0B3BF4C56 /* TallyTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TallyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BF2E9A9CCBD037A89B382C47 /* SubscriptionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubscriptionView.swift; sourceTree = "<group>"; };
-		BF8ADCE89F2C2027BC34AC3D /* APIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIService.swift; sourceTree = "<group>"; };
 		C0A1D10B000C0A1D10B002 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		C0F0E0D0A0B09080706050403 /* Fraunces_9pt-LightItalic.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces_9pt-LightItalic.ttf"; sourceTree = "<group>"; };
 		C0F0E0D0A0B09080706050405 /* Fraunces_9pt-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Fraunces_9pt-Regular.ttf"; sourceTree = "<group>"; };
@@ -423,7 +421,6 @@
 			isa = PBXGroup;
 			children = (
 				5748F6BB81ECAC7C9BD5D567 /* AdManager.swift */,
-				BF8ADCE89F2C2027BC34AC3D /* APIService.swift */,
 				353E2E5E865C87E7C05BC31D /* AppDelegate.swift */,
 				DCB500AF673FBDF6CA909FE4 /* AttachmentService.swift */,
 				B8KACC222222222222222201 /* SubscriptionService.swift */,
@@ -646,7 +643,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				68B7C2848372ED2B4E6D8864 /* APIService.swift in Sources */,
 				B1C2D3E4F5A6B7C8D9E0F1A2 /* BulkExpenseParser.swift in Sources */,
 				C3D4E5F6A7B8C9D0E1F2A3B4 /* AddMultipleExpensesView.swift in Sources */,
 				1082EE58C63258DCBD5CE112 /* AdManager.swift in Sources */,

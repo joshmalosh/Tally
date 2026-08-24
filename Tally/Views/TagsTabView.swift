@@ -12,6 +12,10 @@ struct TagsTabView: View {
                 TagsAndGroupsManagementRows()
             }
         }
+        .listSectionSpacing(0)
+        // Pull the header up to the top like the Reports page (the List's default
+        // top inset is what made the Tags heading start too low).
+        .contentMargins(.top, 0, for: .scrollContent)
         .scrollContentBackground(.hidden)
         .background(Color(hex: "F0EDE6").ignoresSafeArea())
         .safeAreaInset(edge: .bottom, spacing: 0) {
