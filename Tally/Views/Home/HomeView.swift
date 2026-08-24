@@ -316,9 +316,12 @@ struct HomeView: View {
                         showingEntryPicker = true
                     }
                     // Free tier: ad sits directly beneath the home bar, raising
-                    // the bar by exactly the banner's height.
+                    // the bar by the banner's height. The top padding is white
+                    // (extends the bar) and clears the FAB, which overhangs the
+                    // bar's bottom edge — the ad must sit below it.
                     if adManager.shouldShowBannerAd {
                         BannerAdView()
+                            .padding(.top, 26)
                             .background(Color.white)
                     }
                 }
@@ -829,7 +832,7 @@ struct HomeView: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             // Reserve the tab bar, plus the banner's height on the free tier so
             // the last expenses clear the raised bar.
-            Color.clear.frame(height: adManager.shouldShowBannerAd ? 141 : 90)
+            Color.clear.frame(height: adManager.shouldShowBannerAd ? 167 : 90)
         }
         .listStyle(.plain)
         .environment(\.defaultMinListRowHeight, 0)
