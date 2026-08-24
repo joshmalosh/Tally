@@ -15,6 +15,9 @@ final class ExpenseModel {
     var notes: String?
     var attachmentKey: String?
     @Attribute(.externalStorage) var attachmentData: Data?
+    /// True only when a receipt scan auto-filled the amount, so the AUTO-SCANNED
+    /// badge reflects an actual scan rather than any camera/upload expense.
+    var wasAutoScanned: Bool = false
     var source: String = "manual"
     var isRecurring: Bool = false
     var createdAt: Date = Date.now
@@ -44,6 +47,7 @@ final class ExpenseModel {
         attachmentData: Data? = nil,
         source: String = "manual",
         isRecurring: Bool = false,
+        wasAutoScanned: Bool = false,
         createdAt: Date = .now,
         updatedAt: Date = .now
     ) {
@@ -61,6 +65,7 @@ final class ExpenseModel {
         self.attachmentData = attachmentData
         self.source = source
         self.isRecurring = isRecurring
+        self.wasAutoScanned = wasAutoScanned
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }

@@ -18,6 +18,7 @@ struct ReceiptDraft: Identifiable {
     /// picker — same affordance as the single Add-expense page.
     var merchantAlternates: [String] = []
     var showAlternates: Bool = false
+    var wasAutoScanned: Bool = false
 }
 
 // MARK: - Focus field identifier
@@ -572,6 +573,7 @@ struct MultiReceiptReviewView: View {
                     if let n    = result.notes    { drafts[idx].notes    = n }
                     drafts[idx].merchantAlternates = result.merchantAlternates
                     drafts[idx].showAlternates = false
+                    drafts[idx].wasAutoScanned = result.amount != nil
                 }
             }
         }
@@ -619,7 +621,8 @@ struct MultiReceiptReviewView: View {
                         notes: draft.notes.isEmpty ? nil : draft.notes,
                         attachmentKey: savedKey,
                         attachmentData: rawData,
-                        source: ExpenseSource.upload.rawValue
+                        source: ExpenseSource.upload.rawValue,
+                        wasAutoScanned: draft.wasAutoScanned
                     )
                     modelContext.insert(expense)
                 }

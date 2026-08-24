@@ -154,7 +154,7 @@ struct ExpenseDetailView: View {
                     }
                     // AUTO-SCANNED badge
                     ToolbarItem(placement: .principal) {
-                        if source != .manual {
+                        if expense.wasAutoScanned {
                             autoScannedBadge
                         }
                     }
@@ -257,12 +257,12 @@ struct ExpenseDetailView: View {
                     }
                 }
                 .task(id: expense.updatedAt) { loadAttachment(expense) }
-                .confirmationDialog("Save your changes?",
-                                    isPresented: $showingLeaveConfirmation,
-                                    titleVisibility: .visible) {
+                .alert("Save your changes?", isPresented: $showingLeaveConfirmation) {
                     Button("Save changes") { Task { await saveEdits(expense: expense) } }
                     Button("Discard changes", role: .destructive) { dismiss() }
                     Button("Keep editing", role: .cancel) {}
+                } message: {
+                    Text("You have unsaved changes to this expense.")
                 }
 
             } else {

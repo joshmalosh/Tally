@@ -2065,7 +2065,8 @@ struct AddExpenseView: View {
                         attachmentKey: savedKey,
                         attachmentData: rawAttachmentData,
                         source: source.rawValue,
-                        isRecurring: isRecurring
+                        isRecurring: isRecurring,
+                        wasAutoScanned: ocrPopulatedAnyField
                     )
                     modelContext.insert(expense)
                     do {
