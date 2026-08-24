@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Tally does not track users across apps or websites. Ads are served
+	     without IDFA-based cross-app tracking (non-personalised fallback via
+	     Google UMP). Flip to <true/> and add NSPrivacyTrackingDomains only if
+	     personalised ads with tracking are ever enabled. -->
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<!-- Tally operates no backend and is not a data custodian: its own code
+	     sends no user data to any Tally-controlled server. The AdMob and
+	     RevenueCat frameworks ship their own privacy manifests, which Apple
+	     aggregates at build time. App Store Connect privacy labels must still
+	     declare what those SDKs collect. -->
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<!-- Required-reason API: Tally reads/writes app preferences and counters
+	     (default currency, scan/export quotas, last sync date) via UserDefaults. -->
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>CA92.1</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
