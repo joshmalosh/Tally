@@ -312,11 +312,14 @@ struct HomeView: View {
 
             if !isKeyboardVisible {
                 VStack(spacing: 0) {
-                    if adManager.shouldShowBannerAd {
-                        BannerAdView()
-                    }
                     TallyTabBar(selectedTab: $selectedTab) {
                         showingEntryPicker = true
+                    }
+                    // Free tier: ad sits directly beneath the home bar, raising
+                    // the bar by exactly the banner's height.
+                    if adManager.shouldShowBannerAd {
+                        BannerAdView()
+                            .background(Color.white)
                     }
                 }
                 .ignoresSafeArea(edges: .bottom)
@@ -824,7 +827,9 @@ struct HomeView: View {
 
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Color.clear.frame(height: 90)
+            // Reserve the tab bar, plus the banner's height on the free tier so
+            // the last expenses clear the raised bar.
+            Color.clear.frame(height: adManager.shouldShowBannerAd ? 141 : 90)
         }
         .listStyle(.plain)
         .environment(\.defaultMinListRowHeight, 0)
