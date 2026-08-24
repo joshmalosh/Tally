@@ -41,6 +41,18 @@ struct TagsAndGroupsManagementRows: View {
         tags.filter { $0.parentId == group.id }.sorted { $0.sortOrder < $1.sortOrder }
     }
 
+    /// Enlarged colour swatch with the tag's emoji inside, circular — the home
+    /// row's icon tile, rounded to a circle.
+    private func colorBadge(for tag: TagModel) -> some View {
+        ZStack {
+            Circle()
+                .fill(tag.tagColor.primaryColor)
+                .frame(width: 34, height: 34)
+            Text(tag.displayEmoji)
+                .font(.system(size: 17))
+        }
+    }
+
     var body: some View {
         Group {
             Text("Tags & Groups")
@@ -105,9 +117,7 @@ struct TagsAndGroupsManagementRows: View {
             // over an ancestor's onTapGesture, a plain ancestor Button can't guarantee that.
             ForEach(allTagsSorted) { tag in
                 HStack(spacing: Spacing.smd) {
-                    Circle()
-                        .fill(tag.tagColor.primaryColor)
-                        .frame(width: 12, height: 12)
+                    colorBadge(for: tag)
                     Text(tag.name)
                         .foregroundStyle(Color.textPrimary)
                     Spacer()
@@ -141,10 +151,7 @@ struct TagsAndGroupsManagementRows: View {
                     activeSheet = .groupDetail(group)
                 } label: {
                     HStack(spacing: Spacing.smd) {
-                        Image(systemName: "folder.fill")
-                            .font(.system(size: 12))
-                            .foregroundStyle(group.tagColor.primaryColor)
-                            .frame(width: 12, height: 12)
+                        colorBadge(for: group)
                         Text(group.name)
                             .foregroundStyle(Color.textPrimary)
                         Spacer()

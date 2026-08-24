@@ -322,7 +322,7 @@ struct HomeView: View {
                     // bar's bottom edge — the ad must sit below it.
                     if adManager.shouldShowBannerAd {
                         BannerAdView()
-                            .padding(.top, 26)
+                            .padding(.top, 40)
                             .background(Color.white)
                     }
                 }
