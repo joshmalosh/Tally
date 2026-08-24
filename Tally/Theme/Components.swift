@@ -485,9 +485,12 @@ struct InlineUpgradeAd: View {
 }
 
 private struct BannerAdRepresentable: UIViewRepresentable {
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
     func makeUIView(context: Context) -> GADBannerView {
         let banner = GADBannerView()
         banner.adUnitID = AdManager.bannerAdUnitID
+        banner.delegate = context.coordinator
         banner.translatesAutoresizingMaskIntoConstraints = false
         banner.backgroundColor = .clear
 
@@ -499,13 +502,33 @@ private struct BannerAdRepresentable: UIViewRepresentable {
                 banner.rootViewController = rootVC
                 let viewWidth = rootVC.view.frame.inset(by: rootVC.view.safeAreaInsets).width
                 banner.adSize = GADCurrentOrientationAnchoredAdaptiveBannerAdSizeWithWidth(viewWidth)
+                #if DEBUG
+                print("[Tally][Ads] loading banner, unit=\(AdManager.bannerAdUnitID) width=\(viewWidth)")
+                #endif
                 banner.load(GADRequest())
+            } else {
+                #if DEBUG
+                print("[Tally][Ads] no rootViewController — banner not loaded")
+                #endif
             }
         }
         return banner
     }
 
     func updateUIView(_ uiView: GADBannerView, context: Context) {}
+
+    final class Coordinator: NSObject, GADBannerViewDelegate {
+        func bannerViewDidReceiveAd(_ bannerView: GADBannerView) {
+            #if DEBUG
+            print("[Tally][Ads] banner received ad ✅")
+            #endif
+        }
+        func bannerView(_ bannerView: GADBannerView, didFailToReceiveAdWithError error: Error) {
+            #if DEBUG
+            print("[Tally][Ads] banner FAILED ❌ \(error.localizedDescription)")
+            #endif
+        }
+    }
 }
 
 // MARK: - FlowLayout

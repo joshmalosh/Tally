@@ -16,7 +16,6 @@ struct HomeView: View {
     @State private var selectedEntryMode: AddEntryMode?
     @State private var periodFilter: PeriodFilter = .allTime
     @State private var isHeaderCollapsed = false
-    @State private var headerCollapseWork: DispatchWorkItem?
     @State private var showingFilteredExport = false
     @State private var isSelecting = false
     @State private var selectedExpenseIds: Set<String> = []
@@ -766,29 +765,15 @@ struct HomeView: View {
             // UIKit KVO-based detector — SwiftUI preference keys don't propagate
             // reliably from inside List cells (UICollectionView) on iOS 16+.
             ListScrollDetector { offset, maxOffset in
-                // Decide the target state, but apply it only once scrolling
-                // settles. Collapsing mid-scroll reflows the list under the
-                // finger (the hero's height leaves the layout), which is what
-                // felt snappy. Debouncing means the hero only changes when the
-                // user pauses, so active scrolling stays smooth.
-                //
                 // heroClearance guards a jitter loop: collapsing makes the list
                 // taller and can push the offset back under the expand threshold
                 // on a barely-overflowing list, so only collapse when enough
                 // content remains below to absorb the hero's height.
                 let heroClearance: CGFloat = 260
-                let target: Bool?
-                if offset > 30 && maxOffset - offset > heroClearance { target = true }
-                else if offset < 10 { target = false }
-                else { target = nil }
-
-                guard let want = target, want != isHeaderCollapsed else { return }
-                headerCollapseWork?.cancel()
-                let work = DispatchWorkItem {
-                    withAnimation(.easeInOut(duration: 0.35)) { isHeaderCollapsed = want }
+                withAnimation(.easeInOut(duration: 0.4)) {
+                    if offset > 30 && maxOffset - offset > heroClearance { isHeaderCollapsed = true }
+                    if offset < 10 { isHeaderCollapsed = false }
                 }
-                headerCollapseWork = work
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.09, execute: work)
             }
             .frame(height: 0)
             .listRowInsets(EdgeInsets())

@@ -144,24 +144,24 @@ private struct TagFilterCard: View {
     let onTap: () -> Void
 
     var body: some View {
-            VStack(spacing: 4) {
+            VStack(spacing: 5) {
                 // Icon square
                 ZStack {
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
                         .fill(iconBg)
-                        .frame(width: 30, height: 30)
+                        .frame(width: 36, height: 36)
                     if let iconEmoji {
-                        Text(iconEmoji).font(.system(size: 15))
+                        Text(iconEmoji).font(.system(size: 18))
                     } else {
                         Image(systemName: icon)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.system(size: 17, weight: .medium))
                             .foregroundStyle(iconColor)
                     }
                 }
 
                 // Tag name
                 Text(label)
-                    .font(.system(size: 9, weight: .regular))
+                    .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(Color(hex: "6B7A6A"))
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
@@ -169,25 +169,25 @@ private struct TagFilterCard: View {
 
                 // Amount
                 Text(CurrencyFormatter.shared.format(cents: amountCents, currencyCode: currency))
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
                     .foregroundStyle(Color(hex: "1C1C1E"))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .frame(maxWidth: .infinity, alignment: .center)
             }
-            .padding(6)
-            .frame(width: 74, height: 74)
+            .padding(8)
+            .frame(width: 89, height: 89)
             .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: 19, style: .continuous)
                     .stroke(
                         isSelected ? Color(hex: "B8D4C0") : Color(hex: "DEDAD2").opacity(0.6),
                         lineWidth: isSelected ? 2 : 0.5
                     )
             )
-            .shadow(color: .black.opacity(0.05), radius: 6, x: 0, y: 2)
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .shadow(color: .black.opacity(0.05), radius: 7, x: 0, y: 2)
+            .contentShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
             .animation(.easeInOut(duration: 0.15), value: isSelected)
             // Tap and long-press as separate, mutually-exclusive gestures — a
             // Button plus a simultaneous long-press fired both, and the tap's
@@ -208,32 +208,32 @@ private struct MoreTagCard: View {
 
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: 4) {
+            VStack(spacing: 5) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
                         .stroke(
                             style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])
                         )
                         .foregroundStyle(Color(hex: "DEDAD2"))
-                        .frame(width: 30, height: 30)
+                        .frame(width: 36, height: 36)
                     Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 17, weight: .medium))
                         .foregroundStyle(Color(hex: "8F9E94"))
                 }
 
                 Text("More")
-                    .font(.system(size: 9, weight: .regular))
+                    .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(Color(hex: "6B7A6A"))
             }
-            .padding(6)
-            .frame(width: 74, height: 74)
+            .padding(8)
+            .frame(width: 89, height: 89)
             .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                RoundedRectangle(cornerRadius: 19, style: .continuous)
                     .stroke(Color(hex: "DEDAD2").opacity(0.6), lineWidth: 0.5)
             )
-            .shadow(color: .black.opacity(0.05), radius: 6, x: 0, y: 2)
+            .shadow(color: .black.opacity(0.05), radius: 7, x: 0, y: 2)
         }
         .buttonStyle(.plain)
     }

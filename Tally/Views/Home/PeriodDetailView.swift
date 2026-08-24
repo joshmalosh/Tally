@@ -9,12 +9,15 @@ struct PeriodDetailView: View {
     var titleOverride: String? = nil
 
     @Environment(\.dismiss) private var dismiss
-    @Environment(AppState.self) private var appState
     @State private var showingExport = false
     @State private var expandedCategoryId: String? = nil
     // A tapped bar (week/day/month/year) filters the breakdown below to that
     // bucket, the same way tapping a month drills in on the reports page.
     @State private var selectedBarId: String? = nil
+    // Present the expense detail as a stacked sheet from here, rather than via the
+    // shared app-root binding — this view is itself often a sheet, and two sheets
+    // fighting over the same binding is what left the detail unable to open.
+    @State private var detailExpenseId: String? = nil
 
     // MARK: - Computed totals
 
@@ -114,7 +117,7 @@ struct PeriodDetailView: View {
         }
         let hasReceipt = expense.attachmentKey != nil || expense.attachmentData != nil
         Button {
-            appState.selectedExpenseId = expense.id
+            detailExpenseId = expense.id
         } label: {
             ExpenseCard(
                 receiptCacheKey: hasReceipt ? (expense.attachmentKey ?? expense.id) : nil,
@@ -386,6 +389,9 @@ struct PeriodDetailView: View {
         .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showingExport) {
             GlobalExportSheet(initialSelection: expenses)
+        }
+        .sheet(item: $detailExpenseId) { id in
+            ExpenseDetailView(expenseId: id)
         }
     }
 

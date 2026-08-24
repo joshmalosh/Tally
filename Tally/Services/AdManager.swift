@@ -15,5 +15,8 @@ final class AdManager {
 
     func configure(isPro: Bool) {
         shouldShowBannerAd = !isPro
+        #if DEBUG
+        print("[Tally][Ads] configure isPro=\(isPro) shouldShowBannerAd=\(shouldShowBannerAd)")
+        #endif
     }
 }
