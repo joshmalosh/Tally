@@ -1,4 +1,5 @@
 import SwiftUI
+import OSLog
 import SwiftData
 import UIKit
 
@@ -223,13 +224,9 @@ struct ContentView: View {
             }
             do {
                 try modelContext.save()
-                #if DEBUG
-                print("[Tally] Default tags seeded.")
-                #endif
+                Log.data.debug("default tags seeded")
             } catch {
-                #if DEBUG
-                print("[Tally] ERROR seeding tags: \(error)")
-                #endif
+                Log.data.error("seeding default tags failed: \(error.localizedDescription, privacy: .public)")
             }
         } else {
             migrateDefaultTagColors(existingTags)
@@ -261,13 +258,9 @@ struct ContentView: View {
 
         do {
             try modelContext.save()
-            #if DEBUG
-            print("[Tally] System tags seeded.")
-            #endif
+            Log.data.debug("system tags seeded")
         } catch {
-            #if DEBUG
-            print("[Tally] ERROR seeding system tags: \(error)")
-            #endif
+            Log.data.error("seeding system tags failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -285,13 +278,9 @@ struct ContentView: View {
         if changed {
             do {
                 try modelContext.save()
-                #if DEBUG
-                print("[Tally] Migrated default tag colors.")
-                #endif
+                Log.data.debug("migrated default tag colors")
             } catch {
-                #if DEBUG
-                print("[Tally] ERROR migrating tag colors: \(error)")
-                #endif
+                Log.data.error("migrating tag colors failed: \(error.localizedDescription, privacy: .public)")
             }
         }
     }

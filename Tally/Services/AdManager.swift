@@ -1,4 +1,5 @@
 import SwiftUI
+import OSLog
 import GoogleMobileAds
 
 @Observable
@@ -15,8 +16,6 @@ final class AdManager {
 
     func configure(isPro: Bool) {
         shouldShowBannerAd = !isPro
-        #if DEBUG
-        print("[Tally][Ads] configure isPro=\(isPro) shouldShowBannerAd=\(shouldShowBannerAd)")
-        #endif
+        Log.ads.info("configure isPro=\(isPro, privacy: .public) shouldShowBannerAd=\(self.shouldShowBannerAd, privacy: .public)")
     }
 }

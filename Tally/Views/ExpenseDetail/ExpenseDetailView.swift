@@ -1,4 +1,5 @@
 import SwiftUI
+import OSLog
 import SwiftData
 import UIKit
 
@@ -827,9 +828,7 @@ struct ExpenseDetailView: View {
             // Fire after dismiss so the shred plays on the Home screen underneath.
             NotificationCenter.default.post(name: .expenseDeleted, object: nil)
         } catch {
-            #if DEBUG
-            print("[Tally] ERROR deleting expense: \(error)")
-            #endif
+            Log.data.error("deleting expense failed: \(error.localizedDescription, privacy: .public)")
         }
         if let key = expense.attachmentKey {
             Task { await AttachmentService.shared.deleteAttachment(key: key) }
@@ -921,9 +920,7 @@ struct ExpenseDetailView: View {
         do {
             try modelContext.save()
         } catch {
-            #if DEBUG
-            print("[Tally] ERROR saving expense: \(error)")
-            #endif
+            Log.data.error("save expense edits failed: \(error.localizedDescription, privacy: .public)")
         }
         isSaving = false
         dismiss()

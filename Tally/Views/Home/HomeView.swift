@@ -1,4 +1,5 @@
 import SwiftUI
+import OSLog
 import SwiftData
 import UIKit
 
@@ -947,9 +948,7 @@ struct HomeView: View {
             try modelContext.save()
             NotificationCenter.default.post(name: .expenseDeleted, object: nil)
         } catch {
-            #if DEBUG
-            print("[Tally] ERROR deleting expense: \(error)")
-            #endif
+            Log.data.error("deleting expense failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -1086,9 +1085,7 @@ struct HomeView: View {
         do {
             try modelContext.save()
         } catch {
-            #if DEBUG
-            print("[Tally] ERROR deleting expenses: \(error)")
-            #endif
+            Log.data.error("deleting expenses failed: \(error.localizedDescription, privacy: .public)")
         }
         exitSelectionMode()
     }

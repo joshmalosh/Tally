@@ -1,4 +1,5 @@
 import SwiftUI
+import OSLog
 import SwiftData
 
 struct ReportsView: View {
@@ -283,7 +284,7 @@ struct ReportsView: View {
             #if DEBUG
             .onAppear {
                 let byCurrency = Dictionary(grouping: expenses, by: \.currency).mapValues { $0.count }
-                print("[Tally][Reports] activeCurrency=\(appState.activeCurrency) all=\(byCurrency) filtered=\(filteredExpenses.count) total=\(currentTotal)")
+                Log.data.debug("reports activeCurrency=\(appState.activeCurrency, privacy: .public) currencies=\(byCurrency.description, privacy: .public) filtered=\(filteredExpenses.count, privacy: .public) total=\(currentTotal, privacy: .private)")
             }
             #endif
             .navigationDestination(isPresented: $showingBreakdown) {

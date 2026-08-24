@@ -1,4 +1,5 @@
 import SwiftUI
+import OSLog
 import UIKit
 import GoogleMobileAds
 
@@ -502,14 +503,10 @@ private struct BannerAdRepresentable: UIViewRepresentable {
                 banner.rootViewController = rootVC
                 let viewWidth = rootVC.view.frame.inset(by: rootVC.view.safeAreaInsets).width
                 banner.adSize = GADCurrentOrientationAnchoredAdaptiveBannerAdSizeWithWidth(viewWidth)
-                #if DEBUG
-                print("[Tally][Ads] loading banner, unit=\(AdManager.bannerAdUnitID) width=\(viewWidth)")
-                #endif
+                Log.ads.debug("loading banner width=\(viewWidth, privacy: .public)")
                 banner.load(GADRequest())
             } else {
-                #if DEBUG
-                print("[Tally][Ads] no rootViewController — banner not loaded")
-                #endif
+                Log.ads.error("no rootViewController — banner not loaded")
             }
         }
         return banner
@@ -519,14 +516,10 @@ private struct BannerAdRepresentable: UIViewRepresentable {
 
     final class Coordinator: NSObject, GADBannerViewDelegate {
         func bannerViewDidReceiveAd(_ bannerView: GADBannerView) {
-            #if DEBUG
-            print("[Tally][Ads] banner received ad ✅")
-            #endif
+            Log.ads.debug("banner received ad")
         }
         func bannerView(_ bannerView: GADBannerView, didFailToReceiveAdWithError error: Error) {
-            #if DEBUG
-            print("[Tally][Ads] banner FAILED ❌ \(error.localizedDescription)")
-            #endif
+            Log.ads.error("banner failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

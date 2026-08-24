@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import Network
 import CoreData
 
@@ -37,7 +38,9 @@ final class SyncEngine {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.isSignedIntoiCloud = FileManager.default.ubiquityIdentityToken != nil
+            let signedIn = FileManager.default.ubiquityIdentityToken != nil
+            self?.isSignedIntoiCloud = signedIn
+            Log.sync.info("iCloud account changed, signedIn=\(signedIn, privacy: .public)")
         }
     }
 
@@ -64,10 +67,18 @@ final class SyncEngine {
             guard let event = notification.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
                     as? NSPersistentCloudKitContainer.Event else { return }
 
-            if event.endDate != nil && event.succeeded && event.type == .export {
-                let now = Date()
-                self?.lastSyncDate = now
-                UserDefaults.standard.set(now, forKey: Self.lastSyncKey)
+            // Only completed events carry a result. A failed sync is the quiet
+            // data-loss path, so log it at error level (no user data included).
+            guard event.endDate != nil else { return }
+            if let error = event.error {
+                Log.sync.error("cloudkit \(event.type.rawValue, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
+            } else if event.succeeded {
+                Log.sync.info("cloudkit \(event.type.rawValue, privacy: .public) ok")
+                if event.type == .export {
+                    let now = Date()
+                    self?.lastSyncDate = now
+                    UserDefaults.standard.set(now, forKey: Self.lastSyncKey)
+                }
             }
         }
     }

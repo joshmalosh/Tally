@@ -1,4 +1,5 @@
 import Vision
+import OSLog
 import UIKit
 
 struct ReceiptOCRResult {
@@ -120,8 +121,9 @@ enum ReceiptOCRService {
         let currencyCode = detectCurrency(in: blocks)
 
         #if DEBUG
-        print("OCR| => amount=\(amount as Any) merchant=\(merchant as Any) "
-              + "currency=\(currencyCode as Any) date=\(date as Any) alts=\(ranked.dropFirst().prefix(5))")
+        // Receipt content is the user's data — kept private so it's redacted in
+        // release/sysdiagnose, but visible in a DEBUG run for OCR regression work.
+        Log.ocr.debug("result amount=\(String(describing: amount), privacy: .private) merchant=\(String(describing: merchant), privacy: .private) currency=\(String(describing: currencyCode), privacy: .private) date=\(String(describing: date), privacy: .private)")
         #endif
 
         return ReceiptOCRResult(
@@ -861,13 +863,13 @@ enum ReceiptOCRService {
     /// The Woolworths store line took three wrong fixes because each one guessed
     /// at that split — whether "WOOLWORTHS" and "1659" arrive as one block or
     /// two changes which filter rejects the merchant, and the guess is
-    /// unfalsifiable without this. Filter Xcode's console for `OCR|`.
+    /// unfalsifiable without this. Filter Xcode's console by category `ocr`.
     private static func dumpBlocks(_ blocks: [TextBlock]) {
-        print("OCR| ---- \(blocks.count) blocks (x, y, w, h, confidence) ----")
+        Log.ocr.debug("---- \(blocks.count, privacy: .public) blocks (x, y, w, h, confidence) ----")
         for b in blocks.sorted(by: { $0.boundingBox.midY > $1.boundingBox.midY }) {
             let r = b.boundingBox
-            print(String(format: "OCR| %.3f %.3f %.3f %.3f  %.2f  |%@|",
-                         r.origin.x, r.origin.y, r.width, r.height, b.confidence, b.text))
+            // Block text is receipt content — private (visible in DEBUG runs).
+            Log.ocr.debug("\(String(format: "%.3f %.3f %.3f %.3f  %.2f", r.origin.x, r.origin.y, r.width, r.height, b.confidence), privacy: .public) |\(b.text, privacy: .private)|")
         }
     }
     #endif

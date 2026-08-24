@@ -1,4 +1,5 @@
 import SwiftUI
+import OSLog
 import SwiftData
 
 // MARK: - Draft model
@@ -609,7 +610,9 @@ struct MultiReceiptReviewView: View {
                 do {
                     savedKey = try await AttachmentService.shared.saveImage(draft.image, id: expenseId)
                     rawData  = draft.image.jpegData(compressionQuality: 0.8)
-                } catch {}
+                } catch {
+                    Log.attachments.error("multi-receipt image save failed: \(error.localizedDescription, privacy: .public)")
+                }
 
                 await MainActor.run {
                     let expense = ExpenseModel(
@@ -632,7 +635,8 @@ struct MultiReceiptReviewView: View {
             }
 
             await MainActor.run {
-                try? modelContext.save()
+                do { try modelContext.save() }
+                catch { Log.data.error("multi-receipt save failed: \(error.localizedDescription, privacy: .public)") }
                 // Charge the free-tier scan quota for each receipt kept (Pro is
                 // unlimited, so this is a no-op past the cap for them).
                 for _ in checked { appState.recordOCRScan(extractedAmount: true) }

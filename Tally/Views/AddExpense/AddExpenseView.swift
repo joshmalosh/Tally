@@ -1,4 +1,5 @@
 import SwiftUI
+import OSLog
 import SwiftData
 import UIKit
 import PDFKit
@@ -2049,7 +2050,9 @@ struct AddExpenseView: View {
                     do {
                         try modelContext.save()
                         loadExpenses()
-                    } catch {}
+                    } catch {
+                        Log.data.error("save expense failed: \(error.localizedDescription, privacy: .public)")
+                    }
                 } else {
                     let countBeforeInsert = expenseCountInMonth(of: date)
                     let expense = ExpenseModel(
@@ -2073,7 +2076,9 @@ struct AddExpenseView: View {
                         try modelContext.save()
                         appState.totalExpenseCount += 1
                         loadExpenses()
-                    } catch {}
+                    } catch {
+                        Log.data.error("save expense failed: \(error.localizedDescription, privacy: .public)")
+                    }
                     appState.clearFilters()
 
                     // Skip the pro upsell mid-batch — it would be jarring 3 times in a row

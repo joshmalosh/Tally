@@ -1,4 +1,5 @@
 import SwiftUI
+import OSLog
 import SwiftData
 import UIKit
 
@@ -115,9 +116,7 @@ struct TagsAndGroupsManagementRows: View {
                         do {
                             try modelContext.save()
                         } catch {
-                            #if DEBUG
-                            print("[Tally] ERROR toggling showOnHome: \(error)")
-                            #endif
+                            Log.data.error("toggling showOnHome failed: \(error.localizedDescription, privacy: .public)")
                         }
                         UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
                     }
@@ -193,9 +192,7 @@ struct TagsAndGroupsManagementRows: View {
         do {
             try modelContext.save()
         } catch {
-            #if DEBUG
-            print("[Tally] ERROR deleting tag: \(error)")
-            #endif
+            Log.data.error("deleting tag failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 }

@@ -1,5 +1,8 @@
 import SwiftUI
 import UIKit
+#if DEBUG
+import OSLog
+#endif
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -77,6 +80,18 @@ struct SettingsView: View {
                         }
                     }
                     .tint(Color.brandPrimary)
+
+                    NavigationLink {
+                        LogViewerView()
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("View logs")
+                                .foregroundStyle(Color.textPrimary)
+                            Text("Recent Tally diagnostics (info and errors). Share to send them over.")
+                                .font(Fonts.caption(12))
+                                .foregroundStyle(Color.textSecondary)
+                        }
+                    }
                 }
                 #endif
 
@@ -282,3 +297,44 @@ struct SettingsView: View {
         Calendar.current.monthSymbols[month - 1]
     }
 }
+
+#if DEBUG
+/// Reads this run's own unified-log entries for the Tally subsystem so logs can
+/// be seen and shared on device without Xcode. Shows info/error/fault (verbose
+/// .debug lines aren't persisted); user data stays redacted as <private>.
+struct LogViewerView: View {
+    @State private var text = "Loading…"
+
+    var body: some View {
+        ScrollView {
+            Text(text)
+                .font(.system(size: 11, design: .monospaced))
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(16)
+        }
+        .navigationTitle("Logs")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                ShareLink(item: text)
+            }
+        }
+        .task { load() }
+    }
+
+    private func load() {
+        do {
+            let store = try OSLogStore(scope: .currentProcessIdentifier)
+            let start = store.position(date: Date().addingTimeInterval(-3600))
+            let lines = try store.getEntries(at: start)
+                .compactMap { $0 as? OSLogEntryLog }
+                .filter { $0.subsystem == "com.asimplelife.tally" }
+                .map { "[\($0.category)] \($0.composedMessage)" }
+            text = lines.isEmpty ? "No Tally logs captured yet." : lines.joined(separator: "\n")
+        } catch {
+            text = "Couldn't read logs: \(error.localizedDescription)"
+        }
+    }
+}
+#endif

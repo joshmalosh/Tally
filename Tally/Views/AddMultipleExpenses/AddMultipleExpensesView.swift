@@ -1,4 +1,5 @@
 import SwiftUI
+import OSLog
 import SwiftData
 import UniformTypeIdentifiers
 import UIKit
@@ -543,9 +544,7 @@ struct AddMultipleExpensesView: View {
         do {
             try modelContext.save()
         } catch {
-            #if DEBUG
-            print("[Tally] ERROR saving bulk import: \(error)")
-            #endif
+            Log.data.error("bulk import save failed: \(error.localizedDescription, privacy: .public)")
         }
 
         dismiss()

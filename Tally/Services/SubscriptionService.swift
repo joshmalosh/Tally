@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import RevenueCat
 
 enum SubscriptionService {
@@ -13,13 +14,12 @@ enum SubscriptionService {
         do {
             let customerInfo = try await Purchases.shared.customerInfo()
             let isActive = customerInfo.entitlements[RevenueCatConfig.proEntitlementId]?.isActive == true
+            Log.subscription.info("entitlement resolved active=\(isActive, privacy: .public)")
             await MainActor.run {
                 appState.subscriptionStatus = isActive ? .pro : .free
             }
         } catch {
-            #if DEBUG
-            print("[Tally] SubscriptionService: Failed to fetch customerInfo: \(error)")
-            #endif
+            Log.subscription.error("customerInfo fetch failed: \(error.localizedDescription, privacy: .public)")
             await MainActor.run {
                 appState.subscriptionStatus = .free
             }

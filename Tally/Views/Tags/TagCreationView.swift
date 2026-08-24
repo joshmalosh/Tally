@@ -1,4 +1,5 @@
 import SwiftUI
+import OSLog
 import SwiftData
 import UIKit
 
@@ -350,9 +351,7 @@ struct TagCreationView: View {
             try modelContext.save()
             dismiss()
         } catch {
-            #if DEBUG
-            print("[Tally] ERROR deleting tag: \(error)")
-            #endif
+            Log.data.error("delete tag failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 
@@ -382,13 +381,9 @@ struct TagCreationView: View {
             }
             do {
                 try modelContext.save()
-                #if DEBUG
-                print("[Tally] Tag updated: \(trimmed)")
-                #endif
+                Log.data.debug("tag updated id=\(tag.id, privacy: .public) name=\(trimmed, privacy: .private)")
             } catch {
-                #if DEBUG
-                print("[Tally] ERROR updating tag: \(error)")
-                #endif
+                Log.data.error("update tag failed: \(error.localizedDescription, privacy: .public)")
             }
             dismiss()
         } else {
@@ -406,13 +401,9 @@ struct TagCreationView: View {
             modelContext.insert(tag)
             do {
                 try modelContext.save()
-                #if DEBUG
-                print("[Tally] Tag created: \(trimmed) (id: \(tag.id), parent: \(tag.parentId ?? "none"))")
-                #endif
+                Log.data.debug("tag created id=\(tag.id, privacy: .public) name=\(trimmed, privacy: .private)")
             } catch {
-                #if DEBUG
-                print("[Tally] ERROR creating tag: \(error)")
-                #endif
+                Log.data.error("create tag failed: \(error.localizedDescription, privacy: .public)")
             }
             let savedId = tag.id
             dismiss()

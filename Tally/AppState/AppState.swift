@@ -1,4 +1,25 @@
 import SwiftUI
+import OSLog
+
+/// Central, categorised logging built on Apple's unified logging.
+///
+/// Filter to just Tally by subsystem `com.asimplelife.tally` in Xcode's console
+/// or Console.app. Levels: `.debug` (verbose, DEBUG only, never persisted),
+/// `.info` (transient), `.error`/`.fault` (persisted, visible in release).
+///
+/// Privacy: interpolate user data as `\(value, privacy: .private)` so amounts,
+/// merchants, notes, receipt text and IDs are redacted as `<private>` in release
+/// and any sysdiagnose. Only non-identifying diagnostics use `.public`.
+enum Log {
+    private static let sub = "com.asimplelife.tally"
+    static let app          = Logger(subsystem: sub, category: "app")
+    static let sync         = Logger(subsystem: sub, category: "sync")
+    static let data         = Logger(subsystem: sub, category: "data")
+    static let ocr          = Logger(subsystem: sub, category: "ocr")
+    static let subscription = Logger(subsystem: sub, category: "subscription")
+    static let ads          = Logger(subsystem: sub, category: "ads")
+    static let attachments  = Logger(subsystem: sub, category: "attachments")
+}
 
 @Observable
 final class AppState {

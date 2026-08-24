@@ -1,4 +1,5 @@
 import SwiftUI
+import OSLog
 import SwiftData
 import UIKit
 import RevenueCat
@@ -35,12 +36,11 @@ struct TallyApp: App {
             }
             modelContainer = try ModelContainer(for: schema, configurations: [config])
         } catch {
+            Log.data.critical("ModelContainer creation failed: \(error.localizedDescription, privacy: .public)")
             fatalError("Failed to create ModelContainer: \(error)")
         }
         configureRevenueCat()
-        #if DEBUG
-        print("[Tally] ModelContainer created successfully (CloudKit: \(Self.cloudKitEnabled))")
-        #endif
+        Log.data.info("ModelContainer created (CloudKit: \(Self.cloudKitEnabled, privacy: .public))")
     }
 
     private func configureRevenueCat() {
