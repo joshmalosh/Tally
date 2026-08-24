@@ -34,6 +34,9 @@ struct ExpenseDetailView: View {
     @State private var showingPhotoPicker = false
     @State private var showingDocumentPicker = false
     @State private var showingReplaceReceiptSources = false
+    @State private var pendingReplaceSource: ReplaceSource?
+
+    private enum ReplaceSource { case camera, photos, file }
     @State private var showingError = false
     @State private var errorMessage = ""
     @State private var isSaving = false
@@ -179,6 +182,7 @@ struct ExpenseDetailView: View {
                             )
                             .clipShape(Capsule())
                         }
+                        .buttonStyle(.plain)
                         .disabled(!canSaveEdits)
                     }
                 }
@@ -223,15 +227,8 @@ struct ExpenseDetailView: View {
                         .presentationDetents([.large])
                         .presentationDragIndicator(.visible)
                 }
-                .confirmationDialog(
-                    "Replace receipt",
-                    isPresented: $showingReplaceReceiptSources,
-                    titleVisibility: .visible
-                ) {
-                    Button("Camera")  { showingCamera       = true }
-                    Button("Photos")  { showingPhotoPicker  = true }
-                    Button("File")    { showingDocumentPicker = true }
-                    Button("Cancel", role: .cancel) {}
+                .sheet(isPresented: $showingReplaceReceiptSources, onDismiss: presentPendingReplace) {
+                    replaceReceiptSheet
                 }
                 .fullScreenCover(isPresented: $showingCamera) {
                     CameraPicker(image: $attachmentImage).ignoresSafeArea()
@@ -748,6 +745,62 @@ struct ExpenseDetailView: View {
         if attachmentKey != expense.attachmentKey { return true }
         if attachedFileURL != nil { return true }
         return false
+    }
+
+    // MARK: - Replace receipt sheet
+
+    private var replaceReceiptSheet: some View {
+        VStack(spacing: 0) {
+            Text("Replace receipt")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Color(hex: "1C1C1E"))
+                .padding(.top, 22).padding(.bottom, 10)
+            replaceOption(icon: "camera.fill", title: "Camera") { pickReplace(.camera) }
+            Divider().padding(.leading, 58)
+            replaceOption(icon: "photo.fill", title: "Photos") { pickReplace(.photos) }
+            Divider().padding(.leading, 58)
+            replaceOption(icon: "doc.fill", title: "File") { pickReplace(.file) }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity)
+        .background(Color(hex: "F0EDE6"))
+        .presentationDetents([.height(250)])
+        .presentationDragIndicator(.visible)
+    }
+
+    private func replaceOption(icon: String, title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .font(.system(size: 16))
+                    .foregroundStyle(Color(hex: "2F402E"))
+                    .frame(width: 26)
+                Text(title)
+                    .font(.system(size: 16))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+                Spacer()
+            }
+            .padding(.horizontal, 22).padding(.vertical, 16)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // Set the choice and dismiss; the picker is presented in the sheet's
+    // onDismiss so two presentations never fight.
+    private func pickReplace(_ source: ReplaceSource) {
+        pendingReplaceSource = source
+        showingReplaceReceiptSources = false
+    }
+
+    private func presentPendingReplace() {
+        guard let source = pendingReplaceSource else { return }
+        pendingReplaceSource = nil
+        switch source {
+        case .camera: showingCamera = true
+        case .photos: showingPhotoPicker = true
+        case .file:   showingDocumentPicker = true
+        }
     }
 
     private func syncFromExpense(_ expense: ExpenseModel) {

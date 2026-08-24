@@ -19,7 +19,10 @@ enum RevenueCatConfig {
     //   • Upsell prompts hidden (3rd/6th/9th expense, OCR banner, monthly limit sheet)
     //   • Settings: Go Pro row replaced with Manage Subscription
     // ─────────────────────────────────────────────────────────────
+    // Left off so debug builds reflect real (free) status and the Settings
+    // "Force Pro" toggle is the single switch for testing Pro — otherwise this
+    // forced Pro on regardless of the toggle, which hid the ads.
     #if DEBUG
-    static let forcePro: Bool = true
+    static let forcePro: Bool = false
     #endif
 }

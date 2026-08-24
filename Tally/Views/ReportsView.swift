@@ -280,6 +280,12 @@ struct ReportsView: View {
             .scrollContentBackground(.hidden)
             .background(Color(hex: "F0EDE6").ignoresSafeArea())
             .toolbar(.hidden, for: .navigationBar)
+            #if DEBUG
+            .onAppear {
+                let byCurrency = Dictionary(grouping: expenses, by: \.currency).mapValues { $0.count }
+                print("[Tally][Reports] activeCurrency=\(appState.activeCurrency) all=\(byCurrency) filtered=\(filteredExpenses.count) total=\(currentTotal)")
+            }
+            #endif
             .navigationDestination(isPresented: $showingBreakdown) {
                 PeriodDetailView(
                     period: .month,

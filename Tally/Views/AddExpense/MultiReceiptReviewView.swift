@@ -19,6 +19,8 @@ struct ReceiptDraft: Identifiable {
     var merchantAlternates: [String] = []
     var showAlternates: Bool = false
     var wasAutoScanned: Bool = false
+    /// Currency the scan detected for this receipt; falls back to the default.
+    var currencyCode: String? = nil
 }
 
 // MARK: - Focus field identifier
@@ -574,6 +576,7 @@ struct MultiReceiptReviewView: View {
                     drafts[idx].merchantAlternates = result.merchantAlternates
                     drafts[idx].showAlternates = false
                     drafts[idx].wasAutoScanned = result.amount != nil
+                    drafts[idx].currencyCode = result.currencyCode
                 }
             }
         }
@@ -613,7 +616,7 @@ struct MultiReceiptReviewView: View {
                         id: expenseId,
                         userId: "",
                         amountCents: cents,
-                        currency: currencyCode,
+                        currency: draft.currencyCode ?? currencyCode,
                         date: draft.date,
                         description: nil,
                         merchant: draft.merchant.isEmpty ? nil : draft.merchant,
