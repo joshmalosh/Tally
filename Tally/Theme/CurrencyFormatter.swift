@@ -98,4 +98,19 @@ final class CurrencyFormatter {
     func usesDecimals(for currencyCode: String) -> Bool {
         !currencyCodesWithNoDecimals.contains(currencyCode)
     }
+
+    /// The whole-number part only (no symbol, no decimals), grouped in the
+    /// currency's own locale — e.g. `6,08,600` for INR, `608,600` for USD. Used by
+    /// the big split-digit hero/period totals so their grouping matches the rest
+    /// of the app. Pass the same `cents` you'd give `format`.
+    func groupedWhole(cents: Int, currencyCode: String) -> String {
+        let whole = usesDecimals(for: currencyCode) ? cents / 100 : cents
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = 0
+        if let localeId = Self.currencyLocaleMap[currencyCode] {
+            f.locale = Locale(identifier: localeId)
+        }
+        return f.string(from: NSNumber(value: whole)) ?? "\(whole)"
+    }
 }

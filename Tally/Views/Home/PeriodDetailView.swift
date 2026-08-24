@@ -164,11 +164,7 @@ struct PeriodDetailView: View {
     private var currencySymbol: String { CurrencyFormatter.shared.symbol(for: currency) }
 
     private var dollarPart: String {
-        // Non-decimal currencies store whole units in `amountCents`, so don't divide.
-        let whole = showsCents ? totalCents / 100 : totalCents
-        let f = NumberFormatter()
-        f.numberStyle = .decimal
-        return f.string(from: NSNumber(value: whole)) ?? "\(whole)"
+        CurrencyFormatter.shared.groupedWhole(cents: totalCents, currencyCode: currency)
     }
 
     private var centsPart: String {

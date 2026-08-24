@@ -249,14 +249,11 @@ struct SpendingSummaryCard: View {
         return Int(round(Double(top.cents) / Double(totalCents) * 100))
     }
 
+    private var showsCents: Bool { CurrencyFormatter.shared.usesDecimals(for: currency) }
+    private var currencySymbol: String { CurrencyFormatter.shared.symbol(for: currency) }
+
     private var dollarPart: String {
-        let whole = totalCents / 100
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.groupingSeparator = ","
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 0
-        return formatter.string(from: NSNumber(value: whole)) ?? "\(whole)"
+        CurrencyFormatter.shared.groupedWhole(cents: totalCents, currencyCode: currency)
     }
 
     private var centsPart: String {
@@ -344,20 +341,23 @@ struct SpendingSummaryCard: View {
                 .font(.system(size: 12))
                 .foregroundStyle(.white.opacity(0.65))
             HStack(alignment: .top, spacing: 0) {
-                Text("$")
+                Text(currencySymbol)
                     .font(.system(size: 16, weight: .regular, design: .monospaced))
                     .foregroundStyle(.white.opacity(0.85))
                     .padding(.top, 5)
+                    .padding(.trailing, 1)
                 Text(dollarPart)
                     .font(.system(size: 32, weight: .bold, design: .monospaced))
                     .foregroundStyle(.white)
                     .tracking(-1)
                     .minimumScaleFactor(0.7)
                     .lineLimit(1)
-                Text(".\(centsPart)")
-                    .font(.system(size: 16, weight: .regular, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .padding(.top, 5)
+                if showsCents {
+                    Text(".\(centsPart)")
+                        .font(.system(size: 16, weight: .regular, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .padding(.top, 5)
+                }
             }
         }
     }

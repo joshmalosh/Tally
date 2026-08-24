@@ -791,6 +791,12 @@ free-tier banner moved into the Home header, 2026-08-25).
 
 ## Current state — what's shipped (newest first)
 
+- **Home hero shows the active currency** (2026-08-25): the big "Total spent" total
+  used a hardcoded `$` and Western digit grouping, so a filtered INR total read as
+  `$608,600` instead of `₹6,08,600`. Now uses the active currency's symbol, decimals
+  and locale grouping via a shared `CurrencyFormatter.groupedWhole` helper (the
+  period-detail total routes through it too). The export sheet's total still does
+  this — folded into open item 4.
 - **Monthly report polish** (2026-08-25): the period detail (opened from the Home
   hero) now pages months by swiping the By Week chart; category rows slide out from
   behind the header instead of ghosting over it; the period title is more
@@ -845,7 +851,10 @@ free-tier banner moved into the Home header, 2026-08-25).
    (`ITSAppUsesNonExemptEncryption = NO`). AdMob is already test units in DEBUG.
 8. **Deferred debt:** bulk-import `TagLinkPickerSheet` restyle; ~525 hardcoded
    `Color(hex:)` literals with tokens in `DesignSystem.swift`; dead export surfaces
-   `ExportExpenseSheet` (0 refs) and the `ExportView` struct (never renders).
+   `ExportExpenseSheet` (0 refs) and the `ExportView` struct (never renders); dead
+   `HeroSpendingCard` + `HeroPeriodPage` in `HeroSpendingCard.swift` (0 refs — the
+   live card is `SpendingSummaryCard` in the same file; the dead one still hardcodes
+   `$` and doesn't currency-filter).
 
 ## OCR regression testing (read before touching the scanner)
 
