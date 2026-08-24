@@ -9,6 +9,7 @@ struct PeriodDetailView: View {
     var titleOverride: String? = nil
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppState.self) private var appState
     @State private var showingExport = false
     @State private var expandedCategoryId: String? = nil
     // A tapped bar (week/day/month/year) filters the breakdown below to that
@@ -19,14 +20,30 @@ struct PeriodDetailView: View {
     // fighting over the same binding is what left the detail unable to open.
     @State private var detailExpenseId: String? = nil
 
+    // MARK: - Currency scoping
+
+    /// The single currency this view aggregates in — the same source of truth the
+    /// home hero and reports use. The app has no FX, so summing mixed currencies
+    /// into one total is meaningless; every total, count, bar and category here is
+    /// scoped to this currency. Switch it via the currency filter.
+    private var currency: String { appState.activeCurrency }
+
+    private var scopedExpenses: [ExpenseModel] {
+        expenses.inCurrency(currency)
+    }
+
+    private var scopedPreviousExpenses: [ExpenseModel] {
+        previousExpenses.inCurrency(currency)
+    }
+
     // MARK: - Computed totals
 
     private var totalCents: Int {
-        expenses.reduce(0) { $0 + $1.amountCents }
+        scopedExpenses.reduce(0) { $0 + $1.amountCents }
     }
 
     private var previousTotalCents: Int {
-        previousExpenses.reduce(0) { $0 + $1.amountCents }
+        scopedPreviousExpenses.reduce(0) { $0 + $1.amountCents }
     }
 
     private var comparisonPercent: Int? {
@@ -83,8 +100,15 @@ struct PeriodDetailView: View {
 
     // MARK: - Formatting
 
+    /// Whether the active currency shows minor units (JPY, IDR etc. don't).
+    private var showsCents: Bool { CurrencyFormatter.shared.usesDecimals(for: currency) }
+
+    /// Currency symbol for the big header total (₹, ¥, $ …).
+    private var currencySymbol: String { CurrencyFormatter.shared.symbol(for: currency) }
+
     private var dollarPart: String {
-        let whole = totalCents / 100
+        // Non-decimal currencies store whole units in `amountCents`, so don't divide.
+        let whole = showsCents ? totalCents / 100 : totalCents
         let f = NumberFormatter()
         f.numberStyle = .decimal
         return f.string(from: NSNumber(value: whole)) ?? "\(whole)"
@@ -95,12 +119,7 @@ struct PeriodDetailView: View {
     }
 
     private func formatCents(_ cents: Int) -> String {
-        let whole = abs(cents) / 100
-        let frac  = abs(cents) % 100
-        let f = NumberFormatter()
-        f.numberStyle = .decimal
-        let ws = f.string(from: NSNumber(value: whole)) ?? "\(whole)"
-        return "$\(ws).\(String(format: "%02d", frac))"
+        CurrencyFormatter.shared.format(cents: cents, currencyCode: currency)
     }
 
     /// A drill-down expense row that mirrors the home list: receipt thumbnail,
@@ -167,8 +186,8 @@ struct PeriodDetailView: View {
 
     /// Expenses shown in the breakdown: the whole period, or one bar's bucket.
     private var visibleExpenses: [ExpenseModel] {
-        guard let id = selectedBarId else { return expenses }
-        return expenses.filter { barKey(for: $0) == id }
+        guard let id = selectedBarId else { return scopedExpenses }
+        return scopedExpenses.filter { barKey(for: $0) == id }
     }
 
     private var visibleTotalCents: Int { visibleExpenses.reduce(0) { $0 + $1.amountCents } }
@@ -221,7 +240,7 @@ struct PeriodDetailView: View {
         let currentWeekOfMonth = cal.component(.weekOfMonth, from: now)
 
         var buckets: [Int: Int] = [:]
-        for e in expenses {
+        for e in scopedExpenses {
             let w = cal.component(.weekOfMonth, from: e.date)
             buckets[w, default: 0] += e.amountCents
         }
@@ -241,7 +260,7 @@ struct PeriodDetailView: View {
     private var lastMonthWeekBars: [WeekBar] {
         let cal = Calendar.current
         var buckets: [Int: Int] = [:]
-        for e in expenses {
+        for e in scopedExpenses {
             let w = cal.component(.weekOfMonth, from: e.date)
             buckets[w, default: 0] += e.amountCents
         }
@@ -261,7 +280,7 @@ struct PeriodDetailView: View {
         case .week:
             let symbols = cal.shortWeekdaySymbols
             var buckets: [Int: Int] = [:]
-            for e in expenses {
+            for e in scopedExpenses {
                 let wd = cal.component(.weekday, from: e.date)
                 buckets[wd, default: 0] += e.amountCents
             }
@@ -276,7 +295,7 @@ struct PeriodDetailView: View {
             let symbols = cal.shortMonthSymbols
             var cents: [Int: Int] = [:]
             var sortDate: [Int: Date] = [:]
-            for e in expenses {
+            for e in scopedExpenses {
                 let m = cal.component(.month, from: e.date)
                 cents[m, default: 0] += e.amountCents
                 if sortDate[m] == nil {
@@ -288,7 +307,7 @@ struct PeriodDetailView: View {
             }
         case .allTime:
             var buckets: [Int: Int] = [:]
-            for e in expenses {
+            for e in scopedExpenses {
                 let y = cal.component(.year, from: e.date)
                 buckets[y, default: 0] += e.amountCents
             }
@@ -352,7 +371,7 @@ struct PeriodDetailView: View {
                     .padding(.top, 8)
                     .padding(.bottom, 20)
 
-                if expenses.isEmpty {
+                if scopedExpenses.isEmpty {
                     emptyState
                 } else {
                     summaryHeader
@@ -437,7 +456,7 @@ struct PeriodDetailView: View {
                 .tracking(1.0)
 
             HStack(alignment: .top, spacing: 0) {
-                Text("$")
+                Text(currencySymbol)
                     .font(.system(size: 22, weight: .regular, design: .monospaced))
                     .foregroundStyle(Color(hex: "1C1C1E"))
                     .padding(.top, 7)
@@ -445,14 +464,16 @@ struct PeriodDetailView: View {
                     .font(.system(size: 52, weight: .bold, design: .monospaced))
                     .foregroundStyle(Color(hex: "1C1C1E"))
                     .tracking(-2)
-                Text(".\(centsPart)")
-                    .font(.system(size: 24, weight: .regular, design: .monospaced))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-                    .padding(.top, 9)
+                if showsCents {
+                    Text(".\(centsPart)")
+                        .font(.system(size: 24, weight: .regular, design: .monospaced))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                        .padding(.top, 9)
+                }
             }
 
             HStack(spacing: 6) {
-                Text("\(expenses.count) expense\(expenses.count == 1 ? "" : "s")")
+                Text("\(scopedExpenses.count) expense\(scopedExpenses.count == 1 ? "" : "s")")
                     .font(.system(size: 13))
                     .foregroundStyle(Color(hex: "8F9E94"))
 
