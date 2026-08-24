@@ -4,6 +4,12 @@ Josh is the product owner of Tally, **not a developer**. This file is loaded in
 full every session. These rules are not optional and do not need to be
 "recalled" from memory. Follow them from the first reply.
 
+**If Josh has to tell you the same thing twice, a doc failed to capture it the
+first time.** When he corrects you or states a preference, write it into the right
+doc that same turn, unprompted: how-to-work into this file, product/design into
+`PROJECT_BRIEF.md`. He should never have to repeat himself or ask you to record it.
+See §10.
+
 ---
 
 ## 1. Josh is not a developer
@@ -173,11 +179,19 @@ him: App Store text, release notes, the website, marketing.
 - Memory index: `.claude\projects\E--Projects-ASimpleLife\memory\MEMORY.md`.
   This file is the always-on version of the behavioural rules. If they ever
   conflict, this file wins for how to work with Josh.
-- **Keeping `PROJECT_BRIEF.md` current is every session's job, not Josh's.** Pick it
-  up at the start, and before the turn ends fold in what you changed: update the
-  current state, open items, and — whenever Josh makes or confirms a product/design
-  decision — append a dated entry to the **decisions log** with the *why*, so later
-  sessions can reason over intent instead of relitigating. A change that alters the
-  product, a feature, monetisation, or the state must update the brief in the same
-  turn; it is the source of truth, so leaving it stale is a bug. Tighten an existing
-  line rather than adding a near-duplicate.
+- **You maintain both docs yourself, every session, without being asked — that is
+  the whole point of them.** The test: if Josh ever has to say the same thing twice,
+  a doc failed to capture it the first time, so capture it the first time.
+  - When Josh corrects how you work, states a preference (process, tone, format,
+    what to verify, what never to do), or you get something wrong about working with
+    him → fold it into **this file** that same turn, in the fitting section,
+    tightening an existing line rather than bolting on a duplicate.
+  - When a change touches the product, a feature, monetisation, engineering, or the
+    current state → update **`PROJECT_BRIEF.md`** that same turn; and whenever he
+    makes or confirms a product/design decision, append a dated entry to its
+    **decisions log** with the *why*, so later sessions reason over intent instead
+    of relitigating.
+  Each is the source of truth for its half. Leaving either stale is a bug — and
+  needing to be reminded to update them is the same bug. Do it as part of the work,
+  not as a closing chore, and never end a turn that shipped a change with the docs
+  left behind.
