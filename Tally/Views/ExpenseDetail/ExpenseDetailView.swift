@@ -13,6 +13,7 @@ struct ExpenseDetailView: View {
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
 
     @State private var showingDeleteConfirmation = false
+    @State private var showingLeaveConfirmation = false
     @State private var attachmentImage: UIImage?
     @State private var showingFullImage = false
 
@@ -139,7 +140,13 @@ struct ExpenseDetailView: View {
                 .toolbar {
                     // < Back
                     ToolbarItem(placement: .topBarLeading) {
-                        Button { dismiss() } label: {
+                        Button {
+                            if hasUnsavedChanges(expense) {
+                                showingLeaveConfirmation = true
+                            } else {
+                                dismiss()
+                            }
+                        } label: {
                             Image(systemName: "chevron.left")
                                 .font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(Color(hex: "1C1C1E"))
@@ -250,6 +257,13 @@ struct ExpenseDetailView: View {
                     }
                 }
                 .task(id: expense.updatedAt) { loadAttachment(expense) }
+                .confirmationDialog("Save your changes?",
+                                    isPresented: $showingLeaveConfirmation,
+                                    titleVisibility: .visible) {
+                    Button("Save changes") { Task { await saveEdits(expense: expense) } }
+                    Button("Discard changes", role: .destructive) { dismiss() }
+                    Button("Keep editing", role: .cancel) {}
+                }
 
             } else {
                 EmptyStateView(
@@ -720,6 +734,21 @@ struct ExpenseDetailView: View {
     }
 
     // MARK: - Helpers
+
+    /// Whether the local edits differ from the saved expense — drives the
+    /// save/discard prompt on back. Covers field edits, a removed receipt
+    /// (attachmentKey cleared), and a newly attached file.
+    private func hasUnsavedChanges(_ expense: ExpenseModel) -> Bool {
+        if parsedAmountCents != expense.amountCents { return true }
+        if currency != expense.currency { return true }
+        if date != expense.date { return true }
+        if merchant.trimmingCharacters(in: .whitespacesAndNewlines) != (expense.merchant ?? "") { return true }
+        if notes.trimmingCharacters(in: .whitespacesAndNewlines) != (expense.notes ?? "") { return true }
+        if selectedTagIds != expense.resolvedTagIds { return true }
+        if attachmentKey != expense.attachmentKey { return true }
+        if attachedFileURL != nil { return true }
+        return false
+    }
 
     private func syncFromExpense(_ expense: ExpenseModel) {
         currency = expense.currency

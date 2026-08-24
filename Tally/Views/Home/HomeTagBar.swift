@@ -88,7 +88,7 @@ struct HomeTagBar: View {
                 ForEach(homeTags) { tag in
                     let symbol = tag.symbolName ?? tag.icon ?? TagSymbolMap.symbol(for: tag.name)
                     let primary = tag.tagColor.primaryColor
-                    let iconBg  = primary.opacity(0.15)
+                    let iconBg  = primary
 
                     TagFilterCard(
                         icon: symbol,
