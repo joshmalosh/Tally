@@ -151,6 +151,15 @@ him: App Store text, release notes, the website, marketing.
   push is plain `git push`.
 - Run the pre-push-reviewer only before pushes to `main`/`master`. Skip it for
   `dev` and feature branches.
+- **A new `.swift` file only compiles once it is registered in
+  `Tally.xcodeproj/project.pbxproj`** (four entries: `PBXBuildFile`,
+  `PBXFileReference`, the group's `children`, the target's `Sources`). Dropping a
+  file on disk is not enough — anything it defines is invisible to the compiler
+  and the build fails on Josh's Mac even after he pulls. Default to putting new
+  types, extensions and helpers in an existing file that already compiles (the
+  model file, the view that uses it). Only create a standalone file when it truly
+  earns one, and then register it in the pbxproj in the same commit. See
+  `SESSION_HANDOVER.md` §3 for the exact recipe.
 
 ---
 
@@ -166,3 +175,8 @@ him: App Store text, release notes, the website, marketing.
 - When you learn something durable, fold it into the right one of the three docs
   before the session ends. Tighten an existing line rather than adding a
   near-duplicate. Keep it a sharp brief, not a log.
+- **Keeping the living project doc current is your job, not Josh's.** Update it as
+  part of the work, in the same session, not when asked. When a change alters the
+  product, a feature, monetisation, the current state, or anything the doc states,
+  update it in that same turn — it is the source of truth, so leaving it stale is a
+  bug. Never end a turn that shipped a meaningful change with the doc left behind.
