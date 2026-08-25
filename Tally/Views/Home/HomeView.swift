@@ -249,7 +249,22 @@ struct HomeView: View {
                 HomeTagBar(selectedTagId: $homeBarTagId)
                     .padding(.top, 2)
             }
-            .background(Color(hex: "F0EDE6"))
+            // Opaque so the collapsing hero can't ghost behind it — but painted with
+            // the SAME canvas gradient sampled at this header's screen position, so
+            // its bottom edge matches the list below with no visible seam.
+            .background {
+                GeometryReader { geo in
+                    let frame = geo.frame(in: .global)
+                    ZStack(alignment: .top) {
+                        Color(hex: "F0EDE6")
+                        Self.riseGradient.opacity(0.65)
+                            .frame(height: UIScreen.main.bounds.height)
+                            .offset(y: -frame.minY)
+                    }
+                    .frame(width: frame.width, height: frame.height)
+                    .clipped()
+                }
+            }
 
             // Active filter chips — only renders when filters are active
             ActiveFiltersRow(periodFilter: $periodFilter)

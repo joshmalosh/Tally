@@ -146,9 +146,9 @@ struct TagCreationView: View {
         ZStack {
             Circle()
                 .fill(accentColor)
-                .frame(width: 72, height: 72)
+                .frame(width: 144, height: 144)
             Text(selectedIcon?.isEmpty == false ? selectedIcon! : (isGroupMode ? "📁" : "🏷️"))
-                .font(.system(size: 34))
+                .font(.system(size: 68))
         }
         .animation(.easeInOut(duration: 0.15), value: selectedColorId)
         .padding(.top, Spacing.xs)

@@ -105,7 +105,7 @@ struct HomeTagBar: View {
                         // the editor slides up a beat later so the shake is seen.
                         onLongPress: {
                             wigglingTagId = tag.id
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
                                 editingTag = tag
                                 wigglingTagId = nil
                             }
@@ -217,7 +217,7 @@ private struct TagFilterCard: View {
             // Button plus a simultaneous long-press fired both, and the tap's
             // re-render dismissed the just-opened editor on the first try.
             .onTapGesture { onTap() }
-            .onLongPressGesture(minimumDuration: 0.4) {
+            .onLongPressGesture(minimumDuration: 0.22) {
                 guard let onLongPress else { return }
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 onLongPress()
