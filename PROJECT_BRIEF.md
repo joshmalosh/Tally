@@ -702,6 +702,11 @@ totals are single-currency, never mixed across currencies.
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-08-26 | Holding a pinned tag on Home does a subtle shake + haptic before the editor opens. | Borrows the iOS "hold an app icon to edit" idiom so the long-press reads as "you can edit this", not a dead hold. The editor still opens (0.4s later) so the shake is seen first. |
+| 2026-08-26 | The edit-tag screen shows a live circular colour+emoji icon preview centred above the name. | Same pattern as editing an iOS contact's photo: users see the tag's appearance update as they change colour/emoji, before returning to the home page, instead of guessing. Matches the home card's circular colour-filled icon. |
+| 2026-08-26 | The pin-to-home toggle lives on the edit-tag screen (with subtext "Pin this tag to your home page for quick filtering"), not only in the separate home-bar sheet. | Pinning is a property of the tag, so it belongs where you edit the tag. The explanatory line stops the toggle being a mystery switch. Groups can't be pinned, so it's tag-only. |
+| 2026-08-26 | The "More" card in the Home pinned-tags row is relabelled "Add tag". | "More" was vague; the card's job is to add a tag to the pinned row. |
+| 2026-08-26 | The Home persistent header (search + pinned tags) has an opaque background. | The collapsing/expanding hero card was visible ghosting behind the transparent header during the animation. An opaque strip (canvas `F0EDE6`, matching the top of the Rise gradient) hides it. |
 | 2026-08-25 | The Tags tab header matches the Reports page: an eyebrow label over a 30pt serif title, pinned at the top. | The bare title buried low in a list didn't read as part of the platform. Reusing the Reports header shape makes the tabs feel like one app. Eyebrow copy "ORGANISE" is a placeholder Josh can reword. |
 | 2026-08-25 | The monthly report (period detail opened from the Home hero) pages between months by swiping left/right on the By Week chart. | Reviewing one month at a time is the natural motion; swiping the chart keeps navigation where the eye already is, without a separate month picker. Capped at the current month (no future). |
 | 2026-08-25 | Expanding a category slides its rows out from *behind* the header, never over it. | The rows ghosting across the heading during the open/close read as a rendering bug. The drop-down motion stays; the header+progress bar became an opaque block the rows pass behind, and the cell clips so nothing paints above it. |
@@ -794,6 +799,14 @@ free-tier banner moved into the Home header, 2026-08-25).
 
 ## Current state — what's shipped (newest first)
 
+- **Pinned-tag + edit-tag polish** (2026-08-26): holding a pinned tag on Home now
+  shakes + buzzes (keyframe wiggle in `HomeTagBar`) before opening the editor; the
+  "More" pinned card is relabelled "Add tag"; the edit-tag screen
+  (`TagCreationView`) gained a live circular colour+emoji icon preview above the
+  name, a "Show on home" toggle with explanatory subtext (persists `showOnHome`),
+  and the colour pill is height-matched to the icon pill (both `minHeight: 56`);
+  the Home persistent header (search + pinned tags) is now opaque so the collapsing
+  hero can't ghost behind it. No new files.
 - **Tags tab header + dead-code cull** (2026-08-25): the Tags & Groups header now
   mirrors the Reports page (eyebrow "ORGANISE" + 30pt serif title) and sits at the
   top instead of buried low in the list. Deleted the ponytail-audit dead code:

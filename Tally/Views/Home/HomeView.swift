@@ -237,14 +237,19 @@ struct HomeView: View {
                 .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
             }
 
-            // Search bar — always visible
-            searchBar
-                .padding(.top, 6)
-                .padding(.bottom, 2)
+            // Persistent header (search + pinned tags) — opaque so the collapsing
+            // hero card can't be seen sliding behind it during the animation.
+            VStack(spacing: 0) {
+                // Search bar — always visible
+                searchBar
+                    .padding(.top, 6)
+                    .padding(.bottom, 2)
 
-            // Home tag bar — always visible (sticky above the list, does not collapse with header)
-            HomeTagBar(selectedTagId: $homeBarTagId)
-                .padding(.top, 2)
+                // Home tag bar — always visible (sticky above the list, does not collapse with header)
+                HomeTagBar(selectedTagId: $homeBarTagId)
+                    .padding(.top, 2)
+            }
+            .background(Color(hex: "F0EDE6"))
 
             // Active filter chips — only renders when filters are active
             ActiveFiltersRow(periodFilter: $periodFilter)

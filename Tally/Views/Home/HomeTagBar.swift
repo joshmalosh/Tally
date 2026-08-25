@@ -36,6 +36,7 @@ struct HomeTagBar: View {
     @Binding var selectedTagId: String?
     @State private var showingAddSheet = false
     @State private var editingTag: TagModel?
+    @State private var wigglingTagId: String?
 
     private var currency: String { appState.activeCurrency }
 
@@ -99,7 +100,16 @@ struct HomeTagBar: View {
                         iconBg: iconBg,
                         iconColor: primary,
                         isSelected: selectedTagId == tag.id,
-                        onLongPress: { editingTag = tag }
+                        isWiggling: wigglingTagId == tag.id,
+                        // iOS "hold to edit" feel: the card shakes + buzzes, then
+                        // the editor slides up a beat later so the shake is seen.
+                        onLongPress: {
+                            wigglingTagId = tag.id
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                editingTag = tag
+                                wigglingTagId = nil
+                            }
+                        }
                     ) {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         withAnimation(.easeInOut(duration: 0.15)) {
@@ -140,6 +150,7 @@ private struct TagFilterCard: View {
     let iconBg: Color
     let iconColor: Color
     let isSelected: Bool
+    var isWiggling: Bool = false
     var onLongPress: (() -> Void)? = nil
     let onTap: () -> Void
 
@@ -190,6 +201,18 @@ private struct TagFilterCard: View {
             .shadow(color: .black.opacity(0.05), radius: 7, x: 0, y: 2)
             .contentShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
             .animation(.easeInOut(duration: 0.15), value: isSelected)
+            // Subtle iOS-style shake when held to edit.
+            .keyframeAnimator(initialValue: 0.0, trigger: isWiggling) { view, angle in
+                view.rotationEffect(.degrees(angle))
+            } keyframes: { _ in
+                KeyframeTrack {
+                    CubicKeyframe(-3, duration: 0.06)
+                    CubicKeyframe(3, duration: 0.08)
+                    CubicKeyframe(-2.5, duration: 0.08)
+                    CubicKeyframe(2.5, duration: 0.08)
+                    CubicKeyframe(0, duration: 0.06)
+                }
+            }
             // Tap and long-press as separate, mutually-exclusive gestures — a
             // Button plus a simultaneous long-press fired both, and the tap's
             // re-render dismissed the just-opened editor on the first try.
@@ -222,9 +245,10 @@ private struct MoreTagCard: View {
                         .foregroundStyle(Color(hex: "8F9E94"))
                 }
 
-                Text("More")
+                Text("Add tag")
                     .font(.system(size: 11, weight: .regular))
                     .foregroundStyle(Color(hex: "6B7A6A"))
+                    .lineLimit(1)
             }
             .padding(8)
             .frame(width: 89, height: 89)

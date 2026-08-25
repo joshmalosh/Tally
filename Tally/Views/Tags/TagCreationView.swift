@@ -18,6 +18,7 @@ struct TagCreationView: View {
     @State private var selectedIcon: String? = nil
     @State private var showingColorPicker = false
     @State private var showingDuplicateAlert = false
+    @State private var showOnHome = false
 
     var editingTag: TagModel? = nil
     var initialParentId: String? = nil
@@ -50,6 +51,8 @@ struct TagCreationView: View {
     private var formContent: some View {
         ScrollView {
             VStack(spacing: Spacing.md) {
+                iconPreview
+
                 nameCard
 
                 if !isGroupMode {
@@ -60,6 +63,8 @@ struct TagCreationView: View {
                     colorCard
                     iconCard
                 }
+
+                if !isGroupMode { homeToggleCard }
 
                 if isEditing && !isGroupMode { deleteTagButton }
 
@@ -99,6 +104,7 @@ struct TagCreationView: View {
                 name = tag.name
                 selectedColorId = tag.colorId
                 selectedParentId = tag.parentId
+                showOnHome = tag.showOnHome
                 // Only keep the stored icon if it's already an emoji; legacy
                 // SF-symbol icons start empty so the field never shows a raw name.
                 selectedIcon = (tag.icon?.isSingleEmoji == true) ? tag.icon : nil
@@ -130,6 +136,22 @@ struct TagCreationView: View {
                 formContent
             }
         }
+    }
+
+    // MARK: - Icon preview
+    // Circular colour-filled icon centred above the name, matching the home card.
+    // Updates live so edits are visible before returning to the home page.
+
+    private var iconPreview: some View {
+        ZStack {
+            Circle()
+                .fill(accentColor)
+                .frame(width: 72, height: 72)
+            Text(selectedIcon?.isEmpty == false ? selectedIcon! : (isGroupMode ? "📁" : "🏷️"))
+                .font(.system(size: 34))
+        }
+        .animation(.easeInOut(duration: 0.15), value: selectedColorId)
+        .padding(.top, Spacing.xs)
     }
 
     // MARK: - Name card
@@ -251,8 +273,7 @@ struct TagCreationView: View {
                     .foregroundStyle(Color(hex: "C4BFB9"))
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 11)
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 56)
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
@@ -281,6 +302,32 @@ struct TagCreationView: View {
                 if (selectedIcon ?? "").isEmpty {
                     Text("🏷️").font(.system(size: 15)).opacity(0.35).allowsHitTesting(false)
                 }
+            }
+        }
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, minHeight: 56)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
+    }
+
+    // MARK: - Show on home toggle
+
+    private var homeToggleCard: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Show on home")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color(hex: "2F402E").opacity(0.75))
+                Text("Pin this tag to your home page for quick filtering.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            HomeToggle(isOn: showOnHome) {
+                showOnHome.toggle()
+                UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
             }
         }
         .padding(.horizontal, 12)
@@ -378,6 +425,7 @@ struct TagCreationView: View {
             tag.icon = selectedIcon
             if !isGroupMode {
                 tag.parentId = selectedParentId
+                tag.showOnHome = showOnHome
             }
             do {
                 try modelContext.save()
@@ -394,7 +442,7 @@ struct TagCreationView: View {
                 colorId: selectedColorId,
                 icon: selectedIcon,
                 sortOrder: count,
-                showOnHome: false,
+                showOnHome: isGroupMode ? false : showOnHome,
                 parentId: isGroupMode ? nil : selectedParentId,
                 isGroup: isGroupMode
             )
