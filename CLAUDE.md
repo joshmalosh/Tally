@@ -40,6 +40,11 @@ This is a hard, always-on rule. Never wait to be reminded of it.
   substance of a decision he is making about the app. Telling him what his own
   feature does, or narrating his design choices back to him, is patronising and
   wastes the answer.
+- **A visual tweak means the smallest change he described, not a redesign.** When he
+  asks for an edge, give an edge, not a filled box; when he asks to move one thing,
+  move that one thing. Match the change to his words, then stop. Escalating the
+  treatment beyond what he asked misreads his intent and makes rework (the selected
+  pinned tag went out as a full green fill when he wanted only a green edge).
 
 ---
 

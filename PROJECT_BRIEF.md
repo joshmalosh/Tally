@@ -344,10 +344,10 @@ tag management, monthly totals, core screens (Home, Add Expense, Expense Detail,
 Settings), CSV export (1/month free, unlimited Pro), AdMob banners, and
 subscriptions on StoreKit 2 (via RevenueCat).
 
-Two launch-blockers sit outside the feature work and are tracked in **Open
-items** below: the Pro subscription product does not yet exist in App Store
-Connect, so Pro is not purchasable; and CloudKit sync (now enabled) plus its
-entitlements.
+One launch-blocker sits outside the feature work and is tracked in **Open items**
+below: the Pro subscription product does not yet exist in App Store Connect, so
+Pro is not purchasable. (CloudKit sync is now enabled; verify iCloud entitlements
+on device.)
 
 ### Phase 2 — Feature Depth
 1. Camera capture + receipt upload flow. — DONE
@@ -633,7 +633,9 @@ it tells them something is locked when it isn't. `ProFeatureSheet` takes a
 
 ## Subscription Management
 
-- iOS: StoreKit 2 (`com.tally.pro.monthly`).
+- iOS: StoreKit 2 via RevenueCat. Product id `com.asimplelife.tally.pro.monthly`
+  (not yet created in App Store Connect — see Open items); entitlement
+  "A Simple Life - Tally Pro".
 - Subscription status stored locally and validated via App Store receipt.
 - No proprietary backend for subscription validation.
 - On expiry/cancellation: revert to free tier. All data preserved. Export limits re-apply.
