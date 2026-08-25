@@ -392,18 +392,15 @@ struct AddToHomeBarSheet: View {
     }
 
     private func tagRow(_ tag: TagModel) -> some View {
-        HStack(spacing: 12) {
-            Circle()
-                .fill(tag.tagColor.primaryColor)
-                .frame(width: 12, height: 12)
+        HStack(spacing: Spacing.smd) {
+            TagIconBadge(tag: tag)
             Text(tag.name)
-                .font(.system(size: 17))
-                .foregroundStyle(Color(hex: "1C1C1E"))
+                .foregroundStyle(Color.textPrimary)
             Spacer()
             HomeToggle(isOn: tag.showOnHome) { toggleHome(tag) }
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.vertical, 10)
         .contentShape(Rectangle())
         .onTapGesture { toggleHome(tag) }
     }

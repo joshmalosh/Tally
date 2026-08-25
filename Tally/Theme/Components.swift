@@ -873,6 +873,25 @@ struct HomeToggle: View {
     }
 }
 
+// MARK: - TagIconBadge (shared circular colour swatch + emoji)
+
+/// The tag/group icon used across the Tags tab, the pin-to-home sheet and the
+/// filter sheet — one definition so those three lists can't drift apart.
+struct TagIconBadge: View {
+    let tag: TagModel
+    var size: CGFloat = 34
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(tag.tagColor.primaryColor)
+                .frame(width: size, height: size)
+            Text(tag.displayEmoji)
+                .font(.system(size: size * 0.5))
+        }
+    }
+}
+
 // MARK: - FilterRow (shared selection row: filter sheet, tag picker)
 
 /// A full-width, full-height tappable filter row: the entire row (not just the

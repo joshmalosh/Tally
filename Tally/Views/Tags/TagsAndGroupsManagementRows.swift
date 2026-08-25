@@ -41,16 +41,10 @@ struct TagsAndGroupsManagementRows: View {
         tags.filter { $0.parentId == group.id }.sorted { $0.sortOrder < $1.sortOrder }
     }
 
-    /// Enlarged colour swatch with the tag's emoji inside, circular — the home
-    /// row's icon tile, rounded to a circle.
+    /// Circular colour swatch with the tag's emoji — shared `TagIconBadge` so the
+    /// Tags tab, pin-to-home sheet and filter sheet always match.
     private func colorBadge(for tag: TagModel) -> some View {
-        ZStack {
-            Circle()
-                .fill(tag.tagColor.primaryColor)
-                .frame(width: 34, height: 34)
-            Text(tag.displayEmoji)
-                .font(.system(size: 17))
-        }
+        TagIconBadge(tag: tag)
     }
 
     var body: some View {

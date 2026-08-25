@@ -702,6 +702,7 @@ totals are single-currency, never mixed across currencies.
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-08-26 | The tag/group icon is one shared `TagIconBadge` (34pt circular colour swatch + emoji) used by the Tags tab, the pin-to-home sheet and the filter sheet. | Those three lists had drifted — the pin sheet showed a 12pt bare dot, the filter sheet 10/8pt dots and a folder glyph, none matching the Tags tab's emoji badge. A single component means they can't diverge again. Filter sheet's nested child tags keep a smaller (26pt) badge + indent to stay visually subordinate. |
 | 2026-08-26 | Holding a pinned tag on Home does a subtle shake + haptic before the editor opens. | Borrows the iOS "hold an app icon to edit" idiom so the long-press reads as "you can edit this", not a dead hold. The editor still opens (0.4s later) so the shake is seen first. |
 | 2026-08-26 | The edit-tag screen shows a live circular colour+emoji icon preview centred above the name. | Same pattern as editing an iOS contact's photo: users see the tag's appearance update as they change colour/emoji, before returning to the home page, instead of guessing. Matches the home card's circular colour-filled icon. |
 | 2026-08-26 | The pin-to-home toggle lives on the edit-tag screen (with subtext "Pin this tag to your home page for quick filtering"), not only in the separate home-bar sheet. | Pinning is a property of the tag, so it belongs where you edit the tag. The explanatory line stops the toggle being a mystery switch. Groups can't be pinned, so it's tag-only. |
@@ -799,6 +800,11 @@ free-tier banner moved into the Home header, 2026-08-25).
 
 ## Current state — what's shipped (newest first)
 
+- **Consistent tag rows** (2026-08-26): extracted `TagIconBadge` (in
+  `Components.swift`) and pointed the Tags tab, the pin-to-home sheet
+  (`AddToHomeBarSheet`) and the filter sheet (`FilterSheet`) at it, so all three
+  tag/group lists show the same circular colour+emoji badge, font and spacing. The
+  pin sheet's bare dot and the filter sheet's dots/folder glyph are gone.
 - **Pinned-tag + edit-tag polish** (2026-08-26): holding a pinned tag on Home now
   shakes + buzzes (keyframe wiggle in `HomeTagBar`) then opens the editor — tuned
   fast (0.22s press, 0.28s to open) so it doesn't feel laggy; the "More" pinned

@@ -283,9 +283,7 @@ struct FilterSheet: View {
                         title: group.name,
                         isSelected: appState.activeFilterIds.contains(group.id),
                         leading: {
-                            Image(systemName: "folder.fill")
-                                .font(.system(size: 12))
-                                .foregroundStyle(group.tagColor.primaryColor)
+                            TagIconBadge(tag: group)
                         }
                     ) {
                         appState.toggleFilter(id: group.id, isGroup: true)
@@ -300,8 +298,8 @@ struct FilterSheet: View {
                             checkmarkFont: .system(size: 13, weight: .semibold),
                             verticalPadding: 11,
                             leading: {
-                                Circle().fill(child.tagColor.primaryColor)
-                                    .frame(width: 8, height: 8).padding(.leading, 16)
+                                TagIconBadge(tag: child, size: 26)
+                                    .padding(.leading, 16)
                             }
                         ) {
                             appState.toggleFilter(id: child.id, isGroup: false)
@@ -323,7 +321,7 @@ struct FilterSheet: View {
             title: tag.name,
             isSelected: appState.activeFilterIds.contains(tag.id),
             leading: {
-                Circle().fill(tag.tagColor.primaryColor).frame(width: 10, height: 10)
+                TagIconBadge(tag: tag)
             }
         ) {
             appState.toggleFilter(id: tag.id, isGroup: false)
