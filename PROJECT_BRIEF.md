@@ -702,6 +702,7 @@ totals are single-currency, never mixed across currencies.
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-08-26 | Pinned tags on the Home bar are ordered alphabetically (A–Z by name), not by stored `sortOrder`. | Predictable, scannable order; the pinned row is a lookup surface, so alphabetical beats an arbitrary insertion order. |
 | 2026-08-26 | The hero header keeps its size but the green area gets a subtle curved bottom wave, a calendar icon on the period pill, and a larger top-category icon. | Josh's redesign: the flat card read as "a giant card sitting above the app". The soft curve at the bottom makes the header feel integrated and gives the expense list more visual priority, without changing functionality or footprint. |
 | 2026-08-26 | `HomeToggle` fills brand green (white thumb) when on, mirroring a native iOS switch, instead of a grey track with a green thumb. | The grey-track/green-thumb read as unselected at a glance; a green-filled track makes an active tag obvious and the toggle feel responsive. |
 | 2026-08-26 | Tapping anywhere off a text field — empty space or another button — dismisses the keyboard app-wide (window-level tap recogniser). | Mirrors native iOS. A per-screen approach kept missing spots; one window recogniser covers the whole app and doesn't swallow the underlying tap. |
@@ -800,7 +801,12 @@ around the *parent's* centre; two independently-animated values in one `.offset`
 bleed into each other; GeometryReader re-measures on parent re-renders (caused the
 shred drift). The bottom tab bar is an `alignment: .bottom` overlay and the FAB
 overhangs it, so anything docked below the bar collides with the + button (why the
-free-tier banner moved into the Home header, 2026-08-25).
+free-tier banner moved into the Home header, 2026-08-25). **`.clipped()` does not
+clip hit-testing:** a `.background` built from a `GeometryReader` whose child was
+screen-height and `.offset` upward overflowed its bounds and, though visually
+clipped, swallowed every tap over the app bar and hero above it (dead settings /
+Go Pro / Export buttons, 2026-08-26). Keep backgrounds bounded and mark any
+non-trivial background `.allowsHitTesting(false)`.
 
 ## Current state — what's shipped (newest first)
 

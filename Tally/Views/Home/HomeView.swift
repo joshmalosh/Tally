@@ -252,13 +252,15 @@ struct HomeView: View {
             // Opaque so the collapsing hero can't ghost behind it. A soft top-to-
             // bottom blend (light parchment easing to the list's top tint) means the
             // bottom edge meets the list with no hard seam.
-            .background(
+            .background {
                 LinearGradient(
                     colors: [Color(hex: "F0EDE6"), Color(hex: "E9ECE2")],
                     startPoint: .top,
                     endPoint: .bottom
                 )
-            )
+                // A background must never catch taps meant for the controls above it.
+                .allowsHitTesting(false)
+            }
 
             // Active filter chips — only renders when filters are active
             ActiveFiltersRow(periodFilter: $periodFilter)

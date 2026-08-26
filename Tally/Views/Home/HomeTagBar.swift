@@ -42,6 +42,7 @@ struct HomeTagBar: View {
 
     private var homeTags: [TagModel] {
         allTags.filter { $0.showOnHome && !$0.isGroup }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
     /// Sum of this year's expenses for a given tag ID.
