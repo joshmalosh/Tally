@@ -16,7 +16,11 @@ enum ExpenseCalculations {
         dateFormatter.dateFormat = "yyyy-MM-dd"
 
         let rows = sortedByDate(expenses: expenses, ascending: true).map { expense in
-            let amount = String(format: "%.2f", Double(expense.amountCents) / 100.0)
+            // No-minor-unit currencies (JPY, IDR, KRW…) store whole units in
+            // amountCents, so dividing by 100 would be wrong for them.
+            let amount = CurrencyFormatter.shared.usesDecimals(for: expense.currency)
+                ? String(format: "%.2f", Double(expense.amountCents) / 100.0)
+                : String(expense.amountCents)
 
             let resolvedTags = expense.tagIds.compactMap { tagMap[$0] }
             let tagNames = resolvedTags.isEmpty ? "Untagged" : resolvedTags.map(\.name).joined(separator: "; ")

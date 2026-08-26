@@ -702,6 +702,8 @@ totals are single-currency, never mixed across currencies.
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-08-26 | A scan is charged only when OCR extracted a **positive** amount. A 0.00/no-amount read (e.g. a photo that isn't a receipt, even if a stray "merchant" was picked up) is never charged, on both the single and bulk paths. | A free user photographed a car dashboard, got $0.00 + a garbage merchant ("NFC"), and it consumed a scan. Per the monetisation rule the scan's whole value is the amount; a zero isn't a real extraction. Merchant-alone never charges (existing rule), so requiring a positive amount covers the bogus case without giving away amount-only successes. |
+| 2026-08-26 | Export totals (both export sheets) are single-currency, scoped to `activeCurrency`, like the rest of the app; the CSV lists every expense but formats each amount by its own currency's minor-unit rule. | The export summary summed `amountCents` across currencies and formatted as one currency, so an IDR 610,248 receipt showed as ~$610,248. No FX means a mixed sum is meaningless. The CSV `/100` was also wrong for no-minor-unit currencies. |
 | 2026-08-26 | Toggles (pin/unpin a tag) mutate the model only; they don't call `modelContext.save()` per tap. Persistence rides on SwiftData autosave, with a single explicit flush on the pin sheet's dismiss. | The `@Query` reacts to the in-memory change, so the UI is instant without a save. Each explicit `save()` forced a synchronous disk write and an iCloud export — on rapid toggling that's needless churn (and the source of the repeated CloudKit export scheduling). Autosave (on by default, flushes on backgrounding) coalesces it; the sheet-dismiss flush guarantees durability at a natural boundary. Placement principle: save at deliberate boundaries, not on every interaction. |
 | 2026-08-26 | Pinned tags on the Home bar are ordered alphabetically (A–Z by name), not by stored `sortOrder`. | Predictable, scannable order; the pinned row is a lookup surface, so alphabetical beats an arbitrary insertion order. |
 | 2026-08-26 | The hero header keeps its size but the green area gets a subtle curved bottom wave, a calendar icon on the period pill, and a larger top-category icon. | Josh's redesign: the flat card read as "a giant card sitting above the app". The soft curve at the bottom makes the header feel integrated and gives the expense list more visual priority, without changing functionality or footprint. |
@@ -811,6 +813,18 @@ non-trivial background `.allowsHitTesting(false)`.
 
 ## Current state — what's shipped (newest first)
 
+- **Scan-charge, export currency, keyboard, symbol fixes** (2026-08-26): (1) OCR no
+  longer charges a free scan for a bogus receipt — the single path only charges on a
+  positive amount (a 0.00 read is free and no longer auto-fills the field), and the
+  bulk path charges only receipts whose OCR actually got an amount (`wasAutoScanned`),
+  not one per kept receipt. (2) Export totals are scoped to `activeCurrency` in both
+  `GlobalExportSheet` and `TagExportPickerSheet` (a foreign IDR expense no longer
+  sums into an AUD total), and the CSV amount column is currency-aware (no `/100` for
+  no-minor-unit currencies). (3) The app-wide tap-to-dismiss-keyboard gesture now
+  installs from `ContentView.onAppear` — the AppDelegate hook it used never fires
+  under SwiftUI's scene lifecycle, so it had never worked. (4) The hero's top-category
+  icon no longer passes an emoji tag icon into `systemName` (was logging "no symbol
+  found"); it renders the emoji as text.
 - **Header polish + interaction batch** (2026-08-26): the hero card gained a
   calendar icon on the period pill, a larger (44pt) top-category icon, and a subtle
   curved bottom wave (`HeroBottomWave`, a lighter-green curve washing the lower
@@ -887,11 +901,13 @@ non-trivial background `.allowsHitTesting(false)`.
    Needs the GoogleUserMessagingPlatform SPM package (Josh, in Xcode) then a short
    consent call at launch. App Store privacy labels also owed. Data sovereignty is
    otherwise strong by design (on-device + user's private iCloud, no Tally backend).
-4. **Export sheet currency mixing.** `GlobalExportSheet` totals `amountCents` across
-   currencies (formats with `defaultCurrency`). Decision owed: (a) scope exports to
-   the active currency like the rest of the app, or (b) list all with per-currency
-   subtotals. The CSV writer also divides every amount by 100, wrong for no-minor-unit
-   currencies (JPY/IDR/KRW/VND/CLP/ISK) — fix alongside.
+4. **Export.** RESOLVED (2026-08-26): export totals are now scoped to `activeCurrency`
+   in both `GlobalExportSheet` and `TagExportPickerSheet` (option (a)), and the CSV
+   amount column is currency-aware (no `/100` for no-minor-unit currencies). The CSV
+   already includes a populated `tags` column. **Still open:** the "Export as PDF"
+   action is a `showToast("PDF export coming soon")` stub — the multi-expense PDF
+   report is not built. The single-expense share PDF/image (`ExpenseExportService`)
+   is real and already includes tags.
 5. **Tags tab has no ad** after the 2026-08-25 banner move. Decide whether it needs
    one (e.g. below the Add tag / Add folder buttons) or stays ad-free.
 6. **CloudKit** is enabled (`TallyApp.cloudKitEnabled = true`). No store-version

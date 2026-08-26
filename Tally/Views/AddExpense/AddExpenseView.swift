@@ -1762,11 +1762,13 @@ struct AddExpenseView: View {
     private func applyOCRResult(_ result: ReceiptOCRResult) {
         var applied = false
 
-        // Charge the quota only when the scan produced an amount — see
-        // AppState.recordOCRScan. A failed read costs the user nothing.
-        appState.recordOCRScan(extractedAmount: result.amount != nil)
+        // Charge the quota only when the scan produced a real (positive) amount —
+        // see AppState.recordOCRScan. A failed read, or a bogus 0.00 (e.g. a photo
+        // that isn't a receipt), costs the user nothing.
+        let gotAmount = (result.amount ?? 0) > 0
+        appState.recordOCRScan(extractedAmount: gotAmount)
 
-        if let amount = result.amount, amountText.isEmpty || amountText == "0" || amountText == "0.00" {
+        if let amount = result.amount, amount > 0, amountText.isEmpty || amountText == "0" || amountText == "0.00" {
             // Receipt names its currency unambiguously (€, EUR, GBP…) — adopt it
             // for this expense before formatting. A bare "$" never overrides.
             if let code = result.currencyCode, code != currency {

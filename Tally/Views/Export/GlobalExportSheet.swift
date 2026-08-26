@@ -867,8 +867,12 @@ struct SelectedExportSheet: View {
 
     private var expenseCount: Int { expenses.count }
 
+    // Single-currency only — the app has no FX, so a foreign-currency expense
+    // (e.g. IDR) must not be added into a total shown in another currency.
     private var totalCents: Int {
-        expenses.reduce(0) { $0 + $1.amountCents }
+        expenses
+            .filter { $0.currency == appState.activeCurrency }
+            .reduce(0) { $0 + $1.amountCents }
     }
 
     var body: some View {
@@ -946,7 +950,7 @@ struct SelectedExportSheet: View {
                     Text("Total")
                         .font(Fonts.caption(12))
                         .foregroundStyle(Color.textSecondary)
-                    Text(CurrencyFormatter.shared.format(cents: totalCents, currencyCode: appState.defaultCurrency))
+                    Text(CurrencyFormatter.shared.format(cents: totalCents, currencyCode: appState.activeCurrency))
                         .font(Fonts.headline(22))
                         .foregroundStyle(Color.textPrimary)
                 }
@@ -1159,8 +1163,12 @@ struct TagExportPickerSheet: View {
         }
     }
 
+    // Single-currency only (no FX) — don't sum a foreign-currency expense into a
+    // total shown in another currency.
     private var matchingTotal: Int {
-        matchingExpenses.reduce(0) { $0 + $1.amountCents }
+        matchingExpenses
+            .filter { $0.currency == appState.activeCurrency }
+            .reduce(0) { $0 + $1.amountCents }
     }
 
     var body: some View {
@@ -1292,7 +1300,7 @@ struct TagExportPickerSheet: View {
                                         Text("\(matchingExpenses.count) expense\(matchingExpenses.count == 1 ? "" : "s")")
                                             .font(Fonts.label(14))
                                             .foregroundStyle(Color.textPrimary)
-                                        Text(CurrencyFormatter.shared.format(cents: matchingTotal, currencyCode: appState.defaultCurrency))
+                                        Text(CurrencyFormatter.shared.format(cents: matchingTotal, currencyCode: appState.activeCurrency))
                                             .font(Fonts.caption(13))
                                             .foregroundStyle(Color.textSecondary)
                                     }

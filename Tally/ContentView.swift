@@ -61,6 +61,13 @@ struct ContentView: View {
         }
         .preferredColorScheme(.light)
         .onAppear {
+            // Install the app-wide tap-to-dismiss-keyboard gesture here — the key
+            // window exists by now (the AppDelegate lifecycle hook never fires under
+            // SwiftUI's scene lifecycle). A short retry covers a not-yet-ready window.
+            KeyboardDismissGesture.shared.install()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                KeyboardDismissGesture.shared.install()
+            }
             if !didRefreshProStatus {
                 didRefreshProStatus = true
                 Task { await SubscriptionService.refreshProStatus(appState: appState) }

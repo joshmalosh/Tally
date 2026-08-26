@@ -275,9 +275,16 @@ struct SpendingSummaryCard: View {
                     Circle()
                         .fill(Color.white.opacity(0.15))
                         .frame(width: 44, height: 44)
-                    Image(systemName: tag.symbolName ?? tag.icon ?? "tag.fill")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(.white)
+                    // A user tag stores an emoji in `icon` — that must never be
+                    // passed to systemName (it logs "no symbol found"). Show the
+                    // emoji as text; otherwise use the SF symbol.
+                    if let emoji = tag.icon, emoji.isSingleEmoji {
+                        Text(emoji).font(.system(size: 22))
+                    } else {
+                        Image(systemName: tag.symbolName ?? "tag.fill")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundStyle(.white)
+                    }
                 }
                 VStack(alignment: .leading, spacing: 1) {
                     Text(tag.name)

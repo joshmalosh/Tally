@@ -637,9 +637,13 @@ struct MultiReceiptReviewView: View {
             await MainActor.run {
                 do { try modelContext.save() }
                 catch { Log.data.error("multi-receipt save failed: \(error.localizedDescription, privacy: .public)") }
-                // Charge the free-tier scan quota for each receipt kept (Pro is
-                // unlimited, so this is a no-op past the cap for them).
-                for _ in checked { appState.recordOCRScan(extractedAmount: true) }
+                // Charge the free-tier scan quota only for receipts whose OCR
+                // actually produced an amount (`wasAutoScanned` is set to
+                // `result.amount != nil`). A bogus photo that yielded no amount, or
+                // a receipt whose amount the user had to type in, isn't charged.
+                for draft in checked where draft.wasAutoScanned {
+                    appState.recordOCRScan(extractedAmount: true)
+                }
                 appState.totalExpenseCount += checked.count
                 appState.clearFilters()
                 isSaving = false
