@@ -356,6 +356,9 @@ struct AddToHomeBarSheet: View {
                 }
             }
         .background(Color(hex: "F0EDE6").ignoresSafeArea())
+        // Flush every pin/unpin made in this sheet in a single write on the way out,
+        // instead of one write + iCloud export per toggle.
+        .onDisappear { try? modelContext.save() }
     }
 
     // Search field (fills the space) + sort control on the right — the same
@@ -407,9 +410,11 @@ struct AddToHomeBarSheet: View {
         .onTapGesture { toggleHome(tag) }
     }
 
+    // Mutate only — the @Query reacts to the in-memory change instantly. Don't
+    // save per tap (each save forces a disk write + iCloud export); the flush
+    // happens once when the sheet is dismissed (see .onDisappear below).
     private func toggleHome(_ tag: TagModel) {
         tag.showOnHome.toggle()
-        try? modelContext.save()
         UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
     }
 }

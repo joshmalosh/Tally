@@ -125,12 +125,9 @@ struct TagsAndGroupsManagementRows: View {
                         .foregroundStyle(Color.textPrimary)
                     Spacer()
                     HomeToggle(isOn: tag.showOnHome) {
+                        // Mutate only; SwiftData autosave coalesces the write (and
+                        // flushes on backgrounding). No per-tap disk write + export.
                         tag.showOnHome.toggle()
-                        do {
-                            try modelContext.save()
-                        } catch {
-                            Log.data.error("toggling showOnHome failed: \(error.localizedDescription, privacy: .public)")
-                        }
                         UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
                     }
                     Image(systemName: "chevron.right")
