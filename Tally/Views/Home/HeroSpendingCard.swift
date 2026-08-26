@@ -63,6 +63,26 @@ enum HeroPeriod: Int, CaseIterable {
     }
 }
 
+// MARK: - Hero bottom wave
+
+/// A gentle wave filling the lower part of the hero card. Sits under the content,
+/// clipped to the card, giving the green area a soft curved bottom treatment.
+private struct HeroBottomWave: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let crest = rect.height * 0.60
+        p.move(to: CGPoint(x: 0, y: crest))
+        p.addQuadCurve(
+            to: CGPoint(x: rect.width, y: crest - rect.height * 0.14),
+            control: CGPoint(x: rect.width * 0.5, y: crest + rect.height * 0.16)
+        )
+        p.addLine(to: CGPoint(x: rect.width, y: rect.height))
+        p.addLine(to: CGPoint(x: 0, y: rect.height))
+        p.closeSubpath()
+        return p
+    }
+}
+
 // MARK: - SpendingSummaryCard
 
 /// Compact hero card: a period picker + export action on top, then "Total spent" and
@@ -154,7 +174,16 @@ struct SpendingSummaryCard: View {
             .fixedSize(horizontal: false, vertical: true)
         }
         .padding(16)
-        .background(Color(hex: "2F402E"))
+        .background(
+            ZStack {
+                Color(hex: "2F402E")
+                // A soft curve washing across the lower third — a subtle lighter
+                // green under the wave makes the header feel like part of the app,
+                // not a flat card sitting on top of it.
+                HeroBottomWave()
+                    .fill(Color.white.opacity(0.04))
+            }
+        )
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .contentShape(Rectangle())
         .onTapGesture(perform: onPeriodTap)
@@ -172,7 +201,9 @@ struct SpendingSummaryCard: View {
                     }
                 }
             } label: {
-                HStack(spacing: 4) {
+                HStack(spacing: 5) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 12, weight: .medium))
                     Text(selectedPeriod.pickerLabel)
                         .font(.system(size: 13, weight: .medium))
                     Image(systemName: "chevron.down")
@@ -239,13 +270,13 @@ struct SpendingSummaryCard: View {
             Text("Top category")
                 .font(.system(size: 12))
                 .foregroundStyle(.white.opacity(0.65))
-            HStack(spacing: 8) {
+            HStack(spacing: 10) {
                 ZStack {
                     Circle()
                         .fill(Color.white.opacity(0.15))
-                        .frame(width: 34, height: 34)
+                        .frame(width: 44, height: 44)
                     Image(systemName: tag.symbolName ?? tag.icon ?? "tag.fill")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 18, weight: .medium))
                         .foregroundStyle(.white)
                 }
                 VStack(alignment: .leading, spacing: 1) {

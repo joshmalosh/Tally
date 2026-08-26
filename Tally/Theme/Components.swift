@@ -848,18 +848,20 @@ struct HomeToggle: View {
     var body: some View {
         Button(action: onToggle) {
             ZStack(alignment: isOn ? .trailing : .leading) {
+                // Track fills brand green when on, like a native iOS toggle, so an
+                // active tag reads at a glance.
                 Capsule()
-                    .fill(Color(hex: "EDEAE2"))
-                    .overlay(Capsule().stroke(Color.borderColor, lineWidth: 1))
+                    .fill(isOn ? Color.brandPrimary : Color(hex: "EDEAE2"))
+                    .overlay(Capsule().stroke(isOn ? Color.clear : Color.borderColor, lineWidth: 1))
                     .frame(width: width, height: height)
 
                 Circle()
-                    .fill(isOn ? Color.brandPrimary : Color.white)
+                    .fill(Color.white)
                     .frame(width: thumbSize, height: thumbSize)
                     .overlay(
                         Image(systemName: "house.fill")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Color.brandPrimary)
                             .opacity(isOn ? 1 : 0)
                     )
                     .shadow(color: .black.opacity(0.15), radius: 1.5, x: 0, y: 0.5)

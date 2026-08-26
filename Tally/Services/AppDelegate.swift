@@ -15,4 +15,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         #endif
         return true
     }
+
+    // The key window exists by the time the app is active — install the global
+    // tap-to-dismiss-keyboard recogniser here (it guards against double-install).
+    func applicationDidBecomeActive(_ application: UIApplication) {
+        KeyboardDismissGesture.shared.install()
+    }
 }

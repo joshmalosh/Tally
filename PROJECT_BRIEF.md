@@ -702,6 +702,10 @@ totals are single-currency, never mixed across currencies.
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-08-26 | The hero header keeps its size but the green area gets a subtle curved bottom wave, a calendar icon on the period pill, and a larger top-category icon. | Josh's redesign: the flat card read as "a giant card sitting above the app". The soft curve at the bottom makes the header feel integrated and gives the expense list more visual priority, without changing functionality or footprint. |
+| 2026-08-26 | `HomeToggle` fills brand green (white thumb) when on, mirroring a native iOS switch, instead of a grey track with a green thumb. | The grey-track/green-thumb read as unselected at a glance; a green-filled track makes an active tag obvious and the toggle feel responsive. |
+| 2026-08-26 | Tapping anywhere off a text field — empty space or another button — dismisses the keyboard app-wide (window-level tap recogniser). | Mirrors native iOS. A per-screen approach kept missing spots; one window recogniser covers the whole app and doesn't swallow the underlying tap. |
+| 2026-08-26 | The `updateTaskRequest failed for com.apple.coredata.cloudkit.activity.export.*` log is a benign CloudKit background-scheduling message, not a bug — fixed by declaring the `processing` background mode. | It fires on any SwiftData save (the container tries to schedule a background export) because the app only declared `remote-notification`, so BGTaskScheduler rejected the export task. Sync still worked foreground; the log was noise. It was NOT the toggle lag (that was a per-render expense rescan). |
 | 2026-08-26 | The tag/group icon is one shared `TagIconBadge` (34pt circular colour swatch + emoji) used by the Tags tab, the pin-to-home sheet and the filter sheet. | Those three lists had drifted — the pin sheet showed a 12pt bare dot, the filter sheet 10/8pt dots and a folder glyph, none matching the Tags tab's emoji badge. A single component means they can't diverge again. Filter sheet's nested child tags keep a smaller (26pt) badge + indent to stay visually subordinate. |
 | 2026-08-26 | Holding a pinned tag on Home does a subtle shake + haptic before the editor opens. | Borrows the iOS "hold an app icon to edit" idiom so the long-press reads as "you can edit this", not a dead hold. The editor still opens (0.4s later) so the shake is seen first. |
 | 2026-08-26 | The edit-tag screen shows a live circular colour+emoji icon preview centred above the name. | Same pattern as editing an iOS contact's photo: users see the tag's appearance update as they change colour/emoji, before returning to the home page, instead of guessing. Matches the home card's circular colour-filled icon. |
@@ -800,6 +804,18 @@ free-tier banner moved into the Home header, 2026-08-25).
 
 ## Current state — what's shipped (newest first)
 
+- **Header polish + interaction batch** (2026-08-26): the hero card gained a
+  calendar icon on the period pill, a larger (44pt) top-category icon, and a subtle
+  curved bottom wave (`HeroBottomWave`, a lighter-green curve washing the lower
+  third) so it reads as part of the app, not a flat card. `HomeToggle` now fills
+  brand green when on (white thumb) like a native iOS switch. The pin-to-home sheet
+  heading was pulled up (dropped its empty `NavigationStack` bar for an inline
+  Done) and its toggle lag fixed (only rescans expenses for the `.recent` sort).
+  Pinned-tag hold-to-edit shake is faster (0.1s press). The Home header seam is
+  fixed with a soft vertical blend. Added a global tap-to-dismiss-keyboard
+  recogniser (`KeyboardDismissGesture`, installed from `AppDelegate`). Enabled the
+  `processing` background mode so NSPersistentCloudKitContainer stops logging
+  `updateTaskRequest failed` and can finish exporting in the background.
 - **Consistent tag rows** (2026-08-26): extracted `TagIconBadge` (in
   `Components.swift`) and pointed the Tags tab, the pin-to-home sheet
   (`AddToHomeBarSheet`) and the filter sheet (`FilterSheet`) at it, so all three

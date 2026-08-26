@@ -105,7 +105,7 @@ struct HomeTagBar: View {
                         // the editor slides up a beat later so the shake is seen.
                         onLongPress: {
                             wigglingTagId = tag.id
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                                 editingTag = tag
                                 wigglingTagId = nil
                             }
@@ -217,7 +217,7 @@ private struct TagFilterCard: View {
             // Button plus a simultaneous long-press fired both, and the tap's
             // re-render dismissed the just-opened editor on the first try.
             .onTapGesture { onTap() }
-            .onLongPressGesture(minimumDuration: 0.22) {
+            .onLongPressGesture(minimumDuration: 0.13) {
                 guard let onLongPress else { return }
                 UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                 onLongPress()
@@ -275,31 +275,40 @@ struct AddToHomeBarSheet: View {
     @State private var searchText = ""
     @FocusState private var searchFocused: Bool
 
-    // Home bar holds standalone tags only.
+    // Home bar holds standalone tags only. Only scan expenses for recency when the
+    // sort actually needs it — otherwise every toggle re-scanned the whole store.
     private var eligibleTags: [TagModel] {
-        allTags.filter { !$0.isGroup }
+        let recency = sortOrder == .recent ? tagRecency(from: expenses) : [:]
+        return allTags.filter { !$0.isGroup }
             .filter { searchText.isEmpty || $0.name.localizedCaseInsensitiveContains(searchText) }
-            .sortedForDisplay(sortOrder, recency: tagRecency(from: expenses))
+            .sortedForDisplay(sortOrder, recency: recency)
     }
 
     private var hasAnyTag: Bool { allTags.contains { !$0.isGroup } }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
+        // No NavigationStack — its empty inline nav bar pushed the heading far down
+        // the sheet. A compact in-content header sits just below the drag handle.
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .firstTextBaseline) {
                     Text("Home bar tags")
                         .font(.dmSerifDisplay(28))
                         .foregroundStyle(Color(hex: "1C1C1E"))
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .padding(.bottom, 4)
+                    Spacer()
+                    Button("Done") { dismiss() }
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(Color(hex: "346049"))
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 20)
+                .padding(.bottom, 4)
 
-                    Text("Tap a tag to pin or unpin it from your home bar.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Color(hex: "8F9E94"))
-                        .padding(.horizontal, 16)
-                        .padding(.bottom, 12)
+                Text("Tap a tag to pin or unpin it from your home bar.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 12)
 
                     if !hasAnyTag {
                         VStack(spacing: 12) {
@@ -333,7 +342,7 @@ struct AddToHomeBarSheet: View {
                                 ForEach(Array(eligibleTags.enumerated()), id: \.element.id) { index, tag in
                                     tagRow(tag)
                                     if index < eligibleTags.count - 1 {
-                                        Divider().padding(.leading, 44)
+                                        Divider().padding(.leading, 62)
                                     }
                                 }
                             }
@@ -345,15 +354,7 @@ struct AddToHomeBarSheet: View {
                     }
                 }
             }
-            .background(Color(hex: "F0EDE6").ignoresSafeArea())
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .foregroundStyle(Color(hex: "346049"))
-                }
-            }
-        }
+        .background(Color(hex: "F0EDE6").ignoresSafeArea())
     }
 
     // Search field (fills the space) + sort control on the right — the same
