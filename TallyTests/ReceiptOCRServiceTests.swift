@@ -660,8 +660,11 @@ final class ReceiptOCRServiceTests: XCTestCase {
         let m = (result.merchant ?? "").lowercased()
         XCTAssertNotEqual(result.merchant, "KELLYVILLE GROVE",
                           "a shopping-centre address line must not win as merchant")
-        XCTAssertFalse(m.contains("kellyville"),
-                       "the centre/suburb name must not be the merchant")
+        // With the centre line out of the recurring-phrase race, the footer's clean
+        // business line "Maw Maw Kellyville" wins — the actual shop name (Vision
+        // garbled the bold header to "MAH MAN", so the footer is the clean source).
+        XCTAssertTrue(m.contains("maw maw"),
+                      "the shop name wins, not the shopping-centre address")
     }
 
     // Auto-note: describe what was bought, not the merchant. The item line is

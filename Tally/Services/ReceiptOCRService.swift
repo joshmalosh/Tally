@@ -952,6 +952,10 @@ enum ReceiptOCRService {
             let raw = block.text.trimmingCharacters(in: Self.merchantEdgeJunk)
             guard isAllCaps(raw),
                   !raw.contains(where: \.isNumber),
+                  // A wordmark fragment is short ("GENERAL STORE"); a 4+-word
+                  // all-caps line is a slogan ("SAY NO TO PLASTIC BAGS") and must
+                  // not be glued onto the name.
+                  raw.split(whereSeparator: \.isWhitespace).count <= 3,
                   !matches(merchantRejectPattern, raw),
                   !matches(labelLinePattern, raw),
                   !matches(domainLikePattern, raw)
