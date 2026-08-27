@@ -1003,6 +1003,7 @@ The `ocr-regression` skill drives this workflow.
 | Deus (Bali, IDR) | grouped thousands "655,000" truncated by the cents regex; stylised logo OCR'd as `€`; currency now falls back to the country in the letterhead | $4,640,000 IDR, `PT. Deus Ex Machina Indonesia` |
 | Woolworths (store line) | `WOOLWORTHS 1659 KELLYVILLE NSW` — name+store-number block rejected for a digit, so the suburb won | merchant `WOOLWORTHS` |
 | Berry General Store | wordmark split across stacked lines; a lone "NSW" won. Reconstruct stacked all-caps header lines; a recurring 2+ word phrase beats a one-word token | merchant `BERRY GENERAL STORE`; note `Ricotta Hotcakes ×2` |
+| Maw Maw (Kellyville) | bold "MAW MAW" OCR-garbled to "MAH MAN"; the centre address "KELLYVILLE GROVE" recurs (header + footer), so the recurring-phrase rule crowned the centre. Fix: a recurring phrase ending in a street/centre suffix (GROVE/COURT/ROAD…) gets no recurring boost (suffix only — a suburb test would break Berry). Clean "Maw Maw" is only in the footer return-address (separate change to recover). | merchant not the centre/address line ($46.70) |
 
 ### Recurring trap families
 

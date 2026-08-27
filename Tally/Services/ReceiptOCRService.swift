@@ -778,6 +778,16 @@ enum ReceiptOCRService {
     /// the same winner the single-value passes produced before; the rest are the
     /// gate-passing lines that ranked lower — clean names only, never the
     /// rejected total/GST junk — for the "Doesn't look right?" picker.
+    /// A street or shopping-centre line ends in one of these ("KELLYVILLE GROVE",
+    /// "2A HECTOR COURT", "Severn Vale Road"). Such a phrase recurs in a receipt's
+    /// header and footer by nature, so it must not win the recurring-phrase boost —
+    /// that crowned the centre "KELLYVILLE GROVE" over the (OCR-garbled) shop name.
+    /// Suffix only, never a suburb-token test: a shop is often named after its town
+    /// ("Berry General Store" in Berry), so a place-name match would reject real names.
+    private static let streetCentreSuffixPattern = try! NSRegularExpression(
+        pattern: #"\b(GROVE|COURT|CRESCENT|ROAD|RD|STREET|AVENUE|PLACE|PLAZA|CENTRE|CENTER|MALL|ARCADE|LANE|WAY|DRIVE|PARADE|HIGHWAY|BOULEVARD|TERRACE|CLOSE|SQUARE)\b"#,
+        options: [.caseInsensitive])
+
     private static func rankedMerchants(from blocks: [TextBlock]) -> [String] {
         let ordered = readingOrder(blocks)
         let masthead = topOfReceipt(ordered, fraction: 0.4)
@@ -835,7 +845,9 @@ enum ReceiptOCRService {
             return blocks.filter { $0.text.lowercased().contains(needle) }.count
         }
         let recurringPhrase = deduped
-            .filter { $0.split(whereSeparator: \.isWhitespace).count >= 2 && appearances($0) >= 2 }
+            .filter { $0.split(whereSeparator: \.isWhitespace).count >= 2
+                      && appearances($0) >= 2
+                      && !matches(streetCentreSuffixPattern, $0) }
             .max { $0.count < $1.count }
         if let anchor = recurringPhrase {
             // Return the fullest form of that name, e.g. the letterhead

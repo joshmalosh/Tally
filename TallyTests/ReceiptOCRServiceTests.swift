@@ -632,6 +632,38 @@ final class ReceiptOCRServiceTests: XCTestCase {
         XCTAssertEqual(result.amount ?? -1, 44.48, accuracy: 0.001)
     }
 
+    // Maw Maw (Kellyville) — the bold shop name "MAW MAW" was OCR-garbled to
+    // "MAH MAN" at the top, while the shopping-centre address "KELLYVILLE GROVE"
+    // recurs (header line + footer "Kellyville Grove/30"). The recurring-phrase
+    // rule then crowned the centre over the shop. Guard: a street/centre address
+    // line must never win as merchant. (Clean "Maw Maw" exists only in the footer
+    // return-address; recovering it from there is a separate change.)
+    func testMawMaw_shoppingCentreAddressNotMerchant() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("MAH MAN", x: 0.45, y: 0.850, w: 0.16),
+            blk("SHOP T3", x: 0.484, y: 0.831, w: 0.08),
+            blk("KELLYVILLE GROVE", x: 0.434, y: 0.811, w: 0.20),
+            blk("2A HECTOR COURT", x: 0.430, y: 0.791, w: 0.19),
+            blk("KELLYVILLE NSW 2154", x: 0.415, y: 0.770, w: 0.23),
+            blk("ABN: 36 686 015 690", x: 0.417, y: 0.703, w: 0.23),
+            blk("TAX INVOICE", x: 0.407, y: 0.661, w: 0.26),
+            blk("TOTAL", x: 0.291, y: 0.397, w: 0.12), blk("$46.70", x: 0.711, y: 0.400, w: 0.08),
+            blk("GST Amount", x: 0.291, y: 0.353, w: 0.12), blk("$4.25", x: 0.724, y: 0.357, w: 0.06),
+            blk("EFTPOS", x: 0.294, y: 0.309, w: 0.14), blk("$46.70", x: 0.643, y: 0.313, w: 0.14),
+            blk("Maw Maw Kellyville", x: 0.355, y: 0.134, w: 0.215),
+            blk("Shop 13 Kellyville Grove/30", x: 0.294, y: 0.106, w: 0.325),
+            blk("Severn Vale Road", x: 0.366, y: 0.089, w: 0.192),
+            blk("Kellyville NSW 2155", x: 0.342, y: 0.062, w: 0.23),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertEqual(result.amount ?? -1, 46.70, accuracy: 0.001)
+        let m = (result.merchant ?? "").lowercased()
+        XCTAssertNotEqual(result.merchant, "KELLYVILLE GROVE",
+                          "a shopping-centre address line must not win as merchant")
+        XCTAssertFalse(m.contains("kellyville"),
+                       "the centre/suburb name must not be the merchant")
+    }
+
     // Auto-note: describe what was bought, not the merchant. The item line is
     // priced; totals/subtotals/surcharges are not items.
     func testNotes_singleItem_becomesTheNote() {
