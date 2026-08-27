@@ -788,6 +788,53 @@ enum ReceiptOCRService {
         pattern: #"\b(GROVE|COURT|CRESCENT|ROAD|RD|STREET|AVENUE|PLACE|PLAZA|CENTRE|CENTER|MALL|ARCADE|LANE|WAY|DRIVE|PARADE|HIGHWAY|BOULEVARD|TERRACE|CLOSE|SQUARE)\b"#,
         options: [.caseInsensitive])
 
+    /// A "<suburb> STATE postcode" address line — "KELLYVILLE NSW 2154".
+    private static let auStatePostcodePattern = try! NSRegularExpression(
+        pattern: #"\b(NSW|VIC|QLD|SA|WA|TAS|ACT|NT)\b\s+\d{4}\b"#, options: [.caseInsensitive])
+
+    /// Suburb names the receipt prints in a "<suburb> STATE postcode" line — the
+    /// word right before the state ("KELLYVILLE NSW 2154" → "kellyville").
+    private static func suburbTokens(in blocks: [TextBlock]) -> Set<String> {
+        var out = Set<String>()
+        for b in blocks {
+            let t = b.text
+            guard let m = auStatePostcodePattern.firstMatch(in: t, range: NSRange(t.startIndex..., in: t)),
+                  let mr = Range(m.range, in: t) else { continue }
+            if let suburb = t[..<mr.lowerBound].split(whereSeparator: { !$0.isLetter }).last,
+               suburb.count >= 3 {
+                out.insert(suburb.lowercased())
+            }
+        }
+        return out
+    }
+
+    /// Recover the business name from the footer return-address, where a stylised
+    /// or OCR-garbled header can't be read: a clean "<Business Name> <Suburb>" line
+    /// ("Maw Maw Kellyville") with its trailing suburb stripped → "Maw Maw". Only
+    /// fires when the receipt actually names a suburb (a "<suburb> STATE postcode"
+    /// line), and is ranked *below* the header wordmark passes, so it only wins
+    /// when the header yielded nothing usable.
+    private static func footerBusinessName(from blocks: [TextBlock]) -> String? {
+        let suburbs = suburbTokens(in: blocks)
+        guard !suburbs.isEmpty else { return nil }
+        var best: String?
+        for block in blocks {
+            let raw = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !raw.contains(where: { $0.isNumber }),
+                  !matches(labelLinePattern, raw),
+                  !matches(merchantRejectPattern, raw),
+                  !matches(domainLikePattern, raw) else { continue }
+            let words = raw.split(whereSeparator: \.isWhitespace).map(String.init)
+            guard words.count >= 2, let last = words.last,
+                  suburbs.contains(last.lowercased()) else { continue }
+            let name = words.dropLast().joined(separator: " ")
+                .trimmingCharacters(in: Self.merchantEdgeJunk)
+            guard name.count >= 3, name.split(whereSeparator: \.isWhitespace).count <= 5 else { continue }
+            if best == nil || name.count > best!.count { best = name }
+        }
+        return best
+    }
+
     private static func rankedMerchants(from blocks: [TextBlock]) -> [String] {
         let ordered = readingOrder(blocks)
         let masthead = topOfReceipt(ordered, fraction: 0.4)
@@ -801,6 +848,11 @@ enum ReceiptOCRService {
 
         // 1. A clearly-largest wordmark at the top.
         if let wordmark = largestHeaderText(in: blocks) { ranked.append(wordmark) }
+
+        // 1b. Header unreadable? Recover the name from the footer return-address
+        //     ("Maw Maw Kellyville" → "Maw Maw"). Ranked here, below the wordmark
+        //     passes, so a clear header always wins and this only fills the gap.
+        if let footerName = footerBusinessName(from: ordered) { ranked.append(footerName) }
 
         // 2. A registered-business name (Pty/Ltd/…) anywhere on the receipt.
         //    The reject/label gates run here too: "TOTAL (Inc GST)" matches the
