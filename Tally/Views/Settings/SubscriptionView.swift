@@ -118,6 +118,7 @@ struct SubscriptionView: View {
             // removed — the former was never built, the latter never existed
             // as a distinct feature.
             featureRow(icon: "text.viewfinder", text: "Unlimited receipt scanning")
+            featureRow(icon: "doc.text.magnifyingglass", text: "Import from statement (PDF)")
             featureRow(icon: "tablecells", text: "Unlimited CSV exports")
             featureRow(icon: "doc.richtext", text: "PDF export")
             featureRow(icon: "eye.slash.fill", text: "No ads, ever")

@@ -195,6 +195,7 @@ struct PeriodDetailView: View {
                 receiptCacheKey: hasReceipt ? (expense.attachmentKey ?? expense.id) : nil,
                 receiptAttachmentKey: expense.attachmentKey,
                 receiptAttachmentData: expense.attachmentData,
+                isStatementSource: expense.source == "statement_import",
                 iconEmoji: tag?.displayEmoji,
                 iconSystemName: tag?.icon ?? "tag.fill",
                 iconBackground: tag?.tagColor.primaryColor.opacity(0.15) ?? Color(hex: "EDEBE6"),

@@ -1665,7 +1665,9 @@ struct AddExpenseView: View {
                 enteredViaPhotoFlow = true
                 formReady = false
                 showingDocumentPicker = true
-            case .manual, .bulkImport:
+            case .manual, .statement:
+                // .statement never routes here (HomeView presents StatementImportView);
+                // listed only to keep the switch exhaustive.
                 source = .manual
             }
         }

@@ -123,4 +123,17 @@ final class MonetisationGatingTests: XCTestCase {
 
         XCTAssertFalse(state.shouldShowUpgradePrompt)
     }
+
+    // Import from statement is Pro-only, so its shared-review config must never
+    // charge the scan quota (Pro is unlimited) and must never store the PDF as an
+    // attachment (privacy). Photo receipts still charge and store.
+    func testStatementImportConfigNeverChargesOrStores() {
+        XCTAssertFalse(ReviewConfig.statement.chargesScan)
+        XCTAssertFalse(ReviewConfig.statement.savesAttachment)
+        XCTAssertEqual(ReviewConfig.statement.expenseSource, "statement_import")
+
+        XCTAssertTrue(ReviewConfig.photos.chargesScan)
+        XCTAssertTrue(ReviewConfig.photos.savesAttachment)
+        XCTAssertEqual(ReviewConfig.photos.expenseSource, ExpenseSource.upload.rawValue)
+    }
 }

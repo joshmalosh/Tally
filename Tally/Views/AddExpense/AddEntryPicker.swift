@@ -5,7 +5,7 @@ enum AddEntryMode: Identifiable {
     case photoLibrary
     case uploadFile
     case manual
-    case bulkImport
+    case statement
 
     var id: String {
         switch self {
@@ -13,13 +13,14 @@ enum AddEntryMode: Identifiable {
         case .photoLibrary:"photoLibrary"
         case .uploadFile:  "uploadFile"
         case .manual:      "manual"
-        case .bulkImport:  "bulkImport"
+        case .statement:   "statement"
         }
     }
 }
 
 struct AddEntryPicker: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(AppState.self) private var appState
     let onSelect: (AddEntryMode) -> Void
 
     var body: some View {
@@ -139,12 +140,13 @@ struct AddEntryPicker: View {
                     mode: .manual
                 )
                 gridOption(
-                    icon: "list.bullet.rectangle",
-                    iconColor: Color(hex: "8F9E94"),
-                    bgColor: Color(hex: "EDEAE4"),
-                    title: "Import from notes",
-                    subtitle: "Paste a list",
-                    mode: .bulkImport
+                    icon: "doc.text.magnifyingglass",
+                    iconColor: Color(hex: "2F402E"),
+                    bgColor: Color(hex: "E8F0EA"),
+                    title: "Import from statement",
+                    subtitle: "From a PDF",
+                    mode: .statement,
+                    proBadge: !appState.isPro
                 )
             }
             .padding(.horizontal, 20)
@@ -159,7 +161,8 @@ struct AddEntryPicker: View {
         bgColor: Color,
         title: String,
         subtitle: String,
-        mode: AddEntryMode
+        mode: AddEntryMode,
+        proBadge: Bool = false
     ) -> some View {
         Button {
             dismiss()
@@ -191,6 +194,15 @@ struct AddEntryPicker: View {
             .frame(height: 106)
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            // Gold Pro crown for a locked (free-tier) feature.
+            .overlay(alignment: .topTrailing) {
+                if proBadge {
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Color(hex: "D4AF37"))
+                        .padding(10)
+                }
+            }
         }
         .buttonStyle(EntryOptionButtonStyle())
     }

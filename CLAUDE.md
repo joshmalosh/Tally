@@ -171,6 +171,11 @@ him: App Store text, release notes, the website, marketing.
   model file, the view that uses it). Only create a standalone file when it truly
   earns one, and then register it in the pbxproj in the same commit. See
   `PROJECT_BRIEF.md` → Engineering & Session State → Environment for the recipe.
+- **Don't duplicate a near-identical screen — share it.** When two flows have
+  almost the same page (e.g. the multi-receipt and statement-import review tables),
+  build one parameterised view both use, so a design change to one updates both.
+  Josh has been burned by old pages quietly drifting out of sync with the page they
+  mirror; a data-driven config (image vs tile, charge vs not) is the fix, not a copy.
 
 ---
 

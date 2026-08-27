@@ -412,6 +412,7 @@ This is sustainable, clean monetisation. Free users never feel punished. Pro use
 | iCloud sync | Yes | Yes |
 | CSV export | 1 per calendar month | Unlimited |
 | PDF export | No | Yes |
+| Import from statement (PDF) | No | Yes |
 | OCR receipt scanning | 10 successful scans per calendar month | Unlimited |
 | Ads | Banner ads | None |
 
@@ -702,6 +703,10 @@ totals are single-currency, never mixed across currencies.
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-08-26 | Add "Import from statement": upload one PDF, extract each transaction into a draft expense, review, save. It **replaces** "Import from notes" (archived, not deleted) in the same Add-menu tile. | A statement is the fastest way to log a month of spending. It's the existing upload → OCR → review → save pattern with a statement source, so it stays inside the non-goals (no bank *sync*/reconciliation, no stored statement). Notes-paste import earned its slot less. |
+| 2026-08-26 | Import from statement is **Pro-only** (gold crown on the tile; free tap → upsell; listed on the paywall). | Adds real Pro value, and closes the loophole where a free user could bypass the 10-scan/month cap by importing dozens of expenses from one PDF. Pro-gating at entry also means no OCR-quota accounting for it. |
+| 2026-08-26 | Statement import brings in **debits only**; the PDF is **never stored** (read in memory, discarded); each expense gets a note "Generated from PDF statement" and a green PDF tile, no attachment. | Tally is an expense tracker, so money-in is filtered (user can still drop rows in review). A bank statement is sensitive; storing it would make Tally a custodian of exactly the data it avoids holding. The tile/note make PDF-sourced expenses recognisable without keeping the file. |
+| 2026-08-26 | The statement review IS the multi-receipt review — one parameterised view (`ReviewConfig`), not a look-alike. Removal (swipe + in-row Delete) was added to the shared view. | Josh is tired of near-identical pages drifting apart. A design change to the review must update both flows at once; the only differences are data-driven (image vs PDF tile, attachment vs none, charge vs none, source string). |
 | 2026-08-26 | A scan is charged only when OCR extracted a **positive** amount. A 0.00/no-amount read (e.g. a photo that isn't a receipt, even if a stray "merchant" was picked up) is never charged, on both the single and bulk paths. | A free user photographed a car dashboard, got $0.00 + a garbage merchant ("NFC"), and it consumed a scan. Per the monetisation rule the scan's whole value is the amount; a zero isn't a real extraction. Merchant-alone never charges (existing rule), so requiring a positive amount covers the bogus case without giving away amount-only successes. |
 | 2026-08-26 | Export totals (both export sheets) are single-currency, scoped to `activeCurrency`, like the rest of the app; the CSV lists every expense but formats each amount by its own currency's minor-unit rule. | The export summary summed `amountCents` across currencies and formatted as one currency, so an IDR 610,248 receipt showed as ~$610,248. No FX means a mixed sum is meaningless. The CSV `/100` was also wrong for no-minor-unit currencies. |
 | 2026-08-26 | Toggles (pin/unpin a tag) mutate the model only; they don't call `modelContext.save()` per tap. Persistence rides on SwiftData autosave, with a single explicit flush on the pin sheet's dismiss. | The `@Query` reacts to the in-memory change, so the UI is instant without a save. Each explicit `save()` forced a synchronous disk write and an iCloud export — on rapid toggling that's needless churn (and the source of the repeated CloudKit export scheduling). Autosave (on by default, flushes on backgrounding) coalesces it; the sheet-dismiss flush guarantees durability at a natural boundary. Placement principle: save at deliberate boundaries, not on every interaction. |
@@ -781,7 +786,11 @@ totals are single-currency, never mixed across currencies.
   layer, never put UI translucency over it), shred host, filters, inline ads,
   Go Pro pill. Also the **shell for Reports and Tags tabs** (opacity-switched).
   `PeriodDetailView.swift` is the drill-down; `HeroSpendingCard.swift` the hero.
-- **Add/edit** `AddExpenseView.swift`; `MultiReceiptReviewView.swift` (bulk).
+- **Add/edit** `AddExpenseView.swift`; `MultiReceiptReviewView.swift` is the
+  **shared multi-expense review** (photo receipts and PDF statements, driven by
+  `ReviewConfig` — never copy it). `StatementImportView.swift` orchestrates the
+  statement flow (PDF → text → `StatementParser` (in `BulkExpenseParser.swift`) →
+  drafts → shared review). Adding a source = new config, not a new page.
   **Detail** `ExpenseDetailView.swift`.
 - **Export** `Views/Export/GlobalExportSheet.swift` — six CSV/PDF call sites that
   must agree on the limit; `ProFeatureSheet`/`ScanLimitSheet` in `ExportView.swift`.
@@ -813,6 +822,19 @@ non-trivial background `.allowsHitTesting(false)`.
 
 ## Current state — what's shipped (newest first)
 
+- **Import from statement (Pro)** (2026-08-26): a new Add-menu entry (replacing
+  "Import from notes", now archived in `Deprecated/`) lets a Pro user upload one
+  PDF bank statement. `StatementImportView` reads the transactions in memory
+  (`PDFDocument.string`, with a rasterize+Vision fallback for scanned PDFs),
+  `StatementParser` turns each debit line into a draft, and they go into the
+  **shared** multi-expense review (`MultiReceiptReviewView`, now parameterised by
+  `ReviewConfig`) — no image, no attachment, no scan charge, `source:
+  "statement_import"`, note "Generated from PDF statement". The PDF is never
+  stored. Statement rows show a green PDF tile (`PDFSourceTile`) on the home list.
+  The review gained swipe-to-delete + in-row Delete (both flows). Pro-gated at the
+  tile (gold crown for free users → upsell); listed on the paywall. Parser has
+  `StatementParserTests`; the Pro/privacy invariants are pinned in
+  `MonetisationGatingTests`.
 - **Scan-charge, export currency, keyboard, symbol fixes** (2026-08-26): (1) OCR no
   longer charges a free scan for a bogus receipt — the single path only charges on a
   positive amount (a 0.00 read is free and no longer auto-fills the field), and the

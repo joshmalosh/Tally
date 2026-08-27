@@ -43,6 +43,7 @@ struct HomeView: View {
     @State private var celebrationCurrency = ""
     @State private var showingProUpsell = false
     @State private var proFeatureName = ""
+    @State private var showingStatementImport = false
     @State private var showingSubscription = false
     @State private var showingDailyUpgradePrompt = false
     private var periodExpenses: [ExpenseModel] {
@@ -395,7 +396,17 @@ struct HomeView: View {
         .sheet(isPresented: $showingEntryPicker) {
             AddEntryPicker { mode in
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    selectedEntryMode = mode
+                    if mode == .statement {
+                        // Pro-only: free users get the upsell instead of the flow.
+                        if appState.isPro {
+                            showingStatementImport = true
+                        } else {
+                            proFeatureName = "Statement import"
+                            showingProUpsell = true
+                        }
+                    } else {
+                        selectedEntryMode = mode
+                    }
                 }
             }
             .presentationDetents([.height(490)])
@@ -411,19 +422,15 @@ struct HomeView: View {
                 pendingReviewImages = []
             }
         }) { mode in
-            if mode == .bulkImport {
-                AddMultipleExpensesView()
-            } else {
-                AddExpenseView(
-                    initialMode: mode,
-                    onMultiReceiptImages: { images in
-                        // Stash the images and dismiss AddExpenseView; the review
-                        // cover is presented in this cover's onDismiss above.
-                        pendingReviewImages = images
-                        selectedEntryMode = nil
-                    }
-                )
-            }
+            AddExpenseView(
+                initialMode: mode,
+                onMultiReceiptImages: { images in
+                    // Stash the images and dismiss AddExpenseView; the review
+                    // cover is presented in this cover's onDismiss above.
+                    pendingReviewImages = images
+                    selectedEntryMode = nil
+                }
+            )
         }
         .fullScreenCover(item: $multiReceiptBatch, onDismiss: {
             consumeSharedInbox()
@@ -432,6 +439,12 @@ struct HomeView: View {
                 images: batch.images,
                 onCancel: { multiReceiptBatch = nil },
                 onDone: { multiReceiptBatch = nil }
+            )
+        }
+        .fullScreenCover(isPresented: $showingStatementImport) {
+            StatementImportView(
+                onCancel: { showingStatementImport = false },
+                onDone: { showingStatementImport = false }
             )
         }
         .fullScreenCover(item: $sharedPDFItem, onDismiss: {
@@ -896,6 +909,7 @@ struct HomeView: View {
                     receiptCacheKey: hasReceiptPhoto(expense) ? (expense.attachmentKey ?? expense.id) : nil,
                     receiptAttachmentKey: expense.attachmentKey,
                     receiptAttachmentData: expense.attachmentData,
+                    isStatementSource: expense.source == "statement_import",
                     iconEmoji: tag?.displayEmoji,
                     iconSystemName: tagSymbol,
                     iconBackground: tagIconBg,

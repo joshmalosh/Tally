@@ -213,11 +213,33 @@ struct ReceiptThumbnailView: View {
     }
 }
 
+/// Filled Tally-green tile with a centered white PDF glyph — the image stand-in
+/// for a statement-imported expense (which has no receipt). Shared by the home
+/// expense row and the multi-expense review, so the two never drift.
+struct PDFSourceTile: View {
+    var size: CGFloat = 38
+    var cornerRadius: CGFloat = Radius.sm
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(Color(hex: "2F402E"))
+            .frame(width: size, height: size)
+            .overlay(
+                Image(systemName: "doc.text.fill")
+                    .font(.system(size: size * 0.42, weight: .medium))
+                    .foregroundStyle(.white)
+            )
+    }
+}
+
 struct ExpenseCard: View {
     /// Receipt attachment identity for the self-loading thumbnail (nil = no receipt).
     let receiptCacheKey: String?
     let receiptAttachmentKey: String?
     let receiptAttachmentData: Data?
+    /// True for expenses generated from a PDF statement (no receipt) — the icon
+    /// slot shows the green PDF tile instead of the tag icon.
+    var isStatementSource: Bool = false
     /// When set, the icon slot shows this emoji (a tag's chosen emoji) instead of
     /// the SF Symbol. Falls back to `iconSystemName` when nil (e.g. untagged).
     var iconEmoji: String? = nil
@@ -261,10 +283,10 @@ struct ExpenseCard: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             ZStack {
-                RoundedRectangle(cornerRadius: Radius.sm)
-                    .fill(iconBackground)
-                    .frame(width: Self.iconSlot, height: Self.iconSlot)
                 if let cacheKey = receiptCacheKey {
+                    RoundedRectangle(cornerRadius: Radius.sm)
+                        .fill(iconBackground)
+                        .frame(width: Self.iconSlot, height: Self.iconSlot)
                     ReceiptThumbnailView(
                         cacheKey: cacheKey,
                         attachmentKey: receiptAttachmentKey,
@@ -272,13 +294,20 @@ struct ExpenseCard: View {
                         size: Self.iconSlot,
                         cornerRadius: Radius.sm
                     )
-                } else if let iconEmoji {
-                    Text(iconEmoji)
-                        .font(.system(size: 18))
+                } else if isStatementSource {
+                    PDFSourceTile(size: Self.iconSlot, cornerRadius: Radius.sm)
                 } else {
-                    Image(systemName: iconSystemName)
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(Color.textSecondary)
+                    RoundedRectangle(cornerRadius: Radius.sm)
+                        .fill(iconBackground)
+                        .frame(width: Self.iconSlot, height: Self.iconSlot)
+                    if let iconEmoji {
+                        Text(iconEmoji)
+                            .font(.system(size: 18))
+                    } else {
+                        Image(systemName: iconSystemName)
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(Color.textSecondary)
+                    }
                 }
             }
             .frame(width: Self.iconSlot, height: Self.iconSlot)

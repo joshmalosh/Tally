@@ -6,7 +6,9 @@ import SwiftData
 
 struct ReceiptDraft: Identifiable {
     let id: UUID = UUID()
-    let image: UIImage
+    /// nil for image-less sources (e.g. a PDF statement line) — the row then shows
+    /// the green PDF tile instead of a photo thumbnail.
+    var image: UIImage? = nil
     var isProcessing: Bool = true
     var amountText: String = ""
     var amountCents: Int? = nil
@@ -24,6 +26,35 @@ struct ReceiptDraft: Identifiable {
     var currencyCode: String? = nil
 }
 
+// MARK: - Review config
+//
+// The one thing that makes this view reusable across sources (photo receipts,
+// PDF statements). Everything else — the accordion, edit fields, removal, save
+// loop — is shared, so a design change here updates every flow at once. Add a new
+// source by passing a config, never by copying this screen.
+
+struct ReviewConfig {
+    var navTitle: String
+    /// Run per-row OCR on appearance (photos). Statement drafts arrive parsed.
+    var runsOCR: Bool
+    /// Save each row's image as an attachment. Off for statements (never store the PDF).
+    var savesAttachment: Bool
+    /// Charge the free-tier scan quota per added row, and show the over-limit UI.
+    /// Off for statements (Pro-only, unlimited).
+    var chargesScan: Bool
+    /// `ExpenseModel.source` written for saved rows.
+    var expenseSource: String
+
+    static let photos = ReviewConfig(
+        navTitle: "Review receipts", runsOCR: true, savesAttachment: true,
+        chargesScan: true, expenseSource: ExpenseSource.upload.rawValue
+    )
+    static let statement = ReviewConfig(
+        navTitle: "Review expenses", runsOCR: false, savesAttachment: false,
+        chargesScan: false, expenseSource: "statement_import"
+    )
+}
+
 // MARK: - Focus field identifier
 
 private enum DraftField: Hashable {
@@ -37,7 +68,7 @@ struct MultiReceiptReviewView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
 
-    let images: [UIImage]
+    let config: ReviewConfig
     let onCancel: () -> Void
     let onDone: () -> Void
 
@@ -52,21 +83,38 @@ struct MultiReceiptReviewView: View {
     @State private var showingAmountAlert = false
     @State private var showingScanLimit = false
     @State private var fullscreenImageDraft: ReceiptDraft? = nil
+    // Per-row swipe reveal for the trailing Delete affordance (id → x offset).
+    @State private var swipeOffset: [UUID: CGFloat] = [:]
     @FocusState private var focusedField: DraftField?
 
+    /// Photo receipts — one draft per image, OCR runs, attachments saved, scans charged.
     init(images: [UIImage], onCancel: @escaping () -> Void, onDone: @escaping () -> Void) {
-        self.images   = images
+        self.config   = .photos
         self.onCancel = onCancel
         self.onDone   = onDone
         _drafts = State(initialValue: images.map { ReceiptDraft(image: $0) })
     }
 
+    /// Pre-built drafts from another source (e.g. a parsed PDF statement) with an
+    /// explicit config. Same screen, different data.
+    init(drafts: [ReceiptDraft], config: ReviewConfig,
+         onCancel: @escaping () -> Void, onDone: @escaping () -> Void) {
+        self.config   = config
+        self.onCancel = onCancel
+        self.onDone   = onDone
+        _drafts = State(initialValue: drafts)
+    }
+
     private var checkedCount: Int { drafts.filter(\.isChecked).count }
     // Free-tier scan allowance left this month (.max for Pro). A scan is charged
     // per receipt actually added, not per preview, so this stays fixed while the
-    // user ticks/unticks and `overBy` tracks live.
+    // user ticks/unticks and `overBy` tracks live. Sources that don't charge
+    // (statements) are never over.
     private var remainingScans: Int { appState.ocrScansRemaining }
-    private var overBy: Int { checkedCount > remainingScans ? checkedCount - remainingScans : 0 }
+    private var overBy: Int {
+        guard config.chargesScan else { return 0 }
+        return checkedCount > remainingScans ? checkedCount - remainingScans : 0
+    }
     private var currencyCode: String { appState.defaultCurrency }
     private var currencySymbol: String { CurrencyFormatter.shared.symbol(for: currencyCode) }
     private var usesDecimals: Bool { CurrencyFormatter.shared.usesDecimals(for: currencyCode) }
@@ -110,9 +158,9 @@ struct MultiReceiptReviewView: View {
         .alert("Missing amounts", isPresented: $showingAmountAlert) {
             Button("OK") {}
         } message: {
-            Text("All selected receipts need an amount. Fill in or uncheck any that are missing.")
+            Text("Every selected expense needs an amount. Fill it in, untick it, or swipe to delete it.")
         }
-        .task { await runAllOCR() }
+        .task { if config.runsOCR { await runAllOCR() } }
         .sheet(isPresented: $showingScanLimit) {
             ScanLimitSheet()
                 .presentationDetents([.medium])
@@ -146,10 +194,12 @@ struct MultiReceiptReviewView: View {
             }
         }
         .sheet(item: $fullscreenImageDraft) { draft in
-            ReceiptImageFullscreenView(image: draft.image) {
-                fullscreenImageDraft = nil
+            if let image = draft.image {
+                ReceiptImageFullscreenView(image: image) {
+                    fullscreenImageDraft = nil
+                }
+                .presentationDragIndicator(.visible)
             }
-            .presentationDragIndicator(.visible)
         }
     }
 
@@ -157,7 +207,7 @@ struct MultiReceiptReviewView: View {
 
     private var navBar: some View {
         ZStack {
-            Text("Review receipts")
+            Text(config.navTitle)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(Color(hex: "1C1C1E"))
             HStack {
@@ -182,7 +232,10 @@ struct MultiReceiptReviewView: View {
         let d = drafts[idx]
         let isExpanded = expandedId == d.id
 
-        return VStack(spacing: 0) {
+        return ZStack(alignment: .trailing) {
+            deleteBackground(for: d.id)
+
+            VStack(spacing: 0) {
             // Header row
             HStack(spacing: 12) {
                 Button {
@@ -194,16 +247,20 @@ struct MultiReceiptReviewView: View {
                 }
                 .buttonStyle(.plain)
 
-                Image(uiImage: d.image)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 50, height: 50)
-                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .stroke(Color(hex: "DEDAD2"), lineWidth: 0.5)
-                    )
-                    .onTapGesture { fullscreenImageDraft = d }
+                if let image = d.image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 50, height: 50)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(Color(hex: "DEDAD2"), lineWidth: 0.5)
+                        )
+                        .onTapGesture { fullscreenImageDraft = d }
+                } else {
+                    PDFSourceTile(size: 50, cornerRadius: 8)
+                }
 
                 VStack(alignment: .leading, spacing: 4) {
                     if d.isProcessing {
@@ -262,6 +319,49 @@ struct MultiReceiptReviewView: View {
                 )
         )
         .opacity(d.isChecked ? 1 : 0.5)
+            .offset(x: swipeOffset[d.id] ?? 0)
+            .simultaneousGesture(swipeGesture(for: d.id))
+        }
+    }
+
+    // Trailing red Delete, revealed by swiping the card left. Tap to remove.
+    private func deleteBackground(for id: UUID) -> some View {
+        RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .fill(Color(hex: "C0392B"))
+            .overlay(alignment: .trailing) {
+                Button { removeDraft(id: id) } label: {
+                    Image(systemName: "trash.fill")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 76)
+                        .frame(maxHeight: .infinity)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+    }
+
+    // Horizontal-dominant left swipe reveals Delete; snaps open past ~40pt.
+    private func swipeGesture(for id: UUID) -> some Gesture {
+        DragGesture(minimumDistance: 16)
+            .onChanged { value in
+                guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                swipeOffset[id] = max(-76, min(0, value.translation.width))
+            }
+            .onEnded { value in
+                withAnimation(.easeOut(duration: 0.2)) {
+                    swipeOffset[id] = (value.translation.width < -40) ? -76 : 0
+                }
+            }
+    }
+
+    private func removeDraft(id: UUID) {
+        focusedField = nil
+        withAnimation(.easeInOut(duration: 0.2)) {
+            drafts.removeAll { $0.id == id }
+            if expandedId == id { expandedId = nil }
+        }
+        swipeOffset[id] = nil
     }
 
     // MARK: - Expanded fields
@@ -380,6 +480,20 @@ struct MultiReceiptReviewView: View {
                     .lineLimit(1...3)
                     .focused($focusedField, equals: .notes(draftId))
             }
+
+            rowDivider
+
+            // In-row removal (mirrors swipe-to-delete).
+            Button { removeDraft(id: draftId) } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "trash").font(.system(size: 13, weight: .semibold))
+                    Text("Delete expense").font(.system(size: 14, weight: .semibold))
+                }
+                .foregroundStyle(Color(hex: "C0392B"))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+            }
+            .buttonStyle(.plain)
         }
         .padding(.top, 4)
     }
@@ -500,7 +614,7 @@ struct MultiReceiptReviewView: View {
                         ProgressView().tint(.white)
                     } else {
                         Text(checkedCount == 0
-                             ? "No receipts selected"
+                             ? "No expenses selected"
                              : "Add \(checkedCount) expense\(checkedCount == 1 ? "" : "s")")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(.white)
@@ -557,7 +671,7 @@ struct MultiReceiptReviewView: View {
         // ponytail: one Task per receipt, unbounded; add a semaphore only if huge
         // batches (20+) actually strain Vision on device.
         for i in drafts.indices {
-            let image   = drafts[i].image
+            guard let image = drafts[i].image else { continue }
             let draftId = drafts[i].id
 
             Task {
@@ -607,11 +721,15 @@ struct MultiReceiptReviewView: View {
                 let expenseId = UUID().uuidString
                 var savedKey: String? = nil
                 var rawData:  Data?   = nil
-                do {
-                    savedKey = try await AttachmentService.shared.saveImage(draft.image, id: expenseId)
-                    rawData  = draft.image.jpegData(compressionQuality: 0.8)
-                } catch {
-                    Log.attachments.error("multi-receipt image save failed: \(error.localizedDescription, privacy: .public)")
+                // Statements never store the source file, so their config turns
+                // attachment saving off — nothing about the PDF is persisted.
+                if config.savesAttachment, let image = draft.image {
+                    do {
+                        savedKey = try await AttachmentService.shared.saveImage(image, id: expenseId)
+                        rawData  = image.jpegData(compressionQuality: 0.8)
+                    } catch {
+                        Log.attachments.error("multi-receipt image save failed: \(error.localizedDescription, privacy: .public)")
+                    }
                 }
 
                 await MainActor.run {
@@ -627,7 +745,7 @@ struct MultiReceiptReviewView: View {
                         notes: draft.notes.isEmpty ? nil : draft.notes,
                         attachmentKey: savedKey,
                         attachmentData: rawData,
-                        source: ExpenseSource.upload.rawValue,
+                        source: config.expenseSource,
                         wasAutoScanned: draft.wasAutoScanned
                     )
                     modelContext.insert(expense)
@@ -641,8 +759,11 @@ struct MultiReceiptReviewView: View {
                 // actually produced an amount (`wasAutoScanned` is set to
                 // `result.amount != nil`). A bogus photo that yielded no amount, or
                 // a receipt whose amount the user had to type in, isn't charged.
-                for draft in checked where draft.wasAutoScanned {
-                    appState.recordOCRScan(extractedAmount: true)
+                // Sources that don't charge (statements, Pro-only) skip this.
+                if config.chargesScan {
+                    for draft in checked where draft.wasAutoScanned {
+                        appState.recordOCRScan(extractedAmount: true)
+                    }
                 }
                 appState.totalExpenseCount += checked.count
                 appState.clearFilters()
