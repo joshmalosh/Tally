@@ -942,14 +942,15 @@ non-trivial background `.allowsHitTesting(false)`.
    than a defaulted property needs a real `VersionedSchema`/`MigrationPlan`.
 7. **TestFlight**: needs a privacy-policy URL and export-compliance answer
    (`ITSAppUsesNonExemptEncryption = NO`). AdMob is already test units in DEBUG.
-9. **Sheet "already presenting" storm.** A device log (2026-08-26, while editing a
-   tag with the emoji keyboard up) showed ~25 rapid `Attempt to present … which is
-   already presenting` warnings — SwiftUI re-trying to present a root sheet
-   (`ContentView` owns `showingSettings` / `selectedExpenseId` / `showingSubscription`)
-   while another sheet (e.g. the pinned-tag `TagCreationView`) is already up. Likely a
-   proactive prompt (daily upgrade / Pro benefits card) firing without honouring the
-   "suppress while a sheet is presented" rule, or a binding not reset. Not yet root-caused;
-   no confirmed user-visible symptom, but it can make a sheet fail to open. Investigate.
+9. **Sheet "already presenting" storm — partially fixed.** The concrete user-facing
+   symptom (2026-08-27, Josh: a tag on the Tags & Groups page opens then instantly
+   dismisses on the *first* tap, works on the second) is fixed: the tag/group sheet
+   was attached to a recycling List row inside `TagsAndGroupsManagementRows`; it now
+   lives on the stable List container in `TagsTabView` (state lifted, `TagSheet`
+   enum moved to file scope). **Still watch:** the log also shows the storm after an
+   OCR scan (the UIKit `reviewHostingController` full-screen present colliding with a
+   SwiftUI sheet) — likely a proactive prompt presenting while the review is up.
+   Reproduce that path before declaring it closed.
 8. **Deferred debt:** bulk-import `TagLinkPickerSheet` restyle; ~538 hardcoded
    `Color(hex:)` literals with tokens in `DesignSystem.swift`. (The 2026-08-25
    ponytail audit's dead code — `HeroSpendingCard`/`HeroPeriodPage`, the unused

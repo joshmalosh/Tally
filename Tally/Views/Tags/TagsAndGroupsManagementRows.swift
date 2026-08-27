@@ -3,7 +3,23 @@ import OSLog
 import SwiftData
 import UIKit
 
-/// Shared tags & groups list rows + sheets (used from Tags tab).
+/// Which tag/group sheet is open. Owned by `TagsTabView` and presented from the
+/// List container (not from inside a row) — a `.sheet` attached to a recycling
+/// List row opened and then immediately dismissed on the first tap.
+enum TagSheet: Identifiable {
+    case newTag, newGroup, edit(TagModel), groupDetail(TagModel)
+    var id: String {
+        switch self {
+        case .newTag: return "newTag"
+        case .newGroup: return "newGroup"
+        case .edit(let t): return "edit_\(t.id)"
+        case .groupDetail(let g): return "group_\(g.id)"
+        }
+    }
+}
+
+/// Shared tags & groups list rows (used from the Tags tab). The sheet it drives
+/// is presented by the parent `TagsTabView`, not here.
 struct TagsAndGroupsManagementRows: View {
     @Environment(AppState.self) private var appState
     @Environment(\.modelContext) private var modelContext
@@ -13,19 +29,7 @@ struct TagsAndGroupsManagementRows: View {
     // Management list stays A–Z by default; the filter button can re-sort it.
     @State private var sortOrder: TagSortOrder = .aToZ
 
-    private enum TagSheet: Identifiable {
-        case newTag, newGroup, edit(TagModel), groupDetail(TagModel)
-        var id: String {
-            switch self {
-            case .newTag: return "newTag"
-            case .newGroup: return "newGroup"
-            case .edit(let t): return "edit_\(t.id)"
-            case .groupDetail(let g): return "group_\(g.id)"
-            }
-        }
-    }
-
-    @State private var activeSheet: TagSheet?
+    @Binding var activeSheet: TagSheet?
 
     private var recency: [String: Date] { tagRecency(from: expenses) }
 
@@ -166,22 +170,6 @@ struct TagsAndGroupsManagementRows: View {
                     Button(role: .destructive) { deleteTag(group) } label: {
                         Label("Delete", systemImage: "trash")
                     }
-                }
-            }
-        }
-        .sheet(item: $activeSheet) { sheet in
-            switch sheet {
-            case .newTag:
-                TagCreationView(suppressNameFieldAutofocus: true)
-            case .newGroup:
-                TagCreationView(isGroupMode: true, suppressNameFieldAutofocus: true)
-            case .edit(let tag):
-                TagCreationView(editingTag: tag, suppressNameFieldAutofocus: true)
-            case .groupDetail(let group):
-                // GroupDetailView needs its own NavigationStack because it uses
-                // .navigationTitle and toolbar items (push-nav semantics via sheet).
-                NavigationStack {
-                    GroupDetailView(group: group)
                 }
             }
         }

@@ -6,10 +6,15 @@ import SwiftUI
 /// creates a UIKit presentation conflict that causes sheets to open and
 /// immediately dismiss on first tap.
 struct TagsTabView: View {
+    // The tag/group sheet is presented here, on the stable List container, not
+    // from inside a recycling row — that was what made a tapped tag open and then
+    // immediately dismiss on the first tap (working only on the second).
+    @State private var activeSheet: TagSheet?
+
     var body: some View {
         List {
             Section {
-                TagsAndGroupsManagementRows()
+                TagsAndGroupsManagementRows(activeSheet: $activeSheet)
             }
         }
         .listSectionSpacing(0)
@@ -20,6 +25,22 @@ struct TagsTabView: View {
         .background(Color(hex: "F0EDE6").ignoresSafeArea())
         .safeAreaInset(edge: .bottom, spacing: 0) {
             Color.clear.frame(height: 90)
+        }
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .newTag:
+                TagCreationView(suppressNameFieldAutofocus: true)
+            case .newGroup:
+                TagCreationView(isGroupMode: true, suppressNameFieldAutofocus: true)
+            case .edit(let tag):
+                TagCreationView(editingTag: tag, suppressNameFieldAutofocus: true)
+            case .groupDetail(let group):
+                // GroupDetailView needs its own NavigationStack because it uses
+                // .navigationTitle and toolbar items (push-nav semantics via sheet).
+                NavigationStack {
+                    GroupDetailView(group: group)
+                }
+            }
         }
     }
 }
