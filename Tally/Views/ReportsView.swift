@@ -402,8 +402,8 @@ struct ReportsView: View {
                         .foregroundStyle(Color(hex: "8F9E94"))
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
@@ -423,13 +423,15 @@ struct ReportsView: View {
                         .font(.system(size: 11))
                         .foregroundStyle(Color(hex: "8F9E94"))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(14)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 .background(Color(hex: "F2F8F4"))
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
             }
         }
+        // Equal-height cards: both cells stretch to the taller one's height.
+        .fixedSize(horizontal: false, vertical: true)
         .padding(.horizontal, 16)
     }
 

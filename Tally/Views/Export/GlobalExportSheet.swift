@@ -50,11 +50,9 @@ struct GlobalExportSheet: View {
     // MARK: - Amount formatting helper
 
     private func fmtCents(_ cents: Int) -> String {
-        let whole = cents / 100
-        let frac  = abs(cents % 100)
-        let f = NumberFormatter()
-        f.numberStyle = .decimal
-        return "$\(f.string(from: NSNumber(value: whole)) ?? "\(whole)").\(String(format: "%02d", frac))"
+        // Currency-correct: right symbol, decimals and grouping for the active
+        // currency (no hardcoded $, no /100 for no-minor-unit currencies).
+        CurrencyFormatter.shared.format(cents: cents, currencyCode: appState.activeCurrency)
     }
 
     // MARK: - Period helpers
@@ -90,7 +88,12 @@ struct GlobalExportSheet: View {
 
     private func expenses(for period: ExportPeriod) -> [ExpenseModel] {
         let r = dateRange(for: period)
-        return activeExpenses.filter { $0.date >= r.start && $0.date <= r.end }
+        // Single-currency only — the app has no FX, so an export mixes nothing.
+        // Everything downstream (hero total, period cells, count, CSV) is scoped to
+        // the active currency; switch the currency filter to export another.
+        return activeExpenses.filter {
+            $0.date >= r.start && $0.date <= r.end && $0.currency == appState.activeCurrency
+        }
     }
 
     private func periodName(for period: ExportPeriod) -> String {
@@ -407,11 +410,13 @@ struct GlobalExportSheet: View {
     private var selectedHeroCard: some View {
         let exps = selectedExpenses
         let total = exps.reduce(0) { $0 + $1.amountCents }
-        let amtFormatted = fmtCents(total)
-        let dollarIdx = amtFormatted.index(amtFormatted.startIndex, offsetBy: 1)
-        let dotIdx = amtFormatted.lastIndex(of: ".") ?? amtFormatted.endIndex
-        let wholePart = String(amtFormatted[dollarIdx..<dotIdx])
-        let fracPart  = String(amtFormatted[dotIdx...])
+        // Currency-correct two-tone amount (symbol · grouped whole · cents), like
+        // the Home hero — never a hardcoded $.
+        let currency = appState.activeCurrency
+        let symbol = CurrencyFormatter.shared.symbol(for: currency)
+        let wholePart = CurrencyFormatter.shared.groupedWhole(cents: total, currencyCode: currency)
+        let showsCents = CurrencyFormatter.shared.usesDecimals(for: currency)
+        let fracPart = showsCents ? String(format: ".%02d", abs(total % 100)) : ""
 
         return VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
@@ -429,7 +434,7 @@ struct GlobalExportSheet: View {
                 .foregroundStyle(.white)
 
             HStack(alignment: .top, spacing: 0) {
-                Text("$")
+                Text(symbol)
                     .font(.system(size: 18, weight: .regular, design: .monospaced))
                     .foregroundStyle(.white)
                     .padding(.top, 5)
@@ -437,10 +442,12 @@ struct GlobalExportSheet: View {
                     .font(.system(size: 38, weight: .bold, design: .monospaced))
                     .foregroundStyle(.white)
                     .tracking(-1)
-                Text(fracPart)
-                    .font(.system(size: 18, weight: .regular, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .padding(.top, 6)
+                if !fracPart.isEmpty {
+                    Text(fracPart)
+                        .font(.system(size: 18, weight: .regular, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .padding(.top, 6)
+                }
             }
 
             HStack {

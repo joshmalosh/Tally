@@ -409,7 +409,7 @@ struct HomeView: View {
                     }
                 }
             }
-            .presentationDetents([.height(490)])
+            .presentationDetents([.height(adManager.shouldShowBannerAd ? 560 : 490)])
             .presentationDragIndicator(.hidden)
             .presentationBackground(Color(hex: "F0EDE6"))
         }

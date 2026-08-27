@@ -605,6 +605,17 @@ struct AddExpenseView: View {
         quickAddNoteCard
         quickAddTagCard
         quickAddRecurringCard
+
+        // Free tier: banner beneath the recurring card. The persistent bottom
+        // banner is suppressed on the receipt flow, so the ad lives here instead.
+        // Hidden while a text field is up, per the monetisation brief.
+        if !appState.isPro {
+            BannerAdView()
+                .frame(height: keyboardVisible ? 0 : 51)
+                .opacity(keyboardVisible ? 0 : 1)
+                .clipped()
+                .animation(.easeInOut(duration: 0.2), value: keyboardVisible)
+        }
     }
 
     @ViewBuilder

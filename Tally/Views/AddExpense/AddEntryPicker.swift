@@ -21,6 +21,7 @@ enum AddEntryMode: Identifiable {
 struct AddEntryPicker: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
+    @Environment(AdManager.self) private var adManager
     let onSelect: (AddEntryMode) -> Void
 
     var body: some View {
@@ -150,7 +151,14 @@ struct AddEntryPicker: View {
                 )
             }
             .padding(.horizontal, 20)
-            .padding(.bottom, 28)
+            .padding(.bottom, adManager.shouldShowBannerAd ? 12 : 28)
+
+            // Free tier: banner beneath the entry options.
+            if adManager.shouldShowBannerAd {
+                BannerAdView()
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
+            }
         }
         .background(Color(hex: "F0EDE6").ignoresSafeArea())
     }
