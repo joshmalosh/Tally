@@ -925,12 +925,22 @@ enum ReceiptOCRService {
     /// is dropped, and only when nothing else in the line has a digit, so
     /// addresses ("2 Hector Court", "1659 Kellyville Grove PH: 02 9624 9402")
     /// and ABN lines keep their digits and stay disqualified.
+    private static let auStates: Set<String> = ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "ACT", "NT"]
+
     private static func dropTrailingStoreNumber(_ text: String) -> String {
         let tokens = text.split(separator: " ")
         guard tokens.count >= 2,
               let last = tokens.last, last.allSatisfy(\.isNumber),
               !tokens.dropLast().contains(where: { $0.contains(where: \.isNumber) })
         else { return text }
+        // A 4-digit number after a state abbreviation is a postcode, not a store
+        // number ("KELLYVILLE NSW 2154"). Keep it so the address line stays
+        // disqualified as a merchant (its digit keeps it out), instead of becoming
+        // "KELLYVILLE NSW" and winning via the recurring header/footer address.
+        if last.count == 4,
+           auStates.contains(tokens[tokens.count - 2].uppercased()) {
+            return text
+        }
         return tokens.dropLast().joined(separator: " ")
     }
 
