@@ -78,6 +78,13 @@ Josh far more time than a short pause to check, and it can break his real files.
   knew the answer to. Surface the gaps before he asks.
 - Balance this against rule 6: be complete on what matters, do not pad with
   unrequested "for completeness" detail.
+- **On a feature or a design, settle the shaping choices *with him* before you
+  plan or build, never by presenting a guess he has to reject.** Ask, up front,
+  where a new thing sits in the existing UI, how it looks, how it behaves, and,
+  critically, whether it should reuse an existing near-identical piece instead of
+  being built fresh. The statement-import plan bounced five times because each of
+  those was assumed instead of asked. A plan or design put up for approval should
+  be the shape he already agreed to, not a first draft of the requirements.
 
 ---
 
