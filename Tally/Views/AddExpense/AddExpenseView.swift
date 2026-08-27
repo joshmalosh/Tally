@@ -80,6 +80,9 @@ struct AddExpenseView: View {
     @State private var showingReplaceReceiptSources = false
     @State private var notesExpanded = false
     @State private var ocrPopulatedAnyField = false
+    // This scan extracted a real amount — charged at save (Done), not at scan time,
+    // so backing out before saving costs nothing.
+    @State private var ocrGotAmount = false
     @State private var amountFocusRequested: Bool = false
     @State private var keyboardVisible = false
     @State private var quickAddPrompt: String = ""
@@ -1775,11 +1778,11 @@ struct AddExpenseView: View {
     private func applyOCRResult(_ result: ReceiptOCRResult) {
         var applied = false
 
-        // Charge the quota only when the scan produced a real (positive) amount —
-        // see AppState.recordOCRScan. A failed read, or a bogus 0.00 (e.g. a photo
-        // that isn't a receipt), costs the user nothing.
-        let gotAmount = (result.amount ?? 0) > 0
-        appState.recordOCRScan(extractedAmount: gotAmount)
+        // A scan counts only when the expense is saved (Done), not here at scan
+        // time — record whether it produced a real (positive) amount and charge in
+        // saveExpense. A failed/0.00 read, or backing out before saving, costs
+        // nothing.
+        ocrGotAmount = (result.amount ?? 0) > 0
 
         if let amount = result.amount, amount > 0, amountText.isEmpty || amountText == "0" || amountText == "0.00" {
             // Receipt names its currency unambiguously (€, EUR, GBP…) — adopt it
@@ -2090,6 +2093,11 @@ struct AddExpenseView: View {
                     do {
                         try modelContext.save()
                         appState.totalExpenseCount += 1
+                        // Charge the OCR scan now (at save), only if this scan
+                        // extracted an amount and the receipt is still attached.
+                        if ocrGotAmount && receiptImageAttached {
+                            appState.recordOCRScan(extractedAmount: true)
+                        }
                         loadExpenses()
                     } catch {
                         Log.data.error("save expense failed: \(error.localizedDescription, privacy: .public)")
