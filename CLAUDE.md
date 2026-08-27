@@ -64,6 +64,12 @@ Josh far more time than a short pause to check, and it can break his real files.
   was wrong", that means you presented too early.
 - Verify silently and completely, then present one grounded answer. Do not think
   out loud through half-formed solutions Josh might act on before you finish.
+- **You cannot compile or run here, so prefer the implementation least likely to
+  misbehave over the clever one.** A view trick you can't verify is how the "opaque
+  header" silently killed every header button (a `.clipped()` layer that swallowed
+  taps) and how the seam fix shipped worse than before. When a boring,
+  obviously-correct version exists, ship that; and name anything you couldn't
+  verify so he checks it first on device.
 
 ---
 
@@ -123,6 +129,12 @@ Josh far more time than a short pause to check, and it can break his real files.
   "genuinely", and abstract framing a reader has to decode. State the thing.
 - **No vague throwaway closers.** Either say concretely what was verified, or say
   nothing.
+- **When you fix a problem, explain what it was.** Diagnosing and fixing a bug or
+  error is only half done until Josh knows, in the reply, what the problem actually
+  was and why it happened, in plain English, before or alongside the fix. Never
+  just push a fix and call it done, and never bury the diagnosis in a commit
+  message or the brief where he can't see it. His words: "always explain what a
+  problem is to me and not just blindly fix it."
 - **Do not overanswer.** Answer what was asked.
 - **Disagreeing: verdict first, then the reasoning.** When you think an approach
   is wrong, lead with the verdict ("honestly, I'd go the other way") and give the
