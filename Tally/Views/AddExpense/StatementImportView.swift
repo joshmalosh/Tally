@@ -23,15 +23,23 @@ struct StatementImportView: View {
     private enum Phase { case chooser, parsing, review, empty }
 
     var body: some View {
-        ZStack {
-            Color(hex: "F0EDE6").ignoresSafeArea()
-            switch phase {
-            case .chooser: chooser
-            case .parsing: loading
-            case .empty:   emptyState
-            case .review:
+        Group {
+            if phase == .review {
+                // Present the shared review as the direct cover content (like the
+                // photo flow) — wrapping it in a ZStack changes the safe-area context
+                // and makes its bottom bar float.
                 MultiReceiptReviewView(drafts: drafts, config: .statement,
                                        onCancel: onCancel, onDone: onDone)
+            } else {
+                ZStack {
+                    Color(hex: "F0EDE6").ignoresSafeArea()
+                    switch phase {
+                    case .chooser: chooser
+                    case .parsing: loading
+                    case .empty:   emptyState
+                    case .review:  EmptyView()
+                    }
+                }
             }
         }
         .fileImporter(isPresented: $showingPicker,

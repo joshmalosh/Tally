@@ -229,7 +229,9 @@ struct MultiReceiptReviewView: View {
             Spacer(minLength: 0)
         }
         .padding(14)
-        .background(Color(hex: "E7ECE4"))
+        // A clearly visible tinted bubble — the old E7ECE4 was almost the same as
+        // the F0EDE6 canvas, so it didn't read as a bubble.
+        .background(Color(hex: "D9E4DC"))
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 

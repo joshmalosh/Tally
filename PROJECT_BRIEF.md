@@ -829,6 +829,12 @@ non-trivial background `.allowsHitTesting(false)`.
 
 ## Current state — what's shipped (newest first)
 
+- **Statement review presents directly; banner is a real bubble** (2026-08-27):
+  `StatementImportView` was wrapping the shared review in a `ZStack` with a
+  full-screen background, which changed the safe-area context and made the bottom
+  bar float higher than the photo flow's. Now it presents the review as the direct
+  cover content (like the photo flow). The "N found" banner tint went from `E7ECE4`
+  (nearly the beige canvas, so it didn't read as a bubble) to `D9E4DC`.
 - **Multi-expense review polish + home date spacing** (2026-08-27): the shared
   review (`MultiReceiptReviewView`) got an untick that dims content only (fixing
   the red-Delete bleed-through), a swipe-Delete that only renders while swiping,
