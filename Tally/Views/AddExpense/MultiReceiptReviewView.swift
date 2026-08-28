@@ -44,14 +44,17 @@ struct ReviewConfig {
     var chargesScan: Bool
     /// `ExpenseModel.source` written for saved rows.
     var expenseSource: String
+    /// Noun for the "N <noun>s found" summary banner at the top of the list.
+    var foundNoun: String
 
     static let photos = ReviewConfig(
         navTitle: "Review receipts", runsOCR: true, savesAttachment: true,
-        chargesScan: true, expenseSource: ExpenseSource.upload.rawValue
+        chargesScan: true, expenseSource: ExpenseSource.upload.rawValue,
+        foundNoun: "receipt"
     )
     static let statement = ReviewConfig(
         navTitle: "Review expenses", runsOCR: false, savesAttachment: false,
-        chargesScan: false, expenseSource: "statement_import"
+        chargesScan: false, expenseSource: "statement_import", foundNoun: "expense"
     )
 }
 
@@ -71,6 +74,9 @@ struct MultiReceiptReviewView: View {
     let config: ReviewConfig
     let onCancel: () -> Void
     let onDone: () -> Void
+    /// How many were found up front — the summary banner stays accurate even after
+    /// rows are deleted.
+    let foundCount: Int
 
     @State private var drafts: [ReceiptDraft]
     // Only one row open at a time — opening another closes the current one.
@@ -89,9 +95,10 @@ struct MultiReceiptReviewView: View {
 
     /// Photo receipts — one draft per image, OCR runs, attachments saved, scans charged.
     init(images: [UIImage], onCancel: @escaping () -> Void, onDone: @escaping () -> Void) {
-        self.config   = .photos
-        self.onCancel = onCancel
-        self.onDone   = onDone
+        self.config     = .photos
+        self.onCancel   = onCancel
+        self.onDone     = onDone
+        self.foundCount = images.count
         _drafts = State(initialValue: images.map { ReceiptDraft(image: $0) })
     }
 
@@ -99,9 +106,10 @@ struct MultiReceiptReviewView: View {
     /// explicit config. Same screen, different data.
     init(drafts: [ReceiptDraft], config: ReviewConfig,
          onCancel: @escaping () -> Void, onDone: @escaping () -> Void) {
-        self.config   = config
-        self.onCancel = onCancel
-        self.onDone   = onDone
+        self.config     = config
+        self.onCancel   = onCancel
+        self.onDone     = onDone
+        self.foundCount = drafts.count
         _drafts = State(initialValue: drafts)
     }
 
@@ -131,12 +139,15 @@ struct MultiReceiptReviewView: View {
 
             ScrollView {
                 VStack(spacing: 8) {
+                    foundBanner
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 4)
                     ForEach(drafts.indices, id: \.self) { idx in
                         accordionCard(idx: idx)
                             .padding(.horizontal, 16)
                     }
                 }
-                .padding(.top, 8)
+                .padding(.top, 10)
                 .padding(.bottom, 20)
             }
             .scrollDismissesKeyboard(.interactively)
@@ -203,6 +214,28 @@ struct MultiReceiptReviewView: View {
         }
     }
 
+    // MARK: - Summary banner
+
+    private var foundBanner: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.circle")
+                .font(.system(size: 20))
+                .foregroundStyle(Color(hex: "2F402E"))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(foundCount) \(config.foundNoun)\(foundCount == 1 ? "" : "s") found")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+                Text("Review and add the ones you want to keep.")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(Color(hex: "E7ECE4"))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
     // MARK: - Custom nav bar
 
     private var navBar: some View {
@@ -233,7 +266,11 @@ struct MultiReceiptReviewView: View {
         let isExpanded = expandedId == d.id
 
         return ZStack(alignment: .trailing) {
-            deleteBackground(for: d.id)
+            // Red Delete only exists while the row is actually swiped, so it can't
+            // bleed through an unticked (dimmed) card.
+            if (swipeOffset[d.id] ?? 0) < 0 {
+                deleteBackground(for: d.id)
+            }
 
             VStack(spacing: 0) {
             // Header row
@@ -247,6 +284,8 @@ struct MultiReceiptReviewView: View {
                 }
                 .buttonStyle(.plain)
 
+                // Photo receipts show their thumbnail; statement rows have no image
+                // and stay clean — just the tick and the details.
                 if let image = d.image {
                     Image(uiImage: image)
                         .resizable()
@@ -258,8 +297,6 @@ struct MultiReceiptReviewView: View {
                                 .stroke(Color(hex: "DEDAD2"), lineWidth: 0.5)
                         )
                         .onTapGesture { fullscreenImageDraft = d }
-                } else {
-                    PDFSourceTile(size: 50, cornerRadius: 8)
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -309,6 +346,9 @@ struct MultiReceiptReviewView: View {
                     .padding(.bottom, 14)
             }
         }
+        // Dim only the content when unticked; the card stays solid white so the
+        // red Delete behind can never show through.
+        .opacity(d.isChecked ? 1 : 0.45)
         .background(Color.white)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
@@ -318,9 +358,8 @@ struct MultiReceiptReviewView: View {
                     lineWidth: isExpanded ? 1.5 : 1
                 )
         )
-        .opacity(d.isChecked ? 1 : 0.5)
-            .offset(x: swipeOffset[d.id] ?? 0)
-            .simultaneousGesture(swipeGesture(for: d.id))
+        .offset(x: swipeOffset[d.id] ?? 0)
+        .simultaneousGesture(swipeGesture(for: d.id))
         }
     }
 

@@ -703,6 +703,8 @@ totals are single-currency, never mixed across currencies.
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-08-27 | Multi-expense review cleanup (shared by photo + statement flows): unticking dims the card's content only (card stays solid white); the red swipe-Delete exists only during an active swipe; statement rows drop the PDF tile (tick + details only, photo rows keep their thumbnail); a "N found · review and add the ones you want to keep" banner tops the list. | The unticked card was 50% opaque, so the red Delete panel behind it bled through and the bin dragged down as the row expanded — looked broken. The PDF tile cluttered statement rows; removing it lets the details fill the width and the page feel finished. The banner frames the task and fills the top. All via the one shared view, so both flows improve together. |
+| 2026-08-27 | Home list: bigger gap above each date label, small gap below, so the date heads the expense beneath it. | The date sat 2pt under the previous expense and read as belonging to the wrong one. |
 | 2026-08-27 | An OCR scan counts against the free allowance only when the expense is **saved (Done)**, never at scan time — in both the single-add and bulk-review flows. Scanning and backing out (or removing the receipt) before saving costs nothing. | Josh's call (chosen over charging at scan time). It's the fairer model: you're charged for scans you actually keep. The bulk review already charged at save; the single flow was charging in `applyOCRResult` at scan time, now deferred to `saveExpense` (guarded on a positive-amount scan + receipt still attached). Accepts that a user could scan-and-abandon without being charged. |
 | 2026-08-27 | The **live** export display (hero card + period cells + count + CSV) is scoped to `activeCurrency` at the source (`expenses(for:)`). Extends the 2026-08-26 export entry, which had fixed a dead `totalCents`; the real "huge sum" was `selectedHeroCard` summing `amountCents` across currencies with a hardcoded `$`. | No FX → a mixed export total is meaningless. Scoping at the source keeps every number on the sheet and in the file on one currency; switch the currency filter to export another. |
 | 2026-08-27 | Two inline metric cells (Reports: Monthly avg + Top category) are always equal height. | The monthly-avg cell has a conditional third line, so it rendered shorter than the top-category cell beside it — inline siblings of different sizes look broken. Both now stretch to the taller. |
@@ -826,6 +828,12 @@ non-trivial background `.allowsHitTesting(false)`.
 
 ## Current state — what's shipped (newest first)
 
+- **Multi-expense review polish + home date spacing** (2026-08-27): the shared
+  review (`MultiReceiptReviewView`) got an untick that dims content only (fixing
+  the red-Delete bleed-through), a swipe-Delete that only renders while swiping,
+  no PDF tile on image-less (statement) rows, and a "N found" summary banner —
+  all shared, so the photo flow gains them too. The home list date labels now sit
+  closer to the expense they head.
 - **Import from statement (Pro)** (2026-08-26): a new Add-menu entry (replacing
   "Import from notes", now archived in `Deprecated/`) lets a Pro user upload one
   PDF bank statement. `StatementImportView` reads the transactions in memory

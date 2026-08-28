@@ -840,8 +840,9 @@ struct HomeView: View {
                         .foregroundStyle(Color(hex: "8F9E94"))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading, 20)
-                        .padding(.bottom, 4)
-                        .listRowInsets(EdgeInsets(top: 2, leading: 0, bottom: Spacing.xs, trailing: 0))
+                        // Bigger gap above the date, small below, so it reads as the
+                        // heading of the expense directly beneath it, not the one above.
+                        .listRowInsets(EdgeInsets(top: 20, leading: 0, bottom: 4, trailing: 0))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
 
