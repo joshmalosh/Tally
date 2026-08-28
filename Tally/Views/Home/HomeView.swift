@@ -837,7 +837,8 @@ struct HomeView: View {
 
                     Text(daySectionTitle(for: group.dayStart))
                         .font(.system(size: 12, weight: .regular))
-                        .foregroundStyle(Color(hex: "8F9E94"))
+                        // Neutral grey to match the reference, not the green-tinted 8F9E94.
+                        .foregroundStyle(Color(hex: "8E8E93"))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading, 20)
                         // Bigger gap above the date, small below, so it reads as the
