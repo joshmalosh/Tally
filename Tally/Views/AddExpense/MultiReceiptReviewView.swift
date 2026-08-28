@@ -151,12 +151,9 @@ struct MultiReceiptReviewView: View {
                 .padding(.bottom, 20)
             }
             .scrollDismissesKeyboard(.interactively)
-            .padding(.top, 53) // navBar (52) + Divider (1)
+            .padding(.top, 52)
 
-            VStack(spacing: 0) {
-                navBar
-                Divider()
-            }
+            navBar
         }
         .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
         .toolbar {
@@ -246,14 +243,10 @@ struct MultiReceiptReviewView: View {
             HStack {
                 Button("Cancel") { onCancel() }
                     .font(.system(size: 17))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(Color(hex: "EEEDEB"))
-                    .clipShape(Capsule())
+                    .foregroundStyle(Color(hex: "2F402E"))
                 Spacer()
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 16)
         }
         .frame(height: 52)
         .background(Color(hex: "F0EDE6"))
@@ -299,37 +292,38 @@ struct MultiReceiptReviewView: View {
                         .onTapGesture { fullscreenImageDraft = d }
                 }
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 3) {
                     if d.isProcessing {
                         OCRProgressBar()
                     } else {
                         Text(amountDisplay(d))
-                            .font(.system(size: 17, weight: .semibold, design: .monospaced))
+                            .font(.system(size: 18, weight: .semibold, design: .monospaced))
                             .foregroundStyle(d.amountText.isEmpty ? Color(hex: "C4BFB9") : Color(hex: "1C1C1E"))
-                        HStack(spacing: 4) {
-                            if !d.merchant.isEmpty {
-                                Text(d.merchant)
-                                    .font(.system(size: 13))
-                                    .foregroundStyle(Color(hex: "8F9E94"))
-                                    .lineLimit(1)
-                                Text("·").font(.system(size: 13)).foregroundStyle(Color(hex: "C4BFB9"))
-                            }
-                            Text(Self.dateFmt.string(from: d.date))
+                        if !d.merchant.isEmpty {
+                            Text(d.merchant)
                                 .font(.system(size: 13))
                                 .foregroundStyle(Color(hex: "8F9E94"))
+                                .lineLimit(1)
                         }
                     }
                 }
 
-                Spacer(minLength: 0)
+                Spacer(minLength: 8)
 
+                // Date pinned right, chevron far right — a balanced two-column row
+                // that fills the width instead of leaving the right side empty.
                 if !d.isProcessing {
+                    Text(Self.dateFmt.string(from: d.date))
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color(hex: "8E8E93"))
+                        .fixedSize()
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Color(hex: "C4BFB9"))
                 }
             }
-            .padding(14)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
             .contentShape(Rectangle())
             .onTapGesture {
                 guard !d.isProcessing else { return }

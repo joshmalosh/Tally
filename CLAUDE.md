@@ -45,6 +45,14 @@ This is a hard, always-on rule. Never wait to be reminded of it.
   move that one thing. Match the change to his words, then stop. Escalating the
   treatment beyond what he asked misreads his intent and makes rework (the selected
   pinned tag went out as a full green fill when he wanted only a green edge).
+- **Build a list or sheet to occupy its screen, like a finished app, not a first
+  draft.** Balanced, intentional spacing; content laid out to fill the width and
+  height; no sparse floaty cards, empty half-rows, or awkward dead space. Match the
+  density and rhythm of a polished iOS app (or the reference he gives). This has
+  recurred on many screens (the statement review shipped with tall, half-empty
+  cards) so treat it as a standing bar, not a per-screen note. A common fix is a
+  balanced two-column row (primary info left, secondary pinned right) rather than
+  one cramped left column with an empty right side.
 
 ---
 
