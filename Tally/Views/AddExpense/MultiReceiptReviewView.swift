@@ -155,6 +155,9 @@ struct MultiReceiptReviewView: View {
 
             navBar
         }
+        // Let the container reach the screen's bottom edge so the pinned bar sits at
+        // the very bottom (behind the home indicator), not above the safe area.
+        .ignoresSafeArea(.container, edges: .bottom)
         .overlay(alignment: .bottom) { bottomBar }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -247,11 +250,21 @@ struct MultiReceiptReviewView: View {
                     .font(.system(size: 17))
                     .foregroundStyle(Color(hex: "2F402E"))
                 Spacer()
+                Button(allChecked ? "Deselect all" : "Select all") { toggleSelectAll() }
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Color(hex: "2F402E"))
             }
             .padding(.horizontal, 16)
         }
         .frame(height: 52)
         .background(Color(hex: "F0EDE6"))
+    }
+
+    private var allChecked: Bool { !drafts.isEmpty && drafts.allSatisfy(\.isChecked) }
+
+    private func toggleSelectAll() {
+        let newValue = !allChecked
+        for i in drafts.indices { drafts[i].isChecked = newValue }
     }
 
     // MARK: - Accordion card
@@ -515,20 +528,6 @@ struct MultiReceiptReviewView: View {
                     .lineLimit(1...3)
                     .focused($focusedField, equals: .notes(draftId))
             }
-
-            rowDivider
-
-            // In-row removal (mirrors swipe-to-delete).
-            Button { removeDraft(id: draftId) } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "trash").font(.system(size: 13, weight: .semibold))
-                    Text("Delete expense").font(.system(size: 14, weight: .semibold))
-                }
-                .foregroundStyle(Color(hex: "C0392B"))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-            }
-            .buttonStyle(.plain)
         }
         .padding(.top, 4)
     }
@@ -666,13 +665,10 @@ struct MultiReceiptReviewView: View {
             .buttonStyle(.plain)
             .disabled(checkedCount == 0 || isSaving || blocked)
         }
-        // Pin the bar to the very bottom of the screen (its background runs behind
-        // the home indicator) and lift the button a fixed 20pt so it sits just above
-        // it. Deterministic, unlike safeAreaInset which auto-reserved the indicator
-        // area and left the button floating.
-        .padding(.bottom, 20)
+        // Parent already reaches the screen bottom; lift the button 18pt so it
+        // clears the home indicator.
+        .padding(.bottom, 18)
         .background(Color(hex: "F0EDE6"))
-        .ignoresSafeArea(edges: .bottom)
     }
 
     // MARK: - Helpers

@@ -829,6 +829,16 @@ non-trivial background `.allowsHitTesting(false)`.
 
 ## Current state — what's shipped (newest first)
 
+- **Statement review: select-all, date fix, bottom bar** (2026-08-27): a
+  Select all / Deselect all control in the nav bar; the in-row "Delete expense"
+  button removed (unticking is how you exclude a row — swipe-to-delete stays for
+  removing one outright); the Add button pinned lower via the container ignoring
+  the bottom safe area (`.overlay(.bottom)` + `.ignoresSafeArea(.container,
+  edges: .bottom)`, 18pt lift). **Parser date bug:** `DateFormatter` defaults a
+  year-less date ("22 AUG") to the year 2000, and the old `< 1970` guard never
+  caught it, so every statement date came in as 2000 — now year-less formats are
+  handled separately and stamped with the current year (pinned by
+  `StatementParserTests.testTextualDate`).
 - **Statement review matches the target** (2026-08-27): the Add button floated
   because `safeAreaInset(edge: .bottom)` auto-reserves the home-indicator area and
   any manual padding stacks on top of it, so the button could never get to the

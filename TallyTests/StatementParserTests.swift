@@ -71,6 +71,8 @@ final class StatementParserTests: XCTestCase {
         let cal = Calendar.current
         XCTAssertEqual(cal.component(.day, from: out[0].date), 15)
         XCTAssertEqual(cal.component(.month, from: out[0].date), 8)
+        // Year-less dates take the current year, not DateFormatter's 2000 default.
+        XCTAssertEqual(cal.component(.year, from: out[0].date), cal.component(.year, from: Date()))
         XCTAssertEqual(out[0].amountCents, 4200)
     }
 

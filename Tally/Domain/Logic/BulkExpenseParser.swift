@@ -256,26 +256,32 @@ enum StatementParser {
         return nil
     }
 
-    private static let dateFormats = [
+    // Formats that carry a real year — kept as parsed.
+    private static let datedFormats = [
         "yyyy-MM-dd", "dd/MM/yyyy", "dd/MM/yy", "dd-MM-yyyy", "dd-MM-yy",
-        "dd.MM.yyyy", "d MMM yyyy", "d MMMM yyyy", "d MMM", "d MMMM",
-        "MMM d yyyy", "MMMM d yyyy", "MMM d", "MMMM d"
+        "dd.MM.yyyy", "d MMM yyyy", "d MMMM yyyy", "MMM d yyyy", "MMMM d yyyy"
     ]
+    // Year-less formats (e.g. "22 AUG"). DateFormatter defaults these to the year
+    // 2000, so we stamp the current year on them instead.
+    private static let yearLessFormats = ["d MMM", "d MMMM", "MMM d", "MMMM d"]
+
     private static func parseDate(_ token: String) -> Date? {
         let t = token.replacingOccurrences(of: ",", with: "")
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
-        let cal = Calendar.current
-        for fmt in dateFormats {
+
+        for fmt in datedFormats {
             f.dateFormat = fmt
-            guard let d = f.date(from: t) else { continue }
-            // Year-less formats parse to 1900; roll to the current year.
-            if cal.component(.year, from: d) < 1970 {
+            if let d = f.date(from: t) { return d }
+        }
+        let cal = Calendar.current
+        for fmt in yearLessFormats {
+            f.dateFormat = fmt
+            if let d = f.date(from: t) {
                 var comps = cal.dateComponents([.month, .day], from: d)
                 comps.year = cal.component(.year, from: Date())
                 return cal.date(from: comps) ?? d
             }
-            return d
         }
         return nil
     }
