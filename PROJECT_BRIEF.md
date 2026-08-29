@@ -829,13 +829,14 @@ non-trivial background `.allowsHitTesting(false)`.
 
 ## Current state — what's shipped (newest first)
 
-- **Statement review matches the target** (2026-08-27): the floating Add button was
-  the shared bottom bar's `.padding(.bottom, 34)` double-counting the home-indicator
-  safe area (`safeAreaInset` already clears it) — dropped to 8 so the button sits at
-  the bottom in both flows; also trimmed the top fade 36→20. Banner is now a neutral
-  grey bubble (`E2E6E4`, was too green/too close to beige); disclosure chevron points
-  right when collapsed (down when open). `StatementImportView` also presents the
-  review directly rather than wrapped in a `ZStack`.
+- **Statement review matches the target** (2026-08-27): the Add button floated
+  because `safeAreaInset(edge: .bottom)` auto-reserves the home-indicator area and
+  any manual padding stacks on top of it, so the button could never get to the
+  bottom. Fixed by pinning the bar with `.overlay(alignment: .bottom)` +
+  `.ignoresSafeArea(edges: .bottom)` and a fixed 20pt lift, with the list given
+  100pt bottom padding to scroll up to meet it. Banner is a neutral grey bubble
+  (`E2E6E4`); top fade trimmed 36→20. `StatementImportView` presents the review
+  directly (not wrapped in a `ZStack`). Chevron stays pointing down.
 - **Multi-expense review polish + home date spacing** (2026-08-27): the shared
   review (`MultiReceiptReviewView`) got an untick that dims content only (fixing
   the red-Delete bleed-through), a swipe-Delete that only renders while swiping,

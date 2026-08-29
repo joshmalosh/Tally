@@ -148,14 +148,14 @@ struct MultiReceiptReviewView: View {
                     }
                 }
                 .padding(.top, 10)
-                .padding(.bottom, 20)
+                .padding(.bottom, 100) // clear the pinned bottom bar
             }
             .scrollDismissesKeyboard(.interactively)
             .padding(.top, 52)
 
             navBar
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) { bottomBar }
+        .overlay(alignment: .bottom) { bottomBar }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
@@ -319,7 +319,7 @@ struct MultiReceiptReviewView: View {
                         .font(.system(size: 13))
                         .foregroundStyle(Color(hex: "8E8E93"))
                         .fixedSize()
-                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Color(hex: "C4BFB9"))
                 }
@@ -665,11 +665,14 @@ struct MultiReceiptReviewView: View {
             }
             .buttonStyle(.plain)
             .disabled(checkedCount == 0 || isSaving || blocked)
-            // safeAreaInset already clears the home indicator, so a small gap here
-            // is enough — 34 double-counted it and floated the button.
-            .padding(.bottom, 8)
         }
+        // Pin the bar to the very bottom of the screen (its background runs behind
+        // the home indicator) and lift the button a fixed 20pt so it sits just above
+        // it. Deterministic, unlike safeAreaInset which auto-reserved the indicator
+        // area and left the button floating.
+        .padding(.bottom, 20)
         .background(Color(hex: "F0EDE6"))
+        .ignoresSafeArea(edges: .bottom)
     }
 
     // MARK: - Helpers
