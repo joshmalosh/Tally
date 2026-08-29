@@ -229,9 +229,9 @@ struct MultiReceiptReviewView: View {
             Spacer(minLength: 0)
         }
         .padding(14)
-        // A clearly visible tinted bubble — the old E7ECE4 was almost the same as
-        // the F0EDE6 canvas, so it didn't read as a bubble.
-        .background(Color(hex: "D9E4DC"))
+        // Light neutral grey bubble (matches the target), clearly distinct from the
+        // warm F0EDE6 canvas without the green cast.
+        .background(Color(hex: "E2E6E4"))
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
@@ -319,7 +319,7 @@ struct MultiReceiptReviewView: View {
                         .font(.system(size: 13))
                         .foregroundStyle(Color(hex: "8E8E93"))
                         .fixedSize()
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(Color(hex: "C4BFB9"))
                 }
@@ -618,7 +618,7 @@ struct MultiReceiptReviewView: View {
         let blocked = overBy > 0
         return VStack(spacing: 0) {
             LinearGradient(colors: [.clear, Color(hex: "F0EDE6")], startPoint: .top, endPoint: .bottom)
-                .frame(height: 36).allowsHitTesting(false)
+                .frame(height: 20).allowsHitTesting(false)
 
             // Over the monthly free-scan limit: warn and say by how many, live.
             if blocked {
@@ -665,7 +665,9 @@ struct MultiReceiptReviewView: View {
             }
             .buttonStyle(.plain)
             .disabled(checkedCount == 0 || isSaving || blocked)
-            .padding(.bottom, 34)
+            // safeAreaInset already clears the home indicator, so a small gap here
+            // is enough — 34 double-counted it and floated the button.
+            .padding(.bottom, 8)
         }
         .background(Color(hex: "F0EDE6"))
     }
