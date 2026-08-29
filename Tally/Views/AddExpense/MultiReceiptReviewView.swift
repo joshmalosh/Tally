@@ -91,6 +91,8 @@ struct MultiReceiptReviewView: View {
     @State private var fullscreenImageDraft: ReceiptDraft? = nil
     // Per-row swipe reveal for the trailing Delete affordance (id → x offset).
     @State private var swipeOffset: [UUID: CGFloat] = [:]
+    // Brief dimmed "Combobulating expenses" state while a big list first renders.
+    @State private var preparing = false
     @FocusState private var focusedField: DraftField?
 
     /// Photo receipts — one draft per image, OCR runs, attachments saved, scans charged.
@@ -138,7 +140,9 @@ struct MultiReceiptReviewView: View {
             Color(hex: "F0EDE6").ignoresSafeArea()
 
             ScrollView {
-                VStack(spacing: 8) {
+                // Lazy so a large statement (60+ rows) only builds the visible
+                // cards, not all of them at once — that eager build was the lag.
+                LazyVStack(spacing: 8) {
                     foundBanner
                         .padding(.horizontal, 16)
                         .padding(.bottom, 4)
@@ -159,6 +163,29 @@ struct MultiReceiptReviewView: View {
         // the very bottom (behind the home indicator), not above the safe area.
         .ignoresSafeArea(.container, edges: .bottom)
         .overlay(alignment: .bottom) { bottomBar }
+        // Brief dimmed loading state while a big list settles.
+        .overlay {
+            if preparing {
+                ZStack {
+                    Color(hex: "F0EDE6").opacity(0.6).ignoresSafeArea()
+                    VStack(spacing: 14) {
+                        ProgressView().tint(Color(hex: "2F402E")).scaleEffect(1.2)
+                        Text("Combobulating expenses")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundStyle(Color(hex: "2F402E"))
+                    }
+                }
+                .transition(.opacity)
+            }
+        }
+        .onAppear {
+            // Only for large lists, where the first render actually lags.
+            guard drafts.count > 12 else { return }
+            preparing = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                withAnimation(.easeOut(duration: 0.25)) { preparing = false }
+            }
+        }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()

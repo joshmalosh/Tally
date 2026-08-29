@@ -829,6 +829,11 @@ non-trivial background `.allowsHitTesting(false)`.
 
 ## Current state — what's shipped (newest first)
 
+- **Statement review open speed + loading state** (2026-08-27): the review list is
+  now a `LazyVStack`, so a 60+ row statement only builds the visible cards instead
+  of all of them (the open lag). Plus a brief dimmed "Combobulating expenses"
+  spinner overlay when a large list (>12 rows) first appears.
+
 - **File upload behaves like a photo; notes double-tap** (2026-08-27): a picked PDF
   was stored as a raw file, but every display path only renders images, so the file
   page used a separate "file card" and the saved expense showed no receipt when
