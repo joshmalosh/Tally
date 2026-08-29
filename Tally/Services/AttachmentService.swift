@@ -1,8 +1,37 @@
 import UIKit
 import ImageIO
+import PDFKit
 
 actor AttachmentService {
     static let shared = AttachmentService()
+
+    // MARK: - PDF → image
+
+    /// First page of a PDF rendered to a white-backed image at 2x. A file upload
+    /// is turned into a receipt image with this, so PDFs flow through the exact
+    /// same photo path everywhere (upload hero, list thumbnail, expense detail).
+    nonisolated static func firstPageImage(fromPDF data: Data) -> UIImage? {
+        guard let doc = PDFDocument(data: data), let page = doc.page(at: 0) else { return nil }
+        return render(page)
+    }
+
+    nonisolated static func firstPageImage(fromPDF url: URL) -> UIImage? {
+        guard let doc = PDFDocument(url: url), let page = doc.page(at: 0) else { return nil }
+        return render(page)
+    }
+
+    private nonisolated static func render(_ page: PDFPage) -> UIImage {
+        let rect = page.bounds(for: .mediaBox)
+        let scale: CGFloat = 2.0
+        let size = CGSize(width: rect.width * scale, height: rect.height * scale)
+        return UIGraphicsImageRenderer(size: size).image { ctx in
+            UIColor.white.set()
+            ctx.fill(CGRect(origin: .zero, size: size))
+            ctx.cgContext.translateBy(x: 0, y: size.height)
+            ctx.cgContext.scaleBy(x: scale, y: -scale)
+            page.draw(with: .mediaBox, to: ctx.cgContext)
+        }
+    }
 
     /// Decodes image data straight to a small, fully-rendered thumbnail via
     /// ImageIO. This does the expensive work (decode + downscale) up front off

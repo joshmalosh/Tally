@@ -324,9 +324,16 @@ struct AddExpenseView: View {
                 }
             }
             .onChange(of: attachedFileURL) { _, url in
-                // Run OCR when a PDF is attached (images are handled via attachedImage)
                 guard let url, attachedImage == nil, !isEditing else { return }
-                runOCROnPDF(url: url)
+                // Turn a picked PDF into a receipt image (first page) so a file
+                // upload behaves exactly like a photo: hero preview, saved thumbnail,
+                // and a viewable receipt in Expense Detail. Setting attachedImage
+                // runs OCR via its own onChange; clear the URL so only the image
+                // path is used (and no separate "file card" shows).
+                if let image = AttachmentService.firstPageImage(fromPDF: url) {
+                    attachedFileURL = nil
+                    attachedImage = image
+                }
             }
             .onChange(of: formReady) { _, ready in
                 guard ready, focusedField == nil, !hasAttachment else { return }
@@ -1614,6 +1621,10 @@ struct AddExpenseView: View {
                     attachedImage = img
                 } else if let data = expense.attachmentData, let img = UIImage(data: data) {
                     attachedImage = img
+                } else if let data = expense.attachmentData,
+                          let img = AttachmentService.firstPageImage(fromPDF: data) {
+                    // Legacy PDF upload — render page 1 as the receipt image.
+                    attachedImage = img
                 }
             }
             quickAddPrompt = ""   // No prompt in edit mode
@@ -1706,43 +1717,6 @@ struct AddExpenseView: View {
         Task {
             let result = await ReceiptOCRService.extract(from: image)
             await MainActor.run { applyOCRResult(result) }
-        }
-    }
-
-    private func runOCROnPDF(url: URL) {
-        guard appState.canUseOCR else { showingScanLimit = true; return }
-        guard let document = PDFDocument(url: url) else { return }
-        isRunningOCR = true
-        Task {
-            var merged = ReceiptOCRResult()
-            for i in 0..<min(document.pageCount, 3) {
-                guard let page = document.page(at: i) else { continue }
-                let image = renderPDFPage(page)
-                let result = await ReceiptOCRService.extract(from: image)
-                if merged.amount == nil   { merged.amount = result.amount }
-                if merged.merchant == nil { merged.merchant = result.merchant }
-                if merged.date == nil     { merged.date = result.date }
-                if merged.notes == nil    { merged.notes = result.notes }
-                if merged.currencyCode == nil { merged.currencyCode = result.currencyCode }
-            }
-            await MainActor.run { applyOCRResult(merged) }
-        }
-    }
-
-    private func renderPDFPage(_ page: PDFPage) -> UIImage {
-        let rect = page.bounds(for: .mediaBox)
-        let scale: CGFloat = 2.0
-        let size = CGSize(width: rect.width * scale, height: rect.height * scale)
-        let renderer = UIGraphicsImageRenderer(size: size)
-        return renderer.image { ctx in
-            UIColor.white.setFill()
-            ctx.fill(CGRect(origin: .zero, size: size))
-            let cgCtx = ctx.cgContext
-            cgCtx.scaleBy(x: scale, y: scale)
-            // PDF coordinates are bottom-up; flip to match UIKit's top-down
-            cgCtx.translateBy(x: 0, y: rect.height)
-            cgCtx.scaleBy(x: 1, y: -1)
-            page.draw(with: .mediaBox, to: cgCtx)
         }
     }
 

@@ -829,6 +829,17 @@ non-trivial background `.allowsHitTesting(false)`.
 
 ## Current state — what's shipped (newest first)
 
+- **File upload behaves like a photo; notes double-tap** (2026-08-27): a picked PDF
+  was stored as a raw file, but every display path only renders images, so the file
+  page used a separate "file card" and the saved expense showed no receipt when
+  opened. Now a PDF upload renders its first page to an image at pick time
+  (`AttachmentService.firstPageImage`, a shared helper replacing three copies of the
+  rasteriser), so it flows through the exact photo path everywhere (hero, list
+  thumbnail, Expense Detail) and OCR runs on it. A PDF→image fallback in the detail
+  and edit loaders fixes already-saved PDF expenses too. Also: the global
+  tap-to-dismiss-keyboard gesture now skips taps anywhere inside a text input (not
+  just its direct view), so double-tap-to-select works in multi-line fields.
+
 - **Statement review: select-all, date fix, bottom bar** (2026-08-27): a
   Select all / Deselect all control in the nav bar; the in-row "Delete expense"
   button removed (unticking is how you exclude a row — swipe-to-delete stays for

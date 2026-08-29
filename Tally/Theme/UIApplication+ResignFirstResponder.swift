@@ -35,8 +35,16 @@ final class KeyboardDismissGesture: NSObject, UIGestureRecognizerDelegate {
     func gestureRecognizer(_ g: UIGestureRecognizer,
                            shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
 
-    // Don't dismiss when the tap is on a text input — let it take focus instead.
+    // Don't dismiss when the tap is on a text input (or any subview of one) — let
+    // it take focus, and let the field's own double-tap-to-select work. Checking
+    // only `touch.view` missed multi-line fields, whose taps land on an inner
+    // subview of the UITextView, so the dismiss fired mid-double-tap.
     func gestureRecognizer(_ g: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-        !(touch.view is UITextField || touch.view is UITextView)
+        var view = touch.view
+        while let v = view {
+            if v is UITextField || v is UITextView { return false }
+            view = v.superview
+        }
+        return true
     }
 }

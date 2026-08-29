@@ -846,6 +846,12 @@ struct ExpenseDetailView: View {
             attachmentImage = image
             return
         }
+        // Legacy file uploads were stored as the raw PDF; render page 1 so they
+        // still show a receipt (new uploads are already images).
+        if let data = expense.attachmentData, let image = AttachmentService.firstPageImage(fromPDF: data) {
+            attachmentImage = image
+            return
+        }
         attachmentImage = nil
     }
 
