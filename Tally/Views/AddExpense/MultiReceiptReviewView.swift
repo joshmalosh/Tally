@@ -170,7 +170,7 @@ struct MultiReceiptReviewView: View {
                     Color(hex: "F0EDE6").opacity(0.6).ignoresSafeArea()
                     VStack(spacing: 14) {
                         ProgressView().tint(Color(hex: "2F402E")).scaleEffect(1.2)
-                        Text("Combobulating expenses")
+                        Text("Tallying everything up for you")
                             .font(.system(size: 15, weight: .medium))
                             .foregroundStyle(Color(hex: "2F402E"))
                     }
