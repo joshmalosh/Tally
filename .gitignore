@@ -49,3 +49,7 @@ next-env.d.ts
 
 # Nested Swift package (track contents, not as submodule)
 Tally/Repo/Tally/.git/
+
+# Not part of the app repo — Website is its own repo, assets are marketing art
+Website/
+assets/
