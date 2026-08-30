@@ -750,8 +750,7 @@ totals are single-currency, never mixed across currencies.
 - **Working dir** `E:\Projects\ASimpleLife` (Windows). Mirrors to
   **github.com/joshmalosh/Tally.git** via the `tally` remote. **Always push to
   `tally` `dev`.** Never `origin` (that's the website repo), never `main`/`master`
-  without explicit instruction. `TallyRepo/` inside the monorepo is a separate
-  clone — don't edit it. Josh's Mac clone names the remote `origin`, so on his
+  without explicit instruction. Josh's Mac clone names the remote `origin`, so on his
   machine the push is plain `git push`.
 - **No Swift/Xcode toolchain on Windows.** You cannot compile, run, or test. Josh
   pulls `dev` in Xcode, runs on a physical iPhone, and reports back with
