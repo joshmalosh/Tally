@@ -64,6 +64,9 @@ private enum DraftField: Hashable {
     case amount(UUID), merchant(UUID), notes(UUID)
 }
 
+/// Identifiable wrapper so a draft-dependent sheet can use `.sheet(item:)`.
+private struct DraftReference: Identifiable { let id: UUID }
+
 // MARK: - Review view
 
 struct MultiReceiptReviewView: View {
@@ -81,10 +84,11 @@ struct MultiReceiptReviewView: View {
     @State private var drafts: [ReceiptDraft]
     // Only one row open at a time — opening another closes the current one.
     @State private var expandedId: UUID? = nil
-    @State private var showingTagPicker = false
-    @State private var tagPickerDraftId: UUID? = nil
-    @State private var showingDatePicker = false
-    @State private var datePickerDraftId: UUID? = nil
+    // Tag/date sheets use .sheet(item:), not .sheet(isPresented:) — the latter with
+    // an `if let` on separate state presents an empty (white) sheet, because the id
+    // isn't committed yet when the sheet content is first evaluated.
+    @State private var tagPickerDraft: DraftReference? = nil
+    @State private var datePickerDraft: DraftReference? = nil
     @State private var isSaving = false
     @State private var showingAmountAlert = false
     @State private var showingScanLimit = false
@@ -204,17 +208,15 @@ struct MultiReceiptReviewView: View {
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $showingTagPicker) {
-            if let id = tagPickerDraftId,
-               let idx = drafts.firstIndex(where: { $0.id == id }) {
+        .sheet(item: $tagPickerDraft) { ref in
+            if let idx = drafts.firstIndex(where: { $0.id == ref.id }) {
                 SharedTagPickerSheet(selectedTagIds: $drafts[idx].selectedTagIds)
                     .presentationDetents([.large])
                     .presentationDragIndicator(.visible)
             }
         }
-        .sheet(isPresented: $showingDatePicker) {
-            if let id = datePickerDraftId,
-               let idx = drafts.firstIndex(where: { $0.id == id }) {
+        .sheet(item: $datePickerDraft) { ref in
+            if let idx = drafts.firstIndex(where: { $0.id == ref.id }) {
                 NavigationStack {
                     DatePicker("", selection: $drafts[idx].date, displayedComponents: .date)
                         .datePickerStyle(.graphical)
@@ -223,7 +225,7 @@ struct MultiReceiptReviewView: View {
                         .navigationBarTitleDisplayMode(.inline)
                         .toolbar {
                             ToolbarItem(placement: .confirmationAction) {
-                                Button("Done") { showingDatePicker = false }
+                                Button("Done") { datePickerDraft = nil }
                                     .foregroundStyle(Color(hex: "2F402E"))
                             }
                         }
@@ -492,8 +494,7 @@ struct MultiReceiptReviewView: View {
                     Spacer()
                     Button("Change") {
                         focusedField = nil
-                        datePickerDraftId = draftId
-                        showingDatePicker = true
+                        datePickerDraft = DraftReference(id: draftId)
                     }
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Color(hex: "346049"))
@@ -508,8 +509,7 @@ struct MultiReceiptReviewView: View {
                 if selectedTags.isEmpty {
                     Button {
                         focusedField = nil
-                        tagPickerDraftId = draftId
-                        showingTagPicker = true
+                        tagPickerDraft = DraftReference(id: draftId)
                     } label: {
                         HStack(spacing: 5) {
                             Image(systemName: "tag.fill").font(.system(size: 11))
@@ -528,8 +528,7 @@ struct MultiReceiptReviewView: View {
                             }
                             Button {
                                 focusedField = nil
-                                tagPickerDraftId = draftId
-                                showingTagPicker = true
+                                tagPickerDraft = DraftReference(id: draftId)
                             } label: {
                                 Text("Change")
                                     .font(.system(size: 12, weight: .medium))

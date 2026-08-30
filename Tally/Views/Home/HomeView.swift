@@ -827,8 +827,7 @@ struct HomeView: View {
                         Text(String(headerYear))
                             .font(Font.dmSerifDisplay(24))
                             .foregroundStyle(Color(hex: "1C1C1E"))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.leading, 20)
+                            .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.top, 22)
                             .padding(.bottom, 6)
                             .listRowInsets(EdgeInsets())
@@ -966,11 +965,14 @@ struct HomeView: View {
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             if !isSelecting {
                 // No confirmation on swipe — the gesture is deliberate enough.
+                // Full deep-red cell with just a white bin, matching the statement
+                // review; keeps the smooth native swipe motion.
                 Button(role: .destructive) {
                     deleteExpense(expense)
                 } label: {
-                    Label("Delete", systemImage: "trash")
+                    Image(systemName: "trash.fill")
                 }
+                .tint(Color(hex: "C0392B"))
             }
         }
     }
