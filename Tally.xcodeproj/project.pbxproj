@@ -413,13 +413,6 @@
 			path = Export;
 			sourceTree = "<group>";
 		};
-		E5F6A7B8C9D0E1F2A3B4C5D6 /* AddMultipleExpenses */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = AddMultipleExpenses;
-			sourceTree = "<group>";
-		};
 		ECEB24006E2846FD81D965AB /* Services */ = {
 			isa = PBXGroup;
 			children = (
@@ -443,7 +436,6 @@
 			isa = PBXGroup;
 			children = (
 				BB97ADDE5C9565DEEE0399BD /* AddExpense */,
-				E5F6A7B8C9D0E1F2A3B4C5D6 /* AddMultipleExpenses */,
 				F72DBBE693EB53936B083D2D /* ExpenseDetail */,
 				E4F69CD0974425FA739BD547 /* Export */,
 				DC39752DA1AA31D3495721DE /* Home */,
