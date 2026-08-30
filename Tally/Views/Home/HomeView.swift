@@ -299,8 +299,9 @@ struct HomeView: View {
         stops: [
             .init(color: Color(hex: "F0EDE6"), location: 0.0),
             .init(color: Color(hex: "E6ECE0"), location: 0.36),
-            .init(color: Color(hex: "C0D1BB"), location: 0.72),
-            .init(color: Color(hex: "9DB598"), location: 1.0)
+            // Bottom two stops lightened ~25% toward white so it doesn't go as dark.
+            .init(color: Color(hex: "D0DDCC"), location: 0.72),
+            .init(color: Color(hex: "B6C8B2"), location: 1.0)
         ],
         startPoint: .top,
         endPoint: .bottom
@@ -314,7 +315,7 @@ struct HomeView: View {
                 .background(
                     ZStack {
                         Color(hex: "F0EDE6")
-                        Self.riseGradient.opacity(0.65)   // dialed back further
+                        Self.riseGradient.opacity(0.58)   // slightly softer
                     }
                     .ignoresSafeArea()
                 )
@@ -837,8 +838,8 @@ struct HomeView: View {
 
                     Text(daySectionTitle(for: group.dayStart))
                         .font(.system(size: 12, weight: .regular))
-                        // Neutral grey to match the reference, not the green-tinted 8F9E94.
-                        .foregroundStyle(Color(hex: "8E8E93"))
+                        // Neutral grey, darkened ~30% from 8E8E93 for more contrast.
+                        .foregroundStyle(Color(hex: "636367"))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.leading, 20)
                         // Bigger gap above the date, small below, so it reads as the

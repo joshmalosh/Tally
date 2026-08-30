@@ -370,7 +370,7 @@ struct ExpenseCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Self.rowHorizontalPadding)
-        .padding(.vertical, 13)
+        .padding(.vertical, 10)
     }
 }
 
