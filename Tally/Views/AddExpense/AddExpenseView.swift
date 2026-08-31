@@ -164,7 +164,13 @@ struct AddExpenseView: View {
     }
 
     private var canSave: Bool {
-        parsedAmountCents != nil && !isSaving
+        guard parsedAmountCents != nil, !isSaving else { return false }
+        // A typed-in quick expense must name a vendor. Receipt/upload flows keep
+        // the image as the record, so they aren't blocked when OCR finds no merchant.
+        if !hasAttachment && merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return false
+        }
+        return true
     }
 
     private var hasAttachment: Bool {
@@ -364,6 +370,10 @@ struct AddExpenseView: View {
                 // Moving to a field below Date (the note) retires the merchant
                 // alternates affordance.
                 if field == .notes { dismissMerchantAlternates() }
+                // Once focus leaves the amount field, disarm the auto-focus latch.
+                // Otherwise it re-grabs focus on the next view rebuild and snaps
+                // the keypad back to amount every time you deselect a field.
+                if field != .amount { amountFocusRequested = false }
             }
             .onChange(of: showingTagPicker) { _, isShowing in
                 // Picker dismissed with a user selection — clear the auto-apply flag
