@@ -1072,3 +1072,63 @@ The `ocr-regression` skill drives this workflow.
 4. Add a corpus row here **and** in the skill file.
 5. Fix generally; note the class in a code comment. Re-check the corpus by hand.
    Never call it verified until Josh confirms a green run.
+
+## Smoke-test flows (manual QA on device)
+
+Repeatable flows Josh runs on the iPhone after pulling `dev`, then relays pass/fail
+by number. Kept current here as features change. Each flow is steps → **expected**.
+The **Core** set is the after-every-change smoke test; the rest run when their area
+was touched.
+
+### Core (run after every change)
+
+1. **Quick add** — FAB → Quick add. Type an amount, leave vendor blank →
+   **Save is disabled.** Add a vendor → **Save enables.** Tap into notes, then tap
+   away → **focus stays put; the keypad does not jump back to amount.** Save →
+   **expense appears at the top of the home list with the right amount and vendor.**
+2. **Edit an expense** — tap an expense → change amount, vendor, date → Save →
+   **the row reflects every change; totals update.**
+3. **Delete (swipe)** — swipe a home row left → **deep-red cell, white bin only** →
+   release → **row deletes, shred animation plays, totals update.**
+4. **Home layout** — scroll the list → **hero collapses smoothly; date headers are
+   the darker grey; a year boundary shows a centred year; spacing looks even.**
+5. **Filter** — tap a pinned tag in the home bar, then a period → **list and hero
+   total scope to that tag/period; currency symbol and grouping are correct.**
+
+### Capture
+
+6. **Snap a receipt** — FAB → Snap a receipt → photograph one → **OCR fills amount,
+   vendor, date; wrong guesses fixable; Save writes it with the receipt viewable in
+   detail.** (Report a wrong scan with photo + screenshot → OCR corpus.)
+7. **Photo library (multi)** — FAB → From library → pick 2–3 → **review list builds
+   quickly; each row editable; tick/untick; swipe-to-delete; Save adds only ticked.**
+8. **Upload a file** — FAB → Upload file → pick a PDF → **it becomes a receipt image
+   (page 1); Save writes an expense whose detail shows that image, not a file card.**
+
+### Statement import (Pro)
+
+9. **Gate** — Force Pro OFF, FAB → Import from statement → **gold crown; tapping
+   shows the Pro upsell, does not open the flow.**
+10. **Import** — Force Pro ON → pick a text-layer bank PDF → **"Tallying everything
+    up for you" loader on a big list, then debit rows only (credits excluded), each
+    with its own date.** Add a tag to a row → **the tag picker opens (not a blank
+    white sheet).** Swipe-delete a row; Save → **expenses created with the green PDF
+    tile on the home list and no stored PDF.**
+
+### Tags, currency, export, Pro
+
+11. **Tagging** — on any expense, Add tag → pick one; Change → pick another;
+    Add tag / Add folder → create one → **selection applies and persists.**
+12. **Currency** — Settings → change default currency → **home hero and lists show
+    the new symbol and grouping; no mixed-currency totals.**
+13. **Export** — filtered export (CSV) from a scoped list → **file contains only the
+    scoped rows.** Global export (Pro, PDF) → **PDF generates; gated for free users.**
+14. **Pro paywall** — open the paywall → **lists the built features incl. PDF export
+    and Import from statement; Force Pro toggle flips entitlement in debug.**
+
+### First run & sync
+
+15. **Onboarding** — fresh install → **onboarding + currency setup complete cleanly
+    into an empty home.**
+16. **Sync** — add an expense on one device → **it appears on a second signed-in
+    device (CloudKit) within a short delay.**
