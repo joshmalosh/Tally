@@ -162,7 +162,7 @@ enum ReceiptOCRService {
     // Per CLAUDE.md's "no OCR left behind" rule, a change to shared parsing must be
     // weighed against the receipt path too.
 
-    static func invoiceResult(from blocks: [TextBlock]) -> ReceiptOCRResult {
+    private static func invoiceResult(from blocks: [TextBlock]) -> ReceiptOCRResult {
         ReceiptOCRResult(
             amount: invoiceAmount(from: blocks) ?? extractAmount(from: blocks),
             merchant: invoiceMerchant(from: blocks),
