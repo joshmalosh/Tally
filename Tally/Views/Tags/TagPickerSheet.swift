@@ -43,12 +43,21 @@ struct SharedTagPickerSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("Select tag")
-                        .font(.dmSerifDisplay(28))
-                        .foregroundStyle(Color(hex: "1C1C1E"))
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .padding(.bottom, 12)
+                    // Eyebrow + serif title, matching the Tags & Groups screen so
+                    // the picker reads as part of the same platform.
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("TAG THIS EXPENSE")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color(hex: "4A5E50"))
+                            .tracking(1.2)
+                        Text("Select tag")
+                            .font(.dmSerifDisplay(30))
+                            .foregroundStyle(Color(hex: "1C1C1E"))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                    .padding(.bottom, 12)
 
                     // Add tag / Add folder — same style as the Tags tab
                     HStack(spacing: 10) {
@@ -158,11 +167,9 @@ struct SharedTagPickerSheet: View {
             isSelected: selectedId == tag.id,
             checkmarkFont: .system(size: 15, weight: .semibold),
             horizontalPadding: 16,
-            verticalPadding: 16,
+            verticalPadding: 12,
             leading: {
-                Circle()
-                    .fill(tag.tagColor.primaryColor)
-                    .frame(width: 12, height: 12)
+                TagIconBadge(tag: tag)
             }
         ) {
             select(tag.id)
@@ -176,11 +183,9 @@ struct SharedTagPickerSheet: View {
             isSelected: selectedId == group.id,
             checkmarkFont: .system(size: 15, weight: .semibold),
             horizontalPadding: 16,
-            verticalPadding: 16,
+            verticalPadding: 12,
             leading: {
-                Image(systemName: "folder.fill")
-                    .font(.system(size: 14))
-                    .foregroundStyle(group.tagColor.primaryColor)
+                TagIconBadge(tag: group)
             }
         ) {
             select(group.id)
@@ -195,11 +200,9 @@ struct SharedTagPickerSheet: View {
             isSelected: selectedId == child.id,
             checkmarkFont: .system(size: 14, weight: .semibold),
             horizontalPadding: 16,
-            verticalPadding: 13,
+            verticalPadding: 10,
             leading: {
-                Circle()
-                    .fill(child.tagColor.primaryColor)
-                    .frame(width: 10, height: 10)
+                TagIconBadge(tag: child, size: 28)
                     .padding(.leading, 24)
             }
         ) {

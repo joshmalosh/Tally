@@ -304,6 +304,7 @@ struct MultiReceiptReviewView: View {
     private func accordionCard(idx: Int) -> some View {
         let d = drafts[idx]
         let isExpanded = expandedId == d.id
+        let rowTags = d.selectedTagIds.compactMap { tid in tags.first { $0.id == tid } }
 
         return ZStack(alignment: .trailing) {
             // Red Delete only exists while the row is actually swiped, so it can't
@@ -351,6 +352,32 @@ struct MultiReceiptReviewView: View {
                                 .font(.system(size: 13))
                                 .foregroundStyle(Color(hex: "8F9E94"))
                                 .lineLimit(1)
+                        }
+                        // Tag chip so tagged vs untagged reads at a glance — same
+                        // capsule as the home list (dot + name in the tag colour).
+                        if let first = rowTags.first {
+                            HStack(spacing: 6) {
+                                HStack(spacing: 4) {
+                                    Circle()
+                                        .fill(first.tagColor.primaryColor)
+                                        .frame(width: 6, height: 6)
+                                    Text(first.name)
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundStyle(first.tagColor.primaryColor.opacity(0.85))
+                                        .lineLimit(1)
+                                }
+                                .padding(.horizontal, 7)
+                                .padding(.vertical, 2)
+                                .background(first.tagColor.primaryColor.opacity(0.1))
+                                .clipShape(Capsule())
+
+                                if rowTags.count > 1 {
+                                    Text("+\(rowTags.count - 1)")
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundStyle(Color(hex: "8E8E93"))
+                                }
+                            }
+                            .padding(.top, 1)
                         }
                     }
                 }

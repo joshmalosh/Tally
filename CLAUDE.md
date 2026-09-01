@@ -203,6 +203,11 @@ him: App Store text, release notes, the website, marketing.
   build one parameterised view both use, so a design change to one updates both.
   Josh has been burned by old pages quietly drifting out of sync with the page they
   mirror; a data-driven config (image vs tile, charge vs not) is the fix, not a copy.
+- **No OCR left behind.** Tally has two scanners: the receipt OCR and the invoice
+  (document) OCR. Whenever you revise one, check whether the same change should
+  apply to the other, so a fix or heuristic never lands in one and rots in the
+  other. Shared logic (block/line geometry, amount/date parsing) lives in one
+  place; only the genuinely mode-specific heuristics diverge.
 
 ---
 

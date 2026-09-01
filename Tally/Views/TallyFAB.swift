@@ -37,7 +37,8 @@ struct TallyFAB: View {
                     .frame(width: diameter, height: diameter)
 
                 Image(systemName: "plus")
-                    .font(.system(size: diameter * 0.34, weight: .medium))
+                    // Glyph only, 20% larger than the prior 0.34 ratio; button size unchanged.
+                    .font(.system(size: diameter * 0.408, weight: .medium))
                     .foregroundStyle(.white)
             }
         }
