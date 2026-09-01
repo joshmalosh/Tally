@@ -116,6 +116,22 @@ struct SettingsView: View {
                                 .foregroundStyle(Color.textMuted)
                         }
                     }
+
+                    NavigationLink {
+                        RecentlyDeletedView()
+                    } label: {
+                        HStack {
+                            Image(systemName: "trash")
+                                .font(.system(size: 20))
+                                .foregroundStyle(Color.brandPrimary)
+                            Text("Recently deleted")
+                                .foregroundStyle(Color.textPrimary)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color.textMuted)
+                        }
+                    }
                 }
 
                 Section("iCloud") {

@@ -809,11 +809,13 @@ struct MultiReceiptReviewView: View {
 
         isSaving = true
         Task {
+            var savedIds: [String] = []
             for draft in checked {
                 let t = draft.amountText.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard let val = Double(t), val > 0 else { continue }
                 let cents     = usesDecimals ? Int(round(val * 100)) : Int(round(val))
                 let expenseId = UUID().uuidString
+                savedIds.append(expenseId)
                 var savedKey: String? = nil
                 var rawData:  Data?   = nil
                 // Statements never store the source file, so their config turns
@@ -862,6 +864,13 @@ struct MultiReceiptReviewView: View {
                 }
                 appState.totalExpenseCount += checked.count
                 appState.clearFilters()
+                if !savedIds.isEmpty {
+                    appState.pendingUndo = AppState.UndoAction(
+                        kind: .added,
+                        expenseIds: savedIds,
+                        label: "Added \(savedIds.count) expense\(savedIds.count == 1 ? "" : "s")"
+                    )
+                }
                 isSaving = false
                 onDone()
             }

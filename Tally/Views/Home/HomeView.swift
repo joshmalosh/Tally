@@ -350,7 +350,21 @@ struct HomeView: View {
                 .ignoresSafeArea(edges: .bottom)
                 .zIndex(60)
             }
+
+            // Transient Undo toast for the last add/delete, above the tab bar.
+            if selectedTab == .home, let undo = appState.pendingUndo {
+                UndoToast(label: undo.label) {
+                    performUndo(undo)
+                } onExpire: {
+                    if appState.pendingUndo?.id == undo.id { appState.pendingUndo = nil }
+                }
+                .id(undo.id)
+                .padding(.bottom, 100)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(59)
+            }
         }
+        .animation(.spring(response: 0.4, dampingFraction: 0.9), value: appState.pendingUndo)
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             withAnimation(.easeInOut(duration: 0.2)) { isKeyboardVisible = true }
         }
@@ -977,14 +991,30 @@ struct HomeView: View {
         }
     }
 
+    /// Reverse the last add (soft-delete the ids) or delete (clear deletedAt).
+    /// Expenses are fetched by id because a restore target isn't in `activeExpenses`.
+    private func performUndo(_ action: AppState.UndoAction) {
+        let ids = action.expenseIds
+        let descriptor = FetchDescriptor<ExpenseModel>(predicate: #Predicate { ids.contains($0.id) })
+        let matches = (try? modelContext.fetch(descriptor)) ?? []
+        for e in matches {
+            e.deletedAt = (action.kind == .added) ? Date() : nil
+            e.updatedAt = Date()
+        }
+        try? modelContext.save()
+        appState.pendingUndo = nil
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
     private func deleteExpense(_ expense: ExpenseModel) {
         expense.deletedAt = Date()
         expense.updatedAt = Date()
-        if let key = expense.attachmentKey {
-            Task { await AttachmentService.shared.deleteAttachment(key: key) }
-        }
+        // Keep the attachment: a soft-deleted expense sits in Recently Deleted and
+        // can be restored with its receipt. The file is freed only on a permanent
+        // delete from the bin.
         do {
             try modelContext.save()
+            appState.pendingUndo = AppState.UndoAction(kind: .deleted, expenseIds: [expense.id], label: "Expense deleted")
             NotificationCenter.default.post(name: .expenseDeleted, object: nil)
         } catch {
             Log.data.error("deleting expense failed: \(error.localizedDescription, privacy: .public)")
@@ -1114,15 +1144,21 @@ struct HomeView: View {
 
     private func deleteSelectedExpenses() {
         let toDelete = filteredExpenses.filter { selectedExpenseIds.contains($0.id) }
+        // Attachments are kept until a permanent delete from Recently Deleted.
         for expense in toDelete {
             expense.deletedAt = Date()
             expense.updatedAt = Date()
-            if let key = expense.attachmentKey {
-                Task { await AttachmentService.shared.deleteAttachment(key: key) }
-            }
         }
+        let ids = toDelete.map(\.id)
         do {
             try modelContext.save()
+            if !ids.isEmpty {
+                appState.pendingUndo = AppState.UndoAction(
+                    kind: .deleted,
+                    expenseIds: ids,
+                    label: "Deleted \(ids.count) expense\(ids.count == 1 ? "" : "s")"
+                )
+            }
         } catch {
             Log.data.error("deleting expenses failed: \(error.localizedDescription, privacy: .public)")
         }
@@ -1260,6 +1296,43 @@ private enum HomeExpenseIconResolver {
 private struct ExportWithSelectionItem: Identifiable {
     let id = UUID()
     let expenses: [ExpenseModel]
+}
+
+// MARK: - Undo toast
+
+/// Bottom snackbar with an Undo action; self-dismisses after 5s via `.task`.
+private struct UndoToast: View {
+    let label: String
+    let onUndo: () -> Void
+    let onExpire: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(label)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            Button(action: onUndo) {
+                Text("Undo")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color(hex: "B8D9C0"))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 13)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color(hex: "2F402E"))
+        )
+        .shadow(color: .black.opacity(0.22), radius: 12, x: 0, y: 4)
+        .padding(.horizontal, 16)
+        .task {
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            onExpire()
+        }
+    }
 }
 
 // MARK: - Landing animation wrapper for newly logged expenses

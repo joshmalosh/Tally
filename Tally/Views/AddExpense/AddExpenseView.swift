@@ -2089,6 +2089,10 @@ struct AddExpenseView: View {
                         Log.data.error("save expense failed: \(error.localizedDescription, privacy: .public)")
                     }
                     appState.clearFilters()
+                    // Offer an Undo for a standalone add (not the embedded batch flow).
+                    if onSaved == nil {
+                        appState.pendingUndo = AppState.UndoAction(kind: .added, expenseIds: [expenseId], label: "Expense added")
+                    }
 
                     // Skip the pro upsell mid-batch — it would be jarring 3 times in a row
                     if !appState.isPro && onSaved == nil {

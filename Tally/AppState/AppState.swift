@@ -49,6 +49,22 @@ final class AppState {
     var hasTagFilters: Bool { !activeFilterIds.isEmpty }
     var hasAnyFilter: Bool { !activeFilterIds.isEmpty || filterRecurringOnly || filterCurrency != nil }
 
+    // MARK: - Undo (transient toast)
+    //
+    // The most recent reversible action, powering the bottom "Undo" toast on the
+    // home screen. `added` reverses by soft-deleting those ids; `deleted` by
+    // clearing their `deletedAt`. HomeView performs the toggle (it owns the
+    // modelContext); this only carries the intent. Soft-deleted expenses live on
+    // in the Recently Deleted bin, so an undo is always possible.
+    enum UndoKind { case added, deleted }
+    struct UndoAction: Identifiable, Equatable {
+        let id = UUID()
+        let kind: UndoKind
+        let expenseIds: [String]
+        let label: String
+    }
+    var pendingUndo: UndoAction? = nil
+
     func clearFilters() {
         activeFilterIds.removeAll()
         groupFilterIds.removeAll()

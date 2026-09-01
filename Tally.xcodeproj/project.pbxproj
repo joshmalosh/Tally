@@ -78,6 +78,7 @@
 		FEEDRC050000000000000001 /* RevenueCatConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEEDRC040000000000000001 /* RevenueCatConfig.swift */; };
 		FEEDRC070000000000000001 /* RevenueCatUI in Frameworks */ = {isa = PBXBuildFile; productRef = FEEDRC080000000000000001 /* RevenueCatUI */; };
 		FF6C3E328548A7270D83C745 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0438430608549D75B2F651AE /* SettingsView.swift */; };
+		AAB1C2D3E4F5A6B7C8D90001 /* RecentlyDeletedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB1C2D3E4F5A6B7C8D90002 /* RecentlyDeletedView.swift */; };
 		TAGICNPKR0000000BILD0001 /* TagIconPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = TAGICNPKR0000000FILE0001 /* TagIconPicker.swift */; };
 /* End PBXBuildFile section */
 
@@ -114,6 +115,7 @@
 
 /* Begin PBXFileReference section */
 		0438430608549D75B2F651AE /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		AAB1C2D3E4F5A6B7C8D90002 /* RecentlyDeletedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentlyDeletedView.swift; sourceTree = "<group>"; };
 		0A5005165D2B9CF521F2AE1C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		0E91360750E6493DD7621468 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		10266D569ECBE8A79CC58494 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
@@ -331,6 +333,7 @@
 				AE37FAFCDDCB5A001586FDB2 /* AuthView.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F3 /* GroupDetailView.swift */,
 				0438430608549D75B2F651AE /* SettingsView.swift */,
+				AAB1C2D3E4F5A6B7C8D90002 /* RecentlyDeletedView.swift */,
 				BF2E9A9CCBD037A89B382C47 /* SubscriptionView.swift */,
 			);
 			path = Settings;
@@ -673,6 +676,7 @@
 				29BB7E25372852B4C86200FB /* OnboardingView.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* GroupDetailView.swift in Sources */,
 				FF6C3E328548A7270D83C745 /* SettingsView.swift in Sources */,
+				AAB1C2D3E4F5A6B7C8D90001 /* RecentlyDeletedView.swift in Sources */,
 				7F8B2FFD0AD8A575BDCB2CBC /* SubscriptionView.swift in Sources */,
 				B3C4D5E6F7A8B9C0D1E2F3A4 /* ReceiptOCRService.swift in Sources */,
 				F1A2B3C4D5E6F7A8B9C0D1E2 /* ExpenseSoundService.swift in Sources */,
