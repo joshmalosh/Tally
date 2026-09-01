@@ -828,6 +828,16 @@ non-trivial background `.allowsHitTesting(false)`.
 
 ## Current state — what's shipped (newest first)
 
+- **Expense-detail stability + edit autocomplete** (2026-09-02): the single-expense
+  screen froze/lagged and could blank its receipt. Cause: `loadAttachment` re-fired
+  on every CloudKit `updatedAt` bump and rendered the PDF page **synchronously on
+  the main thread** (the `PDF … [-59]` log spam), and `syncFromExpense` overwrote
+  fields the user was mid-editing on the same bump. Fixes: attachment decode/render
+  moved off the main thread and made PDF-aware (no failed `UIImage(data:)` on a PDF
+  key), a transient miss no longer blanks a shown receipt, and `syncFromExpense` is
+  skipped while there are unsaved edits. Also added the past-merchant autocomplete
+  chips to the edit screen (parity with Add expense).
+
 - **Undo (toast + Recently Deleted bin)** (2026-09-01): a transient bottom "Undo"
   toast after any add (quick-add or statement/photo batch) or delete, reversing by
   toggling `deletedAt` on the recorded ids (`AppState.pendingUndo`, HomeView
