@@ -382,20 +382,25 @@ struct AddExpenseView: View {
                 // Picker dismissed with a user selection — clear the auto-apply flag
                 if !isShowing { tagAutoAppliedByHistory = false }
             }
-            .onAppear {
-                applyInitialState()
-                loadExpenses()
-                if !receiptImageAttached, !notes.isEmpty {
-                    notesExpanded = true
-                }
-                guard !isEditing, !hasAttachment else { return }
-                amountFocusRequested = false
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    let focusIsClear = focusedField == nil
-                    guard !hasAttachment, focusIsClear else { return }
-                    amountFocusRequested = true
-                }
-            }
+            .onAppear { handleAddExpenseAppear() }
+    }
+
+    /// Extracted from the `.onAppear` closure: this navigation root is a very
+    /// large `some View`, and inlining the focus logic pushed it past the Swift
+    /// type-checker's limit. A standalone method is type-checked on its own.
+    private func handleAddExpenseAppear() {
+        applyInitialState()
+        loadExpenses()
+        if !receiptImageAttached, !notes.isEmpty {
+            notesExpanded = true
+        }
+        guard !isEditing, !hasAttachment else { return }
+        amountFocusRequested = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            let focusIsClear = focusedField == nil
+            guard !hasAttachment, focusIsClear else { return }
+            amountFocusRequested = true
+        }
     }
 
     private var addExpenseFormWithSheets: some View {
