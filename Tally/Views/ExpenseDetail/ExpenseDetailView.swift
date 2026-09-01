@@ -246,7 +246,12 @@ struct ExpenseDetailView: View {
                     }
                 }
                 .onAppear { syncFromExpense(expense) }
-                .onChange(of: expense.updatedAt) { _, _ in syncFromExpense(expense) }
+                .onChange(of: expense.updatedAt) { _, _ in
+                    // A remote (CloudKit) update must not clobber fields the user
+                    // is mid-editing — that's what made the screen feel unreliable.
+                    guard !hasUnsavedChanges(expense) else { return }
+                    syncFromExpense(expense)
+                }
                 .onChange(of: merchant)     { _, _ in updateTagSuggestion() }
                 .onChange(of: notes)        { _, _ in updateTagSuggestion() }
                 .onChange(of: selectedTagIds) { _, newVal in
@@ -837,22 +842,39 @@ struct ExpenseDetailView: View {
     }
 
     private func loadAttachment(_ expense: ExpenseModel) {
-        if let key = expense.attachmentKey,
-           let image = AttachmentService.shared.loadImage(key: key) {
-            attachmentImage = image
-            return
+        let key = expense.attachmentKey
+        let data = expense.attachmentData
+        Task {
+            // Decode/render off the main thread. A PDF page render is expensive,
+            // and this re-fires on every updatedAt bump (CloudKit sync) — doing it
+            // synchronously on the main thread was freezing the detail screen.
+            let image = await Task.detached(priority: .userInitiated) {
+                Self.resolveAttachmentImage(key: key, data: data)
+            }.value
+            // Don't blank an already-shown receipt on a transient miss (e.g. a
+            // mid-write reload); only clear when there's genuinely no attachment.
+            if image != nil || (key == nil && data == nil) {
+                attachmentImage = image
+            }
         }
-        if let data = expense.attachmentData, let image = UIImage(data: data) {
-            attachmentImage = image
-            return
+    }
+
+    /// Resolve an attachment to a display image. PDF-aware so a raw-PDF key isn't
+    /// fed to `UIImage(data:)` (which fails noisily) before falling back.
+    private static func resolveAttachmentImage(key: String?, data: Data?) -> UIImage? {
+        if let key {
+            if key.lowercased().hasSuffix(".pdf") {
+                if let d = AttachmentService.shared.loadImageData(key: key),
+                   let img = AttachmentService.firstPageImage(fromPDF: d) { return img }
+            } else if let img = AttachmentService.shared.loadImage(key: key) {
+                return img
+            }
         }
-        // Legacy file uploads were stored as the raw PDF; render page 1 so they
-        // still show a receipt (new uploads are already images).
-        if let data = expense.attachmentData, let image = AttachmentService.firstPageImage(fromPDF: data) {
-            attachmentImage = image
-            return
+        if let data {
+            if let img = UIImage(data: data) { return img }
+            if let img = AttachmentService.firstPageImage(fromPDF: data) { return img }
         }
-        attachmentImage = nil
+        return nil
     }
 
     private func updateTagSuggestion() {

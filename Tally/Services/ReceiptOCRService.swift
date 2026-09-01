@@ -163,7 +163,7 @@ enum ReceiptOCRService {
     // weighed against the receipt path too.
 
     private static func invoiceResult(from blocks: [TextBlock]) -> ReceiptOCRResult {
-        ReceiptOCRResult(
+        let result = ReceiptOCRResult(
             amount: invoiceAmount(from: blocks) ?? extractAmount(from: blocks),
             merchant: invoiceMerchant(from: blocks),
             date: extractDate(from: blocks),
@@ -171,6 +171,10 @@ enum ReceiptOCRService {
             currencyCode: detectCurrency(in: blocks),
             merchantAlternates: []
         )
+        #if DEBUG
+        Log.ocr.debug("invoice result amount=\(String(describing: result.amount), privacy: .private) merchant=\(String(describing: result.merchant), privacy: .private)")
+        #endif
+        return result
     }
 
     /// Prefer a labelled invoice total ("Grand Total", "Amount Due"…) over line
