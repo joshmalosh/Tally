@@ -825,11 +825,11 @@ struct HomeView: View {
                 Group {
                     if let headerYear = group.yearHeader {
                         Text(String(headerYear))
-                            .font(Font.dmSerifDisplay(24))
+                            .font(Font.dmSerifDisplay(31))
                             .foregroundStyle(Color(hex: "1C1C1E"))
                             .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.top, 22)
-                            .padding(.bottom, 6)
+                            .padding(.top, 10)
+                            .padding(.bottom, 2)
                             .listRowInsets(EdgeInsets())
                             .listRowSeparator(.hidden)
                             .listRowBackground(Color.clear)

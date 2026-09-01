@@ -156,7 +156,10 @@ struct MultiReceiptReviewView: View {
                     }
                 }
                 .padding(.top, 10)
-                .padding(.bottom, 100) // clear the pinned bottom bar
+                // Clear the pinned bottom bar (~94pt) plus the home-indicator safe
+                // area, with headroom so a rubber-band bounce can't tuck the last
+                // row under the opaque mask.
+                .padding(.bottom, 150)
             }
             .scrollDismissesKeyboard(.interactively)
             .padding(.top, 52)
@@ -426,7 +429,8 @@ struct MultiReceiptReviewView: View {
                 swipeOffset[id] = max(-76, min(0, value.translation.width))
             }
             .onEnded { value in
-                withAnimation(.easeOut(duration: 0.2)) {
+                // Gentler spring so snapping open/closed feels smooth, not abrupt.
+                withAnimation(.spring(response: 0.34, dampingFraction: 0.86)) {
                     swipeOffset[id] = (value.translation.width < -40) ? -76 : 0
                 }
             }
@@ -472,7 +476,9 @@ struct MultiReceiptReviewView: View {
             // Merchant
             fieldRow(label: "Merchant") {
                 VStack(alignment: .leading, spacing: 0) {
-                    TextField("Where did you pay?", text: $drafts[idx].merchant)
+                    // Wrap long vendor names when expanded rather than truncating,
+                    // so the full merchant is visible while editing.
+                    TextField("Where did you pay?", text: $drafts[idx].merchant, axis: .vertical)
                         .font(.system(size: 15))
                         .textInputAutocapitalization(.words)
                         .focused($focusedField, equals: .merchant(draftId))

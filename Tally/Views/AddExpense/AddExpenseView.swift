@@ -344,7 +344,9 @@ struct AddExpenseView: View {
             .onChange(of: formReady) { _, ready in
                 guard ready, focusedField == nil, !hasAttachment else { return }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    guard attachedImage == nil, attachedFileURL == nil else { return }
+                    // Don't steal focus if the user has already tapped into a field
+                    // during the delay — that's the keypad snapping back to amount.
+                    guard attachedImage == nil, attachedFileURL == nil, focusedField == nil else { return }
                     amountFocusRequested = true
                 }
             }
@@ -388,7 +390,7 @@ struct AddExpenseView: View {
                 guard !isEditing, !hasAttachment else { return }
                 amountFocusRequested = false
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    guard !hasAttachment else { return }
+                    guard !hasAttachment, focusedField == nil else { return }
                     amountFocusRequested = true
                 }
             }

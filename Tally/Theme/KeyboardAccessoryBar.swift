@@ -102,21 +102,33 @@ struct NumericFieldWithDone: UIViewRepresentable {
                 : UIColor(red: 0x1C / 255, green: 0x1C / 255, blue: 0x1E / 255, alpha: 1)
         }
 
-        if focusRequested && !uiView.isFirstResponder && !context.coordinator.hasFocused {
-            context.coordinator.hasFocused = true
-            DispatchQueue.main.async {
-                guard !uiView.isFirstResponder else { return }
-                uiView.becomeFirstResponder()
+        context.coordinator.wantsFocus = focusRequested
+        if focusRequested {
+            if !uiView.isFirstResponder && !context.coordinator.hasFocused {
+                context.coordinator.hasFocused = true
+                DispatchQueue.main.async { [weak uiView] in
+                    guard let uiView, context.coordinator.wantsFocus, !uiView.isFirstResponder else { return }
+                    uiView.becomeFirstResponder()
+                }
             }
-        }
-        if !focusRequested {
+        } else {
             context.coordinator.hasFocused = false
+            // Symmetric resign: without this the numpad can't be dismissed by
+            // tapping away (the field isn't bound to @FocusState), so it lingers
+            // and reads as the keypad "coming back".
+            if uiView.isFirstResponder {
+                DispatchQueue.main.async { [weak uiView] in
+                    guard let uiView, !context.coordinator.wantsFocus, uiView.isFirstResponder else { return }
+                    uiView.resignFirstResponder()
+                }
+            }
         }
     }
 
     final class Coordinator: NSObject {
         @Binding var text: String
         var hasFocused: Bool = false
+        var wantsFocus: Bool = false
         var onBeginEditing: (() -> Void)?
         var onDone: (() -> Void)?
         weak var textField: UITextField?
