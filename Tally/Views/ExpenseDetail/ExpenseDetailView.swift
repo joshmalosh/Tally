@@ -527,27 +527,71 @@ struct ExpenseDetailView: View {
         .onTapGesture { focusedField = .amount }
     }
 
-    private var merchantDetailRow: some View {
-        HStack(spacing: 12) {
-            rowIcon("bag.fill")
-
-            Text("MERCHANT")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(Color(hex: "8F9E94"))
-                .tracking(0.8)
-
-            Spacer()
-
-            TextField("Add merchant", text: $merchant)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Color(hex: "1C1C1E"))
-                .multilineTextAlignment(.trailing)
-                .focused($focusedField, equals: .merchant)
-                .textInputAutocapitalization(.words)
-                .frame(maxWidth: 160)
+    /// Previously-used merchant names for the autocomplete chips, filtered by what
+    /// is typed — mirrors the Add-expense field so editing gets the same help.
+    private var merchantSuggestions: [String] {
+        let trimmed = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
+        var seen = Set<String>()
+        var names: [String] = []
+        for e in activeExpenses.sorted(by: { $0.updatedAt > $1.updatedAt }) {
+            guard let raw = e.merchant?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !raw.isEmpty, seen.insert(raw.lowercased()).inserted else { continue }
+            names.append(raw)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
+        if trimmed.isEmpty { return Array(names.prefix(6)) }
+        let q = trimmed.lowercased()
+        return names.filter { $0.lowercased().contains(q) && $0.lowercased() != q }.prefix(6).map { $0 }
+    }
+
+    private var merchantDetailRow: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                rowIcon("bag.fill")
+
+                Text("MERCHANT")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+                    .tracking(0.8)
+
+                Spacer()
+
+                TextField("Add merchant", text: $merchant)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+                    .multilineTextAlignment(.trailing)
+                    .focused($focusedField, equals: .merchant)
+                    .textInputAutocapitalization(.words)
+                    .frame(maxWidth: 160)
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+
+            // Autocomplete chips from past merchants, while the field is focused.
+            if focusedField == .merchant && !merchantSuggestions.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(merchantSuggestions, id: \.self) { name in
+                            Button {
+                                merchant = name
+                                focusedField = nil
+                            } label: {
+                                Text(name)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(Color(hex: "2F402E").opacity(0.7))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Color(hex: "F0EDE6"))
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                }
+                .padding(.bottom, 12)
+                .transition(.opacity)
+            }
+        }
     }
 
     private var dateDetailRow: some View {
