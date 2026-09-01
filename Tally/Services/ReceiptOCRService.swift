@@ -224,8 +224,8 @@ enum ReceiptOCRService {
             return true
         }
         // 1) Topmost company-hinted line anywhere on the page.
-        if let c = blocks.first(where: {
-            usable($0.text) && invoiceCompanyHints.contains(where: { h in $0.text.lowercased().contains(h) })
+        if let c = blocks.first(where: { block in
+            usable(block.text) && invoiceCompanyHints.contains(where: { block.text.lowercased().contains($0) })
         }) {
             return cleanInvoiceName(c.text)
         }
