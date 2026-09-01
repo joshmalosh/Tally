@@ -44,6 +44,8 @@ struct ExpenseDetailView: View {
 
     @State private var tallySuggestion: TagSuggestionEngine.Suggestion? = nil
     @State private var tallySuggestionDismissed = false
+    /// Past merchant names, built once on open for the autocomplete chips.
+    @State private var knownMerchants: [String] = []
 
     @FocusState private var focusedField: Field?
 
@@ -245,13 +247,14 @@ struct ExpenseDetailView: View {
                         FullImageView(image: image)
                     }
                 }
-                .onAppear { syncFromExpense(expense) }
-                .onChange(of: expense.updatedAt) { _, _ in
-                    // A remote (CloudKit) update must not clobber fields the user
-                    // is mid-editing — that's what made the screen feel unreliable.
-                    guard !hasUnsavedChanges(expense) else { return }
+                .onAppear {
                     syncFromExpense(expense)
+                    knownMerchants = buildKnownMerchants()
                 }
+                // Deliberately NO reaction to expense.updatedAt. While the user is
+                // in an expense we never let a background CloudKit sync reload or
+                // reorder their edits — the screen loads once and stays put. It
+                // dismisses on save, so the user's own change never needs re-syncing.
                 .onChange(of: merchant)     { _, _ in updateTagSuggestion() }
                 .onChange(of: notes)        { _, _ in updateTagSuggestion() }
                 .onChange(of: selectedTagIds) { _, newVal in
@@ -259,7 +262,7 @@ struct ExpenseDetailView: View {
                         withAnimation(.easeInOut(duration: 0.2)) { tallySuggestion = nil }
                     }
                 }
-                .task(id: expense.updatedAt) { loadAttachment(expense) }
+                .task { loadAttachment(expense) }   // once on open, not on every sync
                 .alert("Save your changes?", isPresented: $showingLeaveConfirmation) {
                     Button("Save changes") { Task { await saveEdits(expense: expense) } }
                     Button("Discard changes", role: .destructive) { dismiss() }
@@ -528,9 +531,16 @@ struct ExpenseDetailView: View {
     }
 
     /// Previously-used merchant names for the autocomplete chips, filtered by what
-    /// is typed — mirrors the Add-expense field so editing gets the same help.
+    /// is typed. Filters the cached `knownMerchants` (built once on open) so each
+    /// keystroke isn't re-sorting the whole expense list.
     private var merchantSuggestions: [String] {
         let trimmed = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return Array(knownMerchants.prefix(6)) }
+        let q = trimmed.lowercased()
+        return knownMerchants.filter { $0.lowercased().contains(q) && $0.lowercased() != q }.prefix(6).map { $0 }
+    }
+
+    private func buildKnownMerchants() -> [String] {
         var seen = Set<String>()
         var names: [String] = []
         for e in activeExpenses.sorted(by: { $0.updatedAt > $1.updatedAt }) {
@@ -538,9 +548,7 @@ struct ExpenseDetailView: View {
                   !raw.isEmpty, seen.insert(raw.lowercased()).inserted else { continue }
             names.append(raw)
         }
-        if trimmed.isEmpty { return Array(names.prefix(6)) }
-        let q = trimmed.lowercased()
-        return names.filter { $0.lowercased().contains(q) && $0.lowercased() != q }.prefix(6).map { $0 }
+        return names
     }
 
     private var merchantDetailRow: some View {
@@ -801,37 +809,61 @@ struct ExpenseDetailView: View {
 
     private var replaceReceiptSheet: some View {
         VStack(spacing: 0) {
+            RoundedRectangle(cornerRadius: 2.5)
+                .fill(Color(hex: "DEDAD2"))
+                .frame(width: 36, height: 5)
+                .padding(.top, 12)
+                .padding(.bottom, 20)
+
             Text("Replace receipt")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(Color(hex: "1C1C1E"))
-                .padding(.top, 22).padding(.bottom, 10)
-            replaceOption(icon: "camera.fill", title: "Camera") { pickReplace(.camera) }
-            Divider().padding(.leading, 58)
-            replaceOption(icon: "photo.fill", title: "Photos") { pickReplace(.photos) }
-            Divider().padding(.leading, 58)
-            replaceOption(icon: "doc.fill", title: "File") { pickReplace(.file) }
+                .padding(.bottom, 20)
+
+            VStack(spacing: 10) {
+                replaceOption(icon: "camera.fill", title: "Camera") { pickReplace(.camera) }
+                replaceOption(icon: "photo.fill", title: "Photos") { pickReplace(.photos) }
+                replaceOption(icon: "doc.fill", title: "File") { pickReplace(.file) }
+            }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 32)
+
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity)
         .background(Color(hex: "F0EDE6"))
-        .presentationDetents([.height(250)])
-        .presentationDragIndicator(.visible)
+        .presentationDetents([.height(320)])
+        .presentationDragIndicator(.hidden)
     }
 
+    // Card rows matching the Add-expense receipt-source sheet, for consistency.
     private func replaceOption(icon: String, title: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 14) {
-                Image(systemName: icon)
-                    .font(.system(size: 16))
-                    .foregroundStyle(Color(hex: "2F402E"))
-                    .frame(width: 26)
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(hex: "E8F0EA"))
+                        .frame(width: 40, height: 40)
+                    Image(systemName: icon)
+                        .font(.system(size: 18))
+                        .foregroundStyle(Color(hex: "2F402E"))
+                }
                 Text(title)
-                    .font(.system(size: 16))
+                    .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(Color(hex: "1C1C1E"))
                 Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color(hex: "C4BFB9"))
             }
-            .padding(.horizontal, 22).padding(.vertical, 16)
-            .contentShape(Rectangle())
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .stroke(Color(hex: "DEDAD2"), lineWidth: 1)
+            )
         }
         .buttonStyle(.plain)
     }
