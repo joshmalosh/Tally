@@ -111,7 +111,6 @@ enum StatementParser {
                   let numR = Range(m.range(at: 2), in: text) else { continue }
             let numStr = text[numR].replacingOccurrences(of: ",", with: "")
             guard let val = Double(numStr) else { continue }
-            let lead  = group(m, 1, in: text)
             let trail = group(m, 3, in: text).uppercased()
             let credit = (trail == "CR" || trail == "+")
             tokens.append(MoneyToken(range: full, cents: Int((val * 100).rounded()), isDebit: !credit))
