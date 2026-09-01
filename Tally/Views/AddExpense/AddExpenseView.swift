@@ -1726,8 +1726,11 @@ struct AddExpenseView: View {
     private func runOCR(on image: UIImage) {
         guard appState.canUseOCR else { showingScanLimit = true; return }
         isRunningOCR = true
+        // File/PDF uploads are usually invoices, not receipts, so they use the
+        // document scanner (letterhead vendor, labelled total, concise notes).
+        let mode: ReceiptOCRService.OCRMode = initialMode == .uploadFile ? .invoice : .receipt
         Task {
-            let result = await ReceiptOCRService.extract(from: image)
+            let result = await ReceiptOCRService.extract(from: image, mode: mode)
             await MainActor.run { applyOCRResult(result) }
         }
     }

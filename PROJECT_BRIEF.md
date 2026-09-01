@@ -828,6 +828,26 @@ non-trivial background `.allowsHitTesting(false)`.
 
 ## Current state — what's shipped (newest first)
 
+- **Undo (toast + Recently Deleted bin)** (2026-09-01): a transient bottom "Undo"
+  toast after any add (quick-add or statement/photo batch) or delete, reversing by
+  toggling `deletedAt` on the recorded ids (`AppState.pendingUndo`, HomeView
+  `performUndo`). Soft-delete now keeps the receipt attachment (freed only on a
+  permanent delete). New **Recently Deleted** screen (Settings → Recently deleted,
+  `RecentlyDeletedView`) restores or permanently removes soft-deleted expenses.
+
+- **Invoice OCR for file/PDF uploads** (2026-09-01): uploads (the `uploadFile`
+  path) now run a document scanner instead of the receipt one — camera/library
+  stay on receipts. Invoice mode prefers the letterhead vendor (rejecting the
+  customer's billing name), a labelled Grand Total / Amount Due over line prices,
+  and a concise order/invoice number instead of a line-item dump. Heuristic v1,
+  test-driven (`ReceiptOCRServiceTests.testInvoice_scorptec…`); shares the block
+  pipeline + `parseAmount`/`extractDate`/`detectCurrency` with the receipt path.
+  Standing rule added to CLAUDE.md: no OCR left behind (revise one, check the other).
+
+- **Review polish** (2026-09-01): tag chips on the review list (dot + name in the
+  tag colour, matching home); tag picker restyled to match the Tags & Groups screen
+  (eyebrow + serif header, shared `TagIconBadge`); FAB "+" glyph 20% larger.
+
 - **Statement review open speed + loading state** (2026-08-27): the review list is
   now a `LazyVStack`, so a 60+ row statement only builds the visible cards instead
   of all of them (the open lag). Plus a brief dimmed "Combobulating expenses"

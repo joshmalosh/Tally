@@ -75,9 +75,35 @@ enum ReceiptOCRService {
             merchantAlternates: Array(ranked.dropFirst().prefix(5))
         )
     }
+
+    /// Invoice-mode regression hook — same synthetic-line input as the receipt one.
+    static func extractInvoiceForTesting(_ lines: [(text: String, box: CGRect)]) -> ReceiptOCRResult {
+        let blocks = lines.map { TextBlock(text: $0.text, confidence: Float(1.0), boundingBox: $0.box) }
+        return invoiceResult(from: blocks)
+    }
     #endif
 
-    static func extract(from image: UIImage) async -> ReceiptOCRResult {
+    /// Which scanner to run. Receipts (camera/library photos) and invoices
+    /// (file/PDF uploads) share the block pipeline but differ on how merchant,
+    /// amount and notes are chosen — an invoice's biggest name is often the
+    /// customer, and its total is a labelled "Grand Total", not a line price.
+    enum OCRMode { case receipt, invoice }
+
+    static func extract(from image: UIImage, mode: OCRMode = .receipt) async -> ReceiptOCRResult {
+        let blocks = await recognizeBlocks(from: image)
+        guard !blocks.isEmpty else { return ReceiptOCRResult() }
+        #if DEBUG
+        dumpBlocks(blocks)
+        #endif
+        switch mode {
+        case .receipt: return receiptResult(from: blocks)
+        case .invoice: return invoiceResult(from: blocks)
+        }
+    }
+
+    /// Shared image → recognised text blocks (sorted top-to-bottom). Both scanners
+    /// build on this; only the field heuristics diverge.
+    private static func recognizeBlocks(from image: UIImage) async -> [TextBlock] {
         let cgImage: CGImage
         var orientation: CGImagePropertyOrientation = .up
         if let cg = image.cgImage {
@@ -85,20 +111,17 @@ enum ReceiptOCRService {
             orientation = cgOrientation(from: image.imageOrientation)
         } else if let ciImage = image.ciImage {
             let context = CIContext()
-            guard let cg = context.createCGImage(ciImage, from: ciImage.extent) else {
-                return ReceiptOCRResult()
-            }
+            guard let cg = context.createCGImage(ciImage, from: ciImage.extent) else { return [] }
             cgImage = cg
             orientation = cgOrientation(from: image.imageOrientation)
         } else if let data = image.pngData(), let reloaded = UIImage(data: data)?.cgImage {
             // pngData() bakes the orientation in, so the reload is already upright.
             cgImage = reloaded
         } else {
-            return ReceiptOCRResult()
+            return []
         }
-
         let observations = await recognizeText(in: cgImage, orientation: orientation)
-        let blocks = observations
+        return observations
             .sorted { $0.boundingBox.origin.y > $1.boundingBox.origin.y }
             .compactMap { obs -> TextBlock? in
                 guard let candidate = obs.topCandidates(1).first else { return nil }
@@ -108,11 +131,9 @@ enum ReceiptOCRService {
                     boundingBox: obs.boundingBox
                 )
             }
+    }
 
-        #if DEBUG
-        dumpBlocks(blocks)
-        #endif
-
+    private static func receiptResult(from blocks: [TextBlock]) -> ReceiptOCRResult {
         let amount = extractAmount(from: blocks)
         let ranked = rankedMerchants(from: blocks)
         let merchant = ranked.first
@@ -131,6 +152,113 @@ enum ReceiptOCRService {
             notes: notes, currencyCode: currencyCode,
             merchantAlternates: Array(ranked.dropFirst().prefix(5))
         )
+    }
+
+    // MARK: - Invoice mode
+    //
+    // Heuristic v1 for uploaded invoices/orders, test-driven like the receipt
+    // corpus. Reuses the shared block pipeline plus `parseAmount`, `extractDate`
+    // and `detectCurrency`; only merchant/amount/notes diverge from receipts.
+    // Per CLAUDE.md's "no OCR left behind" rule, a change to shared parsing must be
+    // weighed against the receipt path too.
+
+    static func invoiceResult(from blocks: [TextBlock]) -> ReceiptOCRResult {
+        ReceiptOCRResult(
+            amount: invoiceAmount(from: blocks) ?? extractAmount(from: blocks),
+            merchant: invoiceMerchant(from: blocks),
+            date: extractDate(from: blocks),
+            notes: invoiceNotes(from: blocks),
+            currencyCode: detectCurrency(in: blocks),
+            merchantAlternates: []
+        )
+    }
+
+    /// Prefer a labelled invoice total ("Grand Total", "Amount Due"…) over line
+    /// prices; fall back to a plain "Total" (never a subtotal).
+    private static func invoiceAmount(from blocks: [TextBlock]) -> Double? {
+        let strong = ["grand total", "amount due", "balance due", "total due", "total payable", "invoice total"]
+        for key in strong {
+            if let label = blocks.first(where: { $0.text.lowercased().contains(key) }),
+               let a = amountNear(label, in: blocks) { return a }
+        }
+        if let label = blocks.first(where: {
+            let t = $0.text.lowercased()
+            return t.contains("total") && !t.contains("subtotal") && !t.contains("sub total")
+        }), let a = amountNear(label, in: blocks) { return a }
+        return nil
+    }
+
+    /// Amount inside the label block, else the rightmost amount sharing its line.
+    private static func amountNear(_ label: TextBlock, in blocks: [TextBlock]) -> Double? {
+        if let a = parseAmount(from: label.text), a > 0 { return a }
+        let midY = label.boundingBox.midY
+        let tol = max(label.boundingBox.height * 0.6, 0.01)
+        let sameLine = blocks
+            .filter { $0.boundingBox.minX > label.boundingBox.minX && abs($0.boundingBox.midY - midY) < tol }
+            .sorted { $0.boundingBox.minX < $1.boundingBox.minX }
+        for b in sameLine.reversed() {
+            if let a = parseAmount(from: b.text), a > 0 { return a }
+        }
+        return nil
+    }
+
+    private static let invoiceAddressLabels = [
+        "billing address", "delivery address", "bill to", "sold to",
+        "ship to", "invoice to", "deliver to", "customer"
+    ]
+    private static let invoiceCompanyHints = [
+        "pty", "ltd", "inc", "llc", "co.", "company", "computers", "store",
+        "services", "group", "corporation", "gmbh", "limited", "enterprises"
+    ]
+
+    /// The vendor's letterhead name — a company-suffixed line if there is one,
+    /// otherwise the topmost prominent line; never a name under an address label.
+    private static func invoiceMerchant(from blocks: [TextBlock]) -> String? {
+        func usable(_ text: String) -> Bool {
+            let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard t.count >= 3 else { return false }
+            let lower = t.lowercased()
+            if invoiceAddressLabels.contains(where: { lower.contains($0) }) { return false }
+            if ["order", "invoice", "tax invoice", "receipt", "order confirmation"].contains(lower) { return false }
+            if parseAmount(from: t) != nil { return false }
+            return true
+        }
+        // 1) Topmost company-hinted line anywhere on the page.
+        if let c = blocks.first(where: {
+            usable($0.text) && invoiceCompanyHints.contains(where: { h in $0.text.lowercased().contains(h) })
+        }) {
+            return cleanInvoiceName(c.text)
+        }
+        // 2) Topmost usable line in the letterhead region (top 30%).
+        guard let topY = blocks.map({ $0.boundingBox.maxY }).max() else { return nil }
+        return blocks.first(where: { usable($0.text) && $0.boundingBox.midY > topY - 0.30 })
+            .map { cleanInvoiceName($0.text) }
+    }
+
+    // Invoice/order number with a digit; optional "No./#/Number" qualifier. The
+    // digit requirement keeps "Order Status: NEW" and "Order Date:…" out.
+    private static let invoiceRefPattern = try! NSRegularExpression(
+        pattern: #"(?:invoice|order|inv)\b\s*(?:no\.?|number|#)?\s*[:#]?\s*([0-9][A-Za-z0-9\-]{2,})"#,
+        options: .caseInsensitive
+    )
+
+    /// A concise description — the invoice/order number if present — instead of a
+    /// dump of every line item.
+    private static func invoiceNotes(from blocks: [TextBlock]) -> String? {
+        for blk in blocks {
+            let range = NSRange(blk.text.startIndex..., in: blk.text)
+            guard let m = invoiceRefPattern.firstMatch(in: blk.text, range: range),
+                  let r = Range(m.range(at: 1), in: blk.text) else { continue }
+            let num = String(blk.text[r])
+            let word = blk.text.lowercased().contains("invoice") ? "Invoice" : "Order"
+            return "\(word) \(num)"
+        }
+        return nil
+    }
+
+    private static func cleanInvoiceName(_ s: String) -> String {
+        s.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
     }
 
     // MARK: - Vision

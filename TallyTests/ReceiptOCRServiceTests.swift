@@ -788,4 +788,32 @@ final class ReceiptOCRServiceTests: XCTestCase {
         // Registered business name wins the merchant.
         XCTAssertEqual(ReceiptOCRService.extractForTesting(lines).merchant, "Monos Travel Ltd")
     }
+
+    // MARK: - Invoice mode
+
+    // Scorptec order PDF: receipt mode picked the customer ("Joshua Shahinian")
+    // as merchant and dumped line items into notes. Invoice mode takes the
+    // letterhead vendor, the Grand Total, and a concise order number.
+    func testInvoice_scorptec_vendorNotCustomer_grandTotal() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("Scorptec Computers", x: 0.15, y: 0.95, w: 0.4),
+            blk("Silverwater Store", x: 0.15, y: 0.92, w: 0.4),
+            blk("93-95 Derby St, Silverwater, NSW, 2128", x: 0.15, y: 0.90, w: 0.6),
+            blk("Order", x: 0.45, y: 0.85, w: 0.1),
+            blk("Order No.: 4937644", x: 0.1, y: 0.78, w: 0.4),
+            blk("Order Date: 28-08-2026", x: 0.55, y: 0.78, w: 0.4),
+            blk("Order Status: NEW", x: 0.55, y: 0.75, w: 0.4),
+            blk("Billing Address:", x: 0.1, y: 0.70, w: 0.3),
+            blk("Joshua Shahinian", x: 0.1, y: 0.67, w: 0.3),
+            blk("Ubiquiti - U7-LITE", x: 0.1, y: 0.55), blk("$358.00", x: 0.8, y: 0.55),
+            blk("Subtotal", x: 0.6, y: 0.45), blk("$358.00", x: 0.8, y: 0.45),
+            blk("Surcharge", x: 0.6, y: 0.42), blk("$3.58", x: 0.8, y: 0.42),
+            blk("Grand Total", x: 0.6, y: 0.39), blk("$361.58", x: 0.8, y: 0.39),
+        ]
+        let result = ReceiptOCRService.extractInvoiceForTesting(lines)
+        XCTAssertEqual(result.amount ?? -1, 361.58, accuracy: 0.001, "Grand Total, not a line price")
+        XCTAssertEqual(result.merchant, "Scorptec Computers", "vendor letterhead, not the customer")
+        XCTAssertNotEqual(result.merchant, "Joshua Shahinian", "billing name is not the vendor")
+        XCTAssertEqual(result.notes, "Order 4937644", "concise order number, not a line-item dump")
+    }
 }
