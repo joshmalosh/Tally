@@ -569,27 +569,16 @@ struct AddExpenseView: View {
             Color.bgPrimary.ignoresSafeArea()
 
             if formReady {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        formScrollStack
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .scrollDismissesKeyboard(.interactively)
-                    .safeAreaInset(edge: .bottom, spacing: 0) {
-                        stickySaveChrome
-                    }
-                    // The merchant autocomplete chips sit right under the field,
-                    // so the keyboard covers them. Pull the card to the top when
-                    // it focuses; the delay lets the keyboard finish animating in
-                    // so the scroll lands above it.
-                    .onChange(of: focusedField) { _, field in
-                        guard field == .merchant else { return }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                proxy.scrollTo("merchant", anchor: .top)
-                            }
-                        }
-                    }
+                // Plain ScrollView so SwiftUI's own keyboard avoidance scrolls the
+                // focused field into view smoothly — like the Contacts editor and
+                // Notes. No manual scrollTo (that produced the awkward snap).
+                ScrollView {
+                    formScrollStack
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .scrollDismissesKeyboard(.interactively)
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    stickySaveChrome
                 }
             }
         }
