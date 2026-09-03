@@ -849,9 +849,12 @@ struct HomeView: View {
                 // on a barely-overflowing list, so only collapse when enough
                 // content remains below to absorb the hero's height.
                 let heroClearance: CGFloat = 260
-                withAnimation(.easeInOut(duration: 0.4)) {
-                    if offset > 30 && maxOffset - offset > heroClearance { isHeaderCollapsed = true }
-                    if offset < 10 { isHeaderCollapsed = false }
+                if offset > 30 && maxOffset - offset > heroClearance {
+                    withAnimation(.easeInOut(duration: 0.4)) { isHeaderCollapsed = true }
+                }
+                if offset < 10 {
+                    // Reappear twice as fast as it collapses.
+                    withAnimation(.easeInOut(duration: 0.2)) { isHeaderCollapsed = false }
                 }
             }
             .frame(height: 0)
