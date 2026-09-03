@@ -53,6 +53,16 @@ This is a hard, always-on rule. Never wait to be reminded of it.
   cards) so treat it as a standing bar, not a per-screen note. A common fix is a
   balanced two-column row (primary info left, secondary pinned right) rather than
   one cramped left column with an empty right side.
+- **It must feel native and never sluggish.** Tally has to behave the way an
+  iPhone already behaves: fields like the Notes/Contacts editors (smooth system
+  keyboard avoidance, no manual scroll "snap"), multi-select like Photos/Mail
+  (instant selection, a share/delete action bar, a cancel/X), taps that respond
+  immediately. **Actively push back on anything that isn't native iOS behaviour**,
+  even if asked, and say why. Never block the main thread during interaction (no
+  reacting to background sync mid-edit, no synchronous image/PDF decode on the main
+  thread) — that is what makes typing and tapping feel dead. Never save at a
+  crucial point of a flow: while adding or editing an expense, persist only when
+  the user taps Save or leaves, never on keystrokes or on a sync tick.
 
 ---
 

@@ -828,6 +828,15 @@ non-trivial background `.allowsHitTesting(false)`.
 
 ## Current state — what's shipped (newest first)
 
+- **Native multi-select + no-snap fields** (2026-09-02): long-press multi-select had
+  no visible actions (its toolbar rendered behind the tab bar). Rebuilt native:
+  share (green) + delete (red) circles above the FAB, "N selected" + an X (cancel)
+  in the app bar, instant selection (no per-tap animation), deselect-all stays in
+  select mode. Also removed the manual merchant scroll-snap on Add expense so
+  SwiftUI's own keyboard avoidance handles it (Contacts/Notes-style). **Standing
+  bar: every screen must feel native and responsive — push back on anything that
+  isn't, and never block the main thread (no sync-reactions or heavy work mid-edit).**
+
 - **Expense-detail stability + edit autocomplete** (2026-09-02): the single-expense
   screen froze/lagged and could blank its receipt. Cause: `loadAttachment` re-fired
   on every CloudKit `updatedAt` bump and rendered the PDF page **synchronously on
