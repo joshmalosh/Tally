@@ -280,16 +280,6 @@ struct HomeView: View {
             } else {
                 expenseList
             }
-
-            if isSelecting && !selectedExpenseIds.isEmpty {
-                selectionBottomToolbar
-                    .transition(.move(edge: .bottom))
-            }
-        }
-        .onChange(of: selectedExpenseIds.count) { _, count in
-            if isSelecting && count == 0 {
-                exitSelectionMode()
-            }
         }
     }
 
@@ -349,6 +339,23 @@ struct HomeView: View {
                 }
                 .ignoresSafeArea(edges: .bottom)
                 .zIndex(60)
+            }
+
+            // Native multi-select actions: share (green) + delete (red), above the FAB.
+            if isSelecting {
+                HStack(spacing: 22) {
+                    selectionActionButton(icon: "square.and.arrow.up", fill: Color.actionGreen) {
+                        let selected = filteredExpenses.filter { selectedExpenseIds.contains($0.id) }
+                        guard !selected.isEmpty else { return }
+                        exportWithSelectionItem = ExportWithSelectionItem(expenses: selected)
+                    }
+                    selectionActionButton(icon: "trash.fill", fill: Color(hex: "C0392B")) {
+                        deleteSelectedExpenses()
+                    }
+                }
+                .padding(.bottom, 128)
+                .transition(.opacity)
+                .zIndex(62)
             }
 
             // Transient Undo toast for the last add/delete, above the tab bar.
@@ -522,6 +529,22 @@ struct HomeView: View {
 
     private var appBar: some View {
         HStack(alignment: .top) {
+            if isSelecting {
+                Text("\(selectedExpenseIds.count) selected")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+                    .frame(height: 36)
+                Spacer()
+                Button { exitSelectionMode() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Color(hex: "4A5E50"))
+                        .frame(width: 36, height: 36)
+                        .background(Color(hex: "EDEAE4"))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            } else {
             HStack(spacing: Spacing.sm) {
                 Image("TallyLogo")
                     .renderingMode(.original)
@@ -577,6 +600,7 @@ struct HomeView: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
+            }
             }
         }
         .padding(.horizontal, Spacing.lg)
@@ -952,9 +976,8 @@ struct HomeView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             if isSelecting {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    toggleExpenseSelection(expense.id)
-                }
+                // Instant, like native multi-select — no animation delay.
+                toggleExpenseSelection(expense.id)
             } else {
                 appState.selectedExpenseId = expense.id
             }
@@ -1023,98 +1046,22 @@ struct HomeView: View {
 
     // MARK: - Selection Bottom Toolbar
 
-    private var selectionBottomToolbar: some View {
-        HStack(spacing: 0) {
-            Button {
-                exitSelectionMode()
-            } label: {
-                Text("Cancel")
-                    .font(Fonts.body(16))
-                    .foregroundStyle(Color.textSecondary)
-                    .frame(minWidth: 70, alignment: .leading)
-            }
-            .buttonStyle(.plain)
-
-            Spacer(minLength: Spacing.md)
-
-            Text("\(selectedExpenseIds.count) selected")
-                .font(Fonts.caption(15))
-                .foregroundStyle(Color.textPrimary)
-                .lineLimit(1)
-
-            Spacer(minLength: Spacing.md)
-
-            Button {
-                deleteSelectedExpenses()
-            } label: {
-                Text("Delete")
-                    .font(Fonts.body(16))
-                    .fontWeight(.medium)
-                    .foregroundStyle(Color.danger)
-                    .frame(minWidth: 70, alignment: .trailing)
-            }
-            .buttonStyle(.plain)
-            .disabled(selectedExpenseIds.isEmpty)
-        }
-        .padding(.horizontal, Spacing.xl)
-        .padding(.vertical, Spacing.lg)
-        .background(Color.surface)
-        .overlay(alignment: .top) {
-            Rectangle()
-                .fill(Color.borderColor.opacity(0.6))
-                .frame(height: 1)
-        }
-    }
-
-    // MARK: - Export FAB
-
-    private var exportFAB: some View {
-        let count = selectedExpenseIds.count
-        let hasSelection = count > 0
-
+    /// One circular multi-select action (share / delete), floated above the FAB.
+    private func selectionActionButton(icon: String, fill: Color, action: @escaping () -> Void) -> some View {
+        let enabled = !selectedExpenseIds.isEmpty
         return Button {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            let selected = filteredExpenses.filter { selectedExpenseIds.contains($0.id) }
-            exportWithSelectionItem = ExportWithSelectionItem(expenses: selected)
+            action()
         } label: {
-            ZStack(alignment: .topTrailing) {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 24, weight: .semibold))
-                    .offset(y: -1)
-                    .foregroundStyle(.white)
-                    .frame(width: 62, height: 62)
-                    .background(
-                        Circle()
-                            .fill(hasSelection ? Color.actionGreen : Color.textMuted)
-                    )
-                    .shadow(
-                        color: .black.opacity(hasSelection ? 0.35 : 0.1),
-                        radius: hasSelection ? 12 : 4,
-                        x: 0,
-                        y: hasSelection ? 5 : 2
-                    )
-
-                if hasSelection {
-                    Text("\(count)")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundStyle(Color.actionGreen)
-                        .frame(minWidth: 24, minHeight: 24)
-                        .background(
-                            Circle()
-                                .fill(.white)
-                                .shadow(color: .black.opacity(0.12), radius: 2, x: 0, y: 1)
-                        )
-                        .overlay(
-                            Circle()
-                                .stroke(Color.actionGreen, lineWidth: 1.5)
-                        )
-                        .offset(x: 4, y: -4)
-                        .transition(.scale.combined(with: .opacity))
-                }
-            }
+            Image(systemName: icon)
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(Circle().fill(enabled ? fill : Color.textMuted))
+                .shadow(color: .black.opacity(enabled ? 0.28 : 0.1), radius: 10, x: 0, y: 4)
         }
-        .disabled(!hasSelection)
-        .animation(.easeInOut(duration: 0.2), value: count)
+        .buttonStyle(.plain)
+        .disabled(!enabled)
     }
 
     // MARK: - Selection Mode
