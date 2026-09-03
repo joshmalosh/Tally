@@ -279,8 +279,31 @@ struct HomeView: View {
                 emptyState
             } else {
                 expenseList
+                    // Floating close (X) at the top-right of the list while selecting.
+                    .overlay(alignment: .topTrailing) {
+                        if isSelecting {
+                            selectionCloseButton
+                                .padding(.trailing, 14)
+                                .padding(.top, 8)
+                                .transition(.opacity)
+                        }
+                    }
             }
         }
+    }
+
+    /// Native-looking circular close for multi-select — white circle, dark X,
+    /// soft shadow so it reads as a floating control above the list.
+    private var selectionCloseButton: some View {
+        Button { exitSelectionMode() } label: {
+            Image(systemName: "xmark")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(Color(hex: "2F402E"))
+                .frame(width: 32, height: 32)
+                .background(Circle().fill(.white))
+                .shadow(color: .black.opacity(0.18), radius: 5, x: 0, y: 2)
+        }
+        .buttonStyle(.plain)
     }
 
     /// "Rise" — warm parchment easing into the hero's forest green toward the
@@ -333,29 +356,22 @@ struct HomeView: View {
                     .zIndex(55)
             }
 
-            if !isKeyboardVisible {
+            // Tab bar (with the FAB) drops away in multi-select mode.
+            if !isKeyboardVisible && !isSelecting {
                 TallyTabBar(selectedTab: $selectedTab) {
                     showingEntryPicker = true
                 }
                 .ignoresSafeArea(edges: .bottom)
+                .transition(.move(edge: .bottom))
                 .zIndex(60)
             }
 
-            // Native multi-select actions: share (green) + delete (red), above the FAB.
+            // Multi-select bottom bar in the tab bar's place: share left, count
+            // centre, delete right — mirroring the iOS Photos selection toolbar.
             if isSelecting {
-                HStack(spacing: 22) {
-                    selectionActionButton(icon: "square.and.arrow.up", fill: Color.actionGreen) {
-                        let selected = filteredExpenses.filter { selectedExpenseIds.contains($0.id) }
-                        guard !selected.isEmpty else { return }
-                        exportWithSelectionItem = ExportWithSelectionItem(expenses: selected)
-                    }
-                    selectionActionButton(icon: "trash.fill", fill: Color(hex: "C0392B")) {
-                        deleteSelectedExpenses()
-                    }
-                }
-                .padding(.bottom, 128)
-                .transition(.opacity)
-                .zIndex(62)
+                selectionBottomBar
+                    .transition(.move(edge: .bottom))
+                    .zIndex(62)
             }
 
             // Transient Undo toast for the last add/delete, above the tab bar.
@@ -529,22 +545,6 @@ struct HomeView: View {
 
     private var appBar: some View {
         HStack(alignment: .top) {
-            if isSelecting {
-                Text("\(selectedExpenseIds.count) selected")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-                    .frame(height: 36)
-                Spacer()
-                Button { exitSelectionMode() } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(Color(hex: "4A5E50"))
-                        .frame(width: 36, height: 36)
-                        .background(Color(hex: "EDEAE4"))
-                        .clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-            } else {
             HStack(spacing: Spacing.sm) {
                 Image("TallyLogo")
                     .renderingMode(.original)
@@ -600,7 +600,6 @@ struct HomeView: View {
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
-            }
             }
         }
         .padding(.horizontal, Spacing.lg)
@@ -1049,17 +1048,55 @@ struct HomeView: View {
 
     // MARK: - Selection Bottom Toolbar
 
-    /// One circular multi-select action (share / delete), floated above the FAB.
-    private func selectionActionButton(icon: String, fill: Color, action: @escaping () -> Void) -> some View {
+    /// Multi-select toolbar in the tab bar's place: share (left), count (centre),
+    /// delete (right) — mirroring the iOS Photos selection bar.
+    private var selectionBottomBar: some View {
+        HStack(spacing: 0) {
+            selectionActionButton(icon: "square.and.arrow.up", fill: Color.actionGreen, iconOffsetY: -1.5) {
+                shareSelected()
+            }
+            Spacer()
+            Text("\(selectedExpenseIds.count) selected")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Color(hex: "1C1C1E"))
+                .monospacedDigit()
+            Spacer()
+            selectionActionButton(icon: "trash.fill", fill: Color(hex: "C0392B")) {
+                deleteSelectedExpenses()
+            }
+        }
+        .padding(.horizontal, 40)
+        .padding(.top, 14)
+        .padding(.bottom, 40)
+        .frame(maxWidth: .infinity)
+        .background(
+            Color.white
+                .overlay(alignment: .top) {
+                    Rectangle().fill(Color(hex: "DEDAD2")).frame(height: 0.5)
+                }
+                .ignoresSafeArea(edges: .bottom)
+        )
+    }
+
+    private func shareSelected() {
+        let selected = filteredExpenses.filter { selectedExpenseIds.contains($0.id) }
+        guard !selected.isEmpty else { return }
+        exportWithSelectionItem = ExportWithSelectionItem(expenses: selected)
+    }
+
+    /// One circular multi-select action (share / delete).
+    private func selectionActionButton(icon: String, fill: Color, iconOffsetY: CGFloat = 0,
+                                       action: @escaping () -> Void) -> some View {
         let enabled = !selectedExpenseIds.isEmpty
         return Button {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             action()
         } label: {
             Image(systemName: icon)
-                .font(.system(size: 22, weight: .semibold))
+                .font(.system(size: 21, weight: .semibold))
                 .foregroundStyle(.white)
-                .frame(width: 56, height: 56)
+                .offset(y: iconOffsetY)   // square.and.arrow.up reads low without this
+                .frame(width: 54, height: 54)
                 .background(Circle().fill(enabled ? fill : Color.textMuted))
                 .shadow(color: .black.opacity(enabled ? 0.28 : 0.1), radius: 10, x: 0, y: 4)
         }
