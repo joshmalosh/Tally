@@ -161,23 +161,10 @@ struct ExpenseDetailView: View {
                         Button {
                             Task { await saveEdits(expense: expense) }
                         } label: {
-                            HStack(spacing: 5) {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 11, weight: .bold))
-                                Text("Done")
-                                    .font(.system(size: 15, weight: .semibold))
-                            }
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(
-                                canSaveEdits
-                                    ? Color(hex: "2F402E")
-                                    : Color(hex: "2F402E").opacity(0.4)
-                            )
-                            .clipShape(Capsule())
+                            Text("Done")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(canSaveEdits ? Color(hex: "2F402E") : Color(hex: "2F402E").opacity(0.35))
                         }
-                        .buttonStyle(.plain)
                         .disabled(!canSaveEdits)
                     }
                 }
@@ -486,7 +473,7 @@ struct ExpenseDetailView: View {
         HStack(spacing: 14) {
             // Currency symbol is the leading square (tap to change currency) — the
             // single currency indicator, not repeated inside the field.
-            Button { showingCurrencyPicker = true } label: {
+            Button { focusedField = nil; showingCurrencyPicker = true } label: {
                 ZStack {
                     RoundedRectangle(cornerRadius: 11, style: .continuous)
                         .fill(Color(hex: "E8F0EA"))
@@ -591,7 +578,7 @@ struct ExpenseDetailView: View {
     }
 
     private var dateDetailRow: some View {
-        Button { showingDatePickerSheet = true } label: {
+        Button { focusedField = nil; showingDatePickerSheet = true } label: {
             HStack(spacing: 14) {
                 tintedIconSquare("calendar")
                 VStack(alignment: .leading, spacing: 2) {
@@ -630,7 +617,7 @@ struct ExpenseDetailView: View {
     }
 
     private var tagDetailRow: some View {
-        Button { showingTagPicker = true } label: {
+        Button { focusedField = nil; showingTagPicker = true } label: {
             HStack(spacing: 14) {
                 tintedIconSquare("tag.fill")
                 VStack(alignment: .leading, spacing: 2) {
