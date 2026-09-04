@@ -57,8 +57,6 @@ struct ExpenseDetailView: View {
         activeExpenses.first { $0.id == expenseId }
     }
 
-    private var receiptImageAttached: Bool { attachmentImage != nil }
-
     private var parsedAmountCents: Int? {
         guard let amount = Double(amountText), amount > 0 else { return nil }
         if CurrencyFormatter.shared.usesDecimals(for: currency) {
@@ -117,13 +115,7 @@ struct ExpenseDetailView: View {
 
                     ScrollView {
                         VStack(spacing: 8) {
-                            if receiptImageAttached {
-                                receiptHeroView
-                            } else {
-                                noReceiptAmountBlock
-                            }
-
-                            unifiedDetailCard
+                            receiptObject
 
                             tallySuggestsCard
 
@@ -138,7 +130,7 @@ struct ExpenseDetailView: View {
                                     .padding(.top, Spacing.sm)
                             }
                         }
-                        .padding(.top, 12)
+                        .padding(.top, 14)
                         .padding(.bottom, Spacing.xl)
                     }
                 }
@@ -302,221 +294,115 @@ struct ExpenseDetailView: View {
 
     // MARK: - Receipt hero
 
-    private var receiptHeroView: some View {
-        ZStack {
-            // Receipt image
-            if let image = attachmentImage {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 260)
-                    .clipped()
-                    .allowsHitTesting(false)
-            } else {
-                Color(hex: "2F402E").opacity(0.12)
-            }
-
-            // Gradient — bottom ~170 pt
-            VStack {
-                Spacer()
-                LinearGradient(
-                    stops: [
-                        .init(color: .clear,                        location: 0),
-                        .init(color: Color.black.opacity(0.78),     location: 1)
-                    ],
-                    startPoint: .top,
-                    endPoint:   .bottom
-                )
-                .frame(height: 170)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .allowsHitTesting(false)
+    /// The whole expense as one physical-receipt object: a tag-tinted frame around
+    /// the photo (or a hero amount), a perforated DETAILS tear line, a textured
+    /// white body and a torn bottom edge, lifted off the page with a soft shadow.
+    private var receiptObject: some View {
+        VStack(spacing: 0) {
+            topRegion
+                .padding(.horizontal, 12)
+                .padding(.top, 12)
+            whiteBody
         }
-        .frame(height: 260)
-        .contentShape(Rectangle())
-        .onTapGesture { showingFullImage = true }
-        // Tag pill — top-left
+        .background(frameColor)
+        .clipShape(ReceiptShape())
         .overlay(alignment: .topLeading) {
-            if !selectedTags.isEmpty, let tag = selectedTags.first {
-                HStack(spacing: 5) {
-                    if tag.isGroup {
-                        Image(systemName: "folder.fill")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(tag.tagColor.primaryColor)
-                    } else {
-                        Circle()
-                            .fill(tag.tagColor.primaryColor)
-                            .frame(width: 7, height: 7)
-                    }
-                    Text(
-                        selectedTags.count == 1
-                            ? chipTitle(for: tag)
-                            : "\(tag.name) +\(selectedTags.count - 1)"
-                    )
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(.white.opacity(0.92))
-                .clipShape(Capsule())
-                .padding(12)
+            // Tag pill riding the top edge of the frame.
+            if let tag = selectedTags.first {
+                tagRidingChip(tag)
+                    .padding(.leading, 22)
+                    .offset(y: -11)
             }
         }
-        // Replace / Remove — bottom-right. Date/merchant/amount overlay removed:
-        // it duplicated the editable fields below and clipped long values. Tap
-        // the receipt itself to view it full-screen.
-        .overlay(alignment: .bottomTrailing) {
-            VStack(alignment: .trailing, spacing: 8) {
-                HStack(spacing: 12) {
-                    Button { showingReplaceReceiptSources = true } label: {
-                        Text("Replace")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.white.opacity(0.75))
-                            .underline()
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        attachmentImage  = nil
-                        attachedFileURL  = nil
-                        attachmentKey    = nil
-                        source           = .manual
-                    } label: {
-                        Text("Remove")
-                            .font(.system(size: 12))
-                            .foregroundStyle(.white.opacity(0.75))
-                            .underline()
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.bottom, 14)
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 8)
         .padding(.horizontal, 16)
     }
 
-    // MARK: - Amount hero (no receipt)
+    // Tag-derived colours: the frame and row icons take the expense's tag colour,
+    // defaulting to Tally green when untagged.
+    private var receiptTagColorModel: TagColor? { selectedTags.first?.tagColor }
+    private var frameColor: Color { receiptTagColorModel?.primaryColor ?? Color(hex: "2F402E") }
+    private var iconTint: Color { receiptTagColorModel?.tintColor ?? Color(hex: "E8F0EA") }
+    private var iconInk: Color { receiptTagColorModel?.primaryColor ?? Color(hex: "2F402E") }
 
-    private var noReceiptAmountBlock: some View {
-        VStack(alignment: .leading, spacing: 10) {
+    @ViewBuilder
+    private var topRegion: some View {
+        if let image = attachmentImage {
+            receiptPhoto(image)
+        } else {
+            heroAmountBlock
+        }
+    }
+
+    private func receiptPhoto(_ image: UIImage) -> some View {
+        Image(uiImage: image)
+            .resizable()
+            .scaledToFill()
+            .frame(maxWidth: .infinity)
+            .frame(height: 300)
+            .clipped()
+            .contentShape(Rectangle())
+            .onTapGesture { showingFullImage = true }
+            .overlay(alignment: .bottom) {
+                HStack(spacing: 14) {
+                    Spacer()
+                    Button { showingReplaceReceiptSources = true } label: {
+                        Text("Replace").font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.white).underline()
+                    }
+                    .buttonStyle(.plain)
+                    Button {
+                        attachmentImage = nil
+                        attachedFileURL = nil
+                        attachmentKey   = nil
+                        source          = .manual
+                    } label: {
+                        Text("Remove").font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.white).underline()
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 30)
+                .padding(.bottom, 12)
+                .frame(maxWidth: .infinity)
+                .background(
+                    LinearGradient(colors: [.clear, .black.opacity(0.45)],
+                                   startPoint: .top, endPoint: .bottom)
+                )
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    // No receipt: a hero amount framed in the tag colour (shorter than the photo).
+    private var heroAmountBlock: some View {
+        VStack(alignment: .leading, spacing: 6) {
             Text("AMOUNT")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color(hex: "2F402E").opacity(0.7))
-                .tracking(0.8)
-                .textCase(.uppercase)
-
+                .font(.system(size: 11, weight: .bold))
+                .tracking(1.0)
+                .foregroundStyle(.white.opacity(0.75))
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Button { showingCurrencyPicker = true } label: {
                     HStack(spacing: 2) {
                         Text(currencySymbol)
-                            .font(.system(size: 28, weight: .regular, design: .monospaced))
+                            .font(.system(size: 24, weight: .regular, design: .monospaced))
                         Image(systemName: "chevron.down")
-                            .font(.system(size: 10, weight: .semibold))
+                            .font(.system(size: 9, weight: .semibold))
                     }
-                    .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
+                    .foregroundStyle(.white.opacity(0.7))
                 }
                 .buttonStyle(.plain)
 
-                NumericFieldWithDone(
-                    text: $amountText,
-                    keyboardType: CurrencyFormatter.shared.usesDecimals(for: currency)
-                        ? .decimalPad : .numberPad,
-                    font: UIFont.monospacedSystemFont(ofSize: 52, weight: .regular),
-                    focusRequested: focusedField == .amount,
-                    onDone: { focusedField = nil }
-                )
-                .frame(minHeight: 56)
-                .onChange(of: amountText) { _, newValue in
-                    let filtered  = newValue.filter { $0.isNumber || $0 == "." }
-                    let parts     = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
-                    let sanitized = parts.count > 1
-                        ? parts[0] + "." + parts.dropFirst().joined()
-                        : filtered
-                    if sanitized != newValue { amountText = String(sanitized) }
-                }
-                .onChange(of: focusedField) { _, newValue in
-                    if newValue != .amount { formatAmountField() }
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 18)
-        .padding(.vertical, 20)
-        .background(Color(hex: "2F402E").opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .padding(.horizontal, 16)
-        .contentShape(Rectangle())
-        .onTapGesture { focusedField = .amount }
-    }
-
-    // MARK: - Unified detail card
-
-    private var unifiedDetailCard: some View {
-        VStack(spacing: 0) {
-            // AMOUNT — editable row, receipt state only (non-receipt state uses the hero block above)
-            if receiptImageAttached {
-                amountDetailRow
-                Divider().padding(.leading, 52)
-            }
-
-            merchantDetailRow
-            Divider().padding(.leading, 52)
-            dateDetailRow
-            Divider().padding(.leading, 52)
-            noteDetailRow      // NOTE above TAG per design spec
-            Divider().padding(.leading, 52)
-            tagDetailRow
-        }
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .padding(.horizontal, 16)
-    }
-
-    // MARK: - Detail rows
-
-    private var amountDetailRow: some View {
-        HStack(spacing: 12) {
-            rowIcon("dollarsign")
-
-            Text("AMOUNT")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(Color(hex: "8F9E94"))
-                .tracking(0.8)
-
-            Spacer()
-
-            HStack(spacing: 3) {
-                Button { showingCurrencyPicker = true } label: {
-                    HStack(spacing: 2) {
-                        Text(currencySymbol)
-                            .font(.system(size: 14, weight: .regular, design: .monospaced))
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 8, weight: .semibold))
-                    }
-                    .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
-                }
-                .buttonStyle(.plain)
-
-                TextField("0.00", text: $amountText)
-                    .keyboardType(
-                        CurrencyFormatter.shared.usesDecimals(for: currency)
-                            ? .decimalPad : .numberPad
-                    )
-                    .font(.system(size: 17, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-                    .multilineTextAlignment(.trailing)
-                    .frame(width: 90)
+                TextField("0", text: $amountText)
+                    .keyboardType(CurrencyFormatter.shared.usesDecimals(for: currency) ? .decimalPad : .numberPad)
+                    .font(.system(size: 40, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.white)
+                    .tint(.white)
                     .focused($focusedField, equals: .amount)
                     .onChange(of: amountText) { _, newValue in
                         let filtered  = newValue.filter { $0.isNumber || $0 == "." }
                         let parts     = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
-                        let sanitized = parts.count > 1
-                            ? parts[0] + "." + parts.dropFirst().joined()
-                            : filtered
+                        let sanitized = parts.count > 1 ? parts[0] + "." + parts.dropFirst().joined() : filtered
                         if sanitized != newValue { amountText = String(sanitized) }
                     }
                     .onChange(of: focusedField) { _, newValue in
@@ -524,8 +410,119 @@ struct ExpenseDetailView: View {
                     }
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 18)
+        .contentShape(Rectangle())
+        .onTapGesture { focusedField = .amount }
+    }
+
+    // MARK: - Receipt paper body
+
+    private var whiteBody: some View {
+        VStack(spacing: 0) {
+            detailsTearLine
+
+            if attachmentImage != nil {
+                amountDetailRow
+                dashedRowDivider
+            }
+            merchantDetailRow
+            dashedRowDivider
+            dateDetailRow
+            dashedRowDivider
+            noteDetailRow
+            dashedRowDivider
+            tagDetailRow
+
+            Spacer().frame(height: 18)   // clearance above the torn edge
+        }
+        .frame(maxWidth: .infinity)
+        .background(
+            ZStack {
+                Color.white
+                ReceiptTexture()
+            }
+        )
+    }
+
+    private var detailsTearLine: some View {
+        HStack(spacing: 8) {
+            Rectangle().fill(Color(hex: "2F402E").opacity(0.15)).frame(width: 26, height: 1)
+            Text("DETAILS")
+                .font(.system(size: 10, weight: .bold)).tracking(2)
+                .foregroundStyle(Color(hex: "2F402E").opacity(0.4))
+            Rectangle().fill(Color(hex: "2F402E").opacity(0.15)).frame(width: 26, height: 1)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, 16).padding(.bottom, 8)
+    }
+
+    private var dashedRowDivider: some View {
+        ReceiptLine()
+            .stroke(Color(hex: "2F402E").opacity(0.12), style: StrokeStyle(lineWidth: 1, dash: [2, 3]))
+            .frame(height: 1)
+            .padding(.leading, 74)
+            .padding(.trailing, 18)
+    }
+
+    private func tagRidingChip(_ tag: TagModel) -> some View {
+        HStack(spacing: 5) {
+            if tag.isGroup {
+                Image(systemName: "folder.fill").font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(tag.tagColor.primaryColor)
+            } else {
+                Circle().fill(tag.tagColor.primaryColor).frame(width: 7, height: 7)
+            }
+            Text(selectedTags.count == 1 ? chipTitle(for: tag) : "\(tag.name) +\(selectedTags.count - 1)")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(Color(hex: "1C1C1E"))
+        }
+        .padding(.horizontal, 11).padding(.vertical, 6)
+        .background(Color.white)
+        .clipShape(Capsule())
+        .shadow(color: .black.opacity(0.18), radius: 6, x: 0, y: 3)
+    }
+
+    // MARK: - Detail rows
+
+    private var amountDetailRow: some View {
+        HStack(spacing: 14) {
+            tintedIconSquare("dollarsign")
+            VStack(alignment: .leading, spacing: 2) {
+                rowLabel("AMOUNT")
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
+                    Button { showingCurrencyPicker = true } label: {
+                        HStack(spacing: 1) {
+                            Text(currencySymbol)
+                                .font(.system(size: 15, weight: .regular, design: .monospaced))
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 8, weight: .semibold))
+                        }
+                        .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
+                    }
+                    .buttonStyle(.plain)
+
+                    TextField("0.00", text: $amountText)
+                        .keyboardType(CurrencyFormatter.shared.usesDecimals(for: currency) ? .decimalPad : .numberPad)
+                        .font(.system(size: 22, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                        .focused($focusedField, equals: .amount)
+                        .onChange(of: amountText) { _, newValue in
+                            let filtered  = newValue.filter { $0.isNumber || $0 == "." }
+                            let parts     = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
+                            let sanitized = parts.count > 1 ? parts[0] + "." + parts.dropFirst().joined() : filtered
+                            if sanitized != newValue { amountText = String(sanitized) }
+                        }
+                        .onChange(of: focusedField) { _, newValue in
+                            if newValue != .amount { formatAmountField() }
+                        }
+                }
+            }
+            Spacer(minLength: 8)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
         .contentShape(Rectangle())
         .onTapGesture { focusedField = .amount }
     }
@@ -553,28 +550,22 @@ struct ExpenseDetailView: View {
 
     private var merchantDetailRow: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 12) {
-                rowIcon("bag.fill")
-
-                Text("MERCHANT")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-                    .tracking(0.8)
-
-                Spacer()
-
-                TextField("Add merchant", text: $merchant)
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-                    .multilineTextAlignment(.trailing)
-                    .focused($focusedField, equals: .merchant)
-                    .textInputAutocapitalization(.words)
-                    .frame(maxWidth: 160)
+            HStack(spacing: 14) {
+                tintedIconSquare("bag.fill")
+                VStack(alignment: .leading, spacing: 2) {
+                    rowLabel("MERCHANT")
+                    TextField("Add merchant", text: $merchant)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                        .focused($focusedField, equals: .merchant)
+                        .textInputAutocapitalization(.words)
+                }
+                Spacer(minLength: 8)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 14)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
 
-            // Autocomplete chips from past merchants, while the field is focused.
+            // Autocomplete chips from past merchants, aligned under the value.
             if focusedField == .merchant && !merchantSuggestions.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
@@ -594,7 +585,8 @@ struct ExpenseDetailView: View {
                             .buttonStyle(.plain)
                         }
                     }
-                    .padding(.horizontal, 14)
+                    .padding(.leading, 74)
+                    .padding(.trailing, 18)
                 }
                 .padding(.bottom, 12)
                 .transition(.opacity)
@@ -604,119 +596,108 @@ struct ExpenseDetailView: View {
 
     private var dateDetailRow: some View {
         Button { showingDatePickerSheet = true } label: {
-            HStack(spacing: 12) {
-                rowIcon("calendar")
-
-                Text("DATE")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-                    .tracking(0.8)
-
-                Spacer()
-
-                Text(Self.datePillFormatter.string(from: date))
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-
+            HStack(spacing: 14) {
+                tintedIconSquare("calendar")
+                VStack(alignment: .leading, spacing: 2) {
+                    rowLabel("DATE")
+                    Text(Self.datePillFormatter.string(from: date))
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                }
+                Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color(hex: "C4BFB9"))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(iconInk.opacity(0.4))
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 14)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
 
     private var noteDetailRow: some View {
-        HStack(alignment: .top, spacing: 12) {
-            rowIcon("doc.text")
-                .padding(.top, 1)
-
-            Text("NOTE")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(Color(hex: "8F9E94"))
-                .tracking(0.8)
-                .padding(.top, 4)
-
-            Spacer()
-
-            TextField("Add a note...", text: $notes, axis: .vertical)
-                .font(.system(size: 15))
-                .foregroundStyle(Color(hex: "1C1C1E"))
-                .multilineTextAlignment(.trailing)
-                .focused($focusedField, equals: .notes)
-                .lineLimit(1...4)
-                .frame(maxWidth: 190)
+        HStack(alignment: .top, spacing: 14) {
+            tintedIconSquare("doc.text")
+            VStack(alignment: .leading, spacing: 2) {
+                rowLabel("NOTE")
+                TextField("Add a note...", text: $notes, axis: .vertical)
+                    .font(.system(size: 15))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+                    .focused($focusedField, equals: .notes)
+                    .lineLimit(1...4)
+            }
+            Spacer(minLength: 8)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 14)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
     }
 
     private var tagDetailRow: some View {
         Button { showingTagPicker = true } label: {
-            HStack(spacing: 12) {
-                rowIcon("tag.fill")
-
-                Text("TAG")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-                    .tracking(0.8)
-
-                Spacer()
-
-                if selectedTags.isEmpty {
-                    Text("Add tag...")
-                        .font(.system(size: 15))
-                        .foregroundStyle(Color(hex: "C4BFB9"))
-                } else {
-                    HStack(spacing: 6) {
-                        ForEach(selectedTags.prefix(2)) { tag in
-                            HStack(spacing: 4) {
-                                if tag.isGroup {
-                                    Image(systemName: "folder.fill")
-                                        .font(.system(size: 9, weight: .semibold))
-                                        .foregroundStyle(tag.tagColor.primaryColor)
-                                } else {
-                                    Circle()
-                                        .fill(tag.tagColor.primaryColor)
-                                        .frame(width: 6, height: 6)
+            HStack(spacing: 14) {
+                tintedIconSquare("tag.fill")
+                VStack(alignment: .leading, spacing: 2) {
+                    rowLabel("TAG")
+                    if selectedTags.isEmpty {
+                        Text("Add tag...")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color(hex: "C4BFB9"))
+                    } else {
+                        HStack(spacing: 6) {
+                            ForEach(selectedTags.prefix(2)) { tag in
+                                HStack(spacing: 5) {
+                                    if tag.isGroup {
+                                        Image(systemName: "folder.fill")
+                                            .font(.system(size: 9, weight: .semibold))
+                                            .foregroundStyle(tag.tagColor.primaryColor)
+                                    } else {
+                                        Circle()
+                                            .fill(tag.tagColor.primaryColor)
+                                            .frame(width: 7, height: 7)
+                                    }
+                                    Text(chipTitle(for: tag))
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundStyle(Color(hex: "1C1C1E"))
                                 }
-                                Text(chipTitle(for: tag))
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundStyle(Color(hex: "2F402E"))
                             }
-                        }
-                        if selectedTags.count > 2 {
-                            Text("+\(selectedTags.count - 2)")
-                                .font(.system(size: 13))
-                                .foregroundStyle(Color(hex: "8F9E94"))
+                            if selectedTags.count > 2 {
+                                Text("+\(selectedTags.count - 2)")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(Color(hex: "8F9E94"))
+                            }
                         }
                     }
                 }
-
+                Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color(hex: "C4BFB9"))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(iconInk.opacity(0.4))
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 14)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }
 
-    /// Light green circle with dark green icon — shared by all detail rows
-    private func rowIcon(_ systemName: String) -> some View {
+    /// Rounded square in the expense's tag tint with the tag-colour icon.
+    private func tintedIconSquare(_ systemName: String) -> some View {
         ZStack {
-            Circle()
-                .fill(Color(hex: "E8F0EA"))
-                .frame(width: 36, height: 36)
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .fill(iconTint)
+                .frame(width: 40, height: 40)
             Image(systemName: systemName)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Color(hex: "2F402E"))
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(iconInk)
         }
+    }
+
+    private func rowLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .bold))
+            .foregroundStyle(Color(hex: "8F9E94"))
+            .tracking(1.0)
     }
 
     // MARK: - Tally Suggests
@@ -775,15 +756,19 @@ struct ExpenseDetailView: View {
 
     private var deleteButton: some View {
         Button { showingDeleteConfirmation = true } label: {
-            HStack {
-                Image(systemName: "trash")
+            HStack(spacing: 8) {
+                Image(systemName: "trash.fill")
+                    .font(.system(size: 14, weight: .semibold))
                 Text("Delete expense")
+                    .font(.system(size: 15, weight: .semibold))
             }
-            .font(Fonts.body(15))
-            .foregroundStyle(Color.danger)
+            .foregroundStyle(.white)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, Spacing.md)
+            .padding(.vertical, 15)
+            .background(Color.danger)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
+        .buttonStyle(.plain)
         .padding(.horizontal, 16)
         .padding(.top, Spacing.md)
     }
@@ -955,7 +940,9 @@ struct ExpenseDetailView: View {
 
     private func updateTagSuggestion() {
         guard selectedTagIds.isEmpty, !tallySuggestionDismissed else { return }
-        let suggestion = TagSuggestionEngine.suggest(
+        // Prefer the user's own history — a tag they used on this merchant before —
+        // and only fall back to the keyword engine when there's no such history.
+        let suggestion = merchantHistorySuggestion() ?? TagSuggestionEngine.suggest(
             merchant: merchant,
             notes:    notes,
             tags:     Array(tags)
@@ -964,6 +951,24 @@ struct ExpenseDetailView: View {
         withAnimation(.easeInOut(duration: 0.2)) {
             tallySuggestion = suggestion
         }
+    }
+
+    /// The tag most recently applied to another expense from the same merchant.
+    private func merchantHistorySuggestion() -> TagSuggestionEngine.Suggestion? {
+        let m = merchant.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard m.count >= 2 else { return nil }
+        let match = activeExpenses
+            .filter {
+                $0.id != expenseId
+                    && ($0.merchant?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == m)
+                    && !$0.resolvedTagIds.isEmpty
+            }
+            .sorted { $0.updatedAt > $1.updatedAt }
+            .first
+        guard let match,
+              let tagId = match.resolvedTagIds.first,
+              let tag = tags.first(where: { $0.id == tagId }) else { return nil }
+        return TagSuggestionEngine.Suggestion(tag: tag, reason: "repeat purchase")
     }
 
     @MainActor
@@ -1028,6 +1033,71 @@ struct ExpenseDetailView: View {
         }
         isSaving = false
         dismiss()
+    }
+}
+
+// MARK: - Receipt object shapes & texture
+
+/// Rounded top corners with a torn (zig-zag) bottom edge, so the detail body
+/// reads like a physically torn receipt.
+private struct ReceiptShape: Shape {
+    var cornerRadius: CGFloat = 24
+    var toothWidth: CGFloat = 13
+    var toothDepth: CGFloat = 7
+
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let r = min(cornerRadius, rect.width / 2)
+        let base = rect.height - toothDepth
+        p.move(to: CGPoint(x: 0, y: r))
+        p.addQuadCurve(to: CGPoint(x: r, y: 0), control: CGPoint(x: 0, y: 0))
+        p.addLine(to: CGPoint(x: rect.width - r, y: 0))
+        p.addQuadCurve(to: CGPoint(x: rect.width, y: r), control: CGPoint(x: rect.width, y: 0))
+        p.addLine(to: CGPoint(x: rect.width, y: base))
+        // Zig-zag from right to left along the bottom.
+        var x = rect.width
+        var down = true
+        while x > 0 {
+            let nextX = max(0, x - toothWidth / 2)
+            p.addLine(to: CGPoint(x: nextX, y: down ? rect.height : base))
+            x = nextX
+            down.toggle()
+        }
+        p.addLine(to: CGPoint(x: 0, y: r))
+        p.closeSubpath()
+        return p
+    }
+}
+
+/// A horizontal line, for the dashed row dividers.
+private struct ReceiptLine: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: 0, y: rect.midY))
+        p.addLine(to: CGPoint(x: rect.width, y: rect.midY))
+        return p
+    }
+}
+
+/// Faint, evenly-spaced dots — a subtle "receipt paper" texture. Static, so it
+/// adds no per-keystroke cost while editing.
+private struct ReceiptTexture: View {
+    var body: some View {
+        Canvas { context, size in
+            let spacing: CGFloat = 15
+            let dot = Path(ellipseIn: CGRect(x: 0, y: 0, width: 1.4, height: 1.4))
+            let color = Color(hex: "2F402E").opacity(0.05)
+            var y: CGFloat = spacing / 2
+            while y < size.height {
+                var x: CGFloat = spacing / 2
+                while x < size.width {
+                    context.fill(dot.offsetBy(dx: x, dy: y), with: .color(color))
+                    x += spacing
+                }
+                y += spacing
+            }
+        }
+        .allowsHitTesting(false)
     }
 }
 

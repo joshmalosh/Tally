@@ -703,6 +703,8 @@ totals are single-currency, never mixed across currencies.
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-09-03 | The expense detail screen is one "dynamic receipt" object (tag-tinted frame, DETAILS tear line, dot-textured paper, torn bottom, shadow); detail rows use a tinted icon square + label-above-left-aligned-value; no-receipt expenses frame a hero amount in the tag colour; untagged defaults to Tally green; Delete is a full-width filled red button. | Adds character and makes the screen feel like a physical receipt (Josh liked a reference build). Label-above-value maximises width so long merchant names aren't cramped. Tint tying the whole object to the tag colour makes each expense feel categorised at a glance. |
+| 2026-09-03 | Tally Suggests learns from history: it suggests the tag used on a previous expense from the same merchant (keyword engine is the fallback), and still disappears the moment the user sets their own tag. | Suggesting from the user's own past tagging is more accurate than keywords alone; hiding once they tag keeps it from nagging. Josh confirmed the hide-when-tagged behaviour is correct (not a bug). |
 | 2026-08-27 | Review rows are a balanced two-column layout: amount + merchant stacked left, date pinned right, chevron far right; tighter card padding and a plain-green Cancel with no nav divider. | The first cut had a big amount top-left with "merchant · date" cramped beneath and the whole right half empty, so cards read tall, sparse and unfinished. Pinning the date right fills the width and matches the reference density. Standing lesson recorded in CLAUDE.md: build lists/sheets to occupy the screen like a finished app. |
 | 2026-08-27 | Multi-expense review cleanup (shared by photo + statement flows): unticking dims the card's content only (card stays solid white); the red swipe-Delete exists only during an active swipe; statement rows drop the PDF tile (tick + details only, photo rows keep their thumbnail); a "N found · review and add the ones you want to keep" banner tops the list. | The unticked card was 50% opaque, so the red Delete panel behind it bled through and the bin dragged down as the row expanded — looked broken. The PDF tile cluttered statement rows; removing it lets the details fill the width and the page feel finished. The banner frames the task and fills the top. All via the one shared view, so both flows improve together. |
 | 2026-08-27 | Home list: bigger gap above each date label, small gap below, so the date heads the expense beneath it. | The date sat 2pt under the previous expense and read as belonging to the wrong one. |
@@ -827,6 +829,20 @@ Go Pro / Export buttons, 2026-08-26). Keep backgrounds bounded and mark any
 non-trivial background `.allowsHitTesting(false)`.
 
 ## Current state — what's shipped (newest first)
+
+- **Expense detail as a "dynamic receipt"** (2026-09-03): the detail screen is now
+  one cohesive receipt object — a tag-tinted frame around the photo (or a hero
+  amount, framed in the tag colour, when there's no receipt), a perforated
+  "DETAILS" tear line, a dot-textured white paper body, a torn zig-zag bottom
+  edge, and a soft shadow. Frame/row-icon colours come from the expense's tag
+  (`primaryColor`/`tintColor`), defaulting to Tally green when untagged. Rows were
+  re-laid to the reference: a tinted rounded-square icon with the label stacked
+  **above** a left-aligned value (maximises width for long merchants), dashed
+  dividers. Delete is now a full-width filled red button. Tally Suggests also
+  learns from history — it suggests the tag used on a previous expense from the
+  **same merchant** (falling back to the keyword engine), and still hides once the
+  user sets their own tag. New private helpers/shapes in `ExpenseDetailView`
+  (`receiptObject`, `tintedIconSquare`, `ReceiptShape`, `ReceiptTexture`).
 
 - **Native multi-select + no-snap fields** (2026-09-02): long-press multi-select had
   no visible actions (its toolbar rendered behind the tab bar). Rebuilt native:
