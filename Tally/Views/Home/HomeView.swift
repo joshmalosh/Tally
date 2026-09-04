@@ -20,6 +20,13 @@ struct HomeView: View {
     @State private var showingFilteredExport = false
     @State private var isSelecting = false
     @State private var selectedExpenseIds: Set<String> = []
+    // Photos-style drag-to-select. Row frames are collected (only while selecting)
+    // in the "expenseList" coordinate space; a drag beginning in the leading
+    // checkmark column toggles each row it crosses. `dragVisitedIds` stops a row
+    // flip-flopping as the finger lingers over it.
+    @State private var rowFrames: [String: CGRect] = [:]
+    @State private var isDragSelecting = false
+    @State private var dragVisitedIds: Set<String> = []
     @State private var exportWithSelectionItem: ExportWithSelectionItem?
     @State private var showingShred = false
     @State private var shredTick = 0
@@ -297,11 +304,11 @@ struct HomeView: View {
     private var selectionCloseButton: some View {
         Button { exitSelectionMode() } label: {
             Image(systemName: "xmark")
-                .font(.system(size: 14, weight: .bold))
+                .font(.system(size: 17, weight: .bold))
                 .foregroundStyle(Color(hex: "2F402E"))
-                .frame(width: 32, height: 32)
+                .frame(width: 40, height: 40)
                 .background(Circle().fill(.white))
-                .shadow(color: .black.opacity(0.18), radius: 5, x: 0, y: 2)
+                .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 2)
         }
         .buttonStyle(.plain)
     }
@@ -525,7 +532,9 @@ struct HomeView: View {
             )
         }
         .sheet(item: $exportWithSelectionItem) { item in
-            GlobalExportSheet(initialSelection: item.expenses)
+            // Multi-select share: export exactly these expenses, straight to the
+            // format step — no period picker, no "last month" default.
+            GlobalExportSheet(initialSelection: item.expenses, directSelection: true)
         }
         .sheet(isPresented: $showingFilterSheet) {
             FilterSheet(periodFilter: $periodFilter)
@@ -864,15 +873,27 @@ struct HomeView: View {
             ForEach(dayGroups) { group in
                 Group {
                     if let headerYear = group.yearHeader {
-                        Text(String(headerYear))
-                            .font(Font.dmSerifDisplay(31))
-                            .foregroundStyle(Color(hex: "1C1C1E"))
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .padding(.top, 10)
-                            .padding(.bottom, 2)
-                            .listRowInsets(EdgeInsets())
-                            .listRowSeparator(.hidden)
-                            .listRowBackground(Color.clear)
+                        // Mirrors the receipt "DETAILS" divider: grey label, a thin
+                        // rule each side, centred, with balanced padding so it sits
+                        // midway between the groups it separates.
+                        HStack(spacing: 12) {
+                            Rectangle()
+                                .fill(Color(hex: "636367").opacity(0.25))
+                                .frame(height: 0.5)
+                            Text(String(headerYear))
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(Color(hex: "636367"))
+                                .tracking(1.0)
+                                .monospacedDigit()
+                            Rectangle()
+                                .fill(Color(hex: "636367").opacity(0.25))
+                                .frame(height: 0.5)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
+                        .listRowInsets(EdgeInsets())
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
                     }
 
                     Text(daySectionTitle(for: group.dayStart))
@@ -918,6 +939,48 @@ struct HomeView: View {
         .contentMargins(.top, 0, for: .scrollContent)
         .contentMargins(.horizontal, 0, for: .scrollContent)
         .scrollDismissesKeyboard(.interactively)
+        .coordinateSpace(name: "expenseList")
+        .onPreferenceChange(RowFramePreference.self) { rowFrames = $0 }
+        // Freeze the scroll while a drag-select is in flight so the finger tracks
+        // rows cleanly. `including:` disables the gesture entirely unless we're in
+        // selection mode, so normal scrolling is never affected.
+        .scrollDisabled(isDragSelecting)
+        .simultaneousGesture(dragSelectGesture, including: isSelecting ? .all : .subviews)
+    }
+
+    /// Drag-across selection. Only a drag that begins in the leading checkmark
+    /// column (x < 60) is treated as a select-drag — anywhere else the List
+    /// scrolls as normal, even while selecting.
+    private var dragSelectGesture: some Gesture {
+        DragGesture(minimumDistance: 8, coordinateSpace: .named("expenseList"))
+            .onChanged { value in
+                guard isSelecting, value.startLocation.x < 60 else { return }
+                if !isDragSelecting {
+                    isDragSelecting = true
+                    dragVisitedIds.removeAll()
+                }
+                guard let id = rowFrames.first(where: { $0.value.contains(value.location) })?.key,
+                      !dragVisitedIds.contains(id) else { return }
+                dragVisitedIds.insert(id)
+                toggleExpenseSelection(id)
+                UISelectionFeedbackGenerator().selectionChanged()
+            }
+            .onEnded { _ in
+                isDragSelecting = false
+                dragVisitedIds.removeAll()
+            }
+    }
+
+    /// Publishes a row's frame (in the list's coordinate space) for drag-select
+    /// hit-testing. Emits nothing unless selecting, so it adds no preference churn
+    /// during normal scrolling.
+    private func rowFrameReader(id: String) -> some View {
+        GeometryReader { proxy in
+            Color.clear.preference(
+                key: RowFramePreference.self,
+                value: isSelecting ? [id: proxy.frame(in: .named("expenseList"))] : [:]
+            )
+        }
     }
 
     @ViewBuilder
@@ -975,6 +1038,7 @@ struct HomeView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background(rowFrameReader(id: expense.id))
         .contentShape(Rectangle())
         .onTapGesture {
             if isSelecting {
@@ -1066,8 +1130,10 @@ struct HomeView: View {
             }
         }
         .padding(.horizontal, 40)
-        .padding(.top, 14)
-        .padding(.bottom, 40)
+        // Lower the bar: the space below the icons is now roughly the space above
+        // them (a touch more), instead of the tall 40pt gap that pushed it up.
+        .padding(.top, 18)
+        .padding(.bottom, 22)
         .frame(maxWidth: .infinity)
         .background(
             Color.white
@@ -1283,6 +1349,15 @@ private enum HomeExpenseIconResolver {
 private struct ExportWithSelectionItem: Identifiable {
     let id = UUID()
     let expenses: [ExpenseModel]
+}
+
+// MARK: - Row frame preference (drag-to-select hit-testing)
+
+private struct RowFramePreference: PreferenceKey {
+    static var defaultValue: [String: CGRect] = [:]
+    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
+        value.merge(nextValue()) { _, new in new }
+    }
 }
 
 // MARK: - Undo toast

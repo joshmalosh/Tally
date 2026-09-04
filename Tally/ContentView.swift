@@ -245,10 +245,10 @@ struct BootSplashView: View {
     }
 }
 
-/// A genuinely-animating indeterminate progress bar: a segment slides across on a
-/// loop, so it reads as real work in progress (unknown duration), not a fixed fill.
+/// A "fill-up" progress bar: a green capsule grows from empty to full on a
+/// repeating loop, so it reads as active work during boot (unknown duration).
 private struct IndeterminateBar: View {
-    @State private var phase: CGFloat = 0
+    @State private var fill: CGFloat = 0
 
     var body: some View {
         GeometryReader { geo in
@@ -258,13 +258,12 @@ private struct IndeterminateBar: View {
                 .overlay(alignment: .leading) {
                     Capsule()
                         .fill(Color.brandPrimary)
-                        .frame(width: w * 0.35)
-                        .offset(x: phase * (w * 1.35) - w * 0.35)
+                        .frame(width: max(0, w * fill))
                 }
                 .clipShape(Capsule())
                 .onAppear {
-                    withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: false)) {
-                        phase = 1
+                    withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: false)) {
+                        fill = 1
                     }
                 }
         }

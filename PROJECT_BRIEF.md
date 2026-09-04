@@ -703,6 +703,11 @@ totals are single-currency, never mixed across currencies.
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-09-04 | Home multi-select gains Photos-style drag-to-select: a drag beginning in the leading checkmark column (x < 60) toggles each expense it crosses (haptic per row); the list stops scrolling while that drag is live. Tap-to-toggle and long-press-to-enter are unchanged; a drag starting anywhere else still scrolls. | Selecting a run of expenses one tap at a time is tedious; dragging is the native iOS Photos gesture Josh asked for. Anchoring the select-drag to the checkmark column disambiguates it from a scroll, so the list still scrolls normally in and out of selection mode. Flagged as the item most likely to need on-device iteration (gesture/scroll interaction can't be verified on Windows); tap-select is the fallback if it misbehaves. |
+| 2026-09-04 | Exporting a home multi-selection skips the "Pick a period" step and exports exactly the selected expenses (straight to the format step; the leading control is Close, not Back). Period-detail export still auto-detects a period. | Josh selected specific expenses, so defaulting to "last month" and making him re-pick a period was wrong — the selection *is* the scope. Gated behind a `directSelection` flag so only the home flow skips the picker; the period-detail path (which exports a whole period's list) keeps its auto-detect. |
+| 2026-09-04 | Boot splash progress bar fills up green (empty → full, repeating) instead of a segment sliding across. | The sliding segment read as "reversed" to Josh. A fill-up is the conventional "loading" motion and reads as forward progress. |
+| 2026-09-04 | Year markers on the Home list mirror the receipt "DETAILS" divider: a small grey (`#636367`) label with a hairline rule on each side, centred, with balanced vertical padding. Was a large dark serif year with top-heavy padding. | The big serif year sat in an awkwardly large, top-heavy space and didn't read as a divider. Matching the DETAILS treatment makes it a quiet separator that sits centred between the year's groups, consistent with the date labels' grey. |
+| 2026-09-04 | CloudKit sync events are handled off the main thread (a serial utility `OperationQueue`), the `lastSyncDate` refresh is throttled to at most once per minute, and the "cloudkit export ok" info log is DEBUG-only. `AdManager.shouldShowBannerAd` now defaults to **false** (was true). | Scrolling stuttered and the log spammed "cloudkit 2 ok" because every sync event did main-thread work; sync must never touch the main thread outside a throttled UI refresh. The ad default flipped because banners were network-loading on the first frame (before `configure` ran) even for Pro users — starting hidden means nothing loads until `configure` decides. Note: SwiftData's own post-import view-context merge still re-runs `@Query` and has no public throttle knob, so residual merge cost is mitigated only by keeping per-refresh work in `HomeView` cheap. |
 | 2026-09-03 | The expense detail screen is one "dynamic receipt" object (tag-tinted frame, DETAILS tear line, dot-textured paper, torn bottom, shadow); detail rows use a tinted icon square + label-above-left-aligned-value; no-receipt expenses frame a hero amount in the tag colour; untagged defaults to Tally green; Delete is a full-width filled red button. | Adds character and makes the screen feel like a physical receipt (Josh liked a reference build). Label-above-value maximises width so long merchant names aren't cramped. Tint tying the whole object to the tag colour makes each expense feel categorised at a glance. |
 | 2026-09-03 | Tally Suggests learns from history: it suggests the tag used on a previous expense from the same merchant (keyword engine is the fallback), and still disappears the moment the user sets their own tag. | Suggesting from the user's own past tagging is more accurate than keywords alone; hiding once they tag keeps it from nagging. Josh confirmed the hide-when-tagged behaviour is correct (not a bug). |
 | 2026-08-27 | Review rows are a balanced two-column layout: amount + merchant stacked left, date pinned right, chevron far right; tighter card padding and a plain-green Cancel with no nav divider. | The first cut had a big amount top-left with "merchant · date" cramped beneath and the whole right half empty, so cards read tall, sparse and unfinished. Pinning the date right fills the width and matches the reference density. Standing lesson recorded in CLAUDE.md: build lists/sheets to occupy the screen like a finished app. |
@@ -830,11 +835,30 @@ non-trivial background `.allowsHitTesting(false)`.
 
 ## Current state — what's shipped (newest first)
 
+- **Home multi-select drag, export-skip-period, sync/ad perf, loading + year markers** (2026-09-04):
+  Home multi-select now supports Photos-style **drag-to-select** — a `DragGesture`
+  in the `"expenseList"` coordinate space that, when it begins in the leading
+  checkmark column (x < 60), toggles each expense whose frame (collected via a
+  `RowFramePreference` only while selecting) the finger crosses; the list is
+  `scrollDisabled` for the duration of that drag, and the gesture is masked out
+  (`including: .subviews`) unless selecting, so normal scrolling is untouched.
+  Sharing a multi-selection opens `GlobalExportSheet(directSelection: true)`, which
+  **skips the period picker** and exports exactly the selected expenses (Close, not
+  Back; period-detail export keeps auto-detect). The selection **bottom bar** sits
+  lower (top 18 / bottom 22, was 14 / 40) and the floating **X** is larger (40pt,
+  17pt glyph) with a stronger shadow (0.3). The boot **loading bar fills up green**
+  (was a sliding segment). **Year markers** on the list mirror the DETAILS divider
+  (grey `#636367`, a hairline each side, centred, balanced padding). **CloudKit**
+  sync events are handled off-main on a serial utility `OperationQueue`, the
+  `lastSyncDate` refresh is throttled to ≤1/min, and the "ok" log is DEBUG-only;
+  `AdManager.shouldShowBannerAd` defaults to **false** so no banner loads on the
+  first frame (Pro users saw banners network-load at launch before `configure` ran).
+
 - **Functional boot splash (async store load)** (2026-09-03): `TallyApp` no longer
   creates the `ModelContainer` synchronously in `init` (which blocked the first
   frame, so the OS showed a static launch image during the real DB/CloudKit
   setup). It now builds the container on a background `Task.detached` behind an
-  animated `BootSplashView` (logo + a genuine indeterminate sliding bar + rotating
+  animated `BootSplashView` (logo + a genuine indeterminate progress bar + rotating
   taglines), swapping to `ContentView` when ready. ContentView's old after-boot
   cosmetic splash was removed. `configureRevenueCat` still runs in `init` (fast).
   Also removed the "DETAILS" tear line on the expense detail (saved height).

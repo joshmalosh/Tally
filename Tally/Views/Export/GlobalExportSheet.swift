@@ -11,6 +11,17 @@ struct GlobalExportSheet: View {
     /// When present, pre-selects the matching period and defaults to it.
     var initialSelection: [ExpenseModel]? = nil
 
+    /// Home multi-select: export exactly `initialSelection`, skipping the period
+    /// picker and jumping straight to the format step. Left false elsewhere (e.g.
+    /// period-detail export), which keeps the period auto-detect behaviour.
+    var directSelection: Bool = false
+
+    /// True only when the caller asked for direct selection *and* actually handed
+    /// over a non-empty set to export.
+    private var isDirectSelection: Bool {
+        directSelection && !(initialSelection?.isEmpty ?? true)
+    }
+
     // MARK: - Period enum
 
     enum ExportPeriod: CaseIterable, Equatable {
@@ -157,6 +168,9 @@ struct GlobalExportSheet: View {
     // MARK: - Selected period computed values
 
     private var selectedExpenses: [ExpenseModel] {
+        // Direct selection exports exactly what the user picked, untouched by the
+        // period window or tag filter.
+        if isDirectSelection { return initialSelection ?? [] }
         // Apply tag filter on top of period
         let base = expenses(for: selectedPeriod)
         guard !selectedTagFilterIds.isEmpty else { return base }
@@ -192,7 +206,11 @@ struct GlobalExportSheet: View {
     }
 
     private var exportLabel: String {
-        "EXPORT \(periodName(for: selectedPeriod).uppercased())"
+        if isDirectSelection {
+            let n = selectedExpenses.count
+            return "EXPORT \(n) SELECTED"
+        }
+        return "EXPORT \(periodName(for: selectedPeriod).uppercased())"
     }
 
     // MARK: - Auto-detect period from initialSelection
@@ -226,7 +244,7 @@ struct GlobalExportSheet: View {
 
             if activeExpenses.isEmpty {
                 emptyState
-            } else if step == 1 {
+            } else if !isDirectSelection && step == 1 {
                 step1View
                     .transition(.asymmetric(
                         insertion: .move(edge: .leading),
@@ -242,7 +260,9 @@ struct GlobalExportSheet: View {
         }
         .animation(.easeInOut(duration: 0.25), value: step)
         .onAppear {
-            if let sel = initialSelection, !sel.isEmpty {
+            // Period auto-detect only applies to the period flow; a direct
+            // selection never touches the period.
+            if !isDirectSelection, let sel = initialSelection, !sel.isEmpty {
                 selectedPeriod = bestPeriod(for: sel)
             }
         }
@@ -560,22 +580,30 @@ struct GlobalExportSheet: View {
             // Header bar
             HStack {
                 Button {
-                    withAnimation(.easeInOut(duration: 0.25)) { step = 1 }
+                    // Direct selection has no step 1 to return to, so the leading
+                    // control closes the sheet instead.
+                    if isDirectSelection {
+                        dismiss()
+                    } else {
+                        withAnimation(.easeInOut(duration: 0.25)) { step = 1 }
+                    }
                 } label: {
                     HStack(spacing: 4) {
-                        Image(systemName: "chevron.left")
+                        Image(systemName: isDirectSelection ? "xmark" : "chevron.left")
                             .font(.system(size: 14, weight: .semibold))
-                        Text("Back")
+                        Text(isDirectSelection ? "Close" : "Back")
                             .font(.system(size: 15, weight: .medium))
                     }
                     .foregroundStyle(Color(hex: "4A5E50"))
                 }
                 .buttonStyle(.plain)
                 Spacer()
-                Text("STEP 2 OF 2")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-                    .tracking(0.8)
+                if !isDirectSelection {
+                    Text("STEP 2 OF 2")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Color(hex: "8F9E94"))
+                        .tracking(0.8)
+                }
             }
             .padding(.horizontal, 20)
             .padding(.top, 16)
@@ -592,30 +620,34 @@ struct GlobalExportSheet: View {
                         Text("Pick a format.")
                             .font(Font.dmSerifDisplay(32))
                             .foregroundStyle(Color(hex: "1C1C1E"))
-                        Text("How would you like to receive \(periodName(for: selectedPeriod).lowercased())?")
+                        Text(isDirectSelection
+                             ? "How would you like to receive your \(selectedExpenses.count) selected expense\(selectedExpenses.count == 1 ? "" : "s")?"
+                             : "How would you like to receive \(periodName(for: selectedPeriod).lowercased())?")
                             .font(.system(size: 14))
                             .foregroundStyle(Color(hex: "8F9E94"))
                     }
                     .padding(.horizontal, 20)
 
-                    // Period summary row
+                    // Summary row: period window, or the exact selection.
                     HStack(spacing: 14) {
                         ZStack {
                             Circle()
                                 .fill(Color(hex: "E8F0EA"))
                                 .frame(width: 44, height: 44)
-                            Image(systemName: "calendar")
+                            Image(systemName: isDirectSelection ? "checkmark.circle.fill" : "calendar")
                                 .font(.system(size: 18))
                                 .foregroundStyle(Color(hex: "2F402E"))
                         }
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(periodName(for: selectedPeriod))
+                            Text(isDirectSelection ? "Selected expenses" : periodName(for: selectedPeriod))
                                 .font(.system(size: 14, weight: .semibold))
                                 .foregroundStyle(Color(hex: "1C1C1E"))
                             let exps = selectedExpenses
                             let total = exps.reduce(0) { $0 + $1.amountCents }
                             let amtStr = fmtCents(total)
-                            Text("\(periodDateLabel(for: selectedPeriod)) · \(amtStr) · \(exps.count) expenses")
+                            Text(isDirectSelection
+                                 ? "\(amtStr) · \(exps.count) expense\(exps.count == 1 ? "" : "s")"
+                                 : "\(periodDateLabel(for: selectedPeriod)) · \(amtStr) · \(exps.count) expenses")
                                 .font(.system(size: 12))
                                 .foregroundStyle(Color(hex: "8F9E94"))
                         }

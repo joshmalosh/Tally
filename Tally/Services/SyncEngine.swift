@@ -17,6 +17,22 @@ final class SyncEngine {
     private let monitor = NWPathMonitor()
     private let monitorQueue = DispatchQueue(label: "com.tally.network-monitor")
 
+    /// CloudKit sync events fire in bursts; handle them off the main thread so a
+    /// mid-scroll import can't do work on the main queue. Serial (one at a time)
+    /// so the throttle timestamp below needs no extra locking.
+    private let cloudKitQueue: OperationQueue = {
+        let q = OperationQueue()
+        q.name = "com.tally.cloudkit-events"
+        q.qualityOfService = .utility
+        q.maxConcurrentOperationCount = 1
+        return q
+    }()
+
+    /// Last export event we surfaced to `lastSyncDate`. Touched only on
+    /// `cloudKitQueue` (serial), so it needs no synchronisation; ignored by the
+    /// observation system since it never drives the UI.
+    @ObservationIgnored private var lastExportEventAt: Date?
+
     private static let lastSyncKey = "lastCloudKitSyncDate"
 
     init() {
@@ -62,9 +78,10 @@ final class SyncEngine {
         NotificationCenter.default.addObserver(
             forName: NSPersistentCloudKitContainer.eventChangedNotification,
             object: nil,
-            queue: .main
+            queue: cloudKitQueue
         ) { [weak self] notification in
-            guard let event = notification.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
+            guard let self,
+                  let event = notification.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
                     as? NSPersistentCloudKitContainer.Event else { return }
 
             // Only completed events carry a result. A failed sync is the quiet
@@ -72,13 +89,23 @@ final class SyncEngine {
             guard event.endDate != nil else { return }
             if let error = event.error {
                 Log.sync.error("cloudkit \(event.type.rawValue, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
-            } else if event.succeeded {
-                Log.sync.info("cloudkit \(event.type.rawValue, privacy: .public) ok")
-                if event.type == .export {
-                    let now = Date()
-                    self?.lastSyncDate = now
-                    UserDefaults.standard.set(now, forKey: Self.lastSyncKey)
-                }
+                return
+            }
+            guard event.succeeded, event.type == .export else { return }
+
+            #if DEBUG
+            Log.sync.info("cloudkit export ok")
+            #endif
+
+            // Throttle the @Observable write: a burst of export events would
+            // otherwise invalidate the UI on the main thread once per event,
+            // mid-scroll. At most one refresh per minute.
+            let now = Date()
+            if let last = self.lastExportEventAt, now.timeIntervalSince(last) < 60 { return }
+            self.lastExportEventAt = now
+            DispatchQueue.main.async {
+                self.lastSyncDate = now
+                UserDefaults.standard.set(now, forKey: Self.lastSyncKey)
             }
         }
     }

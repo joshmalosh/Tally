@@ -4,7 +4,10 @@ import GoogleMobileAds
 
 @Observable
 final class AdManager {
-    var shouldShowBannerAd = true
+    // Start hidden so no banner loads on the first frame, before `configure` has
+    // decided. Otherwise Pro users briefly render (and network-load) banners at
+    // launch until onAppear flips this off. `configure` sets the real value.
+    var shouldShowBannerAd = false
 
     static var bannerAdUnitID: String {
         #if DEBUG
