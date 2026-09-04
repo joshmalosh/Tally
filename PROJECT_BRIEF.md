@@ -830,6 +830,15 @@ non-trivial background `.allowsHitTesting(false)`.
 
 ## Current state — what's shipped (newest first)
 
+- **Functional boot splash (async store load)** (2026-09-03): `TallyApp` no longer
+  creates the `ModelContainer` synchronously in `init` (which blocked the first
+  frame, so the OS showed a static launch image during the real DB/CloudKit
+  setup). It now builds the container on a background `Task.detached` behind an
+  animated `BootSplashView` (logo + a genuine indeterminate sliding bar + rotating
+  taglines), swapping to `ContentView` when ready. ContentView's old after-boot
+  cosmetic splash was removed. `configureRevenueCat` still runs in `init` (fast).
+  Also removed the "DETAILS" tear line on the expense detail (saved height).
+
 - **Expense detail as a "dynamic receipt"** (2026-09-03): the detail screen is now
   one cohesive receipt object — a tag-tinted frame around the photo (or a hero
   amount, framed in the tag colour, when there's no receipt), a perforated
