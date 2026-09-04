@@ -300,8 +300,7 @@ struct ExpenseDetailView: View {
     private var receiptObject: some View {
         VStack(spacing: 0) {
             topRegion
-                .padding(.horizontal, 12)
-                .padding(.top, 12)
+                .padding(16)   // thicker tag-coloured border, wrapping all four sides
             whiteBody
         }
         .background(frameColor)
@@ -318,12 +317,9 @@ struct ExpenseDetailView: View {
         .padding(.horizontal, 16)
     }
 
-    // Tag-derived colours: the frame and row icons take the expense's tag colour,
-    // defaulting to Tally green when untagged.
-    private var receiptTagColorModel: TagColor? { selectedTags.first?.tagColor }
-    private var frameColor: Color { receiptTagColorModel?.primaryColor ?? Color(hex: "2F402E") }
-    private var iconTint: Color { receiptTagColorModel?.tintColor ?? Color(hex: "E8F0EA") }
-    private var iconInk: Color { receiptTagColorModel?.primaryColor ?? Color(hex: "2F402E") }
+    // Only the frame border takes the expense's tag colour (Tally green when
+    // untagged); the row icons stay a neutral green.
+    private var frameColor: Color { selectedTags.first?.tagColor.primaryColor ?? Color(hex: "2F402E") }
 
     @ViewBuilder
     private var topRegion: some View {
@@ -339,7 +335,7 @@ struct ExpenseDetailView: View {
             .resizable()
             .scaledToFill()
             .frame(maxWidth: .infinity)
-            .frame(height: 300)
+            .frame(height: 240)
             .clipped()
             .contentShape(Rectangle())
             .onTapGesture { showingFullImage = true }
@@ -488,36 +484,36 @@ struct ExpenseDetailView: View {
 
     private var amountDetailRow: some View {
         HStack(spacing: 14) {
-            tintedIconSquare("dollarsign")
+            // Currency symbol is the leading square (tap to change currency) — the
+            // single currency indicator, not repeated inside the field.
+            Button { showingCurrencyPicker = true } label: {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .fill(Color(hex: "E8F0EA"))
+                        .frame(width: 40, height: 40)
+                    Text(currencySymbol)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Color(hex: "2F402E"))
+                }
+            }
+            .buttonStyle(.plain)
+
             VStack(alignment: .leading, spacing: 2) {
                 rowLabel("AMOUNT")
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Button { showingCurrencyPicker = true } label: {
-                        HStack(spacing: 1) {
-                            Text(currencySymbol)
-                                .font(.system(size: 15, weight: .regular, design: .monospaced))
-                            Image(systemName: "chevron.down")
-                                .font(.system(size: 8, weight: .semibold))
-                        }
-                        .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
+                TextField("0.00", text: $amountText)
+                    .keyboardType(CurrencyFormatter.shared.usesDecimals(for: currency) ? .decimalPad : .numberPad)
+                    .font(.system(size: 22, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+                    .focused($focusedField, equals: .amount)
+                    .onChange(of: amountText) { _, newValue in
+                        let filtered  = newValue.filter { $0.isNumber || $0 == "." }
+                        let parts     = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
+                        let sanitized = parts.count > 1 ? parts[0] + "." + parts.dropFirst().joined() : filtered
+                        if sanitized != newValue { amountText = String(sanitized) }
                     }
-                    .buttonStyle(.plain)
-
-                    TextField("0.00", text: $amountText)
-                        .keyboardType(CurrencyFormatter.shared.usesDecimals(for: currency) ? .decimalPad : .numberPad)
-                        .font(.system(size: 22, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(Color(hex: "1C1C1E"))
-                        .focused($focusedField, equals: .amount)
-                        .onChange(of: amountText) { _, newValue in
-                            let filtered  = newValue.filter { $0.isNumber || $0 == "." }
-                            let parts     = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
-                            let sanitized = parts.count > 1 ? parts[0] + "." + parts.dropFirst().joined() : filtered
-                            if sanitized != newValue { amountText = String(sanitized) }
-                        }
-                        .onChange(of: focusedField) { _, newValue in
-                            if newValue != .amount { formatAmountField() }
-                        }
-                }
+                    .onChange(of: focusedField) { _, newValue in
+                        if newValue != .amount { formatAmountField() }
+                    }
             }
             Spacer(minLength: 8)
         }
@@ -607,7 +603,7 @@ struct ExpenseDetailView: View {
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(iconInk.opacity(0.4))
+                    .foregroundStyle(Color(hex: "C4BFB9"))
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
@@ -672,7 +668,7 @@ struct ExpenseDetailView: View {
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(iconInk.opacity(0.4))
+                    .foregroundStyle(Color(hex: "C4BFB9"))
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 12)
@@ -681,15 +677,15 @@ struct ExpenseDetailView: View {
         .buttonStyle(.plain)
     }
 
-    /// Rounded square in the expense's tag tint with the tag-colour icon.
+    /// Neutral light-green rounded square with a dark-green icon (all detail rows).
     private func tintedIconSquare(_ systemName: String) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: 11, style: .continuous)
-                .fill(iconTint)
+                .fill(Color(hex: "E8F0EA"))
                 .frame(width: 40, height: 40)
             Image(systemName: systemName)
                 .font(.system(size: 15, weight: .medium))
-                .foregroundStyle(iconInk)
+                .foregroundStyle(Color(hex: "2F402E"))
         }
     }
 
