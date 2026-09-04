@@ -404,7 +404,7 @@ struct ExpenseDetailView: View {
 
     private var whiteBody: some View {
         VStack(spacing: 0) {
-            detailsTearLine
+            Spacer().frame(height: 6)   // small breathing room under the frame
 
             if attachmentImage != nil {
                 amountDetailRow
@@ -427,18 +427,6 @@ struct ExpenseDetailView: View {
                 ReceiptTexture()
             }
         )
-    }
-
-    private var detailsTearLine: some View {
-        HStack(spacing: 8) {
-            Rectangle().fill(Color(hex: "2F402E").opacity(0.15)).frame(width: 26, height: 1)
-            Text("DETAILS")
-                .font(.system(size: 10, weight: .bold)).tracking(2)
-                .foregroundStyle(Color(hex: "2F402E").opacity(0.4))
-            Rectangle().fill(Color(hex: "2F402E").opacity(0.15)).frame(width: 26, height: 1)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.top, 16).padding(.bottom, 8)
     }
 
     private var dashedRowDivider: some View {

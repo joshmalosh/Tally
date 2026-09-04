@@ -11,25 +11,7 @@ struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var hasSeededTags = false
-    @State private var showSplash = true
-    @State private var splashOpacity: Double = 1.0
-    @State private var splashProgress: CGFloat = 0
-    @State private var currentTaglineIndex = 0
-    @State private var taglineOpacity: Double = 1
-    @State private var taglineTimerTask: Task<Void, Never>?
     @State private var didRefreshProStatus = false
-
-    private static let splashDuration: TimeInterval = 0.6
-    private static let taglines = [
-        "Decluttering your finances.",
-        "Making expenses boring again.",
-        "No spreadsheets were harmed.",
-        "Just expenses. Nothing else.",
-        "Your accountant will be so proud.",
-        "Getting out of your way.",
-        "Log it. Tag it. Done."
-    ]
-    @State private var shuffledTaglines: [String] = Self.taglines.shuffled()
 
     var body: some View {
         ZStack {
@@ -51,13 +33,6 @@ struct ContentView: View {
                 OnboardingView()
                     .transition(.opacity)
             }
-
-            // Splash overlays everything after onboarding, fades out as before.
-            if showSplash && hasCompletedOnboarding {
-                splashOverlay
-                    .opacity(splashOpacity)
-                    .allowsHitTesting(false)
-            }
         }
         .preferredColorScheme(.light)
         .onAppear {
@@ -75,13 +50,6 @@ struct ContentView: View {
             seedDefaultTags()
             seedSystemTags()
             adManager.configure(isPro: appState.isPro)
-            if !hasCompletedOnboarding {
-                taglineTimerTask?.cancel()
-                showSplash = false
-                splashOpacity = 0
-            } else {
-                dismissSplash()
-            }
         }
         .onChange(of: appState.subscriptionStatus) { _, _ in
             adManager.configure(isPro: appState.isPro)
@@ -90,99 +58,6 @@ struct ContentView: View {
             // Force Pro is separate from subscriptionStatus, so refresh ads when
             // it toggles or the debug switch wouldn't show/hide them live.
             adManager.configure(isPro: appState.isPro)
-        }
-        .onChange(of: hasCompletedOnboarding) { _, completed in
-            if completed {
-                dismissSplash()
-            }
-        }
-    }
-
-    // MARK: - Splash Overlay
-
-    private var splashOverlay: some View {
-        ZStack {
-            Color("LaunchBackground")
-                .ignoresSafeArea()
-            VStack(spacing: 0) {
-                Spacer(minLength: 0)
-
-                Image("LaunchLogo")
-                    .resizable()
-                    .scaledToFit()
-                    .padding(.horizontal, 80)
-
-                Spacer(minLength: 0)
-
-                progressBar
-
-                Spacer().frame(height: 16)
-
-                Text(shuffledTaglines.isEmpty ? "" : shuffledTaglines[currentTaglineIndex % shuffledTaglines.count])
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color.brandPrimary.opacity(0.7))
-                    .opacity(taglineOpacity)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .onAppear {
-            startSplashAnimations()
-        }
-    }
-
-    private var progressBar: some View {
-        let barWidth = max(0, UIScreen.main.bounds.width - 80)
-        return ZStack(alignment: .leading) {
-            Capsule()
-                .fill(Color.brandPrimary.opacity(0.25))
-                .frame(height: 4)
-            Capsule()
-                .fill(Color.brandPrimary)
-                .frame(width: max(0, barWidth * splashProgress), height: 4)
-        }
-        .frame(height: 4)
-        .frame(maxWidth: .infinity)
-        .padding(.horizontal, 40)
-    }
-
-    private func startSplashAnimations() {
-        withAnimation(.linear(duration: Self.splashDuration)) {
-            splashProgress = 1
-        }
-        scheduleNextTagline()
-    }
-
-    private func scheduleNextTagline() {
-        taglineTimerTask?.cancel()
-        let interval = Double.random(in: 1.8...3.2)
-        taglineTimerTask = Task { @MainActor in
-            try? await Task.sleep(for: .seconds(interval))
-            guard !Task.isCancelled else { return }
-            withAnimation(.easeInOut(duration: 0.3)) {
-                taglineOpacity = 0
-            }
-            try? await Task.sleep(for: .seconds(0.3))
-            guard !Task.isCancelled else { return }
-            currentTaglineIndex += 1
-            withAnimation(.easeInOut(duration: 0.3)) {
-                taglineOpacity = 1
-            }
-            guard !Task.isCancelled else { return }
-            scheduleNextTagline()
-        }
-    }
-
-    private func dismissSplash() {
-        guard showSplash else { return }
-        taglineTimerTask?.cancel()
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.splashDuration) {
-            taglineTimerTask?.cancel()
-            withAnimation(.easeOut(duration: 0.35)) {
-                splashOpacity = 0.0
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-                showSplash = false
-            }
         }
     }
 
@@ -305,4 +180,93 @@ struct ContentView: View {
         .environment(AppState())
         .environment(SyncEngine())
         .environment(AdManager())
+}
+
+// MARK: - Boot splash
+
+/// Shown while the SwiftData store loads (see `TallyApp`). It renders and animates
+/// *during* the real boot — the database/CloudKit store opens on a background task
+/// behind it — instead of a fixed cosmetic delay after launch. No `@Query` or app
+/// environment, so it's safe to show before the model container exists.
+struct BootSplashView: View {
+    private static let taglines = [
+        "Decluttering your finances.",
+        "Making expenses boring again.",
+        "No spreadsheets were harmed.",
+        "Just expenses. Nothing else.",
+        "Your accountant will be so proud.",
+        "Getting out of your way.",
+        "Log it. Tag it. Done."
+    ]
+    @State private var shuffled = BootSplashView.taglines.shuffled()
+    @State private var index = 0
+    @State private var taglineOpacity: Double = 1
+    @State private var taglineTask: Task<Void, Never>?
+
+    var body: some View {
+        ZStack {
+            Color("LaunchBackground").ignoresSafeArea()
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                Image("LaunchLogo")
+                    .resizable()
+                    .scaledToFit()
+                    .padding(.horizontal, 80)
+                Spacer(minLength: 0)
+                IndeterminateBar()
+                    .frame(height: 4)
+                    .padding(.horizontal, 40)
+                Spacer().frame(height: 16)
+                Text(shuffled.isEmpty ? "" : shuffled[index % shuffled.count])
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.brandPrimary.opacity(0.7))
+                    .opacity(taglineOpacity)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .preferredColorScheme(.light)
+        .onAppear { rotateTaglines() }
+        .onDisappear { taglineTask?.cancel() }
+    }
+
+    private func rotateTaglines() {
+        taglineTask?.cancel()
+        taglineTask = Task { @MainActor in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(Double.random(in: 1.8...3.2)))
+                if Task.isCancelled { break }
+                withAnimation(.easeInOut(duration: 0.3)) { taglineOpacity = 0 }
+                try? await Task.sleep(for: .seconds(0.3))
+                if Task.isCancelled { break }
+                index += 1
+                withAnimation(.easeInOut(duration: 0.3)) { taglineOpacity = 1 }
+            }
+        }
+    }
+}
+
+/// A genuinely-animating indeterminate progress bar: a segment slides across on a
+/// loop, so it reads as real work in progress (unknown duration), not a fixed fill.
+private struct IndeterminateBar: View {
+    @State private var phase: CGFloat = 0
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            Capsule()
+                .fill(Color.brandPrimary.opacity(0.2))
+                .overlay(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.brandPrimary)
+                        .frame(width: w * 0.35)
+                        .offset(x: phase * (w * 1.35) - w * 0.35)
+                }
+                .clipShape(Capsule())
+                .onAppear {
+                    withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: false)) {
+                        phase = 1
+                    }
+                }
+        }
+    }
 }
