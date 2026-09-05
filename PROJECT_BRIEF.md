@@ -703,7 +703,8 @@ totals are single-currency, never mixed across currencies.
 
 | Date | Decision | Why |
 |---|---|---|
-| 2026-09-04 | Home multi-select gains Photos-style drag-to-select: a drag beginning in the leading checkmark column (x < 60) toggles each expense it crosses (haptic per row); the list stops scrolling while that drag is live. Tap-to-toggle and long-press-to-enter are unchanged; a drag starting anywhere else still scrolls. | Selecting a run of expenses one tap at a time is tedious; dragging is the native iOS Photos gesture Josh asked for. Anchoring the select-drag to the checkmark column disambiguates it from a scroll, so the list still scrolls normally in and out of selection mode. Flagged as the item most likely to need on-device iteration (gesture/scroll interaction can't be verified on Windows); tap-select is the fallback if it misbehaves. |
+| 2026-09-05 | Drag-to-select reworked to track row frames in a plain `RowFrameStore` class (written per visible cell via onAppear/onChange in **global** coordinates), not a `PreferenceKey`; hit-test is by the finger's y-band in global space. Selection bottom bar lowered further (top 12 / bottom 6, was 18 / 22) to sit just above the home indicator. Shred delete animation slowed (~1.9s of visible action, was ~1.3s) and its hold extended to 2.2s. | The first drag-select cut used a PreferenceKey from inside List cells, which this codebase already knew don't propagate reliably (ListScrollDetector uses UIKit KVO for the same reason) — so it read stale/sparse frames and selected the wrong rows and wouldn't track across the list. A frame store written from cell lifecycle callbacks, matched in global coordinates, removes both the propagation and the coordinate-space ambiguity. Bar was still too high; shred read as vanishing too fast. **Known limit:** the drag selects the on-screen rows (scroll is frozen during the drag) — auto-scroll past a screenful is a follow-up if one screen isn't enough. |
+| 2026-09-04 | Home multi-select gains Photos-style drag-to-select: a drag beginning in the leading checkmark column (x < 60) toggles each expense it crosses (haptic per row); the list stops scrolling while that drag is live. Tap-to-toggle and long-press-to-enter are unchanged; a drag starting anywhere else still scrolls. | Selecting a run of expenses one tap at a time is tedious; dragging is the native iOS Photos gesture Josh asked for. Anchoring the select-drag to the checkmark column disambiguates it from a scroll, so the list still scrolls normally in and out of selection mode. (Reworked 2026-09-05 — see above — after the first frame-tracking approach mis-mapped rows.) |
 | 2026-09-04 | Exporting a home multi-selection skips the "Pick a period" step and exports exactly the selected expenses (straight to the format step; the leading control is Close, not Back). Period-detail export still auto-detects a period. | Josh selected specific expenses, so defaulting to "last month" and making him re-pick a period was wrong — the selection *is* the scope. Gated behind a `directSelection` flag so only the home flow skips the picker; the period-detail path (which exports a whole period's list) keeps its auto-detect. |
 | 2026-09-04 | Boot splash progress bar fills up green (empty → full, repeating) instead of a segment sliding across. | The sliding segment read as "reversed" to Josh. A fill-up is the conventional "loading" motion and reads as forward progress. |
 | 2026-09-04 | Year markers on the Home list mirror the receipt "DETAILS" divider: a small grey (`#636367`) label with a hairline rule on each side, centred, with balanced vertical padding. Was a large dark serif year with top-heavy padding. | The big serif year sat in an awkwardly large, top-heavy space and didn't read as a divider. Matching the DETAILS treatment makes it a quiet separator that sits centred between the year's groups, consistent with the date labels' grey. |
@@ -837,16 +838,20 @@ non-trivial background `.allowsHitTesting(false)`.
 
 - **Home multi-select drag, export-skip-period, sync/ad perf, loading + year markers** (2026-09-04):
   Home multi-select now supports Photos-style **drag-to-select** — a `DragGesture`
-  in the `"expenseList"` coordinate space that, when it begins in the leading
-  checkmark column (x < 60), toggles each expense whose frame (collected via a
-  `RowFramePreference` only while selecting) the finger crosses; the list is
-  `scrollDisabled` for the duration of that drag, and the gesture is masked out
-  (`including: .subviews`) unless selecting, so normal scrolling is untouched.
+  in **global** coordinates that, when it begins in the leading checkmark column
+  (x < 60), toggles each expense whose global frame the finger's y crosses. Frames
+  live in a plain `RowFrameStore` class, written per visible cell via
+  onAppear/onChange/onDisappear while selecting (not a `PreferenceKey` — those
+  don't propagate reliably from List cells). The list is `scrollDisabled` for the
+  duration of the drag (so it selects the on-screen rows), and the gesture is
+  masked out (`including: .subviews`) unless selecting, so normal scrolling is
+  untouched.
   Sharing a multi-selection opens `GlobalExportSheet(directSelection: true)`, which
   **skips the period picker** and exports exactly the selected expenses (Close, not
   Back; period-detail export keeps auto-detect). The selection **bottom bar** sits
-  lower (top 18 / bottom 22, was 14 / 40) and the floating **X** is larger (40pt,
-  17pt glyph) with a stronger shadow (0.3). The boot **loading bar fills up green**
+  just above the home indicator (top 12 / bottom 6) and the floating **X** is larger
+  (40pt, 17pt glyph) with a stronger shadow (0.3). The shred **delete animation**
+  was slowed to read over ~1.9s (held 2.2s). The boot **loading bar fills up green**
   (was a sliding segment). **Year markers** on the list mirror the DETAILS divider
   (grey `#636367`, a hairline each side, centred, balanced padding). **CloudKit**
   sync events are handled off-main on a serial utility `OperationQueue`, the

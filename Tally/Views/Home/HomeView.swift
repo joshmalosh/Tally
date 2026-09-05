@@ -20,11 +20,13 @@ struct HomeView: View {
     @State private var showingFilteredExport = false
     @State private var isSelecting = false
     @State private var selectedExpenseIds: Set<String> = []
-    // Photos-style drag-to-select. Row frames are collected (only while selecting)
-    // in the "expenseList" coordinate space; a drag beginning in the leading
-    // checkmark column toggles each row it crosses. `dragVisitedIds` stops a row
-    // flip-flopping as the finger lingers over it.
-    @State private var rowFrames: [String: CGRect] = [:]
+    // Photos-style drag-to-select. Each visible row writes its frame (in global/
+    // screen coordinates) into `rowFrameStore` while selecting — via onAppear/
+    // onChange, not a PreferenceKey, because SwiftUI preferences don't propagate
+    // reliably from List cells (same reason ListScrollDetector uses UIKit KVO).
+    // A drag beginning in the leading checkmark column toggles each row it crosses;
+    // `dragVisitedIds` stops a row flip-flopping as the finger lingers over it.
+    @State private var rowFrameStore = RowFrameStore()
     @State private var isDragSelecting = false
     @State private var dragVisitedIds: Set<String> = []
     @State private var exportWithSelectionItem: ExportWithSelectionItem?
@@ -405,7 +407,7 @@ struct HomeView: View {
             UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
             shredTick += 1
             showingShred = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.7) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
                 showingShred = false
             }
         }
@@ -939,8 +941,6 @@ struct HomeView: View {
         .contentMargins(.top, 0, for: .scrollContent)
         .contentMargins(.horizontal, 0, for: .scrollContent)
         .scrollDismissesKeyboard(.interactively)
-        .coordinateSpace(name: "expenseList")
-        .onPreferenceChange(RowFramePreference.self) { rowFrames = $0 }
         // Freeze the scroll while a drag-select is in flight so the finger tracks
         // rows cleanly. `including:` disables the gesture entirely unless we're in
         // selection mode, so normal scrolling is never affected.
@@ -952,15 +952,21 @@ struct HomeView: View {
     /// column (x < 60) is treated as a select-drag — anywhere else the List
     /// scrolls as normal, even while selecting.
     private var dragSelectGesture: some Gesture {
-        DragGesture(minimumDistance: 8, coordinateSpace: .named("expenseList"))
+        // Global (screen) coordinates for both the finger and the stored row
+        // frames, so they always share one origin — no reliance on a named
+        // coordinate space resolving, which is what mis-mapped rows before.
+        DragGesture(minimumDistance: 8, coordinateSpace: .global)
             .onChanged { value in
                 guard isSelecting, value.startLocation.x < 60 else { return }
                 if !isDragSelecting {
                     isDragSelecting = true
                     dragVisitedIds.removeAll()
                 }
-                guard let id = rowFrames.first(where: { $0.value.contains(value.location) })?.key,
-                      !dragVisitedIds.contains(id) else { return }
+                // Match by the row band the finger's y falls in (x is the full
+                // width), so a slightly-off horizontal drag still hits the row.
+                guard let id = rowFrameStore.frames.first(where: {
+                    value.location.y >= $0.value.minY && value.location.y <= $0.value.maxY
+                })?.key, !dragVisitedIds.contains(id) else { return }
                 dragVisitedIds.insert(id)
                 toggleExpenseSelection(id)
                 UISelectionFeedbackGenerator().selectionChanged()
@@ -971,15 +977,23 @@ struct HomeView: View {
             }
     }
 
-    /// Publishes a row's frame (in the list's coordinate space) for drag-select
-    /// hit-testing. Emits nothing unless selecting, so it adds no preference churn
-    /// during normal scrolling.
+    /// Records a row's global frame into `rowFrameStore` for drag-select hit-
+    /// testing. Only active while selecting; onAppear/onChange keep it fresh as the
+    /// user scrolls, onDisappear drops rows that scroll off so the finger can't
+    /// match a stale off-screen frame. Writes to a plain class, so they never
+    /// trigger a view update (the gesture just reads the values).
+    @ViewBuilder
     private func rowFrameReader(id: String) -> some View {
-        GeometryReader { proxy in
-            Color.clear.preference(
-                key: RowFramePreference.self,
-                value: isSelecting ? [id: proxy.frame(in: .named("expenseList"))] : [:]
-            )
+        if isSelecting {
+            GeometryReader { proxy in
+                let frame = proxy.frame(in: .global)
+                Color.clear
+                    .onAppear { rowFrameStore.frames[id] = frame }
+                    .onChange(of: frame) { _, newFrame in rowFrameStore.frames[id] = newFrame }
+                    .onDisappear { rowFrameStore.frames[id] = nil }
+            }
+        } else {
+            Color.clear
         }
     }
 
@@ -1130,10 +1144,10 @@ struct HomeView: View {
             }
         }
         .padding(.horizontal, 40)
-        // Lower the bar: the space below the icons is now roughly the space above
-        // them (a touch more), instead of the tall 40pt gap that pushed it up.
-        .padding(.top, 18)
-        .padding(.bottom, 22)
+        // Sit the icons just above the home indicator — a small gap below, so the
+        // bar reads as anchored to the very bottom of the screen.
+        .padding(.top, 12)
+        .padding(.bottom, 6)
         .frame(maxWidth: .infinity)
         .background(
             Color.white
@@ -1351,13 +1365,13 @@ private struct ExportWithSelectionItem: Identifiable {
     let expenses: [ExpenseModel]
 }
 
-// MARK: - Row frame preference (drag-to-select hit-testing)
+// MARK: - Row frame store (drag-to-select hit-testing)
 
-private struct RowFramePreference: PreferenceKey {
-    static var defaultValue: [String: CGRect] = [:]
-    static func reduce(value: inout [String: CGRect], nextValue: () -> [String: CGRect]) {
-        value.merge(nextValue()) { _, new in new }
-    }
+/// Plain reference box holding each visible expense row's global frame. A class,
+/// not @State/@Observable, so rows can write to it during layout callbacks
+/// without triggering view updates; the drag gesture only reads it.
+private final class RowFrameStore {
+    var frames: [String: CGRect] = [:]
 }
 
 // MARK: - Undo toast

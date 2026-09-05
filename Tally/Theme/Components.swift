@@ -1129,7 +1129,7 @@ struct ExpenseShredView: View {
                     .offset(x: s.xOffset, y: animate ? s.fall : -2)
                     .opacity(animate ? 0 : 1)
                     .padding(.bottom, bottomInset)
-                    .animation(.easeIn(duration: 1.15).delay(s.delay), value: animate)
+                    .animation(.easeIn(duration: 1.7).delay(s.delay), value: animate)
             }
 
             // White sparks shooting up from the base.
@@ -1140,16 +1140,16 @@ struct ExpenseShredView: View {
                     .offset(x: animate ? p.dx : 0, y: animate ? -p.rise : 0)
                     .opacity(animate ? 0 : 1)
                     .padding(.bottom, bottomInset)
-                    .animation(.easeOut(duration: 0.8).delay(p.delay), value: animate)
+                    .animation(.easeOut(duration: 1.1).delay(p.delay), value: animate)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
             // Lower + fade (drives receipt offset/opacity and the strips/sparks).
-            withAnimation(.easeIn(duration: 0.9)) { animate = true }
+            withAnimation(.easeIn(duration: 1.35)) { animate = true }
             // Shake: start at -amp, oscillate to +amp and back a few times.
             shake = -shakeAmp
-            withAnimation(.easeInOut(duration: 0.13).repeatCount(6, autoreverses: true)) {
+            withAnimation(.easeInOut(duration: 0.13).repeatCount(9, autoreverses: true)) {
                 shake = shakeAmp
             }
         }
