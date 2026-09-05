@@ -964,15 +964,31 @@ struct HomeView: View {
                     isDragSelecting = true
                     dragLastRowId = nil
                 }
-                // Match by the row band the finger's y falls in (x is the full
-                // width), so a slightly-off horizontal drag still hits the row.
-                // Toggle only on entering a *different* row than the last tick, so
-                // dragging back over a row deselects it and lingering doesn't flicker.
-                guard let id = rowFrameStore.frames.first(where: {
+                // Rows top→bottom (only the on-screen ones — scroll is frozen).
+                let ordered = rowFrameStore.frames.sorted { $0.value.minY < $1.value.minY }
+                guard let currentIndex = ordered.firstIndex(where: {
                     value.location.y >= $0.value.minY && value.location.y <= $0.value.maxY
-                })?.key, id != dragLastRowId else { return }
-                dragLastRowId = id
-                toggleExpenseSelection(id)
+                }) else { return }
+                let currentId = ordered[currentIndex].key
+
+                // First row of the drag toggles on its own.
+                guard let lastId = dragLastRowId,
+                      let lastIndex = ordered.firstIndex(where: { $0.key == lastId }) else {
+                    dragLastRowId = currentId
+                    toggleExpenseSelection(currentId)
+                    UISelectionFeedbackGenerator().selectionChanged()
+                    return
+                }
+                if currentId == lastId { return }
+
+                // Toggle every row between the last one and the current one, so a
+                // fast drag can't skip a row between samples; reversing direction
+                // re-enters rows and toggles them back (deselect).
+                let indices: [Int] = lastIndex < currentIndex
+                    ? Array((lastIndex + 1)...currentIndex)
+                    : Array((currentIndex...(lastIndex - 1)).reversed())
+                for i in indices { toggleExpenseSelection(ordered[i].key) }
+                dragLastRowId = currentId
                 UISelectionFeedbackGenerator().selectionChanged()
             }
             .onEnded { _ in
