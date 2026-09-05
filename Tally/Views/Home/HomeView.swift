@@ -24,11 +24,13 @@ struct HomeView: View {
     // screen coordinates) into `rowFrameStore` while selecting — via onAppear/
     // onChange, not a PreferenceKey, because SwiftUI preferences don't propagate
     // reliably from List cells (same reason ListScrollDetector uses UIKit KVO).
-    // A drag beginning in the leading checkmark column toggles each row it crosses;
-    // `dragVisitedIds` stops a row flip-flopping as the finger lingers over it.
+    // A drag beginning in the leading checkmark column toggles each row as the
+    // finger *enters* it; `dragLastRowId` is the row currently under the finger, so
+    // dragging back over a row (a new entry) toggles it again — deselecting — while
+    // lingering on one row does nothing.
     @State private var rowFrameStore = RowFrameStore()
     @State private var isDragSelecting = false
-    @State private var dragVisitedIds: Set<String> = []
+    @State private var dragLastRowId: String? = nil
     @State private var exportWithSelectionItem: ExportWithSelectionItem?
     @State private var showingShred = false
     @State private var shredTick = 0
@@ -960,20 +962,22 @@ struct HomeView: View {
                 guard isSelecting, value.startLocation.x < 60 else { return }
                 if !isDragSelecting {
                     isDragSelecting = true
-                    dragVisitedIds.removeAll()
+                    dragLastRowId = nil
                 }
                 // Match by the row band the finger's y falls in (x is the full
                 // width), so a slightly-off horizontal drag still hits the row.
+                // Toggle only on entering a *different* row than the last tick, so
+                // dragging back over a row deselects it and lingering doesn't flicker.
                 guard let id = rowFrameStore.frames.first(where: {
                     value.location.y >= $0.value.minY && value.location.y <= $0.value.maxY
-                })?.key, !dragVisitedIds.contains(id) else { return }
-                dragVisitedIds.insert(id)
+                })?.key, id != dragLastRowId else { return }
+                dragLastRowId = id
                 toggleExpenseSelection(id)
                 UISelectionFeedbackGenerator().selectionChanged()
             }
             .onEnded { _ in
                 isDragSelecting = false
-                dragVisitedIds.removeAll()
+                dragLastRowId = nil
             }
     }
 
