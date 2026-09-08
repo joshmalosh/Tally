@@ -984,10 +984,10 @@ struct HomeView: View {
                 // Toggle every row between the last one and the current one, so a
                 // fast drag can't skip a row between samples; reversing direction
                 // re-enters rows and toggles them back (deselect).
-                let indices: [Int] = lastIndex < currentIndex
-                    ? Array((lastIndex + 1)...currentIndex)
-                    : Array((currentIndex...(lastIndex - 1)).reversed())
-                for i in indices { toggleExpenseSelection(ordered[i].key) }
+                let step = lastIndex < currentIndex ? 1 : -1
+                for i in stride(from: lastIndex + step, through: currentIndex, by: step) {
+                    toggleExpenseSelection(ordered[i].key)
+                }
                 dragLastRowId = currentId
                 UISelectionFeedbackGenerator().selectionChanged()
             }

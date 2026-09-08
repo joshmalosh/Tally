@@ -258,7 +258,7 @@ private struct IndeterminateBar: View {
                 .overlay(alignment: .leading) {
                     Capsule()
                         .fill(Color.brandPrimary)
-                        .frame(width: max(0, w * fill))
+                        .frame(width: w * fill)
                 }
                 .clipShape(Capsule())
                 .onAppear {

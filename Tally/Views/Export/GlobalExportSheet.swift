@@ -207,8 +207,7 @@ struct GlobalExportSheet: View {
 
     private var exportLabel: String {
         if isDirectSelection {
-            let n = selectedExpenses.count
-            return "EXPORT \(n) SELECTED"
+            return "EXPORT \(selectedExpenses.count) SELECTED"
         }
         return "EXPORT \(periodName(for: selectedPeriod).uppercased())"
     }
