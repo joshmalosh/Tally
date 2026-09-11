@@ -273,8 +273,10 @@ struct ReportsView: View {
                     metricsRow
                     barChartCard
                     breakdownCTA
+                    // Full-width (no side padding) so the adaptive banner, which is
+                    // sized to the full screen width, isn't forced into a narrower
+                    // slot and made to overflow.
                     InlineUpgradeAd()
-                        .padding(.horizontal, 16)
                     Spacer(minLength: 100)
                 }
             }

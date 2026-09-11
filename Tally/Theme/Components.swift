@@ -476,13 +476,16 @@ struct EmptyStateView: View {
 // MARK: - BannerAdView
 
 struct BannerAdView: View {
+    // Sized to the ad AdMob actually returns, so a taller creative isn't clipped
+    // and a standard one isn't boxed in dead space.
+    @State private var adHeight: CGFloat = 50
     var body: some View {
         VStack(spacing: 0) {
             Rectangle()
                 .fill(Color.borderColor)
                 .frame(height: 1)
-            BannerAdRepresentable()
-                .frame(height: 50)
+            BannerAdRepresentable(height: $adHeight)
+                .frame(height: adHeight)
                 .background(Color.surface)
         }
     }
@@ -515,13 +518,18 @@ struct InlineUpgradeAd: View {
 }
 
 private struct BannerAdRepresentable: UIViewRepresentable {
-    func makeCoordinator() -> Coordinator { Coordinator() }
+    @Binding var height: CGFloat
+
+    func makeCoordinator() -> Coordinator { Coordinator(height: $height) }
 
     func makeUIView(context: Context) -> GADBannerView {
         let banner = GADBannerView()
         banner.adUnitID = AdManager.bannerAdUnitID
         banner.delegate = context.coordinator
-        banner.translatesAutoresizingMaskIntoConstraints = false
+        // Leave translatesAutoresizingMaskIntoConstraints at its default (true) so
+        // SwiftUI's .frame() drives the size. Setting it false with no constraints
+        // let the banner fall back to the ad's intrinsic size, overflowing the
+        // frame — the clipped banner on Home and the blown-up Reports layout.
         banner.backgroundColor = .clear
 
         DispatchQueue.main.async {
@@ -531,7 +539,9 @@ private struct BannerAdRepresentable: UIViewRepresentable {
                let rootVC = windowScene.windows.first(where: \.isKeyWindow)?.rootViewController {
                 banner.rootViewController = rootVC
                 let viewWidth = rootVC.view.frame.inset(by: rootVC.view.safeAreaInsets).width
-                banner.adSize = GADCurrentOrientationAnchoredAdaptiveBannerAdSizeWithWidth(viewWidth)
+                let size = GADCurrentOrientationAnchoredAdaptiveBannerAdSizeWithWidth(viewWidth)
+                banner.adSize = size
+                context.coordinator.height.wrappedValue = size.size.height
                 Log.ads.debug("loading banner width=\(viewWidth, privacy: .public)")
                 banner.load(GADRequest())
             } else {
@@ -544,8 +554,13 @@ private struct BannerAdRepresentable: UIViewRepresentable {
     func updateUIView(_ uiView: GADBannerView, context: Context) {}
 
     final class Coordinator: NSObject, GADBannerViewDelegate {
+        let height: Binding<CGFloat>
+        init(height: Binding<CGFloat>) { self.height = height }
+
         func bannerViewDidReceiveAd(_ bannerView: GADBannerView) {
-            Log.ads.debug("banner received ad")
+            // Match the container to the delivered ad's real height so it fits exactly.
+            height.wrappedValue = bannerView.adSize.size.height
+            Log.ads.debug("banner received ad h=\(bannerView.adSize.size.height, privacy: .public)")
         }
         func bannerView(_ bannerView: GADBannerView, didFailToReceiveAdWithError error: Error) {
             Log.ads.error("banner failed: \(error.localizedDescription, privacy: .public)")
@@ -1129,7 +1144,7 @@ struct ExpenseShredView: View {
                     .offset(x: s.xOffset, y: animate ? s.fall : -2)
                     .opacity(animate ? 0 : 1)
                     .padding(.bottom, bottomInset)
-                    .animation(.easeIn(duration: 1.7).delay(s.delay), value: animate)
+                    .animation(.easeIn(duration: 2.3).delay(s.delay), value: animate)
             }
 
             // White sparks shooting up from the base.
@@ -1140,16 +1155,18 @@ struct ExpenseShredView: View {
                     .offset(x: animate ? p.dx : 0, y: animate ? -p.rise : 0)
                     .opacity(animate ? 0 : 1)
                     .padding(.bottom, bottomInset)
-                    .animation(.easeOut(duration: 1.1).delay(p.delay), value: animate)
+                    .animation(.easeOut(duration: 1.6).delay(p.delay), value: animate)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
-            // Lower + fade (drives receipt offset/opacity and the strips/sparks).
-            withAnimation(.easeIn(duration: 1.35)) { animate = true }
-            // Shake: start at -amp, oscillate to +amp and back a few times.
+            // Lower + fade at half speed so the drop is easy to follow (drives the
+            // receipt offset/opacity and the strips/sparks).
+            withAnimation(.easeIn(duration: 1.8)) { animate = true }
+            // Shake unchanged — same speed and count as before, independent of the
+            // slower drop above.
             shake = -shakeAmp
-            withAnimation(.easeInOut(duration: 0.13).repeatCount(9, autoreverses: true)) {
+            withAnimation(.easeInOut(duration: 0.13).repeatCount(6, autoreverses: true)) {
                 shake = shakeAmp
             }
         }

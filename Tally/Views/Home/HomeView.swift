@@ -409,7 +409,7 @@ struct HomeView: View {
             UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
             shredTick += 1
             showingShred = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.8) {
                 showingShred = false
             }
         }
@@ -796,6 +796,15 @@ struct HomeView: View {
         return Self.daySectionFormatter.string(from: dayStart)
     }
 
+    /// That day's total, scoped to the active currency like every other total in
+    /// the app (no mixing across currencies).
+    private func dayTotalLabel(for group: DayExpenseGroup) -> String {
+        let cents = group.items
+            .filter { $0.currency == appState.activeCurrency }
+            .reduce(0) { $0 + $1.amountCents }
+        return CurrencyFormatter.shared.format(cents: cents, currencyCode: appState.activeCurrency)
+    }
+
     @ViewBuilder
     private func groupCardRowBackground(index: Int, count: Int) -> some View {
         let r = Radius.lg
@@ -900,17 +909,26 @@ struct HomeView: View {
                         .listRowBackground(Color.clear)
                     }
 
-                    Text(daySectionTitle(for: group.dayStart))
-                        .font(.system(size: 12, weight: .regular))
-                        // Neutral grey, darkened ~30% from 8E8E93 for more contrast.
-                        .foregroundStyle(Color(hex: "636367"))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.leading, 20)
-                        // Bigger gap above the date, small below, so it reads as the
-                        // heading of the expense directly beneath it, not the one above.
-                        .listRowInsets(EdgeInsets(top: 20, leading: 0, bottom: 4, trailing: 0))
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
+                    // Day divider: date on the left, a hairline across, and that
+                    // day's total on the right. Top-biased padding so it reads as
+                    // the heading of the expenses directly beneath it.
+                    HStack(spacing: 12) {
+                        Text(daySectionTitle(for: group.dayStart).uppercased())
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Color(hex: "8E8E93"))
+                            .tracking(1.5)
+                        Rectangle()
+                            .fill(Color(hex: "8E8E93").opacity(0.3))
+                            .frame(height: 0.5)
+                        Text(dayTotalLabel(for: group))
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color(hex: "8E8E93"))
+                            .monospacedDigit()
+                    }
+                    .padding(.horizontal, 20)
+                    .listRowInsets(EdgeInsets(top: 20, leading: 0, bottom: 6, trailing: 0))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
 
                     ForEach(Array(group.items.enumerated()), id: \.element.id) { index, expense in
                         LandingExpenseRow(isLanding: expense.id == landedExpenseId) {
