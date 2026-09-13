@@ -37,6 +37,10 @@ struct HomeTagBar: View {
     @State private var showingAddSheet = false
     @State private var editingTag: TagModel?
     @State private var wigglingTagId: String?
+    // Drive the green scroll-position bar under the tag row.
+    @State private var scrollOffset: CGFloat = 0
+    @State private var contentWidth: CGFloat = 0
+    @State private var viewportWidth: CGFloat = 0
 
     private var currency: String { appState.activeCurrency }
 
@@ -69,7 +73,31 @@ struct HomeTagBar: View {
             .reduce(0) { $0 + $1.amountCents }
     }
 
+    /// A small green bar under the tag row that tracks scroll position, so a user
+    /// with more pinned tags than fit on screen can see the row scrolls. Hidden
+    /// when the row already fits.
+    @ViewBuilder
+    private var tagScrollIndicator: some View {
+        let overflow = contentWidth - viewportWidth
+        if overflow > 1, viewportWidth > 0 {
+            let trackWidth = max(0, viewportWidth - 32)
+            let thumbWidth = max(28, trackWidth * (viewportWidth / contentWidth))
+            let frac = min(1, max(0, scrollOffset / overflow))
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.brandPrimary.opacity(0.15))
+                    .frame(width: trackWidth, height: 3)
+                Capsule()
+                    .fill(Color.brandPrimary)
+                    .frame(width: thumbWidth, height: 3)
+                    .offset(x: (trackWidth - thumbWidth) * frac)
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+
     var body: some View {
+        VStack(spacing: 6) {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 // "All" card — always first
@@ -128,6 +156,26 @@ struct HomeTagBar: View {
             .padding(.leading, 16)
             .padding(.trailing, 16)
             .padding(.vertical, 8)
+            .background(
+                GeometryReader { g in
+                    Color.clear
+                        .preference(key: TagBarOffsetKey.self, value: g.frame(in: .named("tagbar")).minX)
+                        .preference(key: TagBarContentWidthKey.self, value: g.size.width)
+                }
+            )
+        }
+        .coordinateSpace(name: "tagbar")
+        .background(
+            GeometryReader { g in
+                Color.clear
+                    .onAppear { viewportWidth = g.size.width }
+                    .onChange(of: g.size.width) { _, w in viewportWidth = w }
+            }
+        )
+        .onPreferenceChange(TagBarOffsetKey.self) { scrollOffset = -$0 }
+        .onPreferenceChange(TagBarContentWidthKey.self) { contentWidth = $0 }
+
+        tagScrollIndicator
         }
         .sheet(isPresented: $showingAddSheet) {
             AddToHomeBarSheet()
@@ -138,6 +186,18 @@ struct HomeTagBar: View {
             TagCreationView(editingTag: tag)
         }
     }
+}
+
+// MARK: - Tag bar scroll tracking
+
+private struct TagBarOffsetKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
+private struct TagBarContentWidthKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
 }
 
 // MARK: - TagFilterCard

@@ -925,6 +925,7 @@ struct HomeView: View {
                             .foregroundStyle(Color(hex: "8E8E93"))
                             .monospacedDigit()
                     }
+                    .opacity(0.85)
                     .padding(.horizontal, 20)
                     .listRowInsets(EdgeInsets(top: 20, leading: 0, bottom: 6, trailing: 0))
                     .listRowSeparator(.hidden)
