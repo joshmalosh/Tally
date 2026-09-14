@@ -113,25 +113,36 @@ struct ExpenseDetailView: View {
                 ZStack {
                     Color.bgPrimary.ignoresSafeArea()
 
-                    ScrollView {
-                        VStack(spacing: 8) {
-                            receiptObject
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            VStack(spacing: 8) {
+                                receiptObject
 
-                            tallySuggestsCard
+                                tallySuggestsCard
 
-                            if let url = attachedFileURL {
-                                pdfCard(url: url)
+                                if let url = attachedFileURL {
+                                    pdfCard(url: url)
+                                }
+
+                                deleteButton
+
+                                if !appState.isPro {
+                                    BannerAdView()
+                                        .padding(.top, Spacing.sm)
+                                }
                             }
-
-                            deleteButton
-
-                            if !appState.isPro {
-                                BannerAdView()
-                                    .padding(.top, Spacing.sm)
+                            .padding(.top, 14)
+                            .padding(.bottom, Spacing.xl)
+                        }
+                        // Centre the tapped field above the keyboard. In a sheet
+                        // SwiftUI's own avoidance often leaves the field covered, so
+                        // scroll it to centre on focus instead.
+                        .onChange(of: focusedField) { _, field in
+                            guard let field else { return }
+                            withAnimation(.easeInOut(duration: 0.25)) {
+                                proxy.scrollTo(field, anchor: .center)
                             }
                         }
-                        .padding(.top, 14)
-                        .padding(.bottom, Spacing.xl)
                     }
                 }
                 .navigationBarTitleDisplayMode(.inline)
@@ -398,6 +409,7 @@ struct ExpenseDetailView: View {
         .padding(.vertical, 18)
         .contentShape(Rectangle())
         .onTapGesture { focusedField = .amount }
+        .id(Field.amount)
     }
 
     // MARK: - Receipt paper body
@@ -496,6 +508,7 @@ struct ExpenseDetailView: View {
         .padding(.vertical, 12)
         .contentShape(Rectangle())
         .onTapGesture { focusedField = .amount }
+        .id(Field.amount)
     }
 
     /// Previously-used merchant names for the autocomplete chips, filtered by what
@@ -563,6 +576,7 @@ struct ExpenseDetailView: View {
                 .transition(.opacity)
             }
         }
+        .id(Field.merchant)
     }
 
     private var dateDetailRow: some View {
@@ -602,6 +616,7 @@ struct ExpenseDetailView: View {
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 12)
+        .id(Field.notes)
     }
 
     private var tagDetailRow: some View {

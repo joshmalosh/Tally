@@ -842,6 +842,19 @@ non-trivial background `.allowsHitTesting(false)`.
 
 ## Current state — what's shipped (newest first)
 
+- **Tag scroll bar, export badges, Done button, Fortnightly, edit field-centring**
+  (2026-09-15): the pinned-tag green scroll bar is now driven by a UIKit KVO
+  observer (`HorizontalScrollObserver`) on the underlying `UIScrollView`; the
+  export by-tag/folder picker uses `TagIconBadge` rows + a selection circle; the
+  add screen's Done is plain green text like edit; the recurring chips are
+  equal-width so "Fortnightly" fits. On the **edit** expense screen, the tapped
+  field now scrolls to centre above the keyboard (`ScrollViewReader` +
+  `scrollTo(field, anchor: .center)` on focus), fixing "the keyboard covers the
+  field" in the sheet. **Pending** (see Open items): the add screen adopting the
+  edit screen's full receipt-object design, and swapping edit's amount field to
+  `NumericFieldWithDone` for the residual keyboard lag — a large shared-form
+  refactor deferred so it can be built and verified cleanly.
+
 - **Day-total dividers, banner sizing, slower shred** (2026-09-12): Home day
   dividers show `DATE — hairline — day total` (active-currency sum of that day's
   expenses), grey `#8E8E93`, top-biased padding. The delete shred drop/fade runs at
