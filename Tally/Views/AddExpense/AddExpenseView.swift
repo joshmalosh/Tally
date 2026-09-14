@@ -518,17 +518,9 @@ struct AddExpenseView: View {
                             UIImpactFeedbackGenerator(style: .light).impactOccurred()
                             saveExpense()
                         } label: {
-                            HStack(spacing: 5) {
-                                Image(systemName: "checkmark")
-                                    .font(.system(size: 11, weight: .bold))
-                                Text("Done")
-                                    .font(.system(size: 14, weight: .semibold))
-                            }
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 7)
-                            .background(canSave ? Color(hex: "2F402E") : Color(hex: "2F402E").opacity(0.4))
-                            .clipShape(Capsule())
+                            Text("Done")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(canSave ? Color(hex: "2F402E") : Color(hex: "2F402E").opacity(0.35))
                         }
                         .disabled(!canSave)
                         .buttonStyle(.plain)
@@ -1107,9 +1099,12 @@ struct AddExpenseView: View {
                         } label: {
                             Text(interval.rawValue)
                                 .font(.system(size: 12, weight: .semibold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
                                 .foregroundStyle(recurringInterval == interval ? .white : Color(hex: "2F402E").opacity(0.7))
-                                .padding(.horizontal, 14)
+                                .padding(.horizontal, 8)
                                 .padding(.vertical, 8)
+                                .frame(maxWidth: .infinity)
                                 .background(recurringInterval == interval ? Color(hex: "2F402E") : Color(hex: "F0EDE6"))
                                 .clipShape(Capsule())
                         }

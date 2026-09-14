@@ -156,24 +156,17 @@ struct HomeTagBar: View {
             .padding(.leading, 16)
             .padding(.trailing, 16)
             .padding(.vertical, 8)
+            // KVO on the underlying UIScrollView — SwiftUI preferences didn't fire
+            // reliably from inside the scroll content (same reason the list uses a
+            // KVO detector). Reports offset + content/viewport widths for the bar.
             .background(
-                GeometryReader { g in
-                    Color.clear
-                        .preference(key: TagBarOffsetKey.self, value: g.frame(in: .named("tagbar")).minX)
-                        .preference(key: TagBarContentWidthKey.self, value: g.size.width)
+                HorizontalScrollObserver { offsetX, contentW, viewportW in
+                    scrollOffset = offsetX
+                    contentWidth = contentW
+                    viewportWidth = viewportW
                 }
             )
         }
-        .coordinateSpace(name: "tagbar")
-        .background(
-            GeometryReader { g in
-                Color.clear
-                    .onAppear { viewportWidth = g.size.width }
-                    .onChange(of: g.size.width) { _, w in viewportWidth = w }
-            }
-        )
-        .onPreferenceChange(TagBarOffsetKey.self) { scrollOffset = -$0 }
-        .onPreferenceChange(TagBarContentWidthKey.self) { contentWidth = $0 }
 
         tagScrollIndicator
         }
@@ -190,14 +183,72 @@ struct HomeTagBar: View {
 
 // MARK: - Tag bar scroll tracking
 
-private struct TagBarOffsetKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
-}
+/// Reports the enclosing horizontal `UIScrollView`'s contentOffset.x, contentSize
+/// width and bounds width via KVO — reliable where SwiftUI preferences from inside
+/// scroll content are not (mirrors `ListScrollDetector` in HomeView). Placed as a
+/// background on the scroll content so it can walk up to the scroll view.
+private struct HorizontalScrollObserver: UIViewRepresentable {
+    /// (contentOffset.x, contentSize.width, bounds.width)
+    var onScroll: (CGFloat, CGFloat, CGFloat) -> Void
 
-private struct TagBarContentWidthKey: PreferenceKey {
-    static var defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+    func makeCoordinator() -> Coordinator { Coordinator(onScroll: onScroll) }
+
+    func makeUIView(context: Context) -> ObserverView {
+        let v = ObserverView()
+        v.coordinator = context.coordinator
+        return v
+    }
+
+    func updateUIView(_ uiView: ObserverView, context: Context) {
+        uiView.coordinator = context.coordinator
+        context.coordinator.onScroll = onScroll
+    }
+
+    final class Coordinator: NSObject {
+        var onScroll: (CGFloat, CGFloat, CGFloat) -> Void
+        private var offsetObs: NSKeyValueObservation?
+        private var sizeObs: NSKeyValueObservation?
+
+        init(onScroll: @escaping (CGFloat, CGFloat, CGFloat) -> Void) { self.onScroll = onScroll }
+
+        func observe(_ sv: UIScrollView) {
+            offsetObs?.invalidate(); sizeObs?.invalidate()
+            report(sv)
+            // Offset drives the thumb position; contentSize catches the initial
+            // layout (and tag add/remove) so the bar appears without a scroll.
+            offsetObs = sv.observe(\.contentOffset, options: [.new]) { [weak self] sv, _ in self?.report(sv) }
+            sizeObs = sv.observe(\.contentSize, options: [.new]) { [weak self] sv, _ in self?.report(sv) }
+        }
+
+        private func report(_ sv: UIScrollView) {
+            let offsetX = sv.contentOffset.x
+            let contentW = sv.contentSize.width
+            let boundsW = sv.bounds.width
+            DispatchQueue.main.async { self.onScroll(offsetX, contentW, boundsW) }
+        }
+
+        deinit { offsetObs?.invalidate(); sizeObs?.invalidate() }
+    }
+
+    final class ObserverView: UIView {
+        weak var coordinator: Coordinator?
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            guard window != nil else { return }
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                var view: UIView? = self.superview
+                while let v = view {
+                    if let sv = v as? UIScrollView {
+                        self.coordinator?.observe(sv)
+                        return
+                    }
+                    view = v.superview
+                }
+            }
+        }
+    }
 }
 
 // MARK: - TagFilterCard

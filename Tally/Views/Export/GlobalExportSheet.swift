@@ -1252,21 +1252,17 @@ struct TagExportPickerSheet: View {
                                             toggleSelection(tag.id)
                                         } label: {
                                             HStack(spacing: Spacing.smd) {
-                                                Circle()
-                                                    .fill(tag.tagColor.primaryColor)
-                                                    .frame(width: 12, height: 12)
+                                                TagIconBadge(tag: tag)
                                                 Text(tag.name)
-                                                    .font(Fonts.body(15))
+                                                    .font(Fonts.body(16))
                                                     .foregroundStyle(Color.textPrimary)
                                                 Spacer()
-                                                if isSelected {
-                                                    Image(systemName: "checkmark")
-                                                        .font(.system(size: 13, weight: .semibold))
-                                                        .foregroundStyle(Color.brandPrimary)
-                                                }
+                                                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                                    .font(.system(size: 20))
+                                                    .foregroundStyle(isSelected ? Color.brandPrimary : Color.textMuted.opacity(0.5))
                                             }
                                             .padding(.horizontal, Spacing.md)
-                                            .frame(height: 48)
+                                            .frame(height: 56)
                                             .background(isSelected ? Color.brandTint : Color.surface)
                                         }
                                         .buttonStyle(.plain)
@@ -1286,7 +1282,7 @@ struct TagExportPickerSheet: View {
 
                         if !groupTags.isEmpty {
                             VStack(alignment: .leading, spacing: Spacing.xs) {
-                                Text("Groups")
+                                Text("Folders")
                                     .font(Fonts.caption(12))
                                     .foregroundStyle(Color.textSecondary)
                                     .padding(.leading, Spacing.xs)
@@ -1298,21 +1294,17 @@ struct TagExportPickerSheet: View {
                                             toggleSelection(group.id)
                                         } label: {
                                             HStack(spacing: Spacing.smd) {
-                                                Image(systemName: "folder.fill")
-                                                    .font(.system(size: 13))
-                                                    .foregroundStyle(group.tagColor.primaryColor)
+                                                TagIconBadge(tag: group)
                                                 Text(group.name)
-                                                    .font(Fonts.body(15))
+                                                    .font(Fonts.body(16))
                                                     .foregroundStyle(Color.textPrimary)
                                                 Spacer()
-                                                if isSelected {
-                                                    Image(systemName: "checkmark")
-                                                        .font(.system(size: 13, weight: .semibold))
-                                                        .foregroundStyle(Color.brandPrimary)
-                                                }
+                                                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                                    .font(.system(size: 20))
+                                                    .foregroundStyle(isSelected ? Color.brandPrimary : Color.textMuted.opacity(0.5))
                                             }
                                             .padding(.horizontal, Spacing.md)
-                                            .frame(height: 48)
+                                            .frame(height: 56)
                                             .background(isSelected ? Color.brandTint : Color.surface)
                                         }
                                         .buttonStyle(.plain)
@@ -1361,7 +1353,7 @@ struct TagExportPickerSheet: View {
                     Divider()
                     PrimaryButton(
                         title: selectedIds.isEmpty
-                            ? "Select tags or groups"
+                            ? "Select tags or folders"
                             : "Export \(matchingExpenses.count) expenses",
                         action: {
                             if matchingHasReceipts {
