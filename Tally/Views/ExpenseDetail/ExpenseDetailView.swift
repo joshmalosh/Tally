@@ -1026,7 +1026,8 @@ struct ExpenseDetailView: View {
 
 /// Rounded top corners with a torn (zig-zag) bottom edge, so the detail body
 /// reads like a physically torn receipt.
-private struct ReceiptShape: Shape {
+// Shared with AddExpenseView's scoped receipt hero — internal, not private.
+struct ReceiptShape: Shape {
     var cornerRadius: CGFloat = 24
     var toothWidth: CGFloat = 13
     var toothDepth: CGFloat = 7
@@ -1067,7 +1068,7 @@ private struct ReceiptLine: Shape {
 
 /// Faint, evenly-spaced dots — a subtle "receipt paper" texture. Static, so it
 /// adds no per-keystroke cost while editing.
-private struct ReceiptTexture: View {
+struct ReceiptTexture: View {
     var body: some View {
         Canvas { context, size in
             let spacing: CGFloat = 15

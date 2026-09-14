@@ -1179,59 +1179,61 @@ struct AddExpenseView: View {
 
     // MARK: - State 2: Receipt hero
 
+    /// Tag colour for the receipt frame — Tally green when untagged, matching the
+    /// edit screen's frame colour.
+    private var receiptFrameColor: Color {
+        selectedTags.first?.tagColor.primaryColor ?? Color(hex: "2F402E")
+    }
+
     private var receiptHeroView: some View {
-        ZStack {
-            if let image = attachedImage {
-                // Receipt image (tap to view full)
-                Button { showingFullImage = true } label: {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 260)
-                        .clipped()
-                }
-                .buttonStyle(.plain)
+        VStack(spacing: 0) {
+            ZStack {
+                if let image = attachedImage {
+                    // Receipt image (tap to view full)
+                    Button { showingFullImage = true } label: {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 220)
+                            .clipped()
+                    }
+                    .buttonStyle(.plain)
 
-                // Gradient overlay — covers ~65% from bottom
-                VStack {
-                    Spacer()
-                    LinearGradient(
-                        colors: [.clear, Color.black.opacity(0.78)],
-                        startPoint: .init(x: 0.5, y: 0),
-                        endPoint: .bottom
-                    )
-                    .frame(height: 170)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                .allowsHitTesting(false)
-
-                if isRunningOCR {
+                    // Gradient overlay — covers ~65% from bottom
                     VStack {
                         Spacer()
-                        HStack(spacing: 8) {
-                            ProgressView().tint(.white)
-                            Text("Reading receipt…")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundStyle(.white)
-                        }
-                        .padding(.bottom, 80)
+                        LinearGradient(
+                            colors: [.clear, Color.black.opacity(0.78)],
+                            startPoint: .init(x: 0.5, y: 0),
+                            endPoint: .bottom
+                        )
+                        .frame(height: 150)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .allowsHitTesting(false)
+
+                    if isRunningOCR {
+                        VStack {
+                            Spacer()
+                            HStack(spacing: 8) {
+                                ProgressView().tint(.white)
+                                Text("Reading receipt…")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(.white)
+                            }
+                            .padding(.bottom, 70)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .allowsHitTesting(false)
+                    }
                 }
             }
-        }
-        .frame(height: 260)
-        // Date, merchant and amount used to be overlaid here. They duplicated
-        // the editable fields directly below, and a long value (a merchant name,
-        // or a rupiah total) ran under the VIEW RECEIPT button and clipped. The
-        // hero now just shows the receipt.
-        // Bottom-right: Replace/Remove. VIEW RECEIPT removed — tap the receipt
-        // itself to open it full-screen.
-        .overlay(alignment: .bottomTrailing) {
-            if attachedImage != nil {
-                VStack(alignment: .trailing, spacing: 8) {
+            .frame(height: 220)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            // Bottom-right: Replace/Remove. Tap the receipt itself to open full-screen.
+            .overlay(alignment: .bottomTrailing) {
+                if attachedImage != nil {
                     HStack(spacing: 12) {
                         Button { showingReplaceReceiptSources = true } label: {
                             Text("Replace")
@@ -1257,12 +1259,23 @@ struct AddExpenseView: View {
                         }
                         .buttonStyle(.plain)
                     }
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 10)
                 }
-                .padding(.horizontal, 14)
-                .padding(.bottom, 14)
             }
+            .padding(16)   // tag-colour border wraps the receipt image on all sides
+
+            // A short strip of receipt paper so the torn bottom edge reads as a
+            // receipt beneath the framed image.
+            ZStack {
+                Color.white
+                ReceiptTexture()
+            }
+            .frame(height: 22)
         }
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(receiptFrameColor)
+        .clipShape(ReceiptShape())
+        .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 8)
         .padding(.horizontal, 16)
     }
 
