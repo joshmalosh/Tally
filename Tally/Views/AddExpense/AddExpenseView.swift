@@ -846,7 +846,7 @@ struct AddExpenseView: View {
             if selectedTagIds.isEmpty {
                 // Nothing selected: one unambiguous "add" affordance — never
                 // pre-populated tag chips, which read as already-selected.
-                Button { showingTagPicker = true } label: {
+                Button { focusedField = nil; showingTagPicker = true } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "plus")
                             .font(.system(size: 11, weight: .bold))
@@ -898,7 +898,7 @@ struct AddExpenseView: View {
                             .buttonStyle(.plain)
                         }
 
-                        Button { showingTagPicker = true } label: {
+                        Button { focusedField = nil; showingTagPicker = true } label: {
                             Text("Change")
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(Color(hex: "2F402E").opacity(0.55))
@@ -979,7 +979,7 @@ struct AddExpenseView: View {
             let hasDecimalTyped = amountText.contains(".")
 
             HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Button { showingCurrencyPicker = true } label: {
+                Button { focusedField = nil; showingCurrencyPicker = true } label: {
                     Text(currencySymbol)
                         .font(.system(size: 26, weight: .regular, design: .monospaced))
                         .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
@@ -1291,7 +1291,7 @@ struct AddExpenseView: View {
             .padding(.bottom, 8)
 
             HStack(alignment: .center, spacing: 4) {
-                Button { showingCurrencyPicker = true } label: {
+                Button { focusedField = nil; showingCurrencyPicker = true } label: {
                     HStack(spacing: 2) {
                         Text(currencySymbol)
                             .font(.system(size: 18, weight: .regular, design: .monospaced))
