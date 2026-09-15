@@ -29,7 +29,6 @@ struct ExpenseDetailView: View {
     @State private var attachmentKey: String?
 
     @State private var showingTagPicker = false
-    @State private var showingDatePickerSheet = false
     @State private var showingCurrencyPicker = false
     @State private var showingCamera = false
     @State private var showingPhotoPicker = false
@@ -69,19 +68,6 @@ struct ExpenseDetailView: View {
         CurrencyFormatter.shared.symbol(for: currency)
     }
 
-    private func formatAmountField() {
-        let trimmed = amountText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let value = Double(trimmed), value > 0 else {
-            amountText = ""
-            return
-        }
-        if CurrencyFormatter.shared.usesDecimals(for: currency) {
-            amountText = String(format: "%.2f", value)
-        } else {
-            amountText = String(format: "%.0f", value)
-        }
-    }
-
     private var canSaveEdits: Bool {
         parsedAmountCents != nil && !isSaving
     }
@@ -98,47 +84,83 @@ struct ExpenseDetailView: View {
         return tag.name
     }
 
-    private static let datePillFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateStyle = .medium
-        f.timeStyle = .none
-        return f
-    }()
-
     // MARK: - Body
 
+    // A native inset-grouped List, not a custom scroll layout. Each field is its
+    // own isolated row, so editing one field never re-evaluates the others — which
+    // is what previously starved the keyboard's text-input service and froze the
+    // screen. This is how iOS's own editors (Contacts, Reminders) are built.
     var body: some View {
         NavigationStack {
             if let expense {
-                ZStack {
-                    Color.bgPrimary.ignoresSafeArea()
-
-                    ScrollView {
-                        VStack(spacing: 8) {
-                            receiptObject
-
-                            tallySuggestsCard
-
-                            if let url = attachedFileURL {
-                                pdfCard(url: url)
-                            }
-
-                            deleteButton
-
-                            if !appState.isPro {
-                                BannerAdView()
-                                    .padding(.top, Spacing.sm)
-                            }
+                List {
+                    if let image = attachmentImage {
+                        Section {
+                            photoRow(image)
+                                .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
                         }
-                        .padding(.top, 14)
-                        .padding(.bottom, Spacing.xl)
                     }
-                    // Native keyboard handling: the scroll view insets itself for the
-                    // keyboard and scrolls the focused field into view on its own, and
-                    // a downward drag dismisses it — no manual scroll animation, no
-                    // window-level gesture.
-                    .scrollDismissesKeyboard(.interactively)
+
+                    Section {
+                        amountRow
+                        merchantRow
+                        dateRow
+                        noteRow
+                        tagRow
+                    }
+                    .listRowBackground(Color.white)
+
+                    if let suggestion = tallySuggestion,
+                       !tallySuggestionDismissed,
+                       selectedTagIds.isEmpty {
+                        Section {
+                            TallySuggestsCard(suggestion: suggestion) {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    selectedTagIds = [suggestion.tag.id]
+                                    tallySuggestion = nil
+                                }
+                            } onDismiss: {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    tallySuggestionDismissed = true
+                                }
+                            }
+                            .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                        }
+                    }
+
+                    if let url = attachedFileURL {
+                        Section {
+                            pdfCard(url: url)
+                                .listRowInsets(EdgeInsets())
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                        }
+                    }
+
+                    Section {
+                        deleteButton
+                            .listRowInsets(EdgeInsets())
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                    }
+
+                    if !appState.isPro {
+                        Section {
+                            BannerAdView()
+                                .listRowInsets(EdgeInsets())
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                        }
+                    }
                 }
+                .listStyle(.insetGrouped)
+                .scrollContentBackground(.hidden)
+                .background(Color.bgPrimary)
+                .scrollDismissesKeyboard(.interactively)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     // < Back
@@ -155,7 +177,7 @@ struct ExpenseDetailView: View {
                                 .foregroundStyle(Color(hex: "1C1C1E"))
                         }
                     }
-                    // Done pill
+                    // Done
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
                             Task { await saveEdits(expense: expense) }
@@ -182,26 +204,6 @@ struct ExpenseDetailView: View {
                     SharedTagPickerSheet(selectedTagIds: $selectedTagIds)
                         .presentationDetents([.large])
                         .presentationDragIndicator(.visible)
-                }
-                .sheet(isPresented: $showingDatePickerSheet) {
-                    NavigationStack {
-                        DatePicker(
-                            "Date of transaction",
-                            selection: $date,
-                            displayedComponents: .date
-                        )
-                        .datePickerStyle(.graphical)
-                        .padding()
-                        .navigationTitle("Date")
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            ToolbarItem(placement: .confirmationAction) {
-                                Button("Done") { showingDatePickerSheet = false }
-                                    .foregroundStyle(Color(hex: "2F402E"))
-                            }
-                        }
-                    }
-                    .presentationDetents([.medium, .large])
                 }
                 .sheet(isPresented: $showingCurrencyPicker) {
                     CurrencyPickerSheet(selectedCode: $currency)
@@ -261,57 +263,21 @@ struct ExpenseDetailView: View {
         }
     }
 
-    // MARK: - Receipt hero
+    // MARK: - Receipt photo row
 
-    /// The whole expense as one physical-receipt object: a tag-tinted frame around
-    /// the photo (or a hero amount), a perforated DETAILS tear line, a textured
-    /// white body and a torn bottom edge, lifted off the page with a soft shadow.
-    private var receiptObject: some View {
-        VStack(spacing: 0) {
-            topRegion
-                .padding(16)   // thicker tag-coloured border, wrapping all four sides
-            whiteBody
-        }
-        .background(frameColor)
-        .clipShape(ReceiptShape())
-        .overlay(alignment: .topLeading) {
-            // Tag pill riding the top edge of the frame.
-            if let tag = selectedTags.first {
-                tagRidingChip(tag)
-                    .padding(.leading, 22)
-                    .offset(y: -11)
-            }
-        }
-        .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 8)
-        .padding(.horizontal, 16)
-    }
-
-    // Only the frame border takes the expense's tag colour (Tally green when
-    // untagged); the row icons stay a neutral green.
-    private var frameColor: Color { selectedTags.first?.tagColor.primaryColor ?? Color(hex: "2F402E") }
-
-    @ViewBuilder
-    private var topRegion: some View {
-        if let image = attachmentImage {
-            receiptPhoto(image)
-        } else {
-            heroAmountBlock
-        }
-    }
-
-    private func receiptPhoto(_ image: UIImage) -> some View {
+    private func photoRow(_ image: UIImage) -> some View {
         Image(uiImage: image)
             .resizable()
             .scaledToFill()
             .frame(maxWidth: .infinity)
-            .frame(height: 240)
+            .frame(height: 220)
             .clipped()
             .contentShape(Rectangle())
             .onTapGesture { showingFullImage = true }
             .overlay(alignment: .bottom) {
                 HStack(spacing: 14) {
                     Spacer()
-                    Button { showingReplaceReceiptSources = true } label: {
+                    Button { focusedField = nil; showingReplaceReceiptSources = true } label: {
                         Text("Replace").font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(.white).underline()
                     }
@@ -336,112 +302,15 @@ struct ExpenseDetailView: View {
                                    startPoint: .top, endPoint: .bottom)
                 )
             }
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .padding(.vertical, 8)
     }
 
-    // No receipt: a hero amount framed in the tag colour (shorter than the photo).
-    private var heroAmountBlock: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("AMOUNT")
-                .font(.system(size: 11, weight: .bold))
-                .tracking(1.0)
-                .foregroundStyle(.white.opacity(0.75))
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Button { showingCurrencyPicker = true } label: {
-                    HStack(spacing: 2) {
-                        Text(currencySymbol)
-                            .font(.system(size: 24, weight: .regular, design: .monospaced))
-                        Image(systemName: "chevron.down")
-                            .font(.system(size: 9, weight: .semibold))
-                    }
-                    .foregroundStyle(.white.opacity(0.7))
-                }
-                .buttonStyle(.plain)
+    // MARK: - Field rows
 
-                TextField("0", text: $amountText)
-                    .keyboardType(CurrencyFormatter.shared.usesDecimals(for: currency) ? .decimalPad : .numberPad)
-                    .font(.system(size: 40, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.white)
-                    .tint(.white)
-                    .focused($focusedField, equals: .amount)
-                    .onChange(of: amountText) { _, newValue in
-                        let filtered  = newValue.filter { $0.isNumber || $0 == "." }
-                        let parts     = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
-                        let sanitized = parts.count > 1 ? parts[0] + "." + parts.dropFirst().joined() : filtered
-                        if sanitized != newValue { amountText = String(sanitized) }
-                    }
-                    .onChange(of: focusedField) { _, newValue in
-                        if newValue != .amount { formatAmountField() }
-                    }
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 18)
-        .id(Field.amount)
-    }
-
-    // MARK: - Receipt paper body
-
-    private var whiteBody: some View {
-        VStack(spacing: 0) {
-            Spacer().frame(height: 6)   // small breathing room under the frame
-
-            if attachmentImage != nil {
-                amountDetailRow
-                dashedRowDivider
-            }
-            merchantDetailRow
-            dashedRowDivider
-            dateDetailRow
-            dashedRowDivider
-            noteDetailRow
-            dashedRowDivider
-            tagDetailRow
-
-            Spacer().frame(height: 18)   // clearance above the torn edge
-        }
-        .frame(maxWidth: .infinity)
-        .background(
-            ZStack {
-                Color.white
-                ReceiptTexture()
-            }
-        )
-    }
-
-    private var dashedRowDivider: some View {
-        ReceiptLine()
-            .stroke(Color(hex: "2F402E").opacity(0.12), style: StrokeStyle(lineWidth: 1, dash: [2, 3]))
-            .frame(height: 1)
-            .padding(.leading, 74)
-            .padding(.trailing, 18)
-    }
-
-    private func tagRidingChip(_ tag: TagModel) -> some View {
-        HStack(spacing: 5) {
-            if tag.isGroup {
-                Image(systemName: "folder.fill").font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(tag.tagColor.primaryColor)
-            } else {
-                Circle().fill(tag.tagColor.primaryColor).frame(width: 7, height: 7)
-            }
-            Text(selectedTags.count == 1 ? chipTitle(for: tag) : "\(tag.name) +\(selectedTags.count - 1)")
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(Color(hex: "1C1C1E"))
-        }
-        .padding(.horizontal, 11).padding(.vertical, 6)
-        .background(Color.white)
-        .clipShape(Capsule())
-        .shadow(color: .black.opacity(0.18), radius: 6, x: 0, y: 3)
-    }
-
-    // MARK: - Detail rows
-
-    private var amountDetailRow: some View {
+    private var amountRow: some View {
         HStack(spacing: 14) {
-            // Currency symbol is the leading square (tap to change currency) — the
-            // single currency indicator, not repeated inside the field.
+            // Currency symbol is the leading square — tap to change currency.
             Button { focusedField = nil; showingCurrencyPicker = true } label: {
                 ZStack {
                     RoundedRectangle(cornerRadius: 11, style: .continuous)
@@ -467,40 +336,14 @@ struct ExpenseDetailView: View {
                         let sanitized = parts.count > 1 ? parts[0] + "." + parts.dropFirst().joined() : filtered
                         if sanitized != newValue { amountText = String(sanitized) }
                     }
-                    .onChange(of: focusedField) { _, newValue in
-                        if newValue != .amount { formatAmountField() }
-                    }
             }
             Spacer(minLength: 8)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 12)
-        .id(Field.amount)
+        .padding(.vertical, 6)
     }
 
-    /// Previously-used merchant names for the autocomplete chips, filtered by what
-    /// is typed. Filters the cached `knownMerchants` (built once on open) so each
-    /// keystroke isn't re-sorting the whole expense list.
-    private var merchantSuggestions: [String] {
-        let trimmed = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty { return Array(knownMerchants.prefix(6)) }
-        let q = trimmed.lowercased()
-        return knownMerchants.filter { $0.lowercased().contains(q) && $0.lowercased() != q }.prefix(6).map { $0 }
-    }
-
-    private func buildKnownMerchants() -> [String] {
-        var seen = Set<String>()
-        var names: [String] = []
-        for e in activeExpenses.sorted(by: { $0.updatedAt > $1.updatedAt }) {
-            guard let raw = e.merchant?.trimmingCharacters(in: .whitespacesAndNewlines),
-                  !raw.isEmpty, seen.insert(raw.lowercased()).inserted else { continue }
-            names.append(raw)
-        }
-        return names
-    }
-
-    private var merchantDetailRow: some View {
-        VStack(alignment: .leading, spacing: 0) {
+    private var merchantRow: some View {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 14) {
                 tintedIconSquare("bag.fill")
                 VStack(alignment: .leading, spacing: 2) {
@@ -513,8 +356,6 @@ struct ExpenseDetailView: View {
                 }
                 Spacer(minLength: 8)
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
 
             // Autocomplete chips from past merchants, aligned under the value.
             if focusedField == .merchant && !merchantSuggestions.isEmpty {
@@ -536,39 +377,31 @@ struct ExpenseDetailView: View {
                             .buttonStyle(.plain)
                         }
                     }
-                    .padding(.leading, 74)
-                    .padding(.trailing, 18)
+                    .padding(.leading, 54)
                 }
-                .padding(.bottom, 12)
-                .transition(.opacity)
             }
         }
-        .id(Field.merchant)
+        .padding(.vertical, 6)
     }
 
-    private var dateDetailRow: some View {
-        Button { focusedField = nil; showingDatePickerSheet = true } label: {
-            HStack(spacing: 14) {
-                tintedIconSquare("calendar")
-                VStack(alignment: .leading, spacing: 2) {
-                    rowLabel("DATE")
-                    Text(Self.datePillFormatter.string(from: date))
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(Color(hex: "1C1C1E"))
-                }
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color(hex: "C4BFB9"))
+    // Inline compact date picker — native, taps open a calendar popover in place,
+    // no sheet to present.
+    private var dateRow: some View {
+        HStack(spacing: 14) {
+            tintedIconSquare("calendar")
+            VStack(alignment: .leading, spacing: 2) {
+                rowLabel("DATE")
+                DatePicker("", selection: $date, displayedComponents: .date)
+                    .labelsHidden()
+                    .datePickerStyle(.compact)
+                    .tint(Color(hex: "2F402E"))
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
+            Spacer(minLength: 8)
         }
-        .buttonStyle(.plain)
+        .padding(.vertical, 6)
     }
 
-    private var noteDetailRow: some View {
+    private var noteRow: some View {
         HStack(alignment: .top, spacing: 14) {
             tintedIconSquare("doc.text")
             VStack(alignment: .leading, spacing: 2) {
@@ -581,12 +414,10 @@ struct ExpenseDetailView: View {
             }
             Spacer(minLength: 8)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 12)
-        .id(Field.notes)
+        .padding(.vertical, 6)
     }
 
-    private var tagDetailRow: some View {
+    private var tagRow: some View {
         Button { focusedField = nil; showingTagPicker = true } label: {
             HStack(spacing: 14) {
                 tintedIconSquare("tag.fill")
@@ -627,8 +458,7 @@ struct ExpenseDetailView: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color(hex: "C4BFB9"))
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 12)
+            .padding(.vertical, 6)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -653,24 +483,25 @@ struct ExpenseDetailView: View {
             .tracking(1.0)
     }
 
-    // MARK: - Tally Suggests
+    /// Previously-used merchant names for the autocomplete chips, filtered by what
+    /// is typed. Filters the cached `knownMerchants` (built once on open) so each
+    /// keystroke isn't re-sorting the whole expense list.
+    private var merchantSuggestions: [String] {
+        let trimmed = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return Array(knownMerchants.prefix(6)) }
+        let q = trimmed.lowercased()
+        return knownMerchants.filter { $0.lowercased().contains(q) && $0.lowercased() != q }.prefix(6).map { $0 }
+    }
 
-    @ViewBuilder
-    private var tallySuggestsCard: some View {
-        if let suggestion = tallySuggestion,
-           !tallySuggestionDismissed,
-           selectedTagIds.isEmpty {
-            TallySuggestsCard(suggestion: suggestion) {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    selectedTagIds = [suggestion.tag.id]
-                    tallySuggestion = nil
-                }
-            } onDismiss: {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    tallySuggestionDismissed = true
-                }
-            }
+    private func buildKnownMerchants() -> [String] {
+        var seen = Set<String>()
+        var names: [String] = []
+        for e in activeExpenses.sorted(by: { $0.updatedAt > $1.updatedAt }) {
+            guard let raw = e.merchant?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !raw.isEmpty, seen.insert(raw.lowercased()).inserted else { continue }
+            names.append(raw)
         }
+        return names
     }
 
     // MARK: - PDF card

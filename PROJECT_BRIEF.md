@@ -848,6 +848,28 @@ non-trivial background `.allowsHitTesting(false)`.
 
 ## Current state — what's shipped (newest first)
 
+- **Edit screen rebuilt as a native form** (2026-09-16): after the keyboard-gesture
+  removal still left the edit screen freezing (double-tapping a field lagged then
+  worked; selecting text and tapping another field crashed), the real cause was
+  structural: the whole edit form was a single custom view, so every edit-time
+  state write (amount sanitiser, reformat-on-focus, per-keystroke tag suggestion,
+  autocomplete churn) re-evaluated **all** the text fields at once, mid-text-session,
+  starving the keyboard's input service until it timed out (`Result accumulator
+  timeout: 3.0`, `Reporter disconnected`) — a lag, and a crash when it happened
+  during an active selection + field switch. Rebuilt `ExpenseDetailView`'s body as a
+  native `List` (`.insetGrouped`, `.scrollContentBackground(.hidden)` over
+  `bgPrimary`): each field is its own isolated row, so editing one never re-renders
+  the others — the way Contacts/Reminders are built. Also dropped the
+  reformat-on-focus state write (amount formats on save via `parsedAmountCents`),
+  and the date field is now an inline `.compact` `DatePicker` (native calendar
+  popover, no sheet). Tag and currency stay as sheets (safe now the window gesture
+  is gone). The receipt visual gives way to a clean native grouped form — Josh chose
+  native over the exact receipt look once the look-preserving fixes had failed twice
+  ("that should have been your approach from the get go"). The receipt shapes
+  (`ReceiptShape`/`ReceiptLine`/`ReceiptTexture`) stay in the file — the add screen
+  still uses them. **Verify on device:** double-tap any field, select text and tap
+  another field, tap tag — no lag, no freeze, no crash.
+
 - **Edit-screen freezes killed at the root; AUTO-SCANNED off edit** (2026-09-16):
   the recurring ~55s gesture-gate freezes (Change button, and double-tapping /
   tapping fields on the edit screen) all traced to one cause: the app-wide
