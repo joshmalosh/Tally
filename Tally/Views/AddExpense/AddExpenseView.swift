@@ -608,25 +608,32 @@ struct AddExpenseView: View {
 
     @ViewBuilder
     private var receiptImageAttachedFormBlock: some View {
-        // One receipt: the photo framed in the tag colour on top, the existing
-        // field cards on the white receipt body, and the torn edge below the last
-        // field — the whole form reads as a single receipt.
+        // One receipt: the photo framed in the tag colour on top, the fields as
+        // edit-style rows on the white receipt body, and the torn edge below the
+        // last field — the whole form reads as a single receipt, matching edit.
         VStack(spacing: 0) {
             receiptHeroImage
                 .padding(16)   // tag-colour frame around the photo
 
-            // Same card language as Quick Add — cards unchanged, just sitting on
-            // the white receipt body.
-            VStack(spacing: 8) {
-                receiptAmountCard
-                quickAddMerchantCard
-                // Date under merchant, above the note — same order as manual entry.
-                receiptDateRow
-                quickAddNoteCard
-                quickAddTagCard
+            // Edit-screen row format: tinted icon square + label-above-value,
+            // separated by dashed dividers, on the white receipt body.
+            VStack(spacing: 0) {
+                receiptAmountRow
+                receiptDashedDivider
+                receiptMerchantRow
+                receiptDashedDivider
+                receiptDateRowMatched
+                receiptDashedDivider
+                receiptNoteRow
+                receiptDashedDivider
+                receiptTagRow
+                receiptDashedDivider
+                // Recurring stays a card (toggle + interval chips) — add-only, and
+                // sits inside the receipt so the torn edge is below it.
                 quickAddRecurringCard
+                    .padding(.top, 6)
             }
-            .padding(.top, 4)
+            .padding(.top, 6)
             .padding(.bottom, 26)   // clearance above the torn edge
             .frame(maxWidth: .infinity)
             .background(
@@ -1239,6 +1246,216 @@ struct AddExpenseView: View {
         .background(Color.white)
         .clipShape(Capsule())
         .shadow(color: .black.opacity(0.18), radius: 6, x: 0, y: 3)
+    }
+
+    // MARK: - Receipt body rows (match the edit screen's row format)
+
+    /// Neutral light-green rounded square with a dark-green icon — same as edit.
+    private func receiptTintedSquare(_ systemName: String) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .fill(Color(hex: "E8F0EA"))
+                .frame(width: 40, height: 40)
+            Image(systemName: systemName)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Color(hex: "2F402E"))
+        }
+    }
+
+    private func receiptRowLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 10, weight: .bold))
+            .foregroundStyle(Color(hex: "8F9E94"))
+            .tracking(1.0)
+    }
+
+    private var receiptDashedDivider: some View {
+        ReceiptLine()
+            .stroke(Color(hex: "2F402E").opacity(0.12), style: StrokeStyle(lineWidth: 1, dash: [2, 3]))
+            .frame(height: 1)
+            .padding(.leading, 74)
+            .padding(.trailing, 18)
+    }
+
+    private var receiptMerchantSuggestions: [String] {
+        let trimmed = merchant.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return Array(cachedKnownMerchants.prefix(6)) }
+        let q = trimmed.lowercased()
+        return cachedKnownMerchants.filter { $0.lowercased().contains(q) && $0.lowercased() != q }.prefix(6).map { $0 }
+    }
+
+    /// Amount row — currency symbol as the tappable leading square, then the field.
+    private var receiptAmountRow: some View {
+        HStack(spacing: 14) {
+            Button { presentSheetAfterTouch { showingCurrencyPicker = true } } label: {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .fill(Color(hex: "E8F0EA"))
+                        .frame(width: 40, height: 40)
+                    Text(currencySymbol)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Color(hex: "2F402E"))
+                }
+            }
+            .buttonStyle(.plain)
+
+            VStack(alignment: .leading, spacing: 2) {
+                receiptRowLabel("AMOUNT")
+                NumericFieldWithDone(
+                    text: $amountText,
+                    keyboardType: usesDecimalCurrency ? .decimalPad : .numberPad,
+                    font: UIFont.monospacedSystemFont(ofSize: 22, weight: .semibold),
+                    textAlignment: .left,
+                    focusRequested: amountFocusRequested,
+                    placeholder: zeroAmountPlaceholder,
+                    onBeginEditing: { DispatchQueue.main.async { focusedField = .amount } },
+                    onDone: { amountFocusRequested = false; focusedField = nil }
+                )
+                .frame(height: 28)
+                .onChange(of: amountText) { _, newValue in
+                    let sanitized = sanitizeAmountInput(newValue)
+                    if sanitized != newValue { amountText = sanitized }
+                }
+                .onChange(of: focusedField) { _, newValue in
+                    if newValue != .amount { formatAmount() }
+                }
+            }
+            Spacer(minLength: 8)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+    }
+
+    private var receiptMerchantRow: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 14) {
+                receiptTintedSquare("bag.fill")
+                VStack(alignment: .leading, spacing: 2) {
+                    receiptRowLabel("MERCHANT")
+                    TextField("Add merchant", text: $merchant)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                        .focused($focusedField, equals: .merchant)
+                        .textInputAutocapitalization(.words)
+                }
+                Spacer(minLength: 8)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
+
+            if focusedField == .merchant && !receiptMerchantSuggestions.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(receiptMerchantSuggestions, id: \.self) { name in
+                            Button {
+                                merchant = name
+                                focusedField = nil
+                            } label: {
+                                Text(name)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(Color(hex: "2F402E").opacity(0.7))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Color(hex: "F0EDE6"))
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.leading, 74)
+                    .padding(.trailing, 18)
+                }
+                .padding(.bottom, 12)
+                .transition(.opacity)
+            }
+        }
+    }
+
+    private var receiptDateRowMatched: some View {
+        Button { presentSheetAfterTouch { showingDatePickerSheet = true } } label: {
+            HStack(spacing: 14) {
+                receiptTintedSquare("calendar")
+                VStack(alignment: .leading, spacing: 2) {
+                    receiptRowLabel("DATE")
+                    Text(datePillLabel)
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color(hex: "C4BFB9"))
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var receiptNoteRow: some View {
+        HStack(alignment: .top, spacing: 14) {
+            receiptTintedSquare("doc.text")
+            VStack(alignment: .leading, spacing: 2) {
+                receiptRowLabel("NOTE")
+                TextField("Add a note...", text: $notes, axis: .vertical)
+                    .font(.system(size: 15))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+                    .focused($focusedField, equals: .notes)
+                    .lineLimit(1...4)
+            }
+            Spacer(minLength: 8)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+    }
+
+    private var receiptTagRow: some View {
+        Button { presentSheetAfterTouch { showingTagPicker = true } } label: {
+            HStack(spacing: 14) {
+                receiptTintedSquare("tag.fill")
+                VStack(alignment: .leading, spacing: 2) {
+                    receiptRowLabel("TAG")
+                    if selectedTags.isEmpty {
+                        Text("Add tag...")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color(hex: "C4BFB9"))
+                    } else {
+                        HStack(spacing: 6) {
+                            ForEach(selectedTags.prefix(2)) { tag in
+                                HStack(spacing: 5) {
+                                    if tag.isGroup {
+                                        Image(systemName: "folder.fill")
+                                            .font(.system(size: 9, weight: .semibold))
+                                            .foregroundStyle(tag.tagColor.primaryColor)
+                                    } else {
+                                        Circle()
+                                            .fill(tag.tagColor.primaryColor)
+                                            .frame(width: 7, height: 7)
+                                    }
+                                    Text(chipTitle(for: tag))
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundStyle(Color(hex: "1C1C1E"))
+                                }
+                            }
+                            if selectedTags.count > 2 {
+                                Text("+\(selectedTags.count - 2)")
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(Color(hex: "8F9E94"))
+                            }
+                        }
+                    }
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color(hex: "C4BFB9"))
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     /// Just the receipt image (rounded, with the Replace/Remove controls). The

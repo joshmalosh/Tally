@@ -1056,8 +1056,8 @@ struct ReceiptShape: Shape {
     }
 }
 
-/// A horizontal line, for the dashed row dividers.
-private struct ReceiptLine: Shape {
+/// A horizontal line, for the dashed row dividers. Shared with AddExpenseView.
+struct ReceiptLine: Shape {
     func path(in rect: CGRect) -> Path {
         var p = Path()
         p.move(to: CGPoint(x: 0, y: rect.midY))
