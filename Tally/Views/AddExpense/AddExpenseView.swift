@@ -608,27 +608,42 @@ struct AddExpenseView: View {
 
     @ViewBuilder
     private var receiptImageAttachedFormBlock: some View {
-        receiptHeroView
-            .transition(.move(edge: .top).combined(with: .opacity))
+        // One receipt: the photo framed in the tag colour on top, the existing
+        // field cards on the white receipt body, and the torn edge below the last
+        // field — the whole form reads as a single receipt.
+        VStack(spacing: 0) {
+            receiptHeroImage
+                .padding(16)   // tag-colour frame around the photo
 
-        if !appState.isPro {
-            proUpsellCompactBanner
+            // Same card language as Quick Add — cards unchanged, just sitting on
+            // the white receipt body.
+            VStack(spacing: 8) {
+                receiptAmountCard
+                quickAddMerchantCard
+                // Date under merchant, above the note — same order as manual entry.
+                receiptDateRow
+                quickAddNoteCard
+                quickAddTagCard
+                quickAddRecurringCard
+            }
+            .padding(.top, 4)
+            .padding(.bottom, 26)   // clearance above the torn edge
+            .frame(maxWidth: .infinity)
+            .background(
+                ZStack {
+                    Color.white
+                    ReceiptTexture()
+                }
+            )
         }
+        .background(receiptFrameColor)
+        .clipShape(ReceiptShape())
+        .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 8)
+        .padding(.horizontal, 16)
+        .transition(.move(edge: .top).combined(with: .opacity))
 
-        // Same card language as Quick Add — the receipt flow is Quick Add
-        // with the hero amount swapped for a compact amount card.
-        receiptAmountCard
-        quickAddMerchantCard
-        // Date sits directly under the merchant, above the note — same order as
-        // manual entry. (No Add receipt button here; one is already attached.)
-        receiptDateRow
-        quickAddNoteCard
-        quickAddTagCard
-        quickAddRecurringCard
-
-        // Free tier: banner beneath the recurring card. The persistent bottom
-        // banner is suppressed on the receipt flow, so the ad lives here instead.
-        // Hidden while a text field is up, per the monetisation brief.
+        // Free tier: banner beneath the receipt (outside it). Hidden while a text
+        // field is up, per the monetisation brief.
         if !appState.isPro {
             BannerAdView()
                 .frame(height: keyboardVisible ? 0 : 51)
@@ -1195,98 +1210,87 @@ struct AddExpenseView: View {
         selectedTags.first?.tagColor.primaryColor ?? Color(hex: "2F402E")
     }
 
-    private var receiptHeroView: some View {
-        VStack(spacing: 0) {
-            ZStack {
-                if let image = attachedImage {
-                    // Receipt image (tap to view full)
-                    Button { presentSheetAfterTouch { showingFullImage = true } } label: {
-                        Image(uiImage: image)
-                            .resizable()
-                            .scaledToFill()
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 220)
-                            .clipped()
+    /// Just the receipt image (rounded, with the Replace/Remove controls). The
+    /// tag-colour frame and torn edge are applied by the wrapper in
+    /// `receiptImageAttachedFormBlock`, which extends the receipt down behind all
+    /// the fields.
+    private var receiptHeroImage: some View {
+        ZStack {
+            if let image = attachedImage {
+                // Receipt image (tap to view full)
+                Button { presentSheetAfterTouch { showingFullImage = true } } label: {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 220)
+                        .clipped()
+                }
+                .buttonStyle(.plain)
+
+                // Gradient overlay — covers ~65% from bottom
+                VStack {
+                    Spacer()
+                    LinearGradient(
+                        colors: [.clear, Color.black.opacity(0.78)],
+                        startPoint: .init(x: 0.5, y: 0),
+                        endPoint: .bottom
+                    )
+                    .frame(height: 150)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .allowsHitTesting(false)
+
+                if isRunningOCR {
+                    VStack {
+                        Spacer()
+                        HStack(spacing: 8) {
+                            ProgressView().tint(.white)
+                            Text("Reading receipt…")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.white)
+                        }
+                        .padding(.bottom, 70)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .allowsHitTesting(false)
+                }
+            }
+        }
+        .frame(height: 220)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        // Bottom-right: Replace/Remove. Tap the receipt itself to open full-screen.
+        .overlay(alignment: .bottomTrailing) {
+            if attachedImage != nil {
+                HStack(spacing: 12) {
+                    Button { presentSheetAfterTouch { showingReplaceReceiptSources = true } } label: {
+                        Text("Replace")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white.opacity(0.7))
+                            .underline()
                     }
                     .buttonStyle(.plain)
 
-                    // Gradient overlay — covers ~65% from bottom
-                    VStack {
-                        Spacer()
-                        LinearGradient(
-                            colors: [.clear, Color.black.opacity(0.78)],
-                            startPoint: .init(x: 0.5, y: 0),
-                            endPoint: .bottom
-                        )
-                        .frame(height: 150)
+                    Button {
+                        attachedImage = nil
+                        attachedFileURL = nil
+                        attachmentKey = nil
+                        source = .manual
+                        enteredViaPhotoFlow = true
+                        ocrPopulatedAnyField = false
+                        dateManuallyEdited = false
+                    } label: {
+                        Text("Remove")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white.opacity(0.7))
+                            .underline()
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                    .allowsHitTesting(false)
-
-                    if isRunningOCR {
-                        VStack {
-                            Spacer()
-                            HStack(spacing: 8) {
-                                ProgressView().tint(.white)
-                                Text("Reading receipt…")
-                                    .font(.system(size: 13, weight: .medium))
-                                    .foregroundStyle(.white)
-                            }
-                            .padding(.bottom, 70)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .allowsHitTesting(false)
-                    }
+                    .buttonStyle(.plain)
                 }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 10)
             }
-            .frame(height: 220)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            // Bottom-right: Replace/Remove. Tap the receipt itself to open full-screen.
-            .overlay(alignment: .bottomTrailing) {
-                if attachedImage != nil {
-                    HStack(spacing: 12) {
-                        Button { presentSheetAfterTouch { showingReplaceReceiptSources = true } } label: {
-                            Text("Replace")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.white.opacity(0.7))
-                                .underline()
-                        }
-                        .buttonStyle(.plain)
-
-                        Button {
-                            attachedImage = nil
-                            attachedFileURL = nil
-                            attachmentKey = nil
-                            source = .manual
-                            enteredViaPhotoFlow = true
-                            ocrPopulatedAnyField = false
-                            dateManuallyEdited = false
-                        } label: {
-                            Text("Remove")
-                                .font(.system(size: 11))
-                                .foregroundStyle(.white.opacity(0.7))
-                                .underline()
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.bottom, 10)
-                }
-            }
-            .padding(16)   // tag-colour border wraps the receipt image on all sides
-
-            // A short strip of receipt paper so the torn bottom edge reads as a
-            // receipt beneath the framed image.
-            ZStack {
-                Color.white
-                ReceiptTexture()
-            }
-            .frame(height: 22)
         }
-        .background(receiptFrameColor)
-        .clipShape(ReceiptShape())
-        .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 8)
-        .padding(.horizontal, 16)
     }
 
 
