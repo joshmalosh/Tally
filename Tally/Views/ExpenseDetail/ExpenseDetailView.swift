@@ -113,37 +113,31 @@ struct ExpenseDetailView: View {
                 ZStack {
                     Color.bgPrimary.ignoresSafeArea()
 
-                    ScrollViewReader { proxy in
-                        ScrollView {
-                            VStack(spacing: 8) {
-                                receiptObject
+                    ScrollView {
+                        VStack(spacing: 8) {
+                            receiptObject
 
-                                tallySuggestsCard
+                            tallySuggestsCard
 
-                                if let url = attachedFileURL {
-                                    pdfCard(url: url)
-                                }
-
-                                deleteButton
-
-                                if !appState.isPro {
-                                    BannerAdView()
-                                        .padding(.top, Spacing.sm)
-                                }
+                            if let url = attachedFileURL {
+                                pdfCard(url: url)
                             }
-                            .padding(.top, 14)
-                            .padding(.bottom, Spacing.xl)
-                        }
-                        // Centre the tapped field above the keyboard. In a sheet
-                        // SwiftUI's own avoidance often leaves the field covered, so
-                        // scroll it to centre on focus instead.
-                        .onChange(of: focusedField) { _, field in
-                            guard let field else { return }
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                proxy.scrollTo(field, anchor: .center)
+
+                            deleteButton
+
+                            if !appState.isPro {
+                                BannerAdView()
+                                    .padding(.top, Spacing.sm)
                             }
                         }
+                        .padding(.top, 14)
+                        .padding(.bottom, Spacing.xl)
                     }
+                    // Native keyboard handling: the scroll view insets itself for the
+                    // keyboard and scrolls the focused field into view on its own, and
+                    // a downward drag dismisses it — no manual scroll animation, no
+                    // window-level gesture.
+                    .scrollDismissesKeyboard(.interactively)
                 }
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -159,12 +153,6 @@ struct ExpenseDetailView: View {
                             Image(systemName: "chevron.left")
                                 .font(.system(size: 17, weight: .semibold))
                                 .foregroundStyle(Color(hex: "1C1C1E"))
-                        }
-                    }
-                    // AUTO-SCANNED badge
-                    ToolbarItem(placement: .principal) {
-                        if expense.wasAutoScanned {
-                            autoScannedBadge
                         }
                     }
                     // Done pill
@@ -271,23 +259,6 @@ struct ExpenseDetailView: View {
                 )
             }
         }
-    }
-
-    // MARK: - AUTO-SCANNED badge
-
-    private var autoScannedBadge: some View {
-        HStack(spacing: 5) {
-            Image(systemName: "wand.and.stars")
-                .font(.system(size: 10, weight: .semibold))
-            Text("AUTO-SCANNED")
-                .font(.system(size: 11, weight: .bold))
-                .tracking(0.6)
-        }
-        .foregroundStyle(Color(hex: "2F402E"))
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(Color(hex: "D6E8D4"))
-        .clipShape(Capsule())
     }
 
     // MARK: - Receipt hero
@@ -407,8 +378,6 @@ struct ExpenseDetailView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 10)
         .padding(.vertical, 18)
-        .contentShape(Rectangle())
-        .onTapGesture { focusedField = .amount }
         .id(Field.amount)
     }
 
@@ -506,8 +475,6 @@ struct ExpenseDetailView: View {
         }
         .padding(.horizontal, 18)
         .padding(.vertical, 12)
-        .contentShape(Rectangle())
-        .onTapGesture { focusedField = .amount }
         .id(Field.amount)
     }
 

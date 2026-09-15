@@ -36,13 +36,12 @@ struct ContentView: View {
         }
         .preferredColorScheme(.light)
         .onAppear {
-            // Install the app-wide tap-to-dismiss-keyboard gesture here — the key
-            // window exists by now (the AppDelegate lifecycle hook never fires under
-            // SwiftUI's scene lifecycle). A short retry covers a not-yet-ready window.
-            KeyboardDismissGesture.shared.install()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                KeyboardDismissGesture.shared.install()
-            }
+            // Keyboard dismissal is handled natively per-screen with
+            // `.scrollDismissesKeyboard(.interactively)`. There is deliberately no
+            // app-wide tap recogniser on the window: it sat over every screen and
+            // deadlocked iOS's gesture gate whenever a tap coincided with presenting
+            // a sheet or a field's own double-tap-to-select (the ~55s freezes on
+            // Change and on the edit fields).
             if !didRefreshProStatus {
                 didRefreshProStatus = true
                 Task { await SubscriptionService.refreshProStatus(appState: appState) }

@@ -848,6 +848,29 @@ non-trivial background `.allowsHitTesting(false)`.
 
 ## Current state — what's shipped (newest first)
 
+- **Edit-screen freezes killed at the root; AUTO-SCANNED off edit** (2026-09-16):
+  the recurring ~55s gesture-gate freezes (Change button, and double-tapping /
+  tapping fields on the edit screen) all traced to one cause: the app-wide
+  tap-to-dismiss-keyboard recogniser (`KeyboardDismissGesture`) installed on the
+  key window for the app's whole life. It sat over every screen, so whenever a tap
+  coincided with presenting a sheet or a text field's own double-tap-to-select,
+  iOS's gesture gate deadlocked. Removed it entirely (`ContentView.onAppear` no
+  longer calls `.install()`; the class in `UIApplication+ResignFirstResponder.swift`
+  is now unused dead code, left in place to avoid pbxproj surgery). Keyboard
+  dismissal is now purely native: `.scrollDismissesKeyboard(.interactively)` (already
+  on Home, add, multi-receipt; added to the edit `ScrollView`). This supersedes the
+  earlier `delaysTouchesEnded` patch, which only softened one path. On the **edit**
+  screen also: removed the two `.onTapGesture { focusedField = .amount }` overlays
+  that fought the amount field's native double-tap selection (the "reporter
+  disconnected" freeze); dropped the manual `ScrollViewReader`/`scrollTo(anchor:.center)`
+  in favour of the scroll view's own keyboard avoidance; and removed the
+  AUTO-SCANNED badge (Josh: it belongs on add expense after a scan, not on edit).
+  The tag/date/currency pickers stay as sheets — with the window recogniser gone,
+  sheet-on-sheet is safe, and rebuilding the shared tag/currency pickers into pushed
+  pages was the larger unverifiable change (touches the add screen) we chose not to
+  make. **Verify on device:** edit is bulletproof — double-tap any field, tap the
+  tag row, no freeze; and the add-screen Change button no longer freezes either.
+
 - **Tag scroll bar, export badges, Done button, Fortnightly, edit field-centring**
   (2026-09-15): the pinned-tag green scroll bar is now driven by a UIKit KVO
   observer (`HorizontalScrollObserver`) on the underlying `UIScrollView`; the
