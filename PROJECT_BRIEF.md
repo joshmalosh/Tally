@@ -703,6 +703,7 @@ totals are single-currency, never mixed across currencies.
 
 | Date | Decision | Why |
 |---|---|---|
+| 2026-09-16 | **Reverted the edit screen from the native grouped `List` back to the receipt-object layout** (restored `ExpenseDetailView` from `1585dbd`). The prior session's List rebuild is undone. Verified on the iPhone 17 Pro simulator that the receipt layout does **not** crash on double-tap-select or field switching. | The List rebuild threw away the receipt design on the theory that one big custom view "starved the keyboard input service" and caused the double-tap crash. That was wrong: the crash's actual root cause was the app-wide window keyboard-gesture, already removed in `1585dbd`/`bfc1dfb`, so the design and the crash fix were independent. The stale current-state note claimed Josh *chose* native ("that should have been your approach from the get go"); on seeing it he called it "horrible and barren" and asked for the receipt view back. Design intent + crash fix now both hold. |
 | 2026-09-16 | The add-expense receipt now matches the edit screen: tag pill riding the top edge (`receiptTagPill`), animated tag-colour frame, and the fields are **edit-style rows** (tinted icon square + label-above-value + dashed dividers) on the white receipt body, not cards. Recurring stays a card inside the receipt (add-only; edit has no equivalent) so the torn edge sits below it. The rows are replicated on the add screen (bound to add's own state/pickers) rather than shared with edit, because a cross-file shared component with `@FocusState` bridging is too risky to land blind — flagged for later extraction to remove the duplication. `receiptAmountCard`/`receiptDateRow` are now dead (unused) and should be deleted in a cleanup. | Josh, after seeing the wrapped receipt, wanted the add fields to match the edit format. Replicating the edit rows (vs sharing) trades §9's no-duplication for rule 2's "prefer the version least likely to misbehave" given no local compiler — the row look is now identical and can be unified once stable. |
 | 2026-09-16 | The add-expense receipt now wraps the **whole** form: the photo is framed in the tag colour on top, the existing field cards sit on the white receipt body, and the torn edge is below the last field — one receipt. Fields (the cards) are unchanged, just inset on the paper. Supersedes the 2026-09-15 scoped version (torn edge under just the image), which Josh said was wrong. Josh picked "keep the cards, wrap them" over turning the fields into rows. | Josh wanted the receipt to read as one object extending to the bottom of the fields with the torn edge beneath them, while keeping the familiar field cards. Mirrors the edit screen's receipt structure (frame + white body + torn bottom) but with cards as the body instead of rows. Cards read on the white paper via their existing borders; if it looks washed out, tint the paper or the cards (don't change the fields). |
 | 2026-09-16 | **Real fix for the ~55s "Change" freeze:** the app-wide keyboard-dismiss tap recogniser (`KeyboardDismissGesture`, on the key window) left `delaysTouchesEnded` at its default `true`, so it held every tap's touchesEnded until it resolved; inside a scroll view that made the scroll recogniser wait, and presenting a sheet mid-wait deadlocked the system gesture gate. Set `delaysTouchesEnded = false` (and `delaysTouchesBegan = false`). | The earlier `presentSheetAfterTouch` deferral (below) did **not** fix it — the tell was that the edit screen opens the same sheet synchronously without freezing, so timing of the present wasn't the cause. The window recogniser delaying touch delivery was. The deferral is harmless and kept as belt-and-suspenders, but this recogniser change is the actual fix. |
@@ -848,27 +849,18 @@ non-trivial background `.allowsHitTesting(false)`.
 
 ## Current state — what's shipped (newest first)
 
-- **Edit screen rebuilt as a native form** (2026-09-16): after the keyboard-gesture
-  removal still left the edit screen freezing (double-tapping a field lagged then
-  worked; selecting text and tapping another field crashed), the real cause was
-  structural: the whole edit form was a single custom view, so every edit-time
-  state write (amount sanitiser, reformat-on-focus, per-keystroke tag suggestion,
-  autocomplete churn) re-evaluated **all** the text fields at once, mid-text-session,
-  starving the keyboard's input service until it timed out (`Result accumulator
-  timeout: 3.0`, `Reporter disconnected`) — a lag, and a crash when it happened
-  during an active selection + field switch. Rebuilt `ExpenseDetailView`'s body as a
-  native `List` (`.insetGrouped`, `.scrollContentBackground(.hidden)` over
-  `bgPrimary`): each field is its own isolated row, so editing one never re-renders
-  the others — the way Contacts/Reminders are built. Also dropped the
-  reformat-on-focus state write (amount formats on save via `parsedAmountCents`),
-  and the date field is now an inline `.compact` `DatePicker` (native calendar
-  popover, no sheet). Tag and currency stay as sheets (safe now the window gesture
-  is gone). The receipt visual gives way to a clean native grouped form — Josh chose
-  native over the exact receipt look once the look-preserving fixes had failed twice
-  ("that should have been your approach from the get go"). The receipt shapes
-  (`ReceiptShape`/`ReceiptLine`/`ReceiptTexture`) stay in the file — the add screen
-  still uses them. **Verify on device:** double-tap any field, select text and tap
-  another field, tap tag — no lag, no freeze, no crash.
+- **Edit screen reverted to the receipt layout** (2026-09-16): the native-`List`
+  rebuild (below, now undone) had thrown away the receipt design to chase a
+  double-tap crash it blamed on the monolithic view "starving the keyboard's input
+  service". That theory did not hold: the crash's real root cause was the app-wide
+  window keyboard-gesture, already removed one commit earlier (`1585dbd` /
+  `bfc1dfb`). Restored `ExpenseDetailView` from `1585dbd` (the state right before the
+  rebuild) — the receipt object is back: tag-tinted frame, tag pill riding the top
+  edge, textured white paper body with dashed row dividers, torn bottom edge, date as
+  a graphical sheet. **Verified on iPhone 17 Pro simulator** (Mac access this
+  session): double-tap the amount field, select + switch fields, open the date sheet
+  — no lag, no freeze, no crash. Josh's call: the grouped form "looks horrible and
+  barren"; the receipt view is the intended look and it is crash-safe.
 
 - **Edit-screen freezes killed at the root; AUTO-SCANNED off edit** (2026-09-16):
   the recurring ~55s gesture-gate freezes (Change button, and double-tapping /
