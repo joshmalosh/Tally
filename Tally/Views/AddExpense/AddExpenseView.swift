@@ -638,8 +638,17 @@ struct AddExpenseView: View {
         }
         .background(receiptFrameColor)
         .clipShape(ReceiptShape())
+        // Tag pill riding the top edge (tag colour + name), like the edit screen.
+        .overlay(alignment: .topLeading) {
+            if let tag = selectedTags.first {
+                receiptTagPill(tag)
+                    .padding(.leading, 22)
+                    .offset(y: -11)
+            }
+        }
         .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 8)
         .padding(.horizontal, 16)
+        .animation(.easeInOut(duration: 0.25), value: selectedTagIds)
         .transition(.move(edge: .top).combined(with: .opacity))
 
         // Free tier: banner beneath the receipt (outside it). Hidden while a text
@@ -1208,6 +1217,28 @@ struct AddExpenseView: View {
     /// edit screen's frame colour.
     private var receiptFrameColor: Color {
         selectedTags.first?.tagColor.primaryColor ?? Color(hex: "2F402E")
+    }
+
+    /// Tag pill riding the top edge of the receipt — tag colour dot + name, same as
+    /// the edit screen, so the selected tag reads on the frame.
+    private func receiptTagPill(_ tag: TagModel) -> some View {
+        HStack(spacing: 5) {
+            if tag.isGroup {
+                Image(systemName: "folder.fill")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(tag.tagColor.primaryColor)
+            } else {
+                Circle().fill(tag.tagColor.primaryColor).frame(width: 7, height: 7)
+            }
+            Text(selectedTags.count == 1 ? chipTitle(for: tag) : "\(tag.name) +\(selectedTags.count - 1)")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(Color(hex: "1C1C1E"))
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 6)
+        .background(Color.white)
+        .clipShape(Capsule())
+        .shadow(color: .black.opacity(0.18), radius: 6, x: 0, y: 3)
     }
 
     /// Just the receipt image (rounded, with the Replace/Remove controls). The
