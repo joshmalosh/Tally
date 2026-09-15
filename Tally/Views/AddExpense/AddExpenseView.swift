@@ -385,6 +385,16 @@ struct AddExpenseView: View {
             .onAppear { handleAddExpenseAppear() }
     }
 
+    /// Dismisses the keyboard and presents a sheet on the *next* runloop, so the
+    /// current tap gesture fully resolves first. Presenting a sheet synchronously
+    /// from a button inside the scroll view deadlocked iOS's system gesture gate
+    /// (a ~55s freeze on "Change", per the gesture-gate log). One choke point for
+    /// every sheet-opening control on this screen.
+    private func presentSheetAfterTouch(_ present: @escaping () -> Void) {
+        focusedField = nil
+        DispatchQueue.main.async { present() }
+    }
+
     /// Extracted from the `.onAppear` closure: this navigation root is a very
     /// large `some View`, and inlining the focus logic pushed it past the Swift
     /// type-checker's limit. A standalone method is type-checked on its own.
@@ -846,7 +856,7 @@ struct AddExpenseView: View {
             if selectedTagIds.isEmpty {
                 // Nothing selected: one unambiguous "add" affordance — never
                 // pre-populated tag chips, which read as already-selected.
-                Button { focusedField = nil; showingTagPicker = true } label: {
+                Button { presentSheetAfterTouch { showingTagPicker = true } } label: {
                     HStack(spacing: 6) {
                         Image(systemName: "plus")
                             .font(.system(size: 11, weight: .bold))
@@ -898,7 +908,7 @@ struct AddExpenseView: View {
                             .buttonStyle(.plain)
                         }
 
-                        Button { focusedField = nil; showingTagPicker = true } label: {
+                        Button { presentSheetAfterTouch { showingTagPicker = true } } label: {
                             Text("Change")
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(Color(hex: "2F402E").opacity(0.55))
@@ -926,7 +936,7 @@ struct AddExpenseView: View {
     private var quickAddExtrasRow: some View {
         HStack(spacing: 8) {
             // DATE
-            Button { focusedField = nil; showingDatePickerSheet = true } label: {
+            Button { presentSheetAfterTouch { showingDatePickerSheet = true } } label: {
                 HStack(spacing: 8) {
                     ZStack {
                         RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(hex: "E8F0EA")).frame(width: 30, height: 30)
@@ -946,7 +956,7 @@ struct AddExpenseView: View {
             .buttonStyle(.plain)
 
             // ADD RECEIPT
-            Button { showingAddReceiptSources = true } label: {
+            Button { presentSheetAfterTouch { showingAddReceiptSources = true } } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "paperclip").font(.system(size: 13, weight: .medium)).foregroundStyle(Color(hex: "2F402E").opacity(0.6))
                     Text("Add receipt").font(.system(size: 12, weight: .semibold)).foregroundStyle(Color(hex: "2F402E").opacity(0.65))
@@ -979,7 +989,7 @@ struct AddExpenseView: View {
             let hasDecimalTyped = amountText.contains(".")
 
             HStack(alignment: .firstTextBaseline, spacing: 2) {
-                Button { focusedField = nil; showingCurrencyPicker = true } label: {
+                Button { presentSheetAfterTouch { showingCurrencyPicker = true } } label: {
                     Text(currencySymbol)
                         .font(.system(size: 26, weight: .regular, design: .monospaced))
                         .foregroundStyle(Color(hex: "2F402E").opacity(0.5))
@@ -1130,7 +1140,7 @@ struct AddExpenseView: View {
             if let url = attachedFileURL {
                 HStack(spacing: 12) {
                     // Tappable area opens the PDF preview
-                    Button { showingPDFPreview = true } label: {
+                    Button { presentSheetAfterTouch { showingPDFPreview = true } } label: {
                         HStack(spacing: 12) {
                             Image(systemName: "doc.richtext")
                                 .font(.system(size: 22))
@@ -1190,7 +1200,7 @@ struct AddExpenseView: View {
             ZStack {
                 if let image = attachedImage {
                     // Receipt image (tap to view full)
-                    Button { showingFullImage = true } label: {
+                    Button { presentSheetAfterTouch { showingFullImage = true } } label: {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFill()
@@ -1235,7 +1245,7 @@ struct AddExpenseView: View {
             .overlay(alignment: .bottomTrailing) {
                 if attachedImage != nil {
                     HStack(spacing: 12) {
-                        Button { showingReplaceReceiptSources = true } label: {
+                        Button { presentSheetAfterTouch { showingReplaceReceiptSources = true } } label: {
                             Text("Replace")
                                 .font(.system(size: 11))
                                 .foregroundStyle(.white.opacity(0.7))
@@ -1304,7 +1314,7 @@ struct AddExpenseView: View {
             .padding(.bottom, 8)
 
             HStack(alignment: .center, spacing: 4) {
-                Button { focusedField = nil; showingCurrencyPicker = true } label: {
+                Button { presentSheetAfterTouch { showingCurrencyPicker = true } } label: {
                     HStack(spacing: 2) {
                         Text(currencySymbol)
                             .font(.system(size: 18, weight: .regular, design: .monospaced))
@@ -1348,7 +1358,7 @@ struct AddExpenseView: View {
     /// Date row in the extras style — no "Add receipt" here because the
     /// receipt controls (view / replace / remove) live on the hero.
     private var receiptDateRow: some View {
-        Button { focusedField = nil; showingDatePickerSheet = true } label: {
+        Button { presentSheetAfterTouch { showingDatePickerSheet = true } } label: {
             HStack(spacing: 8) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color(hex: "E8F0EA")).frame(width: 30, height: 30)
