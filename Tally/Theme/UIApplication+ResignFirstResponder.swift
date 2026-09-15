@@ -23,6 +23,12 @@ final class KeyboardDismissGesture: NSObject, UIGestureRecognizerDelegate {
         let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap))
         tap.name = "kbDismiss"
         tap.cancelsTouchesInView = false
+        // Default is true, which holds each tap's touchesEnded until this recogniser
+        // resolves. Inside a scroll view that made the scroll recogniser wait, and
+        // presenting a sheet mid-wait deadlocked the system gesture gate (~55s
+        // freeze on "Change"). Deliver touches immediately instead.
+        tap.delaysTouchesEnded = false
+        tap.delaysTouchesBegan = false
         tap.delegate = self
         window.addGestureRecognizer(tap)
     }
