@@ -82,12 +82,20 @@ Josh far more time than a short pause to check, and it can break his real files.
   was wrong", that means you presented too early.
 - Verify silently and completely, then present one grounded answer. Do not think
   out loud through half-formed solutions Josh might act on before you finish.
-- **You cannot compile or run here, so prefer the implementation least likely to
-  misbehave over the clever one.** A view trick you can't verify is how the "opaque
-  header" silently killed every header button (a `.clipped()` layer that swallowed
-  taps) and how the seam fix shipped worse than before. When a boring,
-  obviously-correct version exists, ship that; and name anything you couldn't
-  verify so he checks it first on device.
+- **Prefer the implementation least likely to misbehave over the clever one.** A
+  view trick you can't reason through is how the "opaque header" silently killed
+  every header button (a `.clipped()` layer that swallowed taps) and how the seam
+  fix shipped worse than before. When a boring, obviously-correct version exists,
+  ship that; and name anything you're unsure of so he checks it first on device.
+- **You have a Mac: you can build and run in the iOS Simulator. Use it sparingly,
+  not reflexively.** Don't burn tokens building, launching and screenshotting the
+  app after every edit. A `xcodebuild` compile (or just reading the code) settles
+  most changes, and layout/copy/reorder tweaks that obviously compile need no run
+  at all. Reserve launching the sim and driving it for when **runtime behaviour is
+  the actual question** (a freeze, an animation, an OCR scan, a gesture), when a
+  unit/OCR test run is the right proof, or when Josh asks to see it. Verifying is
+  still the bar (§2 above) - just meet it with the cheapest sufficient check, and
+  batch sim steps when you do drive it.
 
 ---
 
