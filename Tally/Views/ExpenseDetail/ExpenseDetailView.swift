@@ -1002,6 +1002,19 @@ struct ExpenseDetailView: View {
             Log.data.error("save expense edits failed: \(error.localizedDescription, privacy: .public)")
         }
         isSaving = false
+        // Same save feedback as a new add: the coin sound, success haptic, row
+        // landing animation and celebration all hang off .expenseLogged, so an
+        // edit save posts it too (before dismiss, so Home marks the row before it
+        // reappears — matching the add path).
+        NotificationCenter.default.post(
+            name: .expenseLogged,
+            object: nil,
+            userInfo: [
+                "expenseId": expense.id,
+                "amountCents": amountCents,
+                "currency": currency
+            ]
+        )
         dismiss()
     }
 }
