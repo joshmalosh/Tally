@@ -857,10 +857,26 @@ non-trivial background `.allowsHitTesting(false)`.
   `bfc1dfb`). Restored `ExpenseDetailView` from `1585dbd` (the state right before the
   rebuild) — the receipt object is back: tag-tinted frame, tag pill riding the top
   edge, textured white paper body with dashed row dividers, torn bottom edge, date as
-  a graphical sheet. **Verified on iPhone 17 Pro simulator** (Mac access this
-  session): double-tap the amount field, select + switch fields, open the date sheet
-  — no lag, no freeze, no crash. Josh's call: the grouped form "looks horrible and
-  barren"; the receipt view is the intended look and it is crash-safe.
+  a graphical sheet. Josh's call: the grouped form "looks horrible and barren"; the
+  receipt view is the intended look.
+
+- **Edit-screen keyboard freeze fixed with a debounce, receipt design kept**
+  (2026-09-16): after the revert, the field still froze for a few seconds on fast
+  input (Josh's device logs: `Result accumulator timeout: 0.250000, exceeded` /
+  `Reporter disconnected` / `Could not find cached accumulator`). Reproduced by
+  streaming the simulator log while typing — the keyboard's autocorrection
+  accumulator (a 0.25s-budgeted step that lands on the main thread) timed out because
+  **`updateTagSuggestion()` ran synchronously on every keystroke** (scan all
+  expenses + keyword engine + `withAnimation`), starving the main thread. Fix:
+  debounce it — `.onChange` now schedules a cancellable `Task` that waits 350ms after
+  the last edit, so the heavy work runs once on pause, off the typing hot path
+  (`scheduleTagSuggestion`, `suggestionTask`). After the fix, a 35-char typing burst
+  logged only `didTimeout: NO`, no timeouts. The receipt layout is untouched — the
+  bottleneck was the per-keystroke computation, not the view. **Note:** the exact
+  sub-300ms double-tap gesture can't be fired from the simulator harness (taps are
+  seconds apart), so that specific gesture is **UNVERIFIED on device** — Josh to
+  confirm the double-tap on a physical device with this build; if it persists, the
+  next lever is isolating the text fields into child views.
 
 - **Edit-screen freezes killed at the root; AUTO-SCANNED off edit** (2026-09-16):
   the recurring ~55s gesture-gate freezes (Change button, and double-tapping /

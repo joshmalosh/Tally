@@ -44,6 +44,11 @@ struct ExpenseDetailView: View {
 
     @State private var tallySuggestion: TagSuggestionEngine.Suggestion? = nil
     @State private var tallySuggestionDismissed = false
+    /// Debounces the tag suggestion off the keystroke path. Recomputing it on
+    /// every character (scan all expenses + run the keyword engine + animate) hogs
+    /// the main thread and times out the keyboard's autocorrection accumulator
+    /// (`Result accumulator timeout`), which is what froze the field on fast input.
+    @State private var suggestionTask: Task<Void, Never>?
     /// Past merchant names, built once on open for the autocomplete chips.
     @State private var knownMerchants: [String] = []
 
@@ -233,8 +238,8 @@ struct ExpenseDetailView: View {
                 // in an expense we never let a background CloudKit sync reload or
                 // reorder their edits — the screen loads once and stays put. It
                 // dismisses on save, so the user's own change never needs re-syncing.
-                .onChange(of: merchant)     { _, _ in updateTagSuggestion() }
-                .onChange(of: notes)        { _, _ in updateTagSuggestion() }
+                .onChange(of: merchant)     { _, _ in scheduleTagSuggestion() }
+                .onChange(of: notes)        { _, _ in scheduleTagSuggestion() }
                 .onChange(of: selectedTagIds) { _, newVal in
                     if !newVal.isEmpty {
                         withAnimation(.easeInOut(duration: 0.2)) { tallySuggestion = nil }
@@ -889,6 +894,18 @@ struct ExpenseDetailView: View {
             if let img = AttachmentService.firstPageImage(fromPDF: data) { return img }
         }
         return nil
+    }
+
+    /// Wait for a short pause in typing, then compute the suggestion once — off the
+    /// per-keystroke path. Cancels the previous pending run so only the last edit
+    /// computes. Keyboard input stays on the main thread unblocked while typing.
+    private func scheduleTagSuggestion() {
+        suggestionTask?.cancel()
+        suggestionTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 350_000_000)
+            guard !Task.isCancelled else { return }
+            updateTagSuggestion()
+        }
     }
 
     private func updateTagSuggestion() {
