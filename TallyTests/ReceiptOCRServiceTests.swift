@@ -647,6 +647,7 @@ final class ReceiptOCRServiceTests: XCTestCase {
             blk("KELLYVILLE NSW 2154", x: 0.415, y: 0.770, w: 0.23),
             blk("ABN: 36 686 015 690", x: 0.417, y: 0.703, w: 0.23),
             blk("TAX INVOICE", x: 0.407, y: 0.661, w: 0.26),
+            blk("#189682-71 KAW 27-Aug-2026 12:07:18", x: 0.41, y: 0.620, w: 0.34),
             blk("TOTAL", x: 0.291, y: 0.397, w: 0.12), blk("$46.70", x: 0.711, y: 0.400, w: 0.08),
             blk("GST Amount", x: 0.291, y: 0.353, w: 0.12), blk("$4.25", x: 0.724, y: 0.357, w: 0.06),
             blk("EFTPOS", x: 0.294, y: 0.309, w: 0.14), blk("$46.70", x: 0.643, y: 0.313, w: 0.14),
@@ -662,6 +663,12 @@ final class ReceiptOCRServiceTests: XCTestCase {
         // "Kellyville" stripped). The centre "KELLYVILLE GROVE" and the suburb line
         // "KELLYVILLE NSW 2154" are both kept out of the running.
         XCTAssertEqual(result.merchant, "Maw Maw")
+        // "27-Aug-2026" uses hyphen separators, which the written-date pattern
+        // used to reject (spaces/commas only), so the date fell back to Today.
+        let parts = Calendar.current.dateComponents([.year, .month, .day], from: result.date ?? .distantPast)
+        XCTAssertEqual(parts.year, 2026)
+        XCTAssertEqual(parts.month, 8)
+        XCTAssertEqual(parts.day, 27, "hyphen-separated written date must parse")
     }
 
     // Auto-note: describe what was bought, not the merchant. The item line is

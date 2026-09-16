@@ -675,9 +675,13 @@ enum ReceiptOCRService {
         options: []
     )
 
-    /// Matches written dates like "09 Dec 2025", "December 9, 2025"
+    /// Matches written dates like "09 Dec 2025", "December 9, 2025", and
+    /// hyphen/period-separated forms "27-Aug-2026" / "27.Aug.2026". The separators
+    /// between day, month and year are any of space, comma, hyphen or dot — thermal
+    /// printers use all four, so the class of receipt matters, not the one that
+    /// motivated this (Maw Maw prints "27-Aug-2026").
     private static let writtenDatePattern = try! NSRegularExpression(
-        pattern: #"\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*[\s,]+\d{2,4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2}[\s,]+\d{2,4}"#,
+        pattern: #"\d{1,2}[\s,\-\.]+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*[\s,\-\.]+\d{2,4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*[\s,\-\.]+\d{1,2}[\s,\-\.]+\d{2,4}"#,
         options: .caseInsensitive
     )
 
@@ -772,17 +776,24 @@ enum ReceiptOCRService {
     }
 
     private static func parseWrittenDate(_ text: String) -> Date? {
+        // Normalise every separator (comma, hyphen, dot) to a single space so one
+        // space-based format set parses "27-Aug-2026", "Aug 27, 2026" and
+        // "1 Aug 2026" alike, instead of needing a format per punctuation style.
+        let normalized = text
+            .replacingOccurrences(of: #"[,\-\.]"#, with: " ", options: .regularExpression)
+            .split(whereSeparator: { $0 == " " })
+            .joined(separator: " ")
+
         let formatters: [String] = [
-            "d MMM yyyy", "d MMMM yyyy", "dd MMM yyyy", "dd MMMM yyyy",
-            "MMM d, yyyy", "MMMM d, yyyy", "MMM dd, yyyy", "MMMM dd, yyyy",
-            "d MMM yy", "dd MMM yy", "MMM d, yy", "MMM dd, yy"
+            "d MMM yyyy", "d MMMM yyyy", "MMM d yyyy", "MMMM d yyyy",
+            "d MMM yy", "MMM d yy"
         ]
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
 
         for format in formatters {
             formatter.dateFormat = format
-            if let date = formatter.date(from: text.trimmingCharacters(in: .whitespacesAndNewlines)) {
+            if let date = formatter.date(from: normalized) {
                 return date
             }
         }
