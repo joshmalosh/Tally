@@ -36,42 +36,31 @@ struct ReportsView: View {
         expenses.filter { $0.currency == appState.activeCurrency }
     }
 
+    /// Calendar-month-aligned start of the display window: the first day of the
+    /// earliest month the chart shows. Aligning the total's window to whole months
+    /// (not a rolling date N months back) keeps the headline total equal to the sum
+    /// of the visible monthly bars — otherwise an expense in the tail of the month
+    /// just outside the window counts in the total but shows up in no bar (the
+    /// "$9 total, empty chart" bug). nil for All Time (no lower bound).
+    private var periodStart: Date? {
+        guard selectedPeriod != .allTime else { return nil }
+        let calendar = Calendar.current
+        let earliest = calendar.date(byAdding: .month, value: -(periodMonthCount - 1), to: Date())!
+        return calendar.date(from: calendar.dateComponents([.year, .month], from: earliest))
+    }
+
     /// Expenses within the selected display period.
     private var filteredExpenses: [ExpenseModel] {
-        let calendar = Calendar.current
-        let now = Date()
-        switch selectedPeriod {
-        case .threeMonths:
-            return currencyExpenses.filter { $0.date >= calendar.date(byAdding: .month, value: -3,  to: now)! }
-        case .sixMonths:
-            return currencyExpenses.filter { $0.date >= calendar.date(byAdding: .month, value: -6,  to: now)! }
-        case .oneYear:
-            return currencyExpenses.filter { $0.date >= calendar.date(byAdding: .year,  value: -1,  to: now)! }
-        case .allTime:
-            return currencyExpenses
-        }
+        guard let start = periodStart else { return currencyExpenses }
+        return currencyExpenses.filter { $0.date >= start }
     }
 
     /// Same window shifted one full period back — used for % comparison.
     private var previousPeriodExpenses: [ExpenseModel] {
+        guard let start = periodStart else { return [] }
         let calendar = Calendar.current
-        let now = Date()
-        switch selectedPeriod {
-        case .threeMonths:
-            let end   = calendar.date(byAdding: .month, value: -3,  to: now)!
-            let start = calendar.date(byAdding: .month, value: -6,  to: now)!
-            return currencyExpenses.filter { $0.date >= start && $0.date < end }
-        case .sixMonths:
-            let end   = calendar.date(byAdding: .month, value: -6,  to: now)!
-            let start = calendar.date(byAdding: .month, value: -12, to: now)!
-            return currencyExpenses.filter { $0.date >= start && $0.date < end }
-        case .oneYear:
-            let end   = calendar.date(byAdding: .year,  value: -1,  to: now)!
-            let start = calendar.date(byAdding: .year,  value: -2,  to: now)!
-            return currencyExpenses.filter { $0.date >= start && $0.date < end }
-        case .allTime:
-            return []
-        }
+        let previousStart = calendar.date(byAdding: .month, value: -periodMonthCount, to: start)!
+        return currencyExpenses.filter { $0.date >= previousStart && $0.date < start }
     }
 
     // MARK: - Totals
@@ -101,6 +90,18 @@ struct ReportsView: View {
         case .sixMonths:   return "6 months"
         case .oneYear:     return "year"
         case .allTime:     return "period"
+        }
+    }
+
+    /// Subtitle for the top-category card. The category total is period-wide, so it
+    /// must name the period — not the selected chart month (which drove the earlier
+    /// "$9 in Sep" bug where the 6-month total was labelled with whatever bar was tapped).
+    private var periodSubtitle: String {
+        switch selectedPeriod {
+        case .threeMonths: return "last 3 months"
+        case .sixMonths:   return "last 6 months"
+        case .oneYear:     return "last 12 months"
+        case .allTime:     return "all time"
         }
     }
 
@@ -236,13 +237,6 @@ struct ReportsView: View {
         let now = Date()
         let date = calendar.date(byAdding: .month, value: -selectedMonthOffset, to: now)!
         return date.formatted(.dateTime.month(.wide).year())
-    }
-
-    private var selectedMonthLabelShort: String {
-        let calendar = Calendar.current
-        let now = Date()
-        let date = calendar.date(byAdding: .month, value: -selectedMonthOffset, to: now)!
-        return date.formatted(.dateTime.month(.abbreviated))
     }
 
     // MARK: - Formatting
@@ -421,7 +415,7 @@ struct ReportsView: View {
                         .font(.system(size: 20, weight: .bold))
                         .foregroundStyle(Color(hex: "1C1C1E"))
                         .lineLimit(1)
-                    Text("$\(formatAmount(top.total)) in \(selectedMonthLabelShort)")
+                    Text("$\(formatAmount(top.total)) · \(periodSubtitle)")
                         .font(.system(size: 11))
                         .foregroundStyle(Color(hex: "8F9E94"))
                 }
