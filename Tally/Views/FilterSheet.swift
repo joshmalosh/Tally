@@ -73,9 +73,9 @@ struct FilterSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 26) {
                     periodSection
+                    if !tags.isEmpty { tagsSection }
                     if !usedCurrencies.isEmpty { currencySection }
                     typeSection
-                    if !tags.isEmpty { tagsSection }
                 }
                 .padding(.top, 12)
                 .padding(.bottom, 28)
