@@ -52,10 +52,17 @@ struct ExpenseDetailView: View {
     /// Past merchant names, built once on open for the autocomplete chips.
     @State private var knownMerchants: [String] = []
 
+    /// Attendees (people the spend was shared with) as removable pills, with
+    /// merchant-style recall: `knownAttendees` is built once on open and drives the
+    /// autocomplete chips as you type into `attendeeInput`. Capped at 20.
+    @State private var attendees: [String] = []
+    @State private var attendeeInput = ""
+    @State private var knownAttendees: [String] = []
+
     @FocusState private var focusedField: Field?
 
     private enum Field: Hashable {
-        case amount, merchant, notes
+        case amount, merchant, notes, attendee
     }
 
     private var expense: ExpenseModel? {
@@ -233,6 +240,7 @@ struct ExpenseDetailView: View {
                 .onAppear {
                     syncFromExpense(expense)
                     knownMerchants = buildKnownMerchants()
+                    knownAttendees = buildKnownAttendees()
                 }
                 // Deliberately NO reaction to expense.updatedAt. While the user is
                 // in an expense we never let a background CloudKit sync reload or
@@ -403,6 +411,8 @@ struct ExpenseDetailView: View {
             noteDetailRow
             dashedRowDivider
             tagDetailRow
+            dashedRowDivider
+            attendeeDetailRow
 
             Spacer().frame(height: 18)   // clearance above the torn edge
         }
@@ -639,6 +649,120 @@ struct ExpenseDetailView: View {
         .buttonStyle(.plain)
     }
 
+    // MARK: - Attendees
+
+    private var attendeeDetailRow: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 14) {
+                tintedIconSquare("person.2.fill")
+                VStack(alignment: .leading, spacing: 8) {
+                    rowLabel("ATTENDEES")
+
+                    if !attendees.isEmpty {
+                        WrapLayout(spacing: 6) {
+                            ForEach(attendees, id: \.self) { attendeePill($0) }
+                        }
+                    }
+
+                    if attendees.count < 20 {
+                        TextField("Add attendee...", text: $attendeeInput)
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color(hex: "1C1C1E"))
+                            .focused($focusedField, equals: .attendee)
+                            .textInputAutocapitalization(.words)
+                            .submitLabel(.done)
+                            .onSubmit { addAttendee(attendeeInput) }
+                    } else {
+                        Text("20 attendee limit reached")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Color(hex: "8F9E94"))
+                    }
+                }
+                Spacer(minLength: 8)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
+
+            // Autocomplete chips from past attendees, aligned under the value.
+            if focusedField == .attendee && !attendeeSuggestions.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(attendeeSuggestions, id: \.self) { name in
+                            Button { addAttendee(name) } label: {
+                                Text(name)
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundStyle(Color(hex: "2F402E").opacity(0.7))
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(Color(hex: "F0EDE6"))
+                                    .clipShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.leading, 74)
+                    .padding(.trailing, 18)
+                }
+                .padding(.bottom, 12)
+                .transition(.opacity)
+            }
+        }
+        .id(Field.attendee)
+    }
+
+    private func attendeePill(_ name: String) -> some View {
+        HStack(spacing: 5) {
+            Text(name)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color(hex: "1C1C1E"))
+            Button { removeAttendee(name) } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 6)
+        .background(Color(hex: "E8F0EA"))
+        .clipShape(Capsule())
+    }
+
+    /// Past attendee names not already added to this expense, filtered by what is
+    /// typed. Mirrors the merchant recall — built once on open, capped to 6 chips.
+    private var attendeeSuggestions: [String] {
+        let q = attendeeInput.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let existing = Set(attendees.map { $0.lowercased() })
+        let pool = knownAttendees.filter { !existing.contains($0.lowercased()) }
+        if q.isEmpty { return Array(pool.prefix(6)) }
+        return pool.filter { $0.lowercased().contains(q) }.prefix(6).map { $0 }
+    }
+
+    private func buildKnownAttendees() -> [String] {
+        var seen = Set<String>()
+        var names: [String] = []
+        for e in activeExpenses.sorted(by: { $0.updatedAt > $1.updatedAt }) {
+            for raw in e.resolvedAttendees {
+                let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !t.isEmpty, seen.insert(t.lowercased()).inserted else { continue }
+                names.append(t)
+            }
+        }
+        return names
+    }
+
+    private func addAttendee(_ name: String) {
+        let t = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty, attendees.count < 20,
+              !attendees.contains(where: { $0.lowercased() == t.lowercased() }) else { return }
+        attendees.append(t)
+        attendeeInput = ""
+    }
+
+    private func removeAttendee(_ name: String) {
+        attendees.removeAll { $0 == name }
+    }
+
     /// Neutral light-green rounded square with a dark-green icon (all detail rows).
     private func tintedIconSquare(_ systemName: String) -> some View {
         ZStack {
@@ -743,6 +867,10 @@ struct ExpenseDetailView: View {
         if merchant.trimmingCharacters(in: .whitespacesAndNewlines) != (expense.merchant ?? "") { return true }
         if notes.trimmingCharacters(in: .whitespacesAndNewlines) != (expense.notes ?? "") { return true }
         if selectedTagIds != expense.resolvedTagIds { return true }
+        if attendees != expense.resolvedAttendees { return true }
+        // A name typed but not yet turned into a pill still counts — it's flushed
+        // into the list on save.
+        if !attendeeInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return true }
         if attachmentKey != expense.attachmentKey { return true }
         if attachedFileURL != nil { return true }
         return false
@@ -840,6 +968,7 @@ struct ExpenseDetailView: View {
         merchant      = expense.merchant ?? ""
         notes         = expense.notes   ?? ""
         selectedTagIds = expense.resolvedTagIds
+        attendees      = expense.resolvedAttendees
         source         = ExpenseSource(rawValue: expense.source) ?? .manual
         attachmentKey  = expense.attachmentKey
     }
@@ -943,6 +1072,13 @@ struct ExpenseDetailView: View {
 
     @MainActor
     private func saveEdits(expense: ExpenseModel) async {
+        // Opened and closed with nothing changed: don't save, don't bump
+        // updatedAt, and don't play the save feedback — just leave. The
+        // celebration is a reward for a real edit, not for viewing.
+        guard hasUnsavedChanges(expense) else {
+            dismiss()
+            return
+        }
         guard let amountCents = parsedAmountCents else {
             errorMessage = "Please enter a valid amount."
             showingError = true
@@ -984,12 +1120,16 @@ struct ExpenseDetailView: View {
             rawAttachmentData = expense.attachmentData
         }
 
+        // Flush a name typed but not yet turned into a pill so it isn't lost.
+        addAttendee(attendeeInput)
+
         expense.amountCents   = amountCents
         expense.currency      = currency
         expense.date          = date
         expense.merchant      = merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : merchant
         expense.tagIds        = selectedTagIds
         expense.tagId         = selectedTagIds.first ?? ""
+        expense.attendees     = attendees
         expense.notes         = notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes
         expense.attachmentKey  = savedKey
         expense.attachmentData = rawAttachmentData
@@ -1016,6 +1156,42 @@ struct ExpenseDetailView: View {
             ]
         )
         dismiss()
+    }
+}
+
+// MARK: - Wrapping layout (attendee pills)
+
+/// Lays children left to right, wrapping to the next line when they don't fit —
+/// a plain flow layout for the attendee pills. Shared with AddExpenseView.
+struct WrapLayout: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var x: CGFloat = 0, y: CGFloat = 0, rowHeight: CGFloat = 0
+        for sub in subviews {
+            let size = sub.sizeThatFits(.unspecified)
+            if x + size.width > maxWidth, x > 0 {
+                x = 0; y += rowHeight + spacing; rowHeight = 0
+            }
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
+        return CGSize(width: maxWidth == .infinity ? max(0, x - spacing) : maxWidth,
+                      height: y + rowHeight)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX, y = bounds.minY, rowHeight: CGFloat = 0
+        for sub in subviews {
+            let size = sub.sizeThatFits(.unspecified)
+            if x + size.width > bounds.maxX, x > bounds.minX {
+                x = bounds.minX; y += rowHeight + spacing; rowHeight = 0
+            }
+            sub.place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
+        }
     }
 }
 

@@ -13,6 +13,10 @@ final class ExpenseModel {
     var tagId: String = ""
     var tagIds: [String]? = []
     var notes: String?
+    /// Names of people the spend was shared with (dinner guests, colleagues).
+    /// Free text, remembered across expenses for autocomplete. Optional for a
+    /// clean additive SwiftData migration on existing stores.
+    var attendees: [String]? = []
     var attachmentKey: String?
     @Attribute(.externalStorage) var attachmentData: Data?
     /// True only when a receipt scan auto-filled the amount, so the AUTO-SCANNED
@@ -24,6 +28,9 @@ final class ExpenseModel {
     var updatedAt: Date = Date.now
     var deletedAt: Date?
     var syncedAt: Date?
+
+    /// Attendee names, nil-safe for reads.
+    var resolvedAttendees: [String] { attendees ?? [] }
 
     /// Resolved tag IDs — reads from tagIds, falling back to legacy tagId for unmigrated data.
     var resolvedTagIds: [String] {
@@ -43,6 +50,7 @@ final class ExpenseModel {
         merchant: String? = nil,
         tagIds: [String] = [],
         notes: String? = nil,
+        attendees: [String] = [],
         attachmentKey: String? = nil,
         attachmentData: Data? = nil,
         source: String = "manual",
@@ -61,6 +69,7 @@ final class ExpenseModel {
         self.tagIds = tagIds
         self.tagId = tagIds.first ?? ""
         self.notes = notes
+        self.attendees = attendees
         self.attachmentKey = attachmentKey
         self.attachmentData = attachmentData
         self.source = source

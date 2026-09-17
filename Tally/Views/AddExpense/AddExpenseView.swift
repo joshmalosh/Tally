@@ -94,12 +94,18 @@ struct AddExpenseView: View {
     @State private var isRecurring = false
     @State private var recurringInterval: RecurringInterval = .monthly
 
+    /// Attendees (people the spend was shared with) as removable pills, with
+    /// merchant-style recall from `cachedKnownAttendees`. Capped at 20.
+    @State private var attendees: [String] = []
+    @State private var attendeeInput = ""
+    @State private var cachedKnownAttendees: [String] = []
+
     @FocusState private var focusedField: Field?
 
     private var isEditing: Bool { editingExpense != nil }
 
     private enum Field: Hashable {
-        case amount, merchant, notes
+        case amount, merchant, notes, attendee
     }
 
     private enum RecurringInterval: String, CaseIterable {
@@ -628,6 +634,8 @@ struct AddExpenseView: View {
                 receiptDashedDivider
                 receiptTagRow
                 receiptDashedDivider
+                receiptAttendeeRow
+                receiptDashedDivider
                 // Recurring stays a card (toggle + interval chips) — add-only, and
                 // sits inside the receipt so the torn edge is below it.
                 quickAddRecurringCard
@@ -682,6 +690,8 @@ struct AddExpenseView: View {
         quickAddNoteCard
 
         quickAddTagCard
+
+        quickAddAttendeeCard
 
         quickAddRecurringCard
 
@@ -960,6 +970,164 @@ struct AddExpenseView: View {
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
         .padding(.horizontal, 16)
         .animation(.easeInOut(duration: 0.2), value: selectedTagIds.isEmpty)
+    }
+
+    // MARK: - Attendees (people the spend was shared with)
+
+    private var attendeeSuggestions: [String] {
+        let q = attendeeInput.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let existing = Set(attendees.map { $0.lowercased() })
+        let pool = cachedKnownAttendees.filter { !existing.contains($0.lowercased()) }
+        if q.isEmpty { return Array(pool.prefix(6)) }
+        return pool.filter { $0.lowercased().contains(q) }.prefix(6).map { $0 }
+    }
+
+    private func buildKnownAttendees() -> [String] {
+        var seen = Set<String>()
+        var names: [String] = []
+        for e in allExpenses.sorted(by: { $0.updatedAt > $1.updatedAt }) {
+            for raw in e.resolvedAttendees {
+                let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !t.isEmpty, seen.insert(t.lowercased()).inserted else { continue }
+                names.append(t)
+            }
+        }
+        return names
+    }
+
+    private func addAttendee(_ name: String) {
+        let t = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !t.isEmpty, attendees.count < 20,
+              !attendees.contains(where: { $0.lowercased() == t.lowercased() }) else { return }
+        attendees.append(t)
+        attendeeInput = ""
+    }
+
+    private func removeAttendee(_ name: String) {
+        attendees.removeAll { $0 == name }
+    }
+
+    private func attendeePill(_ name: String) -> some View {
+        HStack(spacing: 5) {
+            Text(name)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(Color(hex: "1C1C1E"))
+            Button { removeAttendee(name) } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 6)
+        .background(Color(hex: "E8F0EA"))
+        .clipShape(Capsule())
+    }
+
+    private var attendeeSuggestionChips: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(attendeeSuggestions, id: \.self) { name in
+                    Button { addAttendee(name) } label: {
+                        Text(name)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Color(hex: "2F402E").opacity(0.7))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(Color(hex: "F0EDE6"))
+                            .clipShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var attendeeInputField: some View {
+        if attendees.count < 20 {
+            TextField("Add attendee...", text: $attendeeInput)
+                .font(.system(size: 15))
+                .foregroundStyle(Color(hex: "1C1C1E"))
+                .focused($focusedField, equals: .attendee)
+                .textInputAutocapitalization(.words)
+                .submitLabel(.done)
+                .onSubmit { addAttendee(attendeeInput) }
+        } else {
+            Text("20 attendee limit reached")
+                .font(.system(size: 13))
+                .foregroundStyle(Color(hex: "8F9E94"))
+        }
+    }
+
+    // Receipt-row style (scan/upload form), matching receiptTagRow.
+    private var receiptAttendeeRow: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .top, spacing: 14) {
+                receiptTintedSquare("person.2.fill")
+                VStack(alignment: .leading, spacing: 8) {
+                    receiptRowLabel("ATTENDEES")
+                    if !attendees.isEmpty {
+                        WrapLayout(spacing: 6) {
+                            ForEach(attendees, id: \.self) { attendeePill($0) }
+                        }
+                    }
+                    attendeeInputField
+                }
+                Spacer(minLength: 8)
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
+
+            if focusedField == .attendee && !attendeeSuggestions.isEmpty {
+                attendeeSuggestionChips
+                    .padding(.leading, 74)
+                    .padding(.trailing, 18)
+                    .padding(.bottom, 12)
+                    .transition(.opacity)
+            }
+        }
+    }
+
+    // Quick Add card style (manual form), matching quickAddTagCard.
+    private var quickAddAttendeeCard: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("ATTENDEES")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
+                    .tracking(1.0)
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+
+            if !attendees.isEmpty {
+                WrapLayout(spacing: 6) {
+                    ForEach(attendees, id: \.self) { attendeePill($0) }
+                }
+                .padding(.horizontal, 14)
+                .padding(.bottom, 10)
+            }
+
+            attendeeInputField
+                .padding(.horizontal, 14)
+                .padding(.bottom, focusedField == .attendee && !attendeeSuggestions.isEmpty ? 0 : 14)
+
+            if focusedField == .attendee && !attendeeSuggestions.isEmpty {
+                attendeeSuggestionChips
+                    .padding(.horizontal, 14)
+                    .padding(.top, 10)
+                    .padding(.bottom, 14)
+                    .transition(.opacity)
+            }
+        }
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
+        .padding(.horizontal, 16)
     }
 
     // MARK: - Quick Add: Compact date / receipt row
@@ -1890,6 +2058,7 @@ struct AddExpenseView: View {
             let trimmedNotes = expense.notes?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
             notes = !trimmedNotes.isEmpty ? (expense.notes ?? "") : (expense.expenseDescription ?? "")
             selectedTagIds = expense.resolvedTagIds
+            attendees = expense.resolvedAttendees
             source = ExpenseSource(rawValue: expense.source) ?? .manual
             isRecurring = expense.isRecurring
             attachmentKey = expense.attachmentKey
@@ -2236,6 +2405,7 @@ struct AddExpenseView: View {
         )
         allExpenses = (try? modelContext.fetch(descriptor)) ?? []
         cachedKnownMerchants = buildKnownMerchants()
+        cachedKnownAttendees = buildKnownAttendees()
     }
 
     /// Builds the sorted, deduplicated merchant name list from `allExpenses`.
@@ -2306,6 +2476,8 @@ struct AddExpenseView: View {
             }
 
             await MainActor.run {
+                // Flush a name typed but not yet turned into a pill so it isn't lost.
+                addAttendee(attendeeInput)
                 if let existing = editingExpense {
                     existing.amountCents = amountCents
                     existing.currency = currency
@@ -2314,6 +2486,7 @@ struct AddExpenseView: View {
                     existing.merchant = merchant.isEmpty ? nil : merchant
                     existing.tagIds = selectedTagIds
                     existing.tagId = selectedTagIds.first ?? ""
+                    existing.attendees = attendees
                     existing.notes = notes.isEmpty ? nil : notes
                     existing.isRecurring = isRecurring
                     existing.attachmentKey = savedKey
@@ -2338,6 +2511,7 @@ struct AddExpenseView: View {
                         merchant: merchant.isEmpty ? nil : merchant,
                         tagIds: selectedTagIds,
                         notes: notes.isEmpty ? nil : notes,
+                        attendees: attendees,
                         attachmentKey: savedKey,
                         attachmentData: rawAttachmentData,
                         source: source.rawValue,
