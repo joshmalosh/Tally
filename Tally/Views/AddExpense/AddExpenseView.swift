@@ -56,6 +56,15 @@ struct AddExpenseView: View {
     @State private var showingPhotoPicker = false
     @State private var showingDocumentPicker = false
     @State private var showingPDFPreview = false
+    /// Full-screen "check your receipt" step shown after a photo/file is picked,
+    /// before the scan runs — so a wrong or blurry pick can be swapped before it
+    /// spends a metered scan. Library + file only (the camera has its own
+    /// Use Photo / Retake step). `receiptConfirmOutcome` carries the choice into
+    /// the cover's onDismiss so the next present (scan-limit sheet or picker)
+    /// never fights the dismissing cover.
+    @State private var showingReceiptConfirm = false
+    @State private var receiptConfirmOutcome: ReceiptConfirmOutcome?
+    private enum ReceiptConfirmOutcome { case scan, retake }
     @State private var lastImageSource: ExpenseSource = .manual
     @State private var showingTagPicker = false
     @State private var showingCurrencyPicker = false
@@ -307,7 +316,20 @@ struct AddExpenseView: View {
                     focusedField = nil
                     amountFocusRequested = false
                     if !isEditing {
-                        runOCR(on: image)
+                        // Library/file picks get a full-screen confirm before the
+                        // scan; camera and share-extension hand-offs scan directly.
+                        let fromPicker = enteredViaPhotoFlow
+                            && initialImage == nil && initialFileURL == nil
+                            && lastImageSource != .camera
+                        if fromPicker {
+                            // Deferred so the picker sheet finishes dismissing before
+                            // the confirm cover presents.
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                                showingReceiptConfirm = true
+                            }
+                        } else {
+                            runOCR(on: image)
+                        }
                     }
                 }
             }
@@ -447,6 +469,21 @@ struct AddExpenseView: View {
             .fullScreenCover(isPresented: $showingCamera) {
                 CameraPicker(image: $attachedImage)
                     .ignoresSafeArea()
+            }
+            .fullScreenCover(isPresented: $showingReceiptConfirm, onDismiss: {
+                switch receiptConfirmOutcome {
+                case .retake:
+                    handleBackButton()   // clears the pick and reopens the picker
+                case .scan, nil:
+                    if let img = attachedImage { runOCR(on: img) }
+                }
+                receiptConfirmOutcome = nil
+            }) {
+                ReceiptConfirmView(
+                    image: attachedImage,
+                    onUse:    { receiptConfirmOutcome = .scan;   showingReceiptConfirm = false },
+                    onRetake: { receiptConfirmOutcome = .retake; showingReceiptConfirm = false }
+                )
             }
             .sheet(isPresented: $showingPhotoPicker) {
                 PhotosPicker(
@@ -2708,6 +2745,66 @@ struct PDFPreviewSheet: View {
                             .fontWeight(.semibold)
                     }
                 }
+        }
+    }
+}
+
+// MARK: - Receipt confirm (check the pick before scanning)
+
+/// Full-screen preview of the picked receipt with Use / Choose-another, shown
+/// before the scan runs so a wrong photo can be swapped without spending a scan.
+private struct ReceiptConfirmView: View {
+    let image: UIImage?
+    let onUse: () -> Void
+    let onRetake: () -> Void
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            VStack(spacing: 0) {
+                Text("Check your receipt")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 20)
+
+                if let image {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(16)
+                } else {
+                    Spacer()
+                }
+
+                HStack(spacing: 12) {
+                    Button(action: onRetake) {
+                        Text("Choose another")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                            .background(Color.white.opacity(0.16))
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+
+                    Button(action: onUse) {
+                        Text("Use this")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Color(hex: "1C1C1E"))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 24)
+            }
         }
     }
 }
