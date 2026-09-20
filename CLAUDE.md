@@ -87,6 +87,22 @@ Josh far more time than a short pause to check, and it can break his real files.
   every header button (a `.clipped()` layer that swallowed taps) and how the seam
   fix shipped worse than before. When a boring, obviously-correct version exists,
   ship that; and name anything you're unsure of so he checks it first on device.
+- **When Josh says a recent change broke something, suspect your change first —
+  back it out and test before blaming his device or the OS.** The photo-confirm step
+  froze the picker on his phone; Josh guessed it was that, and instead of testing his
+  hunch I read scary `usermanagerd`/`LaunchServices` log noise as proof it was his
+  phone and put him through reboots, storage checks and reinstalls. It was my code.
+  The cheapest, most honest test when he reports a regression is to revert your latest
+  change and have him rebuild — his hypothesis about his own app outranks an external
+  theory you can't prove.
+- **A freeze that only happens on his device and never on your simulator means you
+  cannot verify a fix — do not keep shipping blind guesses at it.** The photo-confirm
+  step worked every time on the sim and froze the picker every time on his phone
+  (both as a `.fullScreenCover` and as an `.overlay`), because the sim closes the
+  picker instantly and his phone does not. Shipping attempt after attempt "verified on
+  the sim" just breaks his app again. When you can't reproduce, say so plainly, revert
+  to the last thing that worked for him, and change one clearly-reasoned variable at a
+  time that he tests — never a fresh guess dressed up as a fix.
 - **You have a Mac: you can build and run in the iOS Simulator. Use it sparingly,
   not reflexively.** Don't burn tokens building, launching and screenshotting the
   app after every edit. A `xcodebuild` compile (or just reading the code) settles
