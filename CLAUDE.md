@@ -87,15 +87,6 @@ Josh far more time than a short pause to check, and it can break his real files.
   every header button (a `.clipped()` layer that swallowed taps) and how the seam
   fix shipped worse than before. When a boring, obviously-correct version exists,
   ship that; and name anything you're unsure of so he checks it first on device.
-- **When Josh says a recent change broke something, suspect your change first —
-  back it out and test before blaming his device or the OS.** A confirmation-screen
-  `.fullScreenCover` froze the photo picker on device; Josh guessed it was that, and
-  instead of testing his hunch I read scary `usermanagerd`/`LaunchServices` log noise
-  as proof it was his phone and put him through reboots, storage checks and reinstalls.
-  It was my code. The cheapest, most honest test when he reports a regression is to
-  revert your latest change and have him rebuild — his hypothesis about his own app
-  outranks an external theory you can't prove. (SwiftUI: never stack a second
-  `.sheet`/`.fullScreenCover` on a view that already presents one; use an overlay.)
 - **You have a Mac: you can build and run in the iOS Simulator. Use it sparingly,
   not reflexively.** Don't burn tokens building, launching and screenshotting the
   app after every edit. A `xcodebuild` compile (or just reading the code) settles
