@@ -782,7 +782,7 @@ struct MultiReceiptReviewView: View {
                     }
                     if let d = result.date { drafts[idx].date = d }
                     if let name = result.merchant { drafts[idx].merchant = name }
-                    if let n    = result.notes    { drafts[idx].notes    = n }
+                    // Auto-note removed — the note field stays empty for manual entry.
                     drafts[idx].merchantAlternates = result.merchantAlternates
                     drafts[idx].showAlternates = false
                     drafts[idx].wasAutoScanned = result.amount != nil
