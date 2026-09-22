@@ -56,19 +56,19 @@ struct AddExpenseView: View {
     @State private var showingPhotoPicker = false
     @State private var showingDocumentPicker = false
     @State private var showingPDFPreview = false
-    /// Full-screen "check your receipt" confirm, single photo only. Two rules make
-    /// it safe on device (both learned the hard way — see the decisions log):
-    /// (1) it is an OVERLAY, never a second sheet/cover on this view; (2) it is only
-    /// shown from the photo picker's `onDismiss` — i.e. AFTER the picker has fully
-    /// closed — never the instant the photo arrives, because showing anything
-    /// full-screen while the picker is still animating shut wedges the picker.
-    /// `pendingReceiptConfirm` bridges the photo-arrival to the picker-closed event.
-    @State private var pendingReceiptConfirm = false
+    /// Full-screen "check your receipt" confirm, single photo only. Rules that make
+    /// it safe on device (all learned the hard way — see the decisions log):
+    /// it is an OVERLAY, never a second sheet/cover; and it is shown only once BOTH
+    /// the picker has fully closed AND the photo has arrived (`showReceiptConfirmIfReady`),
+    /// in whichever order — an iCloud photo can finish downloading after the picker
+    /// is already gone. Showing anything full-screen while the picker is still
+    /// animating shut wedges the picker, so both conditions must hold.
     @State private var showingReceiptConfirm = false
-    /// Set true the moment the library picker is opened for a single add, so the
-    /// photo it returns is reliably recognised as picker-sourced (not a race on the
-    /// picker's live presentation state).
+    /// Set when the picker is opened for a single add, so its photo is reliably
+    /// recognised as picker-sourced (not a race on the picker's live state).
     @State private var awaitingPhotoPickerResult = false
+    @State private var receiptPhotoArrived = false
+    @State private var receiptPickerDismissed = false
     @State private var lastImageSource: ExpenseSource = .manual
     @State private var showingTagPicker = false
     @State private var showingCurrencyPicker = false
@@ -340,14 +340,14 @@ struct AddExpenseView: View {
                     focusedField = nil
                     amountFocusRequested = false
                     if !isEditing {
-                        // A single photo from the library picker: defer the scan and
-                        // confirm it once the picker has fully closed. The flag is set
-                        // when the picker opens (reliable), not inferred from the
-                        // picker's live state (a race — the sim clears it instantly).
-                        // Camera / file / share-extension hand-offs scan straight away.
+                        // A single photo from the library picker: don't scan yet —
+                        // confirm it once the picker has closed AND the photo has
+                        // arrived (either order; an iCloud photo can arrive after the
+                        // picker is already gone). Camera / file / share-extension
+                        // hand-offs (not awaiting a picker photo) scan straight away.
                         if awaitingPhotoPickerResult {
-                            awaitingPhotoPickerResult = false
-                            pendingReceiptConfirm = true
+                            receiptPhotoArrived = true
+                            showReceiptConfirmIfReady()
                         } else {
                             runOCR(on: image)
                         }
@@ -366,7 +366,14 @@ struct AddExpenseView: View {
                 }
             }
             .onChange(of: showingPhotoPicker) { _, showing in
-                if showing { lastImageSource = .upload; if !isEditing { awaitingPhotoPickerResult = true } }
+                if showing {
+                    lastImageSource = .upload
+                    if !isEditing {
+                        awaitingPhotoPickerResult = true
+                        receiptPhotoArrived = false
+                        receiptPickerDismissed = false
+                    }
+                }
                 // Only restore formReady when NOT entering multi-image review;
                 // multiImagesInProgress suppresses the flash of the form.
                 if !showing && !formReady && !multiImagesInProgress {
@@ -444,6 +451,18 @@ struct AddExpenseView: View {
         DispatchQueue.main.async { present() }
     }
 
+    /// Show the "check your receipt" overlay only once the picker has fully closed
+    /// AND the picked photo has arrived — called from both events, fires on the
+    /// second. Guarantees nothing full-screen appears while the picker is closing,
+    /// and works whether the photo is instant or downloads from iCloud after.
+    private func showReceiptConfirmIfReady() {
+        guard awaitingPhotoPickerResult, receiptPhotoArrived, receiptPickerDismissed else { return }
+        awaitingPhotoPickerResult = false
+        receiptPhotoArrived = false
+        receiptPickerDismissed = false
+        showingReceiptConfirm = true
+    }
+
     /// Extracted from the `.onAppear` closure: this navigation root is a very
     /// large `some View`, and inlining the focus logic pushed it past the Swift
     /// type-checker's limit. A standalone method is type-checked on its own.
@@ -492,16 +511,16 @@ struct AddExpenseView: View {
                     .ignoresSafeArea()
             }
             .sheet(isPresented: $showingPhotoPicker, onDismiss: {
-                // Picker is now fully gone — safe to show the confirm overlay.
-                awaitingPhotoPickerResult = false   // clear if cancelled with no photo
-                if pendingReceiptConfirm {
-                    pendingReceiptConfirm = false
-                    showingReceiptConfirm = true
-                }
+                // Picker fully gone. Show the confirm only if the photo has also
+                // arrived (for a still-downloading iCloud photo it hasn't yet — the
+                // photo's own onChange will complete the pair).
+                receiptPickerDismissed = true
+                showReceiptConfirmIfReady()
             }) {
                 PhotosPicker(
                     image: $attachedImage,
                     onCancel: {
+                        awaitingPhotoPickerResult = false   // no photo coming
                         if enteredViaPhotoFlow && attachedImage == nil {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                                 dismiss()

@@ -285,10 +285,15 @@ struct PhotosPicker: UIViewControllerRepresentable {
                 parent.dismiss()
                 return
             }
+            // Dismiss the picker immediately, THEN load the image. Loading an
+            // iCloud photo that is still downloading blocks until the download
+            // finishes; doing it before dismiss left the picker's Tick/X dead while
+            // it waited (a receipt selected mid-download). The binding still
+            // delivers the image once the load completes, after the picker is gone.
+            parent.dismiss()
             provider.loadObject(ofClass: UIImage.self) { image, _ in
                 DispatchQueue.main.async {
                     self.parent.image = image as? UIImage
-                    self.parent.dismiss()
                 }
             }
         }
