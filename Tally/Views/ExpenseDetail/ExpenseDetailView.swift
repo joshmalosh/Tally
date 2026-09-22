@@ -98,6 +98,17 @@ struct ExpenseDetailView: View {
         parsedAmountCents != nil && !isSaving
     }
 
+    /// Dismiss the keyboard and present a sheet on the *next* runloop, so the tap
+    /// resolves and the keyboard tears down before the sheet appears. Presenting a
+    /// sheet synchronously over a live keyboard deadlocks iOS's gesture gate (the
+    /// long freeze on tapping Tag/Date/Currency while a field is focused). Mirrors
+    /// AddExpenseView's `presentSheetAfterTouch` — every sheet control here routes
+    /// through it.
+    private func presentSheetAfterTouch(_ present: @escaping () -> Void) {
+        focusedField = nil
+        DispatchQueue.main.async { present() }
+    }
+
     private var selectedTags: [TagModel] {
         selectedTagIds.compactMap { id in tags.first { $0.id == id } }
     }
@@ -324,7 +335,7 @@ struct ExpenseDetailView: View {
             .overlay(alignment: .bottom) {
                 HStack(spacing: 14) {
                     Spacer()
-                    Button { showingReplaceReceiptSources = true } label: {
+                    Button { presentSheetAfterTouch { showingReplaceReceiptSources = true } } label: {
                         Text("Replace").font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(.white).underline()
                     }
@@ -360,7 +371,7 @@ struct ExpenseDetailView: View {
                 .tracking(1.0)
                 .foregroundStyle(.white.opacity(0.75))
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Button { showingCurrencyPicker = true } label: {
+                Button { presentSheetAfterTouch { showingCurrencyPicker = true } } label: {
                     HStack(spacing: 2) {
                         Text(currencySymbol)
                             .font(.system(size: 24, weight: .regular, design: .monospaced))
@@ -457,7 +468,7 @@ struct ExpenseDetailView: View {
         HStack(spacing: 14) {
             // Currency symbol is the leading square (tap to change currency) — the
             // single currency indicator, not repeated inside the field.
-            Button { focusedField = nil; showingCurrencyPicker = true } label: {
+            Button { presentSheetAfterTouch { showingCurrencyPicker = true } } label: {
                 ZStack {
                     RoundedRectangle(cornerRadius: 11, style: .continuous)
                         .fill(Color(hex: "E8F0EA"))
@@ -562,7 +573,7 @@ struct ExpenseDetailView: View {
     }
 
     private var dateDetailRow: some View {
-        Button { focusedField = nil; showingDatePickerSheet = true } label: {
+        Button { presentSheetAfterTouch { showingDatePickerSheet = true } } label: {
             HStack(spacing: 14) {
                 tintedIconSquare("calendar")
                 VStack(alignment: .leading, spacing: 2) {
@@ -602,7 +613,7 @@ struct ExpenseDetailView: View {
     }
 
     private var tagDetailRow: some View {
-        Button { focusedField = nil; showingTagPicker = true } label: {
+        Button { presentSheetAfterTouch { showingTagPicker = true } } label: {
             HStack(spacing: 14) {
                 tintedIconSquare("tag.fill")
                 VStack(alignment: .leading, spacing: 2) {
