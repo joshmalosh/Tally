@@ -63,26 +63,6 @@ enum HeroPeriod: Int, CaseIterable {
     }
 }
 
-// MARK: - Hero bottom wave
-
-/// A gentle wave filling the lower part of the hero card. Sits under the content,
-/// clipped to the card, giving the green area a soft curved bottom treatment.
-private struct HeroBottomWave: Shape {
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        let crest = rect.height * 0.60
-        p.move(to: CGPoint(x: 0, y: crest))
-        p.addQuadCurve(
-            to: CGPoint(x: rect.width, y: crest - rect.height * 0.14),
-            control: CGPoint(x: rect.width * 0.5, y: crest + rect.height * 0.16)
-        )
-        p.addLine(to: CGPoint(x: rect.width, y: rect.height))
-        p.addLine(to: CGPoint(x: 0, y: rect.height))
-        p.closeSubpath()
-        return p
-    }
-}
-
 // MARK: - SpendingSummaryCard
 
 /// Compact hero card: a period picker + export action on top, then "Total spent" and
@@ -174,16 +154,7 @@ struct SpendingSummaryCard: View {
             .fixedSize(horizontal: false, vertical: true)
         }
         .padding(16)
-        .background(
-            ZStack {
-                Color(hex: "2F402E")
-                // A soft curve washing across the lower third — a subtle lighter
-                // green under the wave makes the header feel like part of the app,
-                // not a flat card sitting on top of it.
-                HeroBottomWave()
-                    .fill(Color.white.opacity(0.04))
-            }
-        )
+        .background(Color(hex: "2F402E"))
         .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
         .contentShape(Rectangle())
         .onTapGesture(perform: onPeriodTap)

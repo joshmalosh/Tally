@@ -267,25 +267,31 @@ private struct TagFilterCard: View {
     let onTap: () -> Void
 
     var body: some View {
-            VStack(spacing: 5) {
+            // Selected: the whole pill fills with Tally green, with the icon square,
+            // label and amount flipped to white so they read on the dark fill.
+            let effIconBg = isSelected ? Color.white.opacity(0.18) : iconBg
+            let effIconColor = isSelected ? Color.white : iconColor
+            let effLabelColor = isSelected ? Color.white.opacity(0.75) : Color(hex: "6B7A6A")
+            let effAmountColor = isSelected ? Color.white : Color(hex: "1C1C1E")
+            return VStack(spacing: 5) {
                 // Icon square
                 ZStack {
                     RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .fill(iconBg)
+                        .fill(effIconBg)
                         .frame(width: 36, height: 36)
                     if let iconEmoji {
                         Text(iconEmoji).font(.system(size: 18))
                     } else {
                         Image(systemName: icon)
                             .font(.system(size: 17, weight: .medium))
-                            .foregroundStyle(iconColor)
+                            .foregroundStyle(effIconColor)
                     }
                 }
 
                 // Tag name
                 Text(label)
                     .font(.system(size: 11, weight: .regular))
-                    .foregroundStyle(Color(hex: "6B7A6A"))
+                    .foregroundStyle(effLabelColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -293,21 +299,21 @@ private struct TagFilterCard: View {
                 // Amount
                 Text(CurrencyFormatter.shared.format(cents: amountCents, currencyCode: currency))
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
+                    .foregroundStyle(effAmountColor)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                     .frame(maxWidth: .infinity, alignment: .center)
             }
             .padding(8)
             .frame(width: 89, height: 89)
-            .background(Color.white)
+            .background(isSelected ? Color(hex: "2F402E") : Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
-            // Selected: a dark Tally green edge so the active tag is obvious.
+            // Unselected keeps a hairline edge; selected needs none (the fill carries it).
             .overlay(
                 RoundedRectangle(cornerRadius: 19, style: .continuous)
                     .stroke(
-                        isSelected ? Color(hex: "2F402E") : Color(hex: "DEDAD2").opacity(0.6),
-                        lineWidth: isSelected ? 2.5 : 0.5
+                        isSelected ? Color.clear : Color(hex: "DEDAD2").opacity(0.6),
+                        lineWidth: isSelected ? 0 : 0.5
                     )
             )
             .shadow(color: .black.opacity(0.05), radius: 7, x: 0, y: 2)

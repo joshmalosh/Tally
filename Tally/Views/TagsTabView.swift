@@ -13,10 +13,12 @@ struct TagsTabView: View {
 
     var body: some View {
         List {
-            Section {
-                TagsAndGroupsManagementRows(activeSheet: $activeSheet)
-            }
+            // The rows view emits its own two sections: the header/buttons on the
+            // beige, then the tags & groups as one rounded white card (mirroring the
+            // Select tag sheet).
+            TagsAndGroupsManagementRows(activeSheet: $activeSheet)
         }
+        .listStyle(.insetGrouped)
         .listSectionSpacing(0)
         // Pull the header up to the top like the Reports page (the List's default
         // top inset is what made the Tags heading start too low).

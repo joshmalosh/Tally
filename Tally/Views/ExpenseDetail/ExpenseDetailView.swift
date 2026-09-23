@@ -985,19 +985,24 @@ struct ExpenseDetailView: View {
     }
 
     private func deleteExpense(_ expense: ExpenseModel) {
+        // Close the detail FIRST. Once the soft-delete lands, the @Query drops the
+        // expense and this view would otherwise flash the "Expense not found" state
+        // before the dismiss animation finishes. Dismissing first avoids that.
+        dismiss()
         expense.deletedAt  = Date()
         expense.updatedAt  = Date()
+        // Keep the attachment (matching HomeView): the expense goes to Recently
+        // Deleted and Undo must restore it with its receipt intact. The file is
+        // only freed on a permanent delete from the bin.
         do {
             try modelContext.save()
-            // Fire after dismiss so the shred plays on the Home screen underneath.
+            // Same Undo toast the Home-screen delete shows, so the user lands back
+            // on the list with a chance to restore.
+            appState.pendingUndo = AppState.UndoAction(kind: .deleted, expenseIds: [expense.id], label: "Expense deleted")
             NotificationCenter.default.post(name: .expenseDeleted, object: nil)
         } catch {
             Log.data.error("deleting expense failed: \(error.localizedDescription, privacy: .public)")
         }
-        if let key = expense.attachmentKey {
-            Task { await AttachmentService.shared.deleteAttachment(key: key) }
-        }
-        dismiss()
     }
 
     private func loadAttachment(_ expense: ExpenseModel) {

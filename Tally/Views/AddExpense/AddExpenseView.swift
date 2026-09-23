@@ -1965,7 +1965,7 @@ struct AddExpenseView: View {
     }
 
     private func quickKeypadPress(_ key: String) {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        // Haptic is fired on touch-down by KeypadButtonStyle's .sensoryFeedback.
         switch key {
         case "back":
             guard !amountText.isEmpty else { return }
@@ -2647,7 +2647,12 @@ private struct KeypadButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.92 : 1)
-            .animation(.easeInOut(duration: 0.08), value: configuration.isPressed)
+            // Ease-out-expo feel: crisp compression, soft landing.
+            .animation(.spring(response: 0.28, dampingFraction: 0.7), value: configuration.isPressed)
+            // Native Taptic tap the instant the finger lands — SwiftUI keeps the
+            // engine prepared, so there's none of the cold-start lag a freshly
+            // created UIImpactFeedbackGenerator has on the first tap.
+            .sensoryFeedback(.impact(weight: .light), trigger: configuration.isPressed) { _, pressed in pressed }
     }
 }
 

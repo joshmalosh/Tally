@@ -78,23 +78,19 @@ private struct FABButtonBody: View {
                     // Fire the haptic on touch-down for an instant, tactile press.
                     pressTick &+= 1
                     AudioServicesPlaySystemSound(1104)
-                    withAnimation(.easeIn(duration: 0.08)) {
-                        scale = 0.84
-                        shadowRadius = 4
-                        shadowY = 2
+                    // Compress to 90% — a firm press without a violent warp.
+                    withAnimation(.spring(response: 0.25, dampingFraction: 0.7)) {
+                        scale = 0.90
+                        shadowRadius = 6
+                        shadowY = 3
                     }
                 } else {
-                    // Phase 1: inflate (balloon puffs up)
-                    withAnimation(.spring(response: 0.2, dampingFraction: 0.35)) {
-                        scale = 1.18
+                    // Ease back with a soft rubber-stamp settle (a hint of overshoot,
+                    // no big balloon) — ease-out-expo feel, damping ~0.7.
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.7)) {
+                        scale = 1.0
                         shadowRadius = 14
                         shadowY = 6
-                    }
-                    // Phase 2: pop (balloon snaps back to rest)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.65)) {
-                            scale = 1.0
-                        }
                     }
                 }
             }

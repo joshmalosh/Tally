@@ -53,6 +53,7 @@ struct TagsAndGroupsManagementRows: View {
 
     var body: some View {
         Group {
+          Section {
             // Header mirrors the Reports page — eyebrow label + serif title — so
             // the Tags tab reads as part of the same platform.
             VStack(alignment: .leading, spacing: 4) {
@@ -60,7 +61,7 @@ struct TagsAndGroupsManagementRows: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(Color(hex: "4A5E50"))
                     .tracking(1.2)
-                Text("Tags & groups")
+                Text("Tags & Groups")
                     .font(.dmSerifDisplay(30))
                     .foregroundStyle(Color(hex: "1C1C1E"))
             }
@@ -80,7 +81,7 @@ struct TagsAndGroupsManagementRows: View {
                     HStack(spacing: 6) {
                         Image(systemName: "plus.circle")
                             .font(.system(size: 14))
-                        Text("Add tag")
+                        Text("Add Tag")
                             .font(.system(size: 14, weight: .medium))
                     }
                     .frame(maxWidth: .infinity)
@@ -98,7 +99,7 @@ struct TagsAndGroupsManagementRows: View {
                     HStack(spacing: 6) {
                         Image(systemName: "folder.badge.plus")
                             .font(.system(size: 14))
-                        Text("Add folder")
+                        Text("Add Group")
                             .font(.system(size: 14, weight: .medium))
                     }
                     .frame(maxWidth: .infinity)
@@ -117,7 +118,10 @@ struct TagsAndGroupsManagementRows: View {
             .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 0, trailing: 0))
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
+          }
 
+          // The tags & groups themselves, as one rounded white card.
+          Section {
             // Tags — home-bar toggle (own tap target) + tap-anywhere-else-to-edit.
             // Uses onTapGesture (not an outer Button) so it doesn't fight the inner
             // HomeToggle Button for the tap — a real Button always wins hit-testing
@@ -172,6 +176,7 @@ struct TagsAndGroupsManagementRows: View {
                     }
                 }
             }
+          }
         }
     }
 
