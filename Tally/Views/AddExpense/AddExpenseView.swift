@@ -56,19 +56,6 @@ struct AddExpenseView: View {
     @State private var showingPhotoPicker = false
     @State private var showingDocumentPicker = false
     @State private var showingPDFPreview = false
-    /// Full-screen "check your receipt" confirm, single photo only. Rules that make
-    /// it safe on device (all learned the hard way — see the decisions log):
-    /// it is an OVERLAY, never a second sheet/cover; and it is shown only once BOTH
-    /// the picker has fully closed AND the photo has arrived (`showReceiptConfirmIfReady`),
-    /// in whichever order — an iCloud photo can finish downloading after the picker
-    /// is already gone. Showing anything full-screen while the picker is still
-    /// animating shut wedges the picker, so both conditions must hold.
-    @State private var showingReceiptConfirm = false
-    /// Set when the picker is opened for a single add, so its photo is reliably
-    /// recognised as picker-sourced (not a race on the picker's live state).
-    @State private var awaitingPhotoPickerResult = false
-    @State private var receiptPhotoArrived = false
-    @State private var receiptPickerDismissed = false
     @State private var lastImageSource: ExpenseSource = .manual
     @State private var showingTagPicker = false
     @State private var showingCurrencyPicker = false
@@ -287,26 +274,6 @@ struct AddExpenseView: View {
         NavigationStack {
             addExpenseNavigationRoot
         }
-        // Confirm is an OVERLAY (not a presentation) and is only turned on from the
-        // picker's onDismiss, so it can never contend with the picker sheet.
-        .overlay {
-            if showingReceiptConfirm {
-                ReceiptConfirmView(
-                    image: attachedImage,
-                    onUse: {
-                        showingReceiptConfirm = false
-                        if let img = attachedImage { runOCR(on: img) }
-                    },
-                    onRetake: {
-                        showingReceiptConfirm = false
-                        handleBackButton()   // clears the pick and reopens the picker
-                    }
-                )
-                .transition(.opacity)
-                .zIndex(10)
-            }
-        }
-        .animation(.easeInOut(duration: 0.2), value: showingReceiptConfirm)
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
             withAnimation(.easeInOut(duration: 0.2)) { keyboardVisible = true }
             formatAmount()
@@ -340,17 +307,7 @@ struct AddExpenseView: View {
                     focusedField = nil
                     amountFocusRequested = false
                     if !isEditing {
-                        // A single photo from the library picker: don't scan yet —
-                        // confirm it once the picker has closed AND the photo has
-                        // arrived (either order; an iCloud photo can arrive after the
-                        // picker is already gone). Camera / file / share-extension
-                        // hand-offs (not awaiting a picker photo) scan straight away.
-                        if awaitingPhotoPickerResult {
-                            receiptPhotoArrived = true
-                            showReceiptConfirmIfReady()
-                        } else {
-                            runOCR(on: image)
-                        }
+                        runOCR(on: image)
                     }
                 }
             }
@@ -366,14 +323,7 @@ struct AddExpenseView: View {
                 }
             }
             .onChange(of: showingPhotoPicker) { _, showing in
-                if showing {
-                    lastImageSource = .upload
-                    if !isEditing {
-                        awaitingPhotoPickerResult = true
-                        receiptPhotoArrived = false
-                        receiptPickerDismissed = false
-                    }
-                }
+                if showing { lastImageSource = .upload }
                 // Only restore formReady when NOT entering multi-image review;
                 // multiImagesInProgress suppresses the flash of the form.
                 if !showing && !formReady && !multiImagesInProgress {
@@ -451,17 +401,6 @@ struct AddExpenseView: View {
         DispatchQueue.main.async { present() }
     }
 
-    /// Show the "check your receipt" overlay only once the picker has fully closed
-    /// AND the picked photo has arrived — called from both events, fires on the
-    /// second. Guarantees nothing full-screen appears while the picker is closing,
-    /// and works whether the photo is instant or downloads from iCloud after.
-    private func showReceiptConfirmIfReady() {
-        guard awaitingPhotoPickerResult, receiptPhotoArrived, receiptPickerDismissed else { return }
-        awaitingPhotoPickerResult = false
-        receiptPhotoArrived = false
-        receiptPickerDismissed = false
-        showingReceiptConfirm = true
-    }
 
     /// Extracted from the `.onAppear` closure: this navigation root is a very
     /// large `some View`, and inlining the focus logic pushed it past the Swift
@@ -510,17 +449,10 @@ struct AddExpenseView: View {
                 CameraPicker(image: $attachedImage)
                     .ignoresSafeArea()
             }
-            .sheet(isPresented: $showingPhotoPicker, onDismiss: {
-                // Picker fully gone. Show the confirm only if the photo has also
-                // arrived (for a still-downloading iCloud photo it hasn't yet — the
-                // photo's own onChange will complete the pair).
-                receiptPickerDismissed = true
-                showReceiptConfirmIfReady()
-            }) {
+            .sheet(isPresented: $showingPhotoPicker) {
                 PhotosPicker(
                     image: $attachedImage,
                     onCancel: {
-                        awaitingPhotoPickerResult = false   // no photo coming
                         if enteredViaPhotoFlow && attachedImage == nil {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                                 dismiss()
@@ -2776,67 +2708,6 @@ struct PDFPreviewSheet: View {
                             .fontWeight(.semibold)
                     }
                 }
-        }
-    }
-}
-
-// MARK: - Receipt confirm (check the single-photo pick before scanning)
-
-/// Full-screen preview of the picked receipt with Use / Choose-another. Drawn by
-/// AddExpenseView as an OVERLAY and only after the photo picker has fully closed —
-/// never a presentation, never during the picker's dismissal.
-private struct ReceiptConfirmView: View {
-    let image: UIImage?
-    let onUse: () -> Void
-    let onRetake: () -> Void
-
-    var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-            VStack(spacing: 0) {
-                Text("Check your receipt")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 20)
-                    .padding(.top, 20)
-
-                if let image {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .padding(16)
-                } else {
-                    Spacer()
-                }
-
-                HStack(spacing: 12) {
-                    Button(action: onRetake) {
-                        Text("Choose another")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 15)
-                            .background(Color.white.opacity(0.16))
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-
-                    Button(action: onUse) {
-                        Text("Use this")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Color(hex: "1C1C1E"))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 15)
-                            .background(Color.white)
-                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 16)
-                .padding(.bottom, 24)
-            }
         }
     }
 }
