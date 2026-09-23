@@ -141,6 +141,7 @@ struct SharedTagPickerSheet: View {
     /// Single selection: tapping a row selects it exclusively and dismisses;
     /// tapping the current selection clears it.
     private func select(_ id: String) {
+        Haptics.tap()
         if selectedId == id {
             selectedTagIds = []
         } else {

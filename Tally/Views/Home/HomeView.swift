@@ -1094,6 +1094,7 @@ struct HomeView: View {
         .background(rowFrameReader(id: expense.id))
         .contentShape(Rectangle())
         .onTapGesture {
+            Haptics.tap()
             if isSelecting {
                 // Instant, like native multi-select — no animation delay.
                 toggleExpenseSelection(expense.id)

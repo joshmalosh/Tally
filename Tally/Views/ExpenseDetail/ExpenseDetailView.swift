@@ -167,6 +167,7 @@ struct ExpenseDetailView: View {
                     // < Back
                     ToolbarItem(placement: .topBarLeading) {
                         Button {
+                            Haptics.tap()
                             if hasUnsavedChanges(expense) {
                                 showingLeaveConfirmation = true
                             } else {
@@ -181,6 +182,7 @@ struct ExpenseDetailView: View {
                     // Done pill
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
+                            Haptics.firm()
                             Task { await saveEdits(expense: expense) }
                         } label: {
                             Text("Done")
@@ -192,7 +194,7 @@ struct ExpenseDetailView: View {
                 }
                 .alert("Delete expense?", isPresented: $showingDeleteConfirmation) {
                     Button("Cancel", role: .cancel) {}
-                    Button("Delete", role: .destructive) { deleteExpense(expense) }
+                    Button("Delete", role: .destructive) { Haptics.crisp(); deleteExpense(expense) }
                 } message: {
                     Text("This action cannot be undone.")
                 }
@@ -848,7 +850,7 @@ struct ExpenseDetailView: View {
     // MARK: - Delete
 
     private var deleteButton: some View {
-        Button { showingDeleteConfirmation = true } label: {
+        Button { Haptics.tap(); showingDeleteConfirmation = true } label: {
             HStack(spacing: 8) {
                 Image(systemName: "trash.fill")
                     .font(.system(size: 14, weight: .semibold))

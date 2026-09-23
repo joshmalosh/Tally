@@ -3,6 +3,38 @@ import OSLog
 import UIKit
 import GoogleMobileAds
 
+// MARK: - Haptics
+
+/// Low-latency Taptic feedback for taps and actions. The generators are kept
+/// prepared between uses, so there's none of the cold-start lag a freshly created
+/// `UIImpactFeedbackGenerator` has on its first fire — that lag is exactly what
+/// made some taps feel dead or delayed. Drop `Haptics.tap()` in any button's
+/// action; for press-down timing on a held control, prefer `.sensoryFeedback`
+/// inside a `ButtonStyle` instead.
+enum Haptics {
+    private static let lightGen = UIImpactFeedbackGenerator(style: .light)
+    private static let mediumGen = UIImpactFeedbackGenerator(style: .medium)
+    private static let rigidGen = UIImpactFeedbackGenerator(style: .rigid)
+
+    /// A light tap — the default for row taps, toolbar buttons and selections.
+    static func tap() {
+        lightGen.impactOccurred()
+        lightGen.prepare()
+    }
+
+    /// A firmer tap for a primary / confirming action (Done, Save).
+    static func firm() {
+        mediumGen.impactOccurred()
+        mediumGen.prepare()
+    }
+
+    /// A crisp tick for a destructive action.
+    static func crisp() {
+        rigidGen.impactOccurred()
+        rigidGen.prepare()
+    }
+}
+
 // MARK: - PrimaryButton
 
 struct PrimaryButton: View {
