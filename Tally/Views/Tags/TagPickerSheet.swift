@@ -20,19 +20,26 @@ struct SharedTagPickerSheet: View {
         _selectedTagIds = selectedTagIds
     }
 
-    private var recency: [String: Date] { tagRecency(from: expenses) }
+    // Sweep the whole expense history at most ONCE per open — and only when the
+    // list is actually ordered by Recent. Reading this as a computed property
+    // re-ran the sweep for every peer group and froze the picker on a device
+    // with a real (CloudKit-faulted) expense history. Compute it in `body` and
+    // thread it into the sort helpers instead.
+    private func recency() -> [String: Date] {
+        sortOrder == .recent ? tagRecency(from: expenses) : [:]
+    }
 
-    private var standaloneTags: [TagModel] {
+    private func standaloneTags(_ recency: [String: Date]) -> [TagModel] {
         tags.filter { !$0.isGroup && $0.parentId == nil }
             .sortedForDisplay(sortOrder, recency: recency)
     }
 
-    private var groups: [TagModel] {
+    private func groups(_ recency: [String: Date]) -> [TagModel] {
         tags.filter { $0.isGroup }
             .sortedForDisplay(sortOrder, recency: recency)
     }
 
-    private func childTags(of group: TagModel) -> [TagModel] {
+    private func childTags(of group: TagModel, recency: [String: Date]) -> [TagModel] {
         tags.filter { $0.parentId == group.id }
             .sortedForDisplay(sortOrder, recency: recency)
     }
@@ -40,7 +47,11 @@ struct SharedTagPickerSheet: View {
     private var selectedId: String? { selectedTagIds.first }
 
     var body: some View {
-        NavigationStack {
+        // One sweep per render, shared by every list below.
+        let recency = recency()
+        let standaloneTags = standaloneTags(recency)
+        let groups = groups(recency)
+        return NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 0) {
                     // Eyebrow + serif title, matching the Tags & Groups screen so
@@ -84,7 +95,7 @@ struct SharedTagPickerSheet: View {
                             ForEach(Array(groups.enumerated()), id: \.element.id) { gIndex, group in
                                 groupRow(group)
 
-                                ForEach(childTags(of: group), id: \.id) { child in
+                                ForEach(childTags(of: group, recency: recency), id: \.id) { child in
                                     rowDivider
                                     childRow(child)
                                 }
