@@ -954,4 +954,62 @@ final class ReceiptOCRServiceTests: XCTestCase {
         XCTAssertEqual(result.merchant, "Walmart", "wordmark, not the recurring US city")
         XCTAssertEqual(result.amount ?? -1, 35.36, accuracy: 0.001)
     }
+
+    // US — Jack in the Box, with a DIFFERENT receipt's "…SA Inc" line at the bottom
+    // of the photo. The real traps: the topmost line is "Drive-Thru Order# 1044";
+    // the wordmark line carries a "#6570" store number; and the stray "ISA Inc" (a
+    // business-suffix line) sat in the footer. Merchant must be "Jack In The Box".
+    func testJackInTheBox_realTraps_wordmarkNotOrderLineOrStrayInc() {
+        let lines: [(text: String, box: CGRect)] = [
+            ("Drive-Thru Order# 1044", CGRect(x: 0.28, y: 0.904, width: 0.34, height: 0.036)),
+            ("Jack In The Box - #6570", CGRect(x: 0.27, y: 0.876, width: 0.357, height: 0.034)),
+            ("1610 Capital Cir NE", CGRect(x: 0.30, y: 0.848, width: 0.295, height: 0.032)),
+            ("Tallahassee, FL 32308", CGRect(x: 0.28, y: 0.819, width: 0.33, height: 0.040)),
+            blk("Total", x: 0.10, y: 0.44, w: 0.15), blk("$39.09", x: 0.80, y: 0.44, w: 0.12),
+            // A different receipt peeking in at the bottom-left corner.
+            ("ISA Inc", CGRect(x: 0.06, y: 0.05, width: 0.14, height: 0.02)),
+            ("CT 06484", CGRect(x: 0.06, y: 0.03, width: 0.16, height: 0.02)),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertEqual(result.merchant, "Jack In The Box", "header wordmark, not the order line or the stray Inc")
+        XCTAssertEqual(result.amount ?? -1, 39.09, accuracy: 0.001)
+    }
+
+    // Turks & Caicos — Graceway. The wordmark "GRACEWAY" is read fine at the top, but
+    // "TENDERLOIN STEAK" is bought twice (0.65 lb and 0.71 lb), so a repeated line
+    // item used to beat the wordmark via the recurring-phrase rule. A recurring
+    // anchor must appear in the masthead, which an item in the body doesn't.
+    func testGraceway_repeatedLineItem_doesNotBeatWordmark() {
+        let lines: [(text: String, box: CGRect)] = [
+            ("GRACEWAY", CGRect(x: 0.33, y: 0.907, width: 0.288, height: 0.021)),
+            ("Leeward Highway", CGRect(x: 0.14, y: 0.876, width: 0.59, height: 0.019)),
+            ("Providenciales", CGRect(x: 0.18, y: 0.865, width: 0.546, height: 0.015)),
+            ("E TENDERLOIN STEAK", CGRect(x: 0.10, y: 0.45, width: 0.4, height: 0.015)),
+            ("$20.79", CGRect(x: 0.72, y: 0.45, width: 0.12, height: 0.015)),
+            ("E TENDERLOIN STEAK", CGRect(x: 0.10, y: 0.42, width: 0.4, height: 0.015)),
+            ("$22.71", CGRect(x: 0.72, y: 0.42, width: 0.12, height: 0.015)),
+            ("TOTAL", CGRect(x: 0.10, y: 0.20, width: 0.15, height: 0.015)),
+            ("$236.06", CGRect(x: 0.72, y: 0.20, width: 0.14, height: 0.015)),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertEqual(result.merchant, "GRACEWAY", "wordmark, not the item bought twice")
+        XCTAssertEqual(result.amount ?? -1, 236.06, accuracy: 0.001)
+    }
+
+    // A headerless receipt (top cropped off) has no merchant to find — returning nil
+    // (the user types it) beats a confident wrong scrap like "kg" or "NUMBER OF ITEMS".
+    func testHeaderlessReceipt_noMerchantIsBetterThanJunk() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("Broccoli Crowns", x: 0.2, y: 0.80, w: 0.3), blk("$1.43", x: 0.8, y: 0.80, w: 0.1),
+            blk("0.435 kg @ $3.28 / kg", x: 0.2, y: 0.78, w: 0.4),
+            blk("kg", x: 0.85, y: 0.78, w: 0.05),
+            blk("YOU SAVED $2.00", x: 0.3, y: 0.70, w: 0.3),
+            blk("SUBTOTAL", x: 0.5, y: 0.30, w: 0.2), blk("$65.94", x: 0.8, y: 0.30, w: 0.1),
+            blk("TOTAL", x: 0.1, y: 0.27, w: 0.15), blk("$66.13", x: 0.7, y: 0.27, w: 0.12),
+            blk("NUMBER OF ITEMS", x: 0.4, y: 0.12, w: 0.3), blk("26", x: 0.85, y: 0.12, w: 0.05),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertEqual(result.amount ?? -1, 66.13, accuracy: 0.001)
+        XCTAssertNil(result.merchant, "no header → no merchant, not a stray fragment")
+    }
 }

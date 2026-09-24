@@ -865,7 +865,12 @@ enum ReceiptOCRService {
         // so a total line must never be eligible as a merchant. `total\s*[(:]`
         // catches "TOTAL (Inc GST)" / "TOTAL:" without rejecting a real store
         // like "Total Tools".
-        pattern: #"\bpromo\w*|\bdiscount\w*|\bvoucher\b|\bcoupon\b|\bterms\b|\bconditions\b|\brefunds?\b|\bexchange\b|thank\s*you|\brewards?\b|\bsurvey\b|\bwarranty\b|\bpoints\b|\bvalid\b|total\s*[(:]|\bsub\s*total\b|tax\s+invoice|\bgst\b|\bdescription\b|paid\s+by|\beftpos\b|change\s+due|\bpurchase\b|credit\s+account|\bapproved\b"#,
+        // Savings and payment-method lines print in the same crisp monospace as
+        // the total and out-OCR a stylised or cropped wordmark, so they'd win the
+        // merchant otherwise — "YOU SAVED" (Costco), "ELECTRONIC CHECK" (Meijer).
+        // Kept specific (word boundaries / multi-word) so real names survive
+        // ("Cash Converters", "Visa"-nothing).
+        pattern: #"\bpromo\w*|\bdiscount\w*|\bvoucher\b|\bcoupon\b|\bterms\b|\bconditions\b|\brefunds?\b|\bexchange\b|thank\s*you|\brewards?\b|\bsurvey\b|\bwarranty\b|\bpoints\b|\bvalid\b|total\s*[(:]|\bsub\s*total\b|tax\s+invoice|\bgst\b|\bdescription\b|paid\s+by|\beftpos\b|change\s+due|\bpurchase\b|credit\s+account|\bapproved\b|you\s+saved|savings\s+total|electronic\s+check|us\s+debit|\bmastercard\b|payment\s+service|visa\s+tend|drive[\s-]?thru|\border\s*#|number\s+of\s+items"#,
         options: .caseInsensitive
     )
 
@@ -1082,11 +1087,14 @@ enum ReceiptOCRService {
         //     passes, so a clear header always wins and this only fills the gap.
         if let footerName = footerBusinessName(from: ordered) { ranked.append(footerName) }
 
-        // 2. A registered-business name (Pty/Ltd/…) anywhere on the receipt.
+        // 2. A registered-business name (Pty/Ltd/…) in the letterhead. Restricted
+        //    to the masthead: a stray "…SA Inc" from a *different* receipt sitting
+        //    at the bottom of the photo used to outrank the real header wordmark
+        //    ("Jack In The Box"). A letterhead business name is at the top.
         //    The reject/label gates run here too: "TOTAL (Inc GST)" matches the
         //    business-suffix pattern on "Inc" (Including, not Incorporated), and
         //    without the gate this pass handed it back as the merchant.
-        for block in ordered where block.confidence >= 0.4 {
+        for block in masthead where block.confidence >= 0.4 {
             let raw = block.text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard matches(businessSuffixPattern, raw),
                   !raw.contains(where: { $0.isNumber }),
@@ -1135,9 +1143,18 @@ enum ReceiptOCRService {
             let c = " \(candidate.lowercased()) "
             return suburbSet.contains { " \($0) ".contains(c) }
         }
+        // A wordmark recurs in the header/letterhead (top); an item bought twice
+        // recurs in the body. Requiring the anchor to appear in the masthead stops
+        // a repeated line item ("E TENDERLOIN STEAK" ×2 on Graceway) from beating
+        // the real wordmark.
+        func inMasthead(_ candidate: String) -> Bool {
+            let n = candidate.lowercased()
+            return masthead.contains { $0.text.lowercased().contains(n) }
+        }
         let recurringPhrase = deduped
             .filter { $0.split(whereSeparator: \.isWhitespace).count >= 2
                       && appearances($0) >= 2
+                      && inMasthead($0)
                       && !matches(streetCentreSuffixPattern, $0)
                       && !isPlaceFragment($0) }
             .max { $0.count < $1.count }
@@ -1217,20 +1234,25 @@ enum ReceiptOCRService {
     /// is dropped, and only when nothing else in the line has a digit, so
     /// addresses ("2 Hector Court", "1659 Kellyville Grove PH: 02 9624 9402")
     /// and ABN lines keep their digits and stay disqualified.
-    private static let auStates: Set<String> = ["NSW", "VIC", "QLD", "SA", "WA", "TAS", "ACT", "NT"]
+    /// Region codes as a set (same source as `regionCodeAlternation`) for membership
+    /// tests — AU states, US states, Canadian provinces.
+    private static let regionCodes: Set<String> = Set(regionCodeAlternation.split(separator: "|").map(String.init))
 
     private static func dropTrailingStoreNumber(_ text: String) -> String {
         let tokens = text.split(separator: " ")
-        guard tokens.count >= 2,
-              let last = tokens.last, last.allSatisfy(\.isNumber),
+        guard tokens.count >= 2, let last = tokens.last else { return text }
+        // The store number is the last token: bare digits ("WOOLWORTHS 1659") or
+        // hash-prefixed ("Jack In The Box - #6570"). Strip either.
+        let lastDigits = last.hasPrefix("#") ? Substring(last.dropFirst()) : last
+        guard !lastDigits.isEmpty, lastDigits.allSatisfy(\.isNumber),
               !tokens.dropLast().contains(where: { $0.contains(where: \.isNumber) })
         else { return text }
-        // A 4-digit number after a state abbreviation is a postcode, not a store
-        // number ("KELLYVILLE NSW 2154"). Keep it so the address line stays
-        // disqualified as a merchant (its digit keeps it out), instead of becoming
-        // "KELLYVILLE NSW" and winning via the recurring header/footer address.
-        if last.count == 4,
-           auStates.contains(tokens[tokens.count - 2].uppercased()) {
+        // A 4-digit (AU) or 5-digit (US ZIP) number after a region code is a
+        // postcode, not a store number ("KELLYVILLE NSW 2154", "NORTH LAS VEGAS NV
+        // 89081"). Keep it so the address line stays disqualified as a merchant (its
+        // digit keeps it out), instead of becoming "NORTH LAS VEGAS NV" and winning.
+        if (last.count == 4 || last.count == 5),
+           regionCodes.contains(tokens[tokens.count - 2].uppercased()) {
             return text
         }
         return tokens.dropLast().joined(separator: " ")
@@ -1326,7 +1348,9 @@ enum ReceiptOCRService {
                 .trimmingCharacters(in: .whitespacesAndNewlines)
                 .trimmingCharacters(in: Self.merchantEdgeJunk)
 
-            guard text.count >= 2, text.count <= 45 else { continue }
+            // ≥3 chars: a real store name never OCRs to a 2-char scrap like the
+            // "kg" unit that won a headerless Costco docket.
+            guard text.count >= 3, text.count <= 45 else { continue }
             if text.contains(where: { $0.isNumber }) { continue }
             // Reject divider/rule lines ("====", "----", "****") — a merchant name has letters.
             guard text.contains(where: { $0.isLetter }) else { continue }
