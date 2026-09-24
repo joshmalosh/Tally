@@ -173,6 +173,7 @@ struct ReportsView: View {
         let id: String
         let name: String
         let color: Color
+        let emoji: String
         let total: Double
         let expenses: [ExpenseModel]
     }
@@ -187,12 +188,13 @@ struct ReportsView: View {
             let total = expList.reduce(0.0) { $0 + Double($1.amountCents) / 100.0 }
             if id == "untagged" {
                 return TagSpend(id: id, name: "Untagged", color: Color(hex: "8F9E94"),
-                                total: total, expenses: expList)
+                                emoji: "🏷️", total: total, expenses: expList)
             }
             let tag = tags.first { $0.id == id }
             return TagSpend(id: id,
                             name: tag?.name ?? "Unknown",
                             color: tag?.tagColor.primaryColor ?? Color(hex: "8F9E94"),
+                            emoji: tag?.displayEmoji ?? "🏷️",
                             total: total, expenses: expList)
         }.sorted { $0.total > $1.total }
         return breakdown.first { $0.id != "untagged" } ?? breakdown.first
@@ -283,10 +285,9 @@ struct ReportsView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         headerSection
-                        totalSection
-                        metricsRow
-                        barChartCard(proxy)
-                            .id("byMonth")
+                        // One card: period total, monthly avg + top category, then
+                        // the By month chart — split by internal rules.
+                        summaryCard(proxy)
                         // The selected month's full breakdown, inline — the same
                         // component the home-screen breakdown uses.
                         PeriodBreakdownBody(
@@ -360,109 +361,134 @@ struct ReportsView: View {
         .padding(.top, 16)
     }
 
-    // MARK: - Total section (dynamic heading + big amount card)
+    // MARK: - Summary card (heading on cream + total + avg/top-cat + By month)
 
-    private var totalSection: some View {
+    private var cardDivider: some View {
+        Rectangle().fill(Color(hex: "DEDAD2")).frame(height: 0.5)
+    }
+
+    private func summaryCard(_ proxy: ScrollViewProxy) -> some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Dynamic serif heading, on the cream above the card (mirrors the month
+            // heading above the breakdown).
             Text(totalHeadingLabel)
                 .font(Font.dmSerifDisplay(25))
                 .foregroundStyle(Color(hex: "1C1C1E"))
                 .padding(.horizontal, 16)
+                .padding(.bottom, 12)
 
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .top, spacing: 0) {
-                    Text(currencySymbol)
-                        .font(.system(size: 22, weight: .regular, design: .monospaced))
-                        .foregroundStyle(Color(hex: "1C1C1E"))
-                        .padding(.top, 7)
-                    Text(dollarPart)
-                        .font(.system(size: 46, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Color(hex: "1C1C1E"))
-                        .tracking(-2)
-                    if showsCents {
-                        Text(".\(centsPart)")
-                            .font(.system(size: 22, weight: .regular, design: .monospaced))
-                            .foregroundStyle(Color(hex: "1C1C1E"))
-                            .padding(.top, 9)
-                    }
-                }
-
-                if let comparison = comparisonText {
-                    HStack(spacing: 3) {
-                        Image(systemName: comparisonIsDown ? "arrow.down" : "arrow.up")
-                            .font(.system(size: 10, weight: .bold))
-                        Text(comparison)
-                            .font(.system(size: 12, weight: .medium))
-                    }
-                    .foregroundStyle(comparisonIsDown ? Color(hex: "2F6B3F") : Color(hex: "C0392B"))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background((comparisonIsDown ? Color(hex: "2F6B3F") : Color(hex: "C0392B")).opacity(0.08))
-                    .clipShape(Capsule())
-                }
+            VStack(alignment: .leading, spacing: 0) {
+                periodTotalBlock
+                    .padding(16)
+                cardDivider
+                metricsDuo
+                    .padding(16)
+                cardDivider
+                byMonthSection(proxy)
+                    .padding(16)
+                    .id("byMonth")
             }
-            .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
             .padding(.horizontal, 16)
-            .padding(.top, 10)
         }
     }
 
-    // MARK: - Metrics row (monthly avg + top category)
+    /// Period total + expense count + comparison — mirrors the month total.
+    private var periodTotalBlock: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 0) {
+                Text(currencySymbol)
+                    .font(.system(size: 22, weight: .regular, design: .monospaced))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+                    .padding(.top, 7)
+                Text(dollarPart)
+                    .font(.system(size: 46, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color(hex: "1C1C1E"))
+                    .tracking(-2)
+                if showsCents {
+                    Text(".\(centsPart)")
+                        .font(.system(size: 22, weight: .regular, design: .monospaced))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                        .padding(.top, 9)
+                }
+            }
 
-    private var metricsRow: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Text("\(filteredExpenses.count) expense\(filteredExpenses.count == 1 ? "" : "s")")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color(hex: "8F9E94"))
+
+                if let comparison = comparisonText {
+                    Text("·")
+                        .foregroundStyle(Color(hex: "8F9E94"))
+                    HStack(spacing: 3) {
+                        Image(systemName: comparisonIsDown ? "arrow.down" : "arrow.up")
+                            .font(.system(size: 9, weight: .bold))
+                        Text(comparison)
+                            .font(.system(size: 13))
+                    }
+                    .foregroundStyle(comparisonIsDown ? Color(hex: "2F6B3F") : Color(hex: "C0392B"))
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// Monthly average | top category — two columns split by a vertical rule.
+    private var metricsDuo: some View {
+        HStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 5) {
                 Text("MONTHLY AVG")
                     .font(.system(size: 9, weight: .semibold))
                     .foregroundStyle(Color(hex: "8F9E94"))
                     .tracking(0.5)
                 Text("$\(formatAmount(monthlyAverage))")
-                    .font(.system(size: 22, weight: .bold, design: .monospaced))
+                    .font(.system(size: 28, weight: .bold, design: .monospaced))
                     .foregroundStyle(Color(hex: "1C1C1E"))
-                if let prev = previousYearMonthlyAverage {
-                    Text("$\(formatAmount(prev)) prev period")
-                        .font(.system(size: 11))
-                        .foregroundStyle(Color(hex: "8F9E94"))
-                }
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
-            .padding(14)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(Color.white)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
+            .frame(maxWidth: .infinity, alignment: .leading)
 
             if let top = topCategoryForPeriod {
-                VStack(alignment: .leading, spacing: 4) {
+                Rectangle()
+                    .fill(Color(hex: "DEDAD2"))
+                    .frame(width: 1)
+                    .padding(.vertical, 2)
+
+                VStack(alignment: .leading, spacing: 5) {
                     Text("TOP CATEGORY")
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(Color(hex: "8F9E94"))
                         .tracking(0.5)
-                    Text(top.name)
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(Color(hex: "1C1C1E"))
-                        .lineLimit(1)
+                    HStack(spacing: 8) {
+                        ZStack {
+                            Circle().fill(top.color).frame(width: 26, height: 26)
+                            Text(top.emoji).font(.system(size: 14))
+                        }
+                        Text(top.name)
+                            .font(Font.dmSerifDisplay(24))
+                            .foregroundStyle(Color(hex: "1C1C1E"))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
                     Text("$\(formatAmount(top.total)) · \(periodSubtitle)")
                         .font(.system(size: 11))
                         .foregroundStyle(Color(hex: "8F9E94"))
                 }
-                .padding(14)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .background(Color(hex: "F2F8F4"))
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.leading, 16)
             }
         }
         .fixedSize(horizontal: false, vertical: true)
-        .padding(.horizontal, 16)
     }
 
-    // MARK: - Bar chart (bigger, shorter; tap focuses the month)
+    // MARK: - By month chart (bigger, shorter; tap focuses the month)
 
-    private func barChartCard(_ proxy: ScrollViewProxy) -> some View {
+    private func byMonthSection(_ proxy: ScrollViewProxy) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("By month")
@@ -473,7 +499,6 @@ struct ReportsView: View {
                     .font(.system(size: 11))
                     .foregroundStyle(Color(hex: "8F9E94"))
             }
-            .padding(.horizontal, 16)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .bottom, spacing: 12) {
@@ -484,8 +509,8 @@ struct ReportsView: View {
                             withAnimation(.easeInOut(duration: 0.28)) {
                                 selectedMonthOffset = bar.offset
                             }
-                            // Scroll after the breakdown below has expanded, so
-                            // "By month" lands at the very top rather than short.
+                            // Scroll after the breakdown below has expanded, so the
+                            // By month row lands at the top rather than short.
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                                 withAnimation(.easeInOut(duration: 0.3)) {
                                     proxy.scrollTo("byMonth", anchor: .top)
@@ -521,12 +546,9 @@ struct ReportsView: View {
                     }
                 }
                 .frame(height: 118)
-                .padding(.horizontal, 16)
+                .padding(.trailing, 2)
             }
         }
-        .padding(.vertical, 14)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
