@@ -1,7 +1,40 @@
 import SwiftUI
 import SwiftData
 
+/// Full-screen period breakdown (Home hero, and any push-nav drill-in). A thin
+/// wrapper that scrolls `PeriodBreakdownBody`; kept as the public entry point so
+/// every existing call site is unchanged.
 struct PeriodDetailView: View {
+    let period: HeroPeriod
+    let expenses: [ExpenseModel]
+    let tags: [TagModel]
+    var previousExpenses: [ExpenseModel] = []
+    var titleOverride: String? = nil
+    var allExpenses: [ExpenseModel] = []
+
+    var body: some View {
+        ScrollView {
+            PeriodBreakdownBody(
+                period: period,
+                expenses: expenses,
+                tags: tags,
+                previousExpenses: previousExpenses,
+                titleOverride: titleOverride,
+                allExpenses: allExpenses,
+                showsTopBar: true
+            )
+        }
+        .scrollContentBackground(.hidden)
+        .background(Color(hex: "F0EDE6").ignoresSafeArea())
+        .toolbar(.hidden, for: .navigationBar)
+    }
+}
+
+/// The scrollable breakdown content (summary header + bar chart + category list +
+/// export) with no scroll container of its own, so it can be dropped into any host
+/// scroll view. `PeriodDetailView` wraps it as a full screen; `ReportsView` embeds
+/// it inline under the selected month. Sharing it keeps the two in lockstep.
+struct PeriodBreakdownBody: View {
     let period: HeroPeriod
     let expenses: [ExpenseModel]
     let tags: [TagModel]
@@ -10,6 +43,14 @@ struct PeriodDetailView: View {
     /// Full active-expense list (already tag-filtered) so the monthly report can
     /// swipe to other months. Empty = no month paging (renders `expenses` as-is).
     var allExpenses: [ExpenseModel] = []
+    /// Full screen renders its own Back/Export top bar and a trailing ad; the
+    /// inline Reports embed turns both off (Reports supplies its own chrome).
+    var showsTopBar: Bool = true
+    /// The month this view represents, when embedding a specific month (Reports
+    /// inline / drill-in). Used for the comparison's previous-period name — without
+    /// it the name is derived from today, so a past month reads "vs August" while
+    /// showing August instead of "vs July".
+    var monthAnchorOverride: Date? = nil
 
     @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
@@ -34,7 +75,8 @@ struct PeriodDetailView: View {
     }
 
     private var displayedMonthAnchor: Date {
-        Calendar.current.date(byAdding: .month, value: monthOffset, to: Date()) ?? Date()
+        if let override = monthAnchorOverride { return override }
+        return Calendar.current.date(byAdding: .month, value: monthOffset, to: Date()) ?? Date()
     }
 
     private func monthExpenses(around anchor: Date) -> [ExpenseModel] {
@@ -419,49 +461,49 @@ struct PeriodDetailView: View {
     // MARK: - Body
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                // Top bar
+        VStack(alignment: .leading, spacing: 0) {
+            // Top bar (full-screen only)
+            if showsTopBar {
                 topBar
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     .padding(.bottom, 20)
+            }
 
-                if scopedExpenses.isEmpty {
-                    emptyState
-                } else {
-                    summaryHeader
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 24)
+            if scopedExpenses.isEmpty {
+                emptyState
+            } else {
+                summaryHeader
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 16)
 
-                    // Free tier: ad directly under the total.
+                // Free tier: ad directly under the total (full-screen only — the
+                // inline Reports embed already shows one further down the page).
+                if showsTopBar {
                     InlineUpgradeAd()
                         .padding(.horizontal, 16)
                         .padding(.bottom, 14)
-
-                    // Weekly/daily/monthly chart
-                    if !displayBars.isEmpty {
-                        weekChartCard
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 14)
-                    }
-
-                    // By category
-                    if !categoryRows.isEmpty {
-                        categoryCard
-                            .padding(.horizontal, 16)
-                            .padding(.bottom, 14)
-                    }
-
-                    // Export button inline — scrolls with content, never behind FAB
-                    exportButton
-                        .padding(.bottom, 100)
                 }
+
+                // Weekly/daily/monthly chart
+                if !displayBars.isEmpty {
+                    weekChartCard
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 14)
+                }
+
+                // By category
+                if !categoryRows.isEmpty {
+                    categoryCard
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 14)
+                }
+
+                // Export button inline — scrolls with content, never behind FAB
+                exportButton
+                    .padding(.bottom, showsTopBar ? 100 : 6)
             }
         }
-        .scrollContentBackground(.hidden)
-        .background(Color(hex: "F0EDE6").ignoresSafeArea())
-        .toolbar(.hidden, for: .navigationBar)
         .sheet(isPresented: $showingExport) {
             GlobalExportSheet(initialSelection: displayedExpenses)
         }
@@ -503,47 +545,71 @@ struct PeriodDetailView: View {
 
     // MARK: - Summary header
 
+    /// Title-cased period name for the serif heading, e.g. "September 2026",
+    /// "This week", "All time" — softer than the old all-caps label.
+    private var displayTitle: String {
+        let t = titleText
+        guard let first = t.first else { return t }
+        return String(first) + t.dropFirst().lowercased()
+    }
+
     private var summaryHeader: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(titleText)
-                .font(.system(size: 16, weight: .bold))
-                .foregroundStyle(Color(hex: "2F402E"))
+        VStack(alignment: .leading, spacing: 0) {
+            // Section heading: moss eyebrow + serif period name, matching the rest
+            // of the app's headers (Reports, Tags & Groups).
+            Text("BREAKDOWN")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color(hex: "4A5E50"))
                 .tracking(1.2)
+            Text(displayTitle)
+                .font(.dmSerifDisplay(25))
+                .foregroundStyle(Color(hex: "1C1C1E"))
+                .padding(.top, 2)
 
-            HStack(alignment: .top, spacing: 0) {
-                Text(currencySymbol)
-                    .font(.system(size: 22, weight: .regular, design: .monospaced))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-                    .padding(.top, 7)
-                Text(dollarPart)
-                    .font(.system(size: 52, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-                    .tracking(-2)
-                if showsCents {
-                    Text(".\(centsPart)")
-                        .font(.system(size: 24, weight: .regular, design: .monospaced))
+            // Total, in a card so it reads as part of the same app as the Reports
+            // period total.
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(alignment: .top, spacing: 0) {
+                    Text(currencySymbol)
+                        .font(.system(size: 22, weight: .regular, design: .monospaced))
                         .foregroundStyle(Color(hex: "1C1C1E"))
-                        .padding(.top, 9)
-                }
-            }
-
-            HStack(spacing: 6) {
-                Text("\(scopedExpenses.count) expense\(scopedExpenses.count == 1 ? "" : "s")")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-
-                if let pct = comparisonPercent {
-                    Text("·")
-                        .foregroundStyle(Color(hex: "8F9E94"))
-                    HStack(spacing: 3) {
-                        Image(systemName: pct <= 0 ? "arrow.down" : "arrow.up")
-                            .font(.system(size: 9, weight: .bold))
-                        Text("\(pct < 0 ? "" : "+")\(pct)% vs \(previousPeriodName)")
-                            .font(.system(size: 13))
+                        .padding(.top, 7)
+                    Text(dollarPart)
+                        .font(.system(size: 46, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                        .tracking(-2)
+                    if showsCents {
+                        Text(".\(centsPart)")
+                            .font(.system(size: 22, weight: .regular, design: .monospaced))
+                            .foregroundStyle(Color(hex: "1C1C1E"))
+                            .padding(.top, 9)
                     }
-                    .foregroundStyle(pct <= 0 ? Color(hex: "2F6B3F") : Color(hex: "C0392B"))
+                }
+
+                HStack(spacing: 6) {
+                    Text("\(scopedExpenses.count) expense\(scopedExpenses.count == 1 ? "" : "s")")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color(hex: "8F9E94"))
+
+                    if let pct = comparisonPercent {
+                        Text("·")
+                            .foregroundStyle(Color(hex: "8F9E94"))
+                        HStack(spacing: 3) {
+                            Image(systemName: pct <= 0 ? "arrow.down" : "arrow.up")
+                                .font(.system(size: 9, weight: .bold))
+                            Text("\(pct < 0 ? "" : "+")\(pct)% vs \(previousPeriodName)")
+                                .font(.system(size: 13))
+                        }
+                        .foregroundStyle(pct <= 0 ? Color(hex: "2F6B3F") : Color(hex: "C0392B"))
+                    }
                 }
             }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
+            .padding(.top, 12)
         }
     }
 
@@ -613,7 +679,7 @@ struct PeriodDetailView: View {
                         .frame(
                             width: 38,
                             height: maxBarCents > 0
-                                ? max(6, 90 * CGFloat(bar.totalCents) / CGFloat(maxBarCents))
+                                ? max(6, 62 * CGFloat(bar.totalCents) / CGFloat(maxBarCents))
                                 : 6
                         )
 
@@ -635,14 +701,14 @@ struct PeriodDetailView: View {
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    Haptics.tap()
                     withAnimation(.easeInOut(duration: 0.15)) {
                         selectedBarId = (selectedBarId == bar.id) ? nil : bar.id
                     }
                 }
             }
         }
-        .frame(height: 130)
+        .frame(height: 104)
         .padding(.horizontal, 2)
     }
 
