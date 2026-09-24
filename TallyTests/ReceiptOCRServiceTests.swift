@@ -356,6 +356,34 @@ final class ReceiptOCRServiceTests: XCTestCase {
         XCTAssertEqual(ReceiptOCRService.extractForTesting(lines).merchant, "Woolworths")
     }
 
+    // Woolworths Castle Hill: the two-word suburb "CASTLE HILL" prints in the
+    // letterhead address AND the EFTPOS footer ("CASTLE HILL" beside "NSW"), so it
+    // recurs and used to win the recurring-2+word-phrase boost over the wordmark
+    // ("HILL" isn't a street/centre suffix, so that guard missed it). The wordmark
+    // itself carries the swirl logo OCR'd as an "O" ("Woolworths O"). Merchant must
+    // be the wordmark, de-glyphed and corroborated by the footer "WOOLWORTHS".
+    func testWoolworths_castleHill_recurringSuburbAndLogoGlyph_wordmarkWins() {
+        let lines: [(text: String, box: CGRect)] = [
+            ("Woolworths O",          CGRect(x: 0.30, y: 0.940, width: 0.30, height: 0.030)),
+            ("The fresh food people", CGRect(x: 0.33, y: 0.915, width: 0.24, height: 0.013)),
+            ("1045 Castle Hill Showground Village  PH: 02 8633 2991",
+                                      CGRect(x: 0.20, y: 0.895, width: 0.55, height: 0.012)),
+            ("4 Mandala Parade",      CGRect(x: 0.40, y: 0.882, width: 0.20, height: 0.012)),
+            ("TAX INVOICE - ABN 88 000 014 675",
+                                      CGRect(x: 0.24, y: 0.869, width: 0.46, height: 0.012)),
+            blk("4 SUBTOTAL", x: 0.22, y: 0.64, w: 0.14), blk("$19.75", x: 0.72, y: 0.64, w: 0.10),
+            blk("TOTAL", x: 0.22, y: 0.615, w: 0.10), blk("$19.75", x: 0.72, y: 0.615, w: 0.10),
+            // EFTPOS footer: "WOOLWORTHS 1045   CASTLE HILL   NSW" as separate blocks.
+            blk("WOOLWORTHS", x: 0.21, y: 0.40, w: 0.14),
+            blk("1045", x: 0.40, y: 0.399, w: 0.05),
+            blk("CASTLE HILL", x: 0.52, y: 0.40, w: 0.13),
+            blk("NSW", x: 0.68, y: 0.399, w: 0.05),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertEqual(result.merchant, "Woolworths", "wordmark, not the recurring suburb")
+        XCTAssertEqual(result.amount ?? -1, 19.75, accuracy: 0.001)
+    }
+
     // MARK: - Orientation — the Woolworths photo Vision read sideways.
 
     // The real miss wasn't the block scoring (the header tests above already

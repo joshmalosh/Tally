@@ -951,6 +951,72 @@ enum ReceiptOCRService {
         return out
     }
 
+    private static let bareStatePattern = try! NSRegularExpression(
+        pattern: #"^\s*(NSW|VIC|QLD|SA|WA|TAS|ACT|NT)\s*$"#, options: [.caseInsensitive])
+
+    /// Full suburb phrases — a place a state abbreviation follows, so never the
+    /// merchant. Catches both the same-block form ("KELLYVILLE NSW 2154" →
+    /// "kellyville") and the split form where the suburb and the state print as
+    /// adjacent blocks on one line ("CASTLE HILL" then "NSW" → "castle hill"). The
+    /// recurring-phrase boost must not crown one of these: a suburb naturally
+    /// recurs (letterhead address + EFTPOS footer), which is how the two-word
+    /// "CASTLE HILL" beat the Woolworths wordmark.
+    private static func suburbPhrases(in blocks: [TextBlock]) -> Set<String> {
+        var out = Set<String>()
+        // Same block: "<suburb> STATE postcode".
+        for b in blocks {
+            let t = b.text
+            guard let m = auStatePostcodePattern.firstMatch(in: t, range: NSRange(t.startIndex..., in: t)),
+                  let mr = Range(m.range, in: t) else { continue }
+            let before = t[..<mr.lowerBound]
+            let words = before.split(whereSeparator: \.isWhitespace).map(String.init)
+                .filter { $0.contains(where: \.isLetter) }
+            if !words.isEmpty { out.insert(words.joined(separator: " ").lowercased()) }
+        }
+        // Split blocks: a bare state abbreviation with the suburb as the block
+        // immediately to its left on the same printed line.
+        for state in blocks where matches(bareStatePattern, state.text) {
+            let left = blocks
+                .filter { $0.boundingBox.maxX <= state.boundingBox.minX + 0.02
+                          && sameLine($0.boundingBox, state.boundingBox)
+                          && $0.text.contains(where: \.isLetter)
+                          && !$0.text.contains(where: \.isNumber) }
+                .max { $0.boundingBox.maxX < $1.boundingBox.maxX }
+            if let left {
+                let name = left.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if name.count >= 3 { out.insert(name.lowercased()) }
+            }
+        }
+        return out
+    }
+
+    /// A wordmark with a stray single-letter glyph from the logo beside it
+    /// ("Woolworths O" — the swirl OCR'd as an O). Strip the lone leading/trailing
+    /// letter, but only when the de-glyphed name is corroborated by another block
+    /// standing alone (the EFTPOS footer "WOOLWORTHS"), so a genuine "Big W" (no
+    /// bare "Big" printed elsewhere) is left intact.
+    private static func stripCorroboratedLogoGlyph(_ name: String, in blocks: [TextBlock]) -> String {
+        let parts = name.split(whereSeparator: \.isWhitespace).map(String.init)
+        guard parts.count >= 2 else { return name }
+        func corroborated(_ candidate: String) -> Bool {
+            guard candidate.count >= 3 else { return false }
+            let needle = candidate.lowercased()
+            return blocks.contains { b in
+                let t = b.text.trimmingCharacters(in: Self.merchantEdgeJunk).lowercased()
+                return t == needle && t != name.lowercased()
+            }
+        }
+        if let last = parts.last, last.count == 1, last.first!.isLetter {
+            let deglyphed = parts.dropLast().joined(separator: " ")
+            if corroborated(deglyphed) { return deglyphed }
+        }
+        if let first = parts.first, first.count == 1, first.first!.isLetter {
+            let deglyphed = parts.dropFirst().joined(separator: " ")
+            if corroborated(deglyphed) { return deglyphed }
+        }
+        return name
+    }
+
     /// Recover the business name from the footer return-address, where a stylised
     /// or OCR-garbled header can't be read: a clean "<Business Name> <Suburb>" line
     /// ("Maw Maw Kellyville") with its trailing suburb stripped → "Maw Maw". Only
@@ -1025,9 +1091,12 @@ enum ReceiptOCRService {
         ranked += merchantCandidates(in: ordered, allBlocks: blocks, minConfidence: 0.75)
         ranked += merchantCandidates(in: ordered, allBlocks: blocks, minConfidence: 0.35)
 
-        // Dedupe case-insensitively, keeping priority order.
+        // Strip a corroborated logo glyph ("Woolworths O" → "Woolworths") from
+        // every candidate, then dedupe case-insensitively, keeping priority order.
         var seen = Set<String>()
-        let deduped = ranked.filter { seen.insert($0.lowercased()).inserted }
+        let deduped = ranked
+            .map { stripCorroboratedLogoGlyph($0, in: blocks) }
+            .filter { seen.insert($0.lowercased()).inserted }
 
         // A multi-word name printed more than once is the merchant. A store
         // prints its name as a wordmark up top and again in the letterhead
@@ -1039,10 +1108,12 @@ enum ReceiptOCRService {
             let needle = s.lowercased()
             return blocks.filter { $0.text.lowercased().contains(needle) }.count
         }
+        let suburbSet = suburbPhrases(in: blocks)
         let recurringPhrase = deduped
             .filter { $0.split(whereSeparator: \.isWhitespace).count >= 2
                       && appearances($0) >= 2
-                      && !matches(streetCentreSuffixPattern, $0) }
+                      && !matches(streetCentreSuffixPattern, $0)
+                      && !suburbSet.contains($0.lowercased()) }
             .max { $0.count < $1.count }
         if let anchor = recurringPhrase {
             // Return the fullest form of that name, e.g. the letterhead
