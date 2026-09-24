@@ -317,7 +317,7 @@ enum ReceiptOCRService {
         // "4,640,000" on an Indonesian receipt, optionally with cents. Without
         // it, `\d+[,.]\d{2}` grabbed "655,00" out of "655,000" and the European
         // decimal-comma rule turned that into 655.00.
-        pattern: #"[\$£€¥]?\s*\d{1,3}(?:,\d{3})+(?:\.\d{2})?(?!\d)|[\$£€¥]\s*\d{1,}[,.]?\d{0,2}|\d{1,}[,.]\d{2}\s*[\$£€¥]?|\d{1,}[,.]\d{2}"#,
+        pattern: #"[\$£€¥]?\s*\d{1,3}(?:,\d{3})+(?:\.\d{2})?(?!\d)|\d{1,3}(?:\.\d{3})+(?!\d)|[\$£€¥]\s*\d{1,}[,.]?\d{0,2}|\d{1,}[,.]\d{2}\s*[\$£€¥]?|\d{1,}[,.]\d{2}"#,
         options: .caseInsensitive
     )
 
@@ -656,6 +656,14 @@ enum ReceiptOCRService {
                 } else {
                     numString = numString.replacingOccurrences(of: ",", with: "")
                 }
+            } else if numString.contains(".") {
+                // A dot before exactly 3 digits is a thousands separator, not a
+                // decimal — cents are always 2 digits. Iceland/much of Europe prints
+                // "4.031" for 4031 (ISK, no minor unit) and "1.198" for 1198.
+                let parts = numString.split(separator: ".")
+                if parts.count >= 2, let last = parts.last, last.count == 3 {
+                    numString = numString.replacingOccurrences(of: ".", with: "")
+                }
             }
 
             if let value = Double(numString), value > 0 {
@@ -931,9 +939,10 @@ enum ReceiptOCRService {
         pattern: #"\b(GROVE|COURT|CRESCENT|ROAD|RD|STREET|AVENUE|PLACE|PLAZA|CENTRE|CENTER|MALL|ARCADE|LANE|WAY|DRIVE|PARADE|HIGHWAY|BOULEVARD|TERRACE|CLOSE|SQUARE)\b"#,
         options: [.caseInsensitive])
 
-    /// A "<suburb> STATE postcode" address line — "KELLYVILLE NSW 2154".
+    /// A "<place> REGION postcode" address line — "KELLYVILLE NSW 2154",
+    /// "NORTH LAS VEGAS NV 89081" (AU 4-digit / US 5-digit ZIP).
     private static let auStatePostcodePattern = try! NSRegularExpression(
-        pattern: #"\b(NSW|VIC|QLD|SA|WA|TAS|ACT|NT)\b\s+\d{4}\b"#, options: [.caseInsensitive])
+        pattern: "\\b(\(regionCodeAlternation))\\b\\s+\\d{4,5}\\b", options: [.caseInsensitive])
 
     /// Suburb names the receipt prints in a "<suburb> STATE postcode" line — the
     /// word right before the state ("KELLYVILLE NSW 2154" → "kellyville").
@@ -951,8 +960,18 @@ enum ReceiptOCRService {
         return out
     }
 
+    /// Region/state/province codes across Tally's markets — AU states, US states
+    /// (incl. DC) and Canadian provinces. Tally is global, so "a place a region
+    /// code follows" must recognise "NORTH LAS VEGAS NV" and "MONTREAL QC" as
+    /// readily as "CASTLE HILL NSW", not just Australia.
+    private static let regionCodeAlternation =
+        "NSW|VIC|QLD|SA|WA|TAS|ACT|NT|" +
+        "AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|" +
+        "MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|" +
+        "WV|WI|WY|DC|ON|QC|BC|AB|MB|SK|NS|NB|NL|PE|YT|NU"
+
     private static let bareStatePattern = try! NSRegularExpression(
-        pattern: #"^\s*(NSW|VIC|QLD|SA|WA|TAS|ACT|NT)\s*$"#, options: [.caseInsensitive])
+        pattern: "^\\s*(\(regionCodeAlternation))\\s*$", options: [.caseInsensitive])
 
     /// Full suburb phrases — a place a state abbreviation follows, so never the
     /// merchant. Catches both the same-block form ("KELLYVILLE NSW 2154" →
@@ -1109,11 +1128,18 @@ enum ReceiptOCRService {
             return blocks.filter { $0.text.lowercased().contains(needle) }.count
         }
         let suburbSet = suburbPhrases(in: blocks)
+        // A candidate is a place if it's a whole-word fragment of a suburb phrase
+        // ("north las" of "north las vegas"), not only an exact match — otherwise a
+        // partial city name recurs and gets expanded back to the full address.
+        func isPlaceFragment(_ candidate: String) -> Bool {
+            let c = " \(candidate.lowercased()) "
+            return suburbSet.contains { " \($0) ".contains(c) }
+        }
         let recurringPhrase = deduped
             .filter { $0.split(whereSeparator: \.isWhitespace).count >= 2
                       && appearances($0) >= 2
                       && !matches(streetCentreSuffixPattern, $0)
-                      && !suburbSet.contains($0.lowercased()) }
+                      && !isPlaceFragment($0) }
             .max { $0.count < $1.count }
         if let anchor = recurringPhrase {
             // Return the fullest form of that name, e.g. the letterhead

@@ -851,4 +851,107 @@ final class ReceiptOCRServiceTests: XCTestCase {
         XCTAssertNotEqual(result.merchant, "Joshua Shahinian", "billing name is not the vendor")
         XCTAssertEqual(result.notes, "Order 4937644", "concise order number, not a line-item dump")
     }
+
+    // MARK: - International receipts (Tally is global, not AU-only)
+
+    // Iceland — Bónus. ISK has no minor unit and prints "." as the thousands
+    // separator, so the total "4.031" is 4031 krónur, not 4.03.
+    func testBonus_iceland_dotThousands_notCents() {
+        let lines: [(text: String, box: CGRect)] = [
+            ("BÓNUS", CGRect(x: 0.18, y: 0.94, width: 0.30, height: 0.032)),
+            ("Bónus Skipholti", CGRect(x: 0.30, y: 0.88, width: 0.26, height: 0.012)),
+            ("gunry handsápa 500 m", CGRect(x: 0.10, y: 0.60, width: 0.5, height: 0.012)),
+            ("198", CGRect(x: 0.78, y: 0.60, width: 0.08, height: 0.012)),
+            ("Samtals kr", CGRect(x: 0.10, y: 0.30, width: 0.25, height: 0.013)),
+            ("4.031", CGRect(x: 0.76, y: 0.30, width: 0.12, height: 0.013)),
+            ("Greiðslukort", CGRect(x: 0.10, y: 0.28, width: 0.25, height: 0.013)),
+            ("-4.031", CGRect(x: 0.74, y: 0.28, width: 0.14, height: 0.013)),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertEqual(result.amount ?? -1, 4031, accuracy: 0.5, "dot = thousands in ISK, not cents")
+    }
+
+    // US — Jack in the Box. The topmost line is "Drive-Thru Order# 1044"; the
+    // merchant is the line below. Total $39.09 (subtotal $36.36 + tax $2.73); the
+    // "(4 @ 3.49)" is a unit rate, not the amount.
+    func testJackInTheBox_orderNumberLineNotMerchant() {
+        let lines: [(text: String, box: CGRect)] = [
+            ("Drive-Thru Order# 1044", CGRect(x: 0.24, y: 0.95, width: 0.5, height: 0.013)),
+            ("Jack In The Box - #6570", CGRect(x: 0.24, y: 0.935, width: 0.5, height: 0.013)),
+            ("1610 Capital Cir NE", CGRect(x: 0.28, y: 0.92, width: 0.42, height: 0.012)),
+            ("Tallahassee, FL 32308", CGRect(x: 0.30, y: 0.905, width: 0.38, height: 0.012)),
+            ("ULT BRKFST JACK (4 @ 3.49)", CGRect(x: 0.10, y: 0.62, width: 0.5, height: 0.012)),
+            ("$36.36", CGRect(x: 0.80, y: 0.62, width: 0.12, height: 0.012)),
+            ("Subtotal", CGRect(x: 0.10, y: 0.50, width: 0.2, height: 0.012)),
+            ("$36.36", CGRect(x: 0.80, y: 0.50, width: 0.12, height: 0.012)),
+            ("FL Sales Tax", CGRect(x: 0.10, y: 0.47, width: 0.25, height: 0.012)),
+            ("$2.73", CGRect(x: 0.80, y: 0.47, width: 0.10, height: 0.012)),
+            ("Total", CGRect(x: 0.10, y: 0.44, width: 0.15, height: 0.012)),
+            ("$39.09", CGRect(x: 0.80, y: 0.44, width: 0.12, height: 0.012)),
+            ("Visa Tendered", CGRect(x: 0.10, y: 0.41, width: 0.25, height: 0.012)),
+            ("$39.09", CGRect(x: 0.80, y: 0.41, width: 0.12, height: 0.012)),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertEqual(result.amount ?? -1, 39.09, accuracy: 0.001)
+        XCTAssertNotEqual(result.merchant, "Drive-Thru Order", "the order line is not the merchant")
+    }
+
+    // US — Trader Joe's. No "TOTAL" label; the bill is "Balance to pay" / card, both
+    // $81.87. The "Tax: $66.63 @ 1.8%" line is a taxable base @ rate, not the total.
+    func testTraderJoes_balanceToPay_notTaxBase() {
+        let lines: [(text: String, box: CGRect)] = [
+            ("TRADER JOE'S", CGRect(x: 0.28, y: 0.94, width: 0.42, height: 0.020)),
+            ("Tempe, AZ  85281", CGRect(x: 0.30, y: 0.90, width: 0.38, height: 0.011)),
+            ("GRANOLA PROTEIN PEANUT B", CGRect(x: 0.10, y: 0.62, width: 0.5, height: 0.011)),
+            ("$3.99", CGRect(x: 0.80, y: 0.62, width: 0.10, height: 0.011)),
+            ("Tax: $66.63 @ 1.8%", CGRect(x: 0.10, y: 0.40, width: 0.4, height: 0.011)),
+            ("$1.20", CGRect(x: 0.80, y: 0.40, width: 0.10, height: 0.011)),
+            ("Balance to pay", CGRect(x: 0.10, y: 0.35, width: 0.3, height: 0.012)),
+            ("$81.87", CGRect(x: 0.80, y: 0.35, width: 0.12, height: 0.012)),
+            ("MasterCard", CGRect(x: 0.10, y: 0.32, width: 0.25, height: 0.012)),
+            ("$81.87", CGRect(x: 0.80, y: 0.32, width: 0.12, height: 0.012)),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertEqual(result.amount ?? -1, 81.87, accuracy: 0.001, "balance, not the tax base $66.63")
+    }
+
+    // US — Meijer. The savings block up top ("SAVINGS TOTAL 2.00") must not become
+    // the amount; the store brand recurs on item lines ("MEIJER MILK/EGGS") but is
+    // one word so it can't hijack the merchant. Total 18.80.
+    func testMeijer_savingsNotAmount_brandRecurrenceHarmless() {
+        let lines: [(text: String, box: CGRect)] = [
+            ("meijer", CGRect(x: 0.34, y: 0.95, width: 0.30, height: 0.024)),
+            ("SPECIALS", CGRect(x: 0.20, y: 0.80, width: 0.2, height: 0.012)),
+            ("2.00", CGRect(x: 0.60, y: 0.80, width: 0.08, height: 0.012)),
+            ("SAVINGS TOTAL", CGRect(x: 0.10, y: 0.78, width: 0.3, height: 0.012)),
+            ("2.00", CGRect(x: 0.60, y: 0.78, width: 0.08, height: 0.012)),
+            ("MEIJER MILK", CGRect(x: 0.20, y: 0.60, width: 0.3, height: 0.012)),
+            ("2.69", CGRect(x: 0.60, y: 0.60, width: 0.08, height: 0.012)),
+            ("MEIJER EGGS", CGRect(x: 0.20, y: 0.58, width: 0.3, height: 0.012)),
+            ("3.99", CGRect(x: 0.60, y: 0.58, width: 0.08, height: 0.012)),
+            ("TOTAL", CGRect(x: 0.10, y: 0.40, width: 0.15, height: 0.012)),
+            ("18.80", CGRect(x: 0.60, y: 0.40, width: 0.1, height: 0.012)),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertEqual(result.amount ?? -1, 18.80, accuracy: 0.001, "total, not the $2.00 savings")
+    }
+
+    // US — a store whose city recurs beside a US state code ("NORTH LAS VEGAS NV" in
+    // the address and again in the EFTPOS footer) must not beat the wordmark. Proves
+    // the recurring-place guard isn't Australia-only.
+    func testUSCity_recurringBesideStateCode_wordmarkWins() {
+        let lines: [(text: String, box: CGRect)] = [
+            ("Walmart", CGRect(x: 0.30, y: 0.94, width: 0.34, height: 0.030)),
+            ("5940 LOSEE RD", CGRect(x: 0.28, y: 0.90, width: 0.30, height: 0.012)),
+            ("NORTH LAS VEGAS NV 89081", CGRect(x: 0.22, y: 0.885, width: 0.52, height: 0.012)),
+            ("TOTAL", CGRect(x: 0.10, y: 0.55, width: 0.12, height: 0.013)),
+            ("35.36", CGRect(x: 0.80, y: 0.55, width: 0.10, height: 0.013)),
+            ("WALMART", CGRect(x: 0.20, y: 0.40, width: 0.14, height: 0.013)),
+            ("NORTH LAS VEGAS", CGRect(x: 0.44, y: 0.40, width: 0.22, height: 0.013)),
+            ("NV", CGRect(x: 0.70, y: 0.399, width: 0.05, height: 0.013)),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertEqual(result.merchant, "Walmart", "wordmark, not the recurring US city")
+        XCTAssertEqual(result.amount ?? -1, 35.36, accuracy: 0.001)
+    }
 }
