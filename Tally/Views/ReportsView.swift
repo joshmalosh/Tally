@@ -12,8 +12,8 @@ struct ReportsView: View {
     @State private var selectedMonthOffset: Int = 0
 
     enum ReportPeriod: String, CaseIterable {
-        case oneMonth  = "1M"
-        case sixMonths = "6M"
+        case threeMonths = "3M"
+        case sixMonths   = "6M"
         case oneYear   = "1Y"
         case allTime   = "All"
     }
@@ -22,10 +22,10 @@ struct ReportsView: View {
 
     private var periodMonthCount: Int {
         switch selectedPeriod {
-        case .oneMonth:  return 1
-        case .sixMonths: return 6
-        case .oneYear:   return 12
-        case .allTime:   return 6
+        case .threeMonths: return 3
+        case .sixMonths:   return 6
+        case .oneYear:     return 12
+        case .allTime:     return 6
         }
     }
 
@@ -103,30 +103,30 @@ struct ReportsView: View {
 
     private var periodLabel: String {
         switch selectedPeriod {
-        case .oneMonth:  return "month"
-        case .sixMonths: return "6 months"
-        case .oneYear:   return "year"
-        case .allTime:   return "period"
+        case .threeMonths: return "3 months"
+        case .sixMonths:   return "6 months"
+        case .oneYear:     return "year"
+        case .allTime:     return "period"
         }
     }
 
     /// Dynamic heading over the period total — names the window ("6 Month Total").
     private var totalHeadingLabel: String {
         switch selectedPeriod {
-        case .oneMonth:  return "1 Month Total"
-        case .sixMonths: return "6 Month Total"
-        case .oneYear:   return "12 Month Total"
-        case .allTime:   return "All Time Total"
+        case .threeMonths: return "3 Month Total"
+        case .sixMonths:   return "6 Month Total"
+        case .oneYear:     return "12 Month Total"
+        case .allTime:     return "All Time Total"
         }
     }
 
     /// Subtitle for the top-category card — period-wide, so it names the period.
     private var periodSubtitle: String {
         switch selectedPeriod {
-        case .oneMonth:  return "last month"
-        case .sixMonths: return "last 6 months"
-        case .oneYear:   return "last 12 months"
-        case .allTime:   return "all time"
+        case .threeMonths: return "last 3 months"
+        case .sixMonths:   return "last 6 months"
+        case .oneYear:     return "last 12 months"
+        case .allTime:     return "all time"
         }
     }
 
@@ -143,7 +143,7 @@ struct ReportsView: View {
         let total = currentTotal
         let months: Double
         switch selectedPeriod {
-        case .oneMonth:  months = 1
+        case .threeMonths: months = 3
         case .sixMonths: months = 6
         case .oneYear:   months = 12
         case .allTime:
@@ -159,7 +159,7 @@ struct ReportsView: View {
         let total = previousTotal
         let months: Double
         switch selectedPeriod {
-        case .oneMonth:  months = 1
+        case .threeMonths: months = 3
         case .sixMonths: months = 6
         case .oneYear:   months = 12
         case .allTime:   months = 1
