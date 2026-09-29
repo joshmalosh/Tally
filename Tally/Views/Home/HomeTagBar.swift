@@ -350,33 +350,23 @@ private struct MoreTagCard: View {
 
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: 5) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .stroke(
-                            style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])
-                        )
-                        .foregroundStyle(Color(hex: "DEDAD2"))
-                        .frame(width: 36, height: 36)
-                    Image(systemName: "plus")
-                        .font(.system(size: 17, weight: .medium))
-                        .foregroundStyle(Color(hex: "8F9E94"))
-                }
-
-                Text("Add tag")
-                    .font(.system(size: 11, weight: .regular))
-                    .foregroundStyle(Color(hex: "6B7A6A"))
+            VStack(spacing: 7) {
+                Image(systemName: "pin")
+                    .font(.system(size: 21, weight: .regular))
+                    .foregroundStyle(Color(hex: "6E8A70"))
+                Text("Pin tag")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Color(hex: "5E7A62"))
                     .lineLimit(1)
             }
-            .padding(8)
             .frame(width: 89, height: 89)
-            .background(Color.white)
+            .background(Color(hex: "EAF1EA"))
             .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 19, style: .continuous)
-                    .stroke(Color(hex: "DEDAD2").opacity(0.6), lineWidth: 0.5)
+                    .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                    .foregroundStyle(Color(hex: "AEC7B1"))
             )
-            .shadow(color: .black.opacity(0.05), radius: 7, x: 0, y: 2)
         }
         .buttonStyle(.plain)
     }

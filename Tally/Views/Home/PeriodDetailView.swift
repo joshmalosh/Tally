@@ -288,18 +288,27 @@ struct PeriodBreakdownBody: View {
 
     private var visibleTotalCents: Int { visibleExpenses.reduce(0) { $0 + $1.amountCents } }
 
+    /// The category bucket for an expense: its first resolvable tag, else the
+    /// uncategorised catch-all. A tag id that no longer resolves counts as
+    /// uncategorised rather than forming its own "Unknown" row.
+    private func categoryKey(for expense: ExpenseModel) -> String {
+        if let first = expense.resolvedTagIds.first, tags.contains(where: { $0.id == first }) {
+            return first
+        }
+        return "__none__"
+    }
+
     private var categoryRows: [CategoryRow] {
         guard visibleTotalCents > 0 else { return [] }
         var buckets: [String: Int] = [:]
         for expense in visibleExpenses {
-            let key = expense.resolvedTagIds.first ?? "__none__"
-            buckets[key, default: 0] += expense.amountCents
+            buckets[categoryKey(for: expense), default: 0] += expense.amountCents
         }
         let tagMap = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0) })
         return buckets.map { key, cents in
             let percent = Double(cents) / Double(visibleTotalCents) * 100.0
             if key == "__none__" {
-                return CategoryRow(id: key, name: "Uncategorised",
+                return CategoryRow(id: key, name: "Untagged",
                                    color: Color(hex: "8F9E94"),
                                    symbol: "ellipsis.circle.fill",
                                    emoji: "🏷️",
@@ -307,7 +316,7 @@ struct PeriodBreakdownBody: View {
             }
             let tag = tagMap[key]
             return CategoryRow(id: key,
-                               name: tag?.name ?? "Unknown",
+                               name: tag?.name ?? "Untagged",
                                color: tag?.tagColor.primaryColor ?? Color(hex: "8F9E94"),
                                symbol: tag?.symbolName ?? (tag?.isGroup == true ? "folder.fill" : "tag.fill"),
                                emoji: tag?.displayEmoji ?? "🏷️",
@@ -317,7 +326,7 @@ struct PeriodBreakdownBody: View {
     }
 
     private func expensesForCategory(_ id: String) -> [ExpenseModel] {
-        visibleExpenses.filter { ($0.resolvedTagIds.first ?? "__none__") == id }
+        visibleExpenses.filter { categoryKey(for: $0) == id }
     }
 
     // MARK: - Weekly bars
@@ -333,7 +342,10 @@ struct PeriodBreakdownBody: View {
     /// out — but only when viewing the live month (a paged-back month has none).
     private var weekBars: [WeekBar] {
         let cal = Calendar.current
-        let showsCurrent = (monthOffset == 0)
+        // "This week" only makes sense when the month on screen IS the live month.
+        // Reports drives the month via monthAnchorOverride and never touches
+        // monthOffset, so compare the displayed month to today rather than the offset.
+        let showsCurrent = cal.isDate(displayedMonthAnchor, equalTo: Date(), toGranularity: .month)
         let currentWeekOfMonth = cal.component(.weekOfMonth, from: Date())
 
         var buckets: [Int: Int] = [:]
@@ -473,19 +485,20 @@ struct PeriodBreakdownBody: View {
             if scopedExpenses.isEmpty {
                 emptyState
             } else {
-                // Serif period heading, on the cream above the card (no eyebrow).
-                Text(displayTitle)
-                    .font(.dmSerifDisplay(25))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
+                // Title now sits inside the card, above the total (no cream heading).
+                // By Week is dropped for a month — the month is the finest drill-in —
+                // but the chart stays for week/year/all-time, whose only viz it is.
+                let showsChart = period != .month && period != .lastMonth
 
-                // One card: total, then By Week, then By Category — internal rules,
-                // not separate tiles.
                 VStack(alignment: .leading, spacing: 0) {
-                    totalBlock
-                        .padding(16)
-                    if !displayBars.isEmpty {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(displayTitle)
+                            .font(.dmSerifDisplay(25))
+                            .foregroundStyle(Color(hex: "1C1C1E"))
+                        totalBlock
+                    }
+                    .padding(16)
+                    if showsChart && !displayBars.isEmpty {
                         cardDivider
                         weekSection
                             .padding(16)
@@ -500,6 +513,9 @@ struct PeriodBreakdownBody: View {
                 .background(Color.white)
                 .clipShape(RoundedRectangle(cornerRadius: 18))
                 .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
+                // Month paging: horizontal swipe on the whole card (the week chart it
+                // used to live on is gone for months). Off where paging is (Reports).
+                .gesture(monthSwipe, including: monthPagingEnabled ? .all : .subviews)
                 .padding(.horizontal, 16)
 
                 // Free tier: ad under the card (full-screen only — the inline
@@ -709,10 +725,23 @@ struct PeriodBreakdownBody: View {
 
     private var categorySection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("BY CATEGORY")
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(Color(hex: "8F9E94"))
-                .tracking(0.5)
+            HStack(spacing: 6) {
+                Text("BY CATEGORY")
+                    .font(.system(size: 10, weight: .semibold))
+                    .tracking(0.5)
+                // Month-paging hint, moved here from the removed week chart.
+                if monthPagingEnabled {
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 9, weight: .semibold))
+                    Text("swipe")
+                        .font(.system(size: 9, weight: .medium))
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(monthOffset < 0 ? Color(hex: "8F9E94") : Color(hex: "D3CDBF"))
+                }
+            }
+            .foregroundStyle(Color(hex: "8F9E94"))
 
             VStack(spacing: 16) {
                 ForEach(categoryRows) { row in

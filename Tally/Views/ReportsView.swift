@@ -10,6 +10,10 @@ struct ReportsView: View {
 
     @State private var selectedPeriod: ReportPeriod = .sixMonths
     @State private var selectedMonthOffset: Int = 0
+    /// Measured content width of the By month card, so the bars can size to a
+    /// shared 6-month scale (fill the width at ≤6 months, that same width scrolling
+    /// at 12).
+    @State private var byMonthWidth: CGFloat = 0
 
     enum ReportPeriod: String, CaseIterable {
         case threeMonths = "3M"
@@ -181,7 +185,15 @@ struct ReportsView: View {
     private var topCategoryForPeriod: TagSpend? {
         var result: [String: [ExpenseModel]] = [:]
         for expense in filteredExpenses {
-            let tagId = expense.resolvedTagIds.first ?? "untagged"
+            // Anything without a resolvable tag (no tag, or a stale/deleted id) is
+            // bucketed as uncategorised — so a dead tag id can't become its own
+            // top category, which is why "Unknown" used to win every period.
+            let tagId: String
+            if let first = expense.resolvedTagIds.first, tags.contains(where: { $0.id == first }) {
+                tagId = first
+            } else {
+                tagId = "untagged"
+            }
             result[tagId, default: []].append(expense)
         }
         let breakdown = result.map { id, expList -> TagSpend in
@@ -192,11 +204,12 @@ struct ReportsView: View {
             }
             let tag = tags.first { $0.id == id }
             return TagSpend(id: id,
-                            name: tag?.name ?? "Unknown",
+                            name: tag?.name ?? "Untagged",
                             color: tag?.tagColor.primaryColor ?? Color(hex: "8F9E94"),
                             emoji: tag?.displayEmoji ?? "🏷️",
                             total: total, expenses: expList)
         }.sorted { $0.total > $1.total }
+        // Prefer a real category; fall back to Untagged only if there's nothing else.
         return breakdown.first { $0.id != "untagged" } ?? breakdown.first
     }
 
@@ -285,9 +298,10 @@ struct ReportsView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
                         headerSection
-                        // One card: period total, monthly avg + top category, then
-                        // the By month chart — split by internal rules.
-                        summaryCard(proxy)
+                        // Summary card: period total + monthly avg + top category.
+                        summaryCard
+                        // The month chart on its own card.
+                        byMonthCard(proxy)
                         // The selected month's full breakdown, inline — the same
                         // component the home-screen breakdown uses.
                         PeriodBreakdownBody(
@@ -367,38 +381,40 @@ struct ReportsView: View {
         Rectangle().fill(Color(hex: "DEDAD2")).frame(height: 0.5)
     }
 
-    private func summaryCard(_ proxy: ScrollViewProxy) -> some View {
+    private var summaryCard: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Dynamic serif heading, on the cream above the card (mirrors the month
-            // heading above the breakdown).
-            Text(totalHeadingLabel)
-                .font(Font.dmSerifDisplay(25))
-                .foregroundStyle(Color(hex: "1C1C1E"))
-                .padding(.horizontal, 16)
-                .padding(.bottom, 12)
+            periodTotalBlock
+                .padding(16)
+            cardDivider
+            metricsDuo
+                .padding(16)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
+        .padding(.horizontal, 16)
+    }
 
-            VStack(alignment: .leading, spacing: 0) {
-                periodTotalBlock
-                    .padding(16)
-                cardDivider
-                metricsDuo
-                    .padding(16)
-                cardDivider
-                byMonthSection(proxy)
-                    .padding(16)
-                    .id("byMonth")
-            }
+    /// By month chart on its own card (was the third section of the summary card).
+    private func byMonthCard(_ proxy: ScrollViewProxy) -> some View {
+        byMonthSection(proxy)
+            .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Color.white)
             .clipShape(RoundedRectangle(cornerRadius: 18))
             .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
             .padding(.horizontal, 16)
-        }
+            .id("byMonth")
     }
 
-    /// Period total + expense count + comparison — mirrors the month total.
+    /// Compact total heading + period total + expense count + comparison.
     private var periodTotalBlock: some View {
         VStack(alignment: .leading, spacing: 6) {
+            Text(totalHeadingLabel.uppercased())
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(Color(hex: "8F9E94"))
+                .tracking(0.8)
             HStack(alignment: .top, spacing: 0) {
                 Text(currencySymbol)
                     .font(.system(size: 22, weight: .regular, design: .monospaced))
@@ -489,66 +505,125 @@ struct ReportsView: View {
     // MARK: - By month chart (bigger, shorter; tap focuses the month)
 
     private func byMonthSection(_ proxy: ScrollViewProxy) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
+        // ≤6 months fill the card width; 12 (1Y) keep that same 6-month bar width
+        // and scroll sideways. The slot is one bar's width in a 6-up layout.
+        let scrollMode = periodMonthCount > 6
+        let slot = byMonthWidth > 0 ? max(28, (byMonthWidth - 12 * 5) / 6) : 48
+
+        return VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 5) {
                 Text("By month")
                     .font(Font.dmSerifDisplay(18))
                     .foregroundStyle(Color(hex: "1C1C1E"))
                 Spacer()
+                if scrollMode {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 9, weight: .semibold))
+                    Text("swipe")
+                        .font(.system(size: 11))
+                    Text("·")
+                }
                 Text(appState.activeCurrency)
                     .font(.system(size: 11))
-                    .foregroundStyle(Color(hex: "8F9E94"))
             }
+            .foregroundStyle(Color(hex: "8F9E94"))
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(alignment: .bottom, spacing: 12) {
-                    ForEach(monthlyBars) { bar in
-                        let isSel = selectedMonthOffset == bar.offset
-                        Button {
-                            Haptics.tap()
-                            withAnimation(.easeInOut(duration: 0.28)) {
-                                selectedMonthOffset = bar.offset
-                            }
-                            // Scroll after the breakdown below has expanded, so the
-                            // By month row lands at the top rather than short.
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    proxy.scrollTo("byMonth", anchor: .top)
-                                }
-                            }
-                        } label: {
-                            VStack(spacing: 6) {
-                                if bar.total > 0 {
-                                    Text(formatAmountCompact(bar.total))
-                                        .font(.system(size: 11, design: .monospaced))
-                                        .foregroundStyle(isSel ? Color(hex: "2F402E") : Color(hex: "A9B0A6"))
-                                        .fontWeight(isSel ? .semibold : .regular)
-                                } else {
-                                    Text(" ").font(.system(size: 11))
-                                }
-
-                                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                    .fill(isSel ? Color(hex: "2F402E") : Color(hex: "D8EBE0"))
-                                    .frame(
-                                        width: isSel ? 48 : 40,
-                                        height: maxMonthlyTotal > 0
-                                            ? max(6, 72 * CGFloat(bar.total / maxMonthlyTotal))
-                                            : 6
-                                    )
-
-                                Text(bar.label)
-                                    .font(.system(size: 12))
-                                    .foregroundStyle(isSel ? Color(hex: "2F402E") : Color(hex: "8F9E94"))
-                                    .fontWeight(isSel ? .semibold : .regular)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .frame(height: 118)
-                .padding(.trailing, 2)
-            }
+            byMonthBars(scrollMode: scrollMode, slot: slot, proxy: proxy)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            GeometryReader { geo in
+                Color.clear
+                    .onAppear { byMonthWidth = geo.size.width }
+                    .onChange(of: geo.size.width) { _, newValue in byMonthWidth = newValue }
+            }
+        )
+    }
+
+    @ViewBuilder
+    private func byMonthBars(scrollMode: Bool, slot: CGFloat, proxy: ScrollViewProxy) -> some View {
+        if scrollMode {
+            ScrollViewReader { sp in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(alignment: .bottom, spacing: 12) {
+                        ForEach(monthlyBars) { bar in
+                            monthBar(bar, width: slot, proxy: proxy)
+                                .id(bar.offset)
+                        }
+                    }
+                    .frame(height: 118)
+                    .padding(.trailing, 2)
+                }
+                // Left fade cues the earlier months you can swipe back to.
+                .overlay(alignment: .leading) {
+                    LinearGradient(colors: [Color.white, Color.white.opacity(0)],
+                                   startPoint: .leading, endPoint: .trailing)
+                        .frame(width: 22)
+                        .allowsHitTesting(false)
+                }
+                // Open on the most recent month (offset 0 sits at the right).
+                .onAppear {
+                    DispatchQueue.main.async {
+                        sp.scrollTo(0, anchor: .trailing)
+                    }
+                }
+            }
+        } else {
+            HStack(alignment: .bottom, spacing: 12) {
+                ForEach(monthlyBars) { bar in
+                    monthBar(bar, width: nil, proxy: proxy)
+                }
+            }
+            .frame(height: 118)
+        }
+    }
+
+    /// One month's bar. `width` nil = fill the flexible column (≤6 months); a value
+    /// pins the column to the shared 6-month slot (scrolling at 12).
+    private func monthBar(_ bar: MonthBar, width: CGFloat?, proxy: ScrollViewProxy) -> some View {
+        let isSel = selectedMonthOffset == bar.offset
+        return Button {
+            Haptics.tap()
+            withAnimation(.easeInOut(duration: 0.28)) {
+                selectedMonthOffset = bar.offset
+            }
+            // Scroll after the breakdown below has expanded, so the By month row
+            // lands at the top rather than short.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    proxy.scrollTo("byMonth", anchor: .top)
+                }
+            }
+        } label: {
+            VStack(spacing: 6) {
+                if bar.total > 0 {
+                    Text(formatAmountCompact(bar.total))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(isSel ? Color(hex: "2F402E") : Color(hex: "A9B0A6"))
+                        .fontWeight(isSel ? .semibold : .regular)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                } else {
+                    Text(" ").font(.system(size: 11))
+                }
+
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(isSel ? Color(hex: "2F402E") : Color(hex: "D8EBE0"))
+                    .frame(
+                        width: width ?? 48,
+                        height: maxMonthlyTotal > 0
+                            ? max(6, 72 * CGFloat(bar.total / maxMonthlyTotal))
+                            : 6
+                    )
+
+                Text(bar.label)
+                    .font(.system(size: 12))
+                    .foregroundStyle(isSel ? Color(hex: "2F402E") : Color(hex: "8F9E94"))
+                    .fontWeight(isSel ? .semibold : .regular)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: width == nil ? .infinity : width)
+        }
+        .buttonStyle(.plain)
     }
 }
