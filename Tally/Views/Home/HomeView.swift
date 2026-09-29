@@ -344,9 +344,17 @@ struct HomeView: View {
                     .ignoresSafeArea()
                 )
 
-            // Keep both views alive in memory — opacity-based switching prevents
+            // Keep tab views alive in memory — opacity-based switching prevents
             // the "closes on first open" bug that occurs when views are destroyed/recreated.
+            // Insights = analytics (the page formerly labelled Reports).
             ReportsView()
+                .background(Color(hex: "F0EDE6").ignoresSafeArea())
+                .opacity(selectedTab == .insights ? 1 : 0)
+                .allowsHitTesting(selectedTab == .insights)
+                .zIndex(50)
+
+            // Reports = the documents hub (build expense reports, export).
+            ReportsHubView()
                 .background(Color(hex: "F0EDE6").ignoresSafeArea())
                 .opacity(selectedTab == .reports ? 1 : 0)
                 .allowsHitTesting(selectedTab == .reports)

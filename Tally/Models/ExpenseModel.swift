@@ -12,6 +12,11 @@ final class ExpenseModel {
     var merchant: String?
     var tagId: String = ""
     var tagIds: [String]? = []
+    /// IDs of the reports (envelopes/dossiers) this expense is clipped into.
+    /// Optional-with-default for a clean additive SwiftData/CloudKit migration —
+    /// a report is a non-exclusive label, so an expense keeps its tags and still
+    /// appears in the timeline and Insights.
+    var reportIds: [String]? = []
     var notes: String?
     /// Names of people the spend was shared with (dinner guests, colleagues).
     /// Free text, remembered across expenses for autocomplete. Optional for a
@@ -31,6 +36,9 @@ final class ExpenseModel {
 
     /// Attendee names, nil-safe for reads.
     var resolvedAttendees: [String] { attendees ?? [] }
+
+    /// Report IDs, nil-safe for reads.
+    var resolvedReportIds: [String] { reportIds ?? [] }
 
     /// Resolved tag IDs — reads from tagIds, falling back to legacy tagId for unmigrated data.
     var resolvedTagIds: [String] {
@@ -97,5 +105,48 @@ extension Sequence where Element == ExpenseModel {
     /// contribute nothing, never silently added at face value.
     func totalCents(in currency: String) -> Int {
         reduce(0) { $0 + ($1.currency == currency ? $1.amountCents : 0) }
+    }
+}
+
+// MARK: - Report (envelope / dossier)
+
+/// A report is the envelope you clip expenses into for a trip, a claim, or tax —
+/// then export and archive. Distinct from tags, which classify the *nature* of an
+/// expense forever; a report is a finite, episodic package. Membership lives on
+/// `ExpenseModel.reportIds` (many-to-many, non-exclusive). Grouped by lifecycle
+/// (active vs archived), not by "report groups". CloudKit-safe: every stored
+/// property has a default or is optional.
+@Model
+final class ReportModel {
+    var id: String = UUID().uuidString
+    var name: String = ""
+    /// The report's cover emoji (like a labelled manila folder). Editable.
+    var emoji: String = "🗂️"
+    var note: String?
+    var createdAt: Date = Date.now
+    var updatedAt: Date = Date.now
+    /// Non-nil once the report is archived / sent. Active reports have nil.
+    var archivedAt: Date?
+    /// Soft-delete for undo, mirroring the expense delete pipeline.
+    var deletedAt: Date?
+    var sortOrder: Int = 0
+
+    var isArchived: Bool { archivedAt != nil }
+
+    init(
+        id: String = UUID().uuidString,
+        name: String = "",
+        emoji: String = "🗂️",
+        note: String? = nil,
+        createdAt: Date = .now,
+        sortOrder: Int = 0
+    ) {
+        self.id = id
+        self.name = name
+        self.emoji = emoji
+        self.note = note
+        self.createdAt = createdAt
+        self.updatedAt = createdAt
+        self.sortOrder = sortOrder
     }
 }

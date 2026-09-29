@@ -335,14 +335,9 @@ struct ReportsView: View {
 
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("INSIGHTS")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(Color(hex: "4A5E50"))
-                .tracking(1.2)
-            Text("Your reports")
+            Text("Insights")
                 .font(Font.dmSerifDisplay(30))
                 .foregroundStyle(Color(hex: "1C1C1E"))
-                .padding(.top, 2)
 
             // Full-width segmented period selector.
             HStack(spacing: 3) {

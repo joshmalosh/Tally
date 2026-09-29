@@ -3,13 +3,15 @@ import UIKit
 
 enum TallyTab {
     case home
-    case reports
     case tags
+    /// Analytics — "how am I tracking" (the page formerly labelled Reports).
+    case insights
+    /// Documents hub — build expense reports and export (the old Export slot).
+    case reports
 }
 
 struct TallyTabBar: View {
     @Binding var selectedTab: TallyTab
-    @Environment(AppState.self) private var appState
     let onFABTap: () -> Void
 
     private let fabDiameter: CGFloat = 79
@@ -40,8 +42,8 @@ struct TallyTabBar: View {
                 tabItem(tab: .home, icon: "house", filledIcon: "house.fill", label: "Home")
                 tabItem(tab: .tags, icon: "tag", filledIcon: "tag.fill", label: "Tags")
                 Spacer().frame(maxWidth: .infinity)
-                tabItem(tab: .reports, icon: "chart.line.uptrend.xyaxis", filledIcon: "chart.line.uptrend.xyaxis", label: "Reports")
-                exportItem
+                tabItem(tab: .insights, icon: "chart.line.uptrend.xyaxis", filledIcon: "chart.line.uptrend.xyaxis", label: "Insights")
+                tabItem(tab: .reports, icon: "doc.text", filledIcon: "doc.text.fill", label: "Reports")
             }
             .frame(height: barHeight + 13)   // +13 ≈ half safe-area, centres icons in visible white zone
             .ignoresSafeArea(edges: .bottom) // allow frame to extend into safe-area region
@@ -73,21 +75,4 @@ struct TallyTabBar: View {
         .buttonStyle(.plain)
     }
 
-    private var exportItem: some View {
-        Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            appState.showingExport = true
-        } label: {
-            VStack(spacing: 3) {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 20))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-                Text("Export")
-                    .font(.system(size: 10))
-                    .foregroundStyle(Color(hex: "8F9E94"))
-            }
-            .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(.plain)
-    }
 }

@@ -70,6 +70,7 @@ struct TallyApp: App {
             let schema = Schema([
                 ExpenseModel.self,
                 TagModel.self,
+                ReportModel.self,
             ])
             do {
                 let config: ModelConfiguration
