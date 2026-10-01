@@ -30,23 +30,46 @@ enum TagSymbolMap {
 
 struct HomeTagBar: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \TagModel.sortOrder) private var allTags: [TagModel]
     @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil })
     private var activeExpenses: [ExpenseModel]
     @Binding var selectedTagId: String?
     @State private var showingAddSheet = false
     @State private var editingTag: TagModel?
-    @State private var wigglingTagId: String?
     // Drive the green scroll-position bar under the tag row.
     @State private var scrollOffset: CGFloat = 0
     @State private var contentWidth: CGFloat = 0
     @State private var viewportWidth: CGFloat = 0
 
+    // Home-screen-style edit mode: long-press a pinned tag to make the row jiggle,
+    // then drag to reorder or tap the ⊖ badge to unpin. `orderedHomeIds` is the live
+    // display order during a drag; `draggingId`/`dragTranslation` float the held card.
+    @State private var isEditing = false
+    @State private var orderedHomeIds: [String] = []
+    @State private var draggingId: String?
+    @State private var dragTranslation: CGFloat = 0
+
+    /// One pinned card plus the row spacing — the reorder stride.
+    private let cardStride: CGFloat = 89 + 8
+
     private var currency: String { appState.activeCurrency }
 
     private var homeTags: [TagModel] {
         allTags.filter { $0.showOnHome && !$0.isGroup }
-            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+            .sorted {
+                if $0.homeSortOrder != $1.homeSortOrder { return $0.homeSortOrder < $1.homeSortOrder }
+                return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+    }
+
+    /// Live display order — the reordered ids while editing, else `homeTags`.
+    private var displayTags: [TagModel] {
+        guard isEditing, !orderedHomeIds.isEmpty else { return homeTags }
+        let byId = Dictionary(uniqueKeysWithValues: homeTags.map { ($0.id, $0) })
+        let ordered = orderedHomeIds.compactMap { byId[$0] }
+        let extra = homeTags.filter { t in !orderedHomeIds.contains(t.id) }
+        return ordered + extra
     }
 
     /// Sum of this year's expenses for a given tag ID.
@@ -110,47 +133,26 @@ struct HomeTagBar: View {
                     iconColor: Color(hex: "346049"),
                     isSelected: selectedTagId == nil
                 ) {
+                    // While editing, the always-visible All card doubles as an exit,
+                    // in case many pins push the Done card past the row's edge.
+                    if isEditing { exitEditMode(); return }
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     withAnimation(.easeInOut(duration: 0.15)) { selectedTagId = nil }
                 }
 
                 // Tag cards
-                ForEach(homeTags) { tag in
-                    let symbol = tag.symbolName ?? tag.icon ?? TagSymbolMap.symbol(for: tag.name)
-                    let primary = tag.tagColor.primaryColor
-                    let iconBg  = primary
-
-                    TagFilterCard(
-                        icon: symbol,
-                        iconEmoji: tag.displayEmoji,
-                        label: tag.name,
-                        amountCents: yearlyTotal(for: tag.id),
-                        currency: currency,
-                        iconBg: iconBg,
-                        iconColor: primary,
-                        isSelected: selectedTagId == tag.id,
-                        isWiggling: wigglingTagId == tag.id,
-                        // iOS "hold to edit" feel: the card shakes + buzzes, then
-                        // the editor slides up a beat later so the shake is seen.
-                        onLongPress: {
-                            wigglingTagId = tag.id
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                editingTag = tag
-                                wigglingTagId = nil
-                            }
-                        }
-                    ) {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            selectedTagId = selectedTagId == tag.id ? nil : tag.id
-                        }
-                    }
+                ForEach(Array(displayTags.enumerated()), id: \.element.id) { index, tag in
+                    pinnedCard(tag, index: index)
                 }
 
-                // "More" card — always last
-                MoreTagCard {
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    showingAddSheet = true
+                // Trailing control: "Pin tag" normally, "Done" while editing.
+                if isEditing {
+                    DoneEditingCard { exitEditMode() }
+                } else {
+                    MoreTagCard {
+                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        showingAddSheet = true
+                    }
                 }
             }
             .padding(.leading, 16)
@@ -167,8 +169,9 @@ struct HomeTagBar: View {
                 }
             )
         }
+        .scrollDisabled(isEditing)   // drags reorder instead of scrolling while editing
 
-        tagScrollIndicator
+        if !isEditing { tagScrollIndicator }
         }
         .sheet(isPresented: $showingAddSheet) {
             AddToHomeBarSheet()
@@ -179,6 +182,171 @@ struct HomeTagBar: View {
             TagCreationView(editingTag: tag)
         }
     }
+
+    // MARK: - Pinned card (edit-mode jiggle / reorder / unpin)
+
+    @ViewBuilder
+    private func pinnedCard(_ tag: TagModel, index: Int) -> some View {
+        let symbol = tag.symbolName ?? tag.icon ?? TagSymbolMap.symbol(for: tag.name)
+        let primary = tag.tagColor.primaryColor
+        let isDragging = draggingId == tag.id
+
+        ZStack(alignment: .topLeading) {
+            TagFilterCard(
+                icon: symbol,
+                iconEmoji: tag.displayEmoji,
+                label: tag.name,
+                amountCents: yearlyTotal(for: tag.id),
+                currency: currency,
+                iconBg: primary,
+                iconColor: primary,
+                isSelected: selectedTagId == tag.id,
+                // Long-press enters edit mode (jiggle), like the iOS Home Screen.
+                onLongPress: { if !isEditing { enterEditMode() } }
+            ) {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    selectedTagId = selectedTagId == tag.id ? nil : tag.id
+                }
+            }
+            // While editing, the card's own tap/long-press are off; the wrapper
+            // handles tap-to-edit, drag-to-reorder and the unpin badge.
+            .allowsHitTesting(!isEditing)
+
+            if isEditing {
+                Button { unpin(tag) } label: {
+                    Image(systemName: "minus")
+                        .font(.system(size: 13, weight: .heavy))
+                        .foregroundStyle(Color(hex: "1C1C1E"))
+                        .frame(width: 24, height: 24)
+                        .background(Color.white)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
+                        .shadow(color: .black.opacity(0.15), radius: 3, x: 0, y: 1)
+                }
+                .buttonStyle(.plain)
+                .offset(x: -6, y: -6)
+            }
+        }
+        .modifier(JiggleModifier(active: isEditing, seed: index))
+        .offset(x: isDragging ? dragTranslation : reorderOffset(for: tag.id, at: index))
+        .zIndex(isDragging ? 1 : 0)
+        .contentShape(Rectangle())
+        .onTapGesture { if isEditing { editingTag = tag } }
+        .gesture(isEditing ? reorderDrag(for: tag.id) : nil)
+    }
+
+    private func reorderDrag(for id: String) -> some Gesture {
+        DragGesture(minimumDistance: 6)
+            .onChanged { value in
+                if draggingId == nil {
+                    draggingId = id
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                }
+                dragTranslation = value.translation.width
+            }
+            .onEnded { _ in commitReorder() }
+    }
+
+    /// Offset applied to a non-dragged card so it slides open a gap for the held one.
+    private func reorderOffset(for id: String, at index: Int) -> CGFloat {
+        guard isEditing, let dragging = draggingId, dragging != id,
+              let from = displayTags.firstIndex(where: { $0.id == dragging }) else { return 0 }
+        let to = targetIndex(from: from)
+        if from < to, index > from, index <= to { return -cardStride }
+        if from > to, index >= to, index < from { return cardStride }
+        return 0
+    }
+
+    private func targetIndex(from: Int) -> Int {
+        let shift = Int((dragTranslation / cardStride).rounded())
+        return min(max(0, from + shift), displayTags.count - 1)
+    }
+
+    private func enterEditMode() {
+        orderedHomeIds = homeTags.map(\.id)
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        withAnimation(.easeInOut(duration: 0.2)) { isEditing = true }
+    }
+
+    private func exitEditMode() {
+        draggingId = nil
+        dragTranslation = 0
+        withAnimation(.easeInOut(duration: 0.2)) { isEditing = false }
+    }
+
+    private func commitReorder() {
+        defer {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                draggingId = nil
+                dragTranslation = 0
+            }
+        }
+        guard let dragging = draggingId,
+              let from = displayTags.firstIndex(where: { $0.id == dragging }) else { return }
+        let to = targetIndex(from: from)
+        var ids = displayTags.map(\.id)
+        let moved = ids.remove(at: from)
+        ids.insert(moved, at: min(to, ids.count))
+        orderedHomeIds = ids
+        let byId = Dictionary(uniqueKeysWithValues: homeTags.map { ($0.id, $0) })
+        for (i, tagId) in ids.enumerated() { byId[tagId]?.homeSortOrder = i }
+        try? modelContext.save()
+    }
+
+    private func unpin(_ tag: TagModel) {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        tag.showOnHome = false
+        try? modelContext.save()
+        withAnimation(.easeInOut(duration: 0.2)) {
+            orderedHomeIds.removeAll { $0 == tag.id }
+        }
+        if homeTags.filter({ $0.id != tag.id }).isEmpty { exitEditMode() }
+    }
+}
+
+// MARK: - iOS-style jiggle
+
+/// A small continuous rotation oscillation, like Home Screen edit mode. `seed`
+/// desyncs neighbours so the row doesn't rock in lockstep.
+private struct JiggleModifier: ViewModifier {
+    let active: Bool
+    let seed: Int
+    @State private var rotated = false
+
+    func body(content: Content) -> some View {
+        let amount: Double = 1.4 + Double(seed % 3) * 0.15
+        return content
+            .rotationEffect(.degrees(active ? (rotated ? amount : -amount) : 0))
+            .animation(active
+                       ? .easeInOut(duration: 0.13 + Double(seed % 2) * 0.02).repeatForever(autoreverses: true)
+                       : .default,
+                       value: rotated)
+            .onChange(of: active) { _, on in rotated = on }
+            .onAppear { if active { rotated = true } }
+    }
+}
+
+// MARK: - Done editing card
+
+private struct DoneEditingCard: View {
+    let onTap: () -> Void
+    var body: some View {
+        Button(action: onTap) {
+            VStack(spacing: 7) {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 21, weight: .semibold))
+                    .foregroundStyle(.white)
+                Text("Done")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 89, height: 89)
+            .background(Color(hex: "2F402E"))
+            .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
+        }
+        .buttonStyle(.plain)
+    }
 }
 
 // MARK: - Tag bar scroll tracking
@@ -187,7 +355,8 @@ struct HomeTagBar: View {
 /// width and bounds width via KVO — reliable where SwiftUI preferences from inside
 /// scroll content are not (mirrors `ListScrollDetector` in HomeView). Placed as a
 /// background on the scroll content so it can walk up to the scroll view.
-private struct HorizontalScrollObserver: UIViewRepresentable {
+/// Shared: the Insights by-month chart reuses it for its own scroll indicator.
+struct HorizontalScrollObserver: UIViewRepresentable {
     /// (contentOffset.x, contentSize.width, bounds.width)
     var onScroll: (CGFloat, CGFloat, CGFloat) -> Void
 

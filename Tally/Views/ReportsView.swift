@@ -14,6 +14,10 @@ struct ReportsView: View {
     /// shared 6-month scale (fill the width at ≤6 months, that same width scrolling
     /// at 12).
     @State private var byMonthWidth: CGFloat = 0
+    /// Drive the green scroll-position indicator under the bars (scroll periods only).
+    @State private var barScrollOffset: CGFloat = 0
+    @State private var barContentWidth: CGFloat = 0
+    @State private var barViewportWidth: CGFloat = 0
 
     enum ReportPeriod: String, CaseIterable {
         case threeMonths = "3M"
@@ -29,8 +33,20 @@ struct ReportsView: View {
         case .threeMonths: return 3
         case .sixMonths:   return 6
         case .oneYear:     return 12
-        case .allTime:     return 6
+        case .allTime:     return allTimeMonthCount
         }
+    }
+
+    /// All Time spans every month from the first logged expense to now (min 6, so a
+    /// brand-new account still reads like the 6-month view). This drives the chart to
+    /// render one bar per month and scroll, instead of collapsing to 6 like 6M.
+    private var allTimeMonthCount: Int {
+        guard let earliest = earliestExpenseDate else { return 6 }
+        let cal = Calendar.current
+        let a = cal.dateComponents([.year, .month], from: earliest)
+        let b = cal.dateComponents([.year, .month], from: Date())
+        let months = (b.year! - a.year!) * 12 + (b.month! - a.month!) + 1
+        return max(6, months)
     }
 
     /// Expenses in the default currency only — mixing currencies without a rate
@@ -294,28 +310,36 @@ struct ReportsView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        headerSection
-                        // Summary card: period total + monthly avg + top category.
-                        summaryCard
-                        // The month chart on its own card.
-                        byMonthCard(proxy)
-                        // The selected month's full breakdown, inline — the same
-                        // component the home-screen breakdown uses.
-                        PeriodBreakdownBody(
-                            period: .month,
-                            expenses: selectedMonthExpenses,
-                            tags: Array(tags),
-                            previousExpenses: previousMonthExpenses,
-                            titleOverride: selectedMonthLabelFull.uppercased(),
-                            allExpenses: [],
-                            showsTopBar: false,
-                            monthAnchorOverride: selectedMonthDate
-                        )
-                        InlineUpgradeAd()
-                        Spacer(minLength: 100)
+            // Pin the scrolling content to the viewport width. Without this, the
+            // horizontal By-month scroll (1Y / All) proposes its wide content size up
+            // the chain and the whole column — heading and cards — grew wider on those
+            // periods. Fixing the content to `outer.size.width` keeps every period the
+            // same width; only the chart's content scrolls.
+            GeometryReader { outer in
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 16) {
+                            headerSection
+                            // Summary card: period total + monthly avg + top category.
+                            summaryCard
+                            // The month chart on its own card.
+                            byMonthCard(proxy)
+                            // The selected month's full breakdown, inline — the same
+                            // component the home-screen breakdown uses.
+                            PeriodBreakdownBody(
+                                period: .month,
+                                expenses: selectedMonthExpenses,
+                                tags: Array(tags),
+                                previousExpenses: previousMonthExpenses,
+                                titleOverride: selectedMonthLabelFull.uppercased(),
+                                allExpenses: [],
+                                showsTopBar: false,
+                                monthAnchorOverride: selectedMonthDate
+                            )
+                            InlineUpgradeAd()
+                            Spacer(minLength: 100)
+                        }
+                        .frame(width: outer.size.width, alignment: .leading)
                     }
                 }
             }
@@ -511,19 +535,14 @@ struct ReportsView: View {
                     .font(Font.dmSerifDisplay(18))
                     .foregroundStyle(Color(hex: "1C1C1E"))
                 Spacer()
-                if scrollMode {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 9, weight: .semibold))
-                    Text("swipe")
-                        .font(.system(size: 11))
-                    Text("·")
-                }
                 Text(appState.activeCurrency)
                     .font(.system(size: 11))
             }
             .foregroundStyle(Color(hex: "8F9E94"))
 
             byMonthBars(scrollMode: scrollMode, slot: slot, proxy: proxy)
+
+            if scrollMode { byMonthScrollIndicator }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
@@ -548,13 +567,14 @@ struct ReportsView: View {
                     }
                     .frame(height: 118)
                     .padding(.trailing, 2)
-                }
-                // Left fade cues the earlier months you can swipe back to.
-                .overlay(alignment: .leading) {
-                    LinearGradient(colors: [Color.white, Color.white.opacity(0)],
-                                   startPoint: .leading, endPoint: .trailing)
-                        .frame(width: 22)
-                        .allowsHitTesting(false)
+                    // KVO on the underlying scroll view drives the green indicator.
+                    .background(
+                        HorizontalScrollObserver { offsetX, contentW, viewportW in
+                            barScrollOffset = offsetX
+                            barContentWidth = contentW
+                            barViewportWidth = viewportW
+                        }
+                    )
                 }
                 // Open on the most recent month (offset 0 sits at the right).
                 .onAppear {
@@ -570,6 +590,25 @@ struct ReportsView: View {
                 }
             }
             .frame(height: 118)
+        }
+    }
+
+    /// Green scroll-position bar under the chart, matching the Home pinned-tag row.
+    /// Sits inside the By month card; shows where you are as you scroll back in time.
+    @ViewBuilder
+    private var byMonthScrollIndicator: some View {
+        let overflow = barContentWidth - barViewportWidth
+        if overflow > 1, barViewportWidth > 0 {
+            let trackWidth = barViewportWidth
+            let thumbWidth = max(28, trackWidth * (barViewportWidth / barContentWidth))
+            let frac = min(1, max(0, barScrollOffset / overflow))
+            ZStack(alignment: .leading) {
+                Capsule().fill(Color(hex: "2F402E").opacity(0.12)).frame(width: trackWidth, height: 3)
+                Capsule().fill(Color(hex: "2F402E")).frame(width: thumbWidth, height: 3)
+                    .offset(x: (trackWidth - thumbWidth) * frac)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 2)
         }
     }
 

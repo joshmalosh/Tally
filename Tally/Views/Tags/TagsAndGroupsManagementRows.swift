@@ -54,13 +54,9 @@ struct TagsAndGroupsManagementRows: View {
     var body: some View {
         Group {
           Section {
-            // Header mirrors the Reports page — eyebrow label + serif title — so
-            // the Tags tab reads as part of the same platform.
+            // Plain serif title, no eyebrow — matches Insights and Reports, which
+            // both dropped their mini-heading.
             VStack(alignment: .leading, spacing: 4) {
-                Text("ORGANISE")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Color(hex: "4A5E50"))
-                    .tracking(1.2)
                 Text("Tags & Groups")
                     .font(.dmSerifDisplay(30))
                     .foregroundStyle(Color(hex: "1C1C1E"))

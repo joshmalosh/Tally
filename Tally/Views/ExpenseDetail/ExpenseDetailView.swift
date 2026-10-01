@@ -12,6 +12,8 @@ struct ExpenseDetailView: View {
 
     @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil }) private var activeExpenses: [ExpenseModel]
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
+    @Query(filter: #Predicate<ReportModel> { $0.deletedAt == nil },
+           sort: \ReportModel.createdAt, order: .reverse) private var reports: [ReportModel]
 
     @State private var showingDeleteConfirmation = false
     @State private var showingLeaveConfirmation = false
@@ -24,11 +26,16 @@ struct ExpenseDetailView: View {
     @State private var merchant = ""
     @State private var notes = ""
     @State private var selectedTagIds: [String] = []
+    /// The single report this expense is clipped into (nil = none). Stored as a
+    /// one-element `reportIds` array on save; the model supports many, but the
+    /// picker here is single-select — one expense belongs to one report at a time.
+    @State private var selectedReportId: String?
     @State private var source: ExpenseSource = .manual
     @State private var attachedFileURL: URL?
     @State private var attachmentKey: String?
 
     @State private var showingTagPicker = false
+    @State private var showingReportPicker = false
     @State private var showingDatePickerSheet = false
     @State private var showingCurrencyPicker = false
     @State private var showingCamera = false
@@ -113,6 +120,11 @@ struct ExpenseDetailView: View {
         selectedTagIds.compactMap { id in tags.first { $0.id == id } }
     }
 
+    private var selectedReport: ReportModel? {
+        guard let id = selectedReportId else { return nil }
+        return reports.first { $0.id == id }
+    }
+
     /// "Group · Child" for a group's sub-tag, plain name otherwise.
     private func chipTitle(for tag: TagModel) -> String {
         if let parentId = tag.parentId, let parent = tags.first(where: { $0.id == parentId }) {
@@ -146,8 +158,6 @@ struct ExpenseDetailView: View {
                                 pdfCard(url: url)
                             }
 
-                            deleteButton
-
                             if !appState.isPro {
                                 BannerAdView()
                                     .padding(.top, Spacing.sm)
@@ -179,6 +189,19 @@ struct ExpenseDetailView: View {
                                 .foregroundStyle(Color(hex: "1C1C1E"))
                         }
                     }
+                    // Green trash — the delete affordance, left of Done. Opens the
+                    // existing delete confirmation; quiet (brand green, not red) so
+                    // it never competes with Done.
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            Haptics.tap()
+                            showingDeleteConfirmation = true
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(Color(hex: "2F402E"))
+                        }
+                    }
                     // Done pill
                     ToolbarItem(placement: .topBarTrailing) {
                         Button {
@@ -206,6 +229,11 @@ struct ExpenseDetailView: View {
                 .sheet(isPresented: $showingTagPicker) {
                     SharedTagPickerSheet(selectedTagIds: $selectedTagIds)
                         .presentationDetents([.large])
+                        .presentationDragIndicator(.visible)
+                }
+                .sheet(isPresented: $showingReportPicker) {
+                    ReportPickerSheet(selectedReportId: $selectedReportId)
+                        .presentationDetents([.medium, .large])
                         .presentationDragIndicator(.visible)
                 }
                 .sheet(isPresented: $showingDatePickerSheet) {
@@ -334,35 +362,38 @@ struct ExpenseDetailView: View {
             .clipped()
             .contentShape(Rectangle())
             .onTapGesture { showingFullImage = true }
-            .overlay(alignment: .bottom) {
-                HStack(spacing: 14) {
-                    Spacer()
-                    Button { presentSheetAfterTouch { showingReplaceReceiptSources = true } } label: {
-                        Text("Replace").font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.white).underline()
+            // Quiet dark-glass pills at the bottom-right, so the controls stop
+            // clashing with the white receipt text they sit over.
+            .overlay(alignment: .bottomTrailing) {
+                HStack(spacing: 8) {
+                    glassControl("arrow.triangle.2.circlepath", "Replace") {
+                        presentSheetAfterTouch { showingReplaceReceiptSources = true }
                     }
-                    .buttonStyle(.plain)
-                    Button {
+                    glassControl("xmark", "Remove") {
                         attachmentImage = nil
                         attachedFileURL = nil
                         attachmentKey   = nil
                         source          = .manual
-                    } label: {
-                        Text("Remove").font(.system(size: 12, weight: .semibold))
-                            .foregroundStyle(.white).underline()
                     }
-                    .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 14)
-                .padding(.top, 30)
-                .padding(.bottom, 12)
-                .frame(maxWidth: .infinity)
-                .background(
-                    LinearGradient(colors: [.clear, .black.opacity(0.45)],
-                                   startPoint: .top, endPoint: .bottom)
-                )
+                .padding(10)
             }
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    /// One dark-glass control pill over the receipt photo.
+    private func glassControl(_ icon: String, _ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon).font(.system(size: 11, weight: .semibold))
+                Text(label).font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12).padding(.vertical, 7)
+            .background(.black.opacity(0.55), in: Capsule())
+            .overlay(Capsule().stroke(.white.opacity(0.16), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 
     // No receipt: a hero amount framed in the tag colour (shorter than the photo).
@@ -413,19 +444,29 @@ struct ExpenseDetailView: View {
         VStack(spacing: 0) {
             Spacer().frame(height: 6)   // small breathing room under the frame
 
+            // With a receipt, the amount is the hero on the paper. Without one, the
+            // tag-frame hero above holds the amount.
             if attachmentImage != nil {
-                amountDetailRow
-                dashedRowDivider
+                heroAmountPaper
+                dashedRowDivider   // tear line under the total
             }
+
+            // Flat docket: Merchant, Date, Tag, Report, [Attendees], Note.
             merchantDetailRow
             dashedRowDivider
             dateDetailRow
             dashedRowDivider
-            noteDetailRow
-            dashedRowDivider
             tagDetailRow
             dashedRowDivider
-            attendeeDetailRow
+            reportDetailRow
+            // Attendees is a report/claim concern — hidden until a report is linked,
+            // but always shown if the expense already has attendees (never hide data).
+            if selectedReportId != nil || !attendees.isEmpty {
+                dashedRowDivider
+                attendeeDetailRow
+            }
+            dashedRowDivider
+            noteDetailRow
 
             Spacer().frame(height: 18)   // clearance above the torn edge
         }
@@ -436,6 +477,50 @@ struct ExpenseDetailView: View {
                 ReceiptTexture()
             }
         )
+    }
+
+    /// Serif hero: the amount with the currency symbol, and the currency code as a
+    /// small pill beside it (tap to change). Merchant lives in its own row below —
+    /// nothing is duplicated here. The no-receipt case keeps the tag-frame hero.
+    private var heroAmountPaper: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 9) {
+            HStack(spacing: 1) {
+                Text(currencySymbol)
+                    .font(.dmSerifDisplay(46))
+                    .foregroundStyle(Color(hex: "2F402E"))
+                TextField("0", text: $amountText)
+                    .keyboardType(CurrencyFormatter.shared.usesDecimals(for: currency) ? .decimalPad : .numberPad)
+                    .font(.dmSerifDisplay(46))
+                    .foregroundStyle(Color(hex: "2F402E"))
+                    .fixedSize(horizontal: true, vertical: false)
+                    .focused($focusedField, equals: .amount)
+                    .onChange(of: amountText) { _, newValue in
+                        let filtered  = newValue.filter { $0.isNumber || $0 == "." }
+                        let parts     = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
+                        let sanitized = parts.count > 1 ? parts[0] + "." + parts.dropFirst().joined() : filtered
+                        if sanitized != newValue { amountText = String(sanitized) }
+                    }
+                    .onChange(of: focusedField) { _, newValue in
+                        if newValue != .amount { formatAmountField() }
+                    }
+            }
+            Button { presentSheetAfterTouch { showingCurrencyPicker = true } } label: {
+                HStack(spacing: 3) {
+                    Text(currency).font(.system(size: 12, weight: .semibold))
+                    Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold))
+                }
+                .foregroundStyle(Color(hex: "7A6F5B"))
+                .padding(.horizontal, 10).padding(.vertical, 4)
+                .background(Color(hex: "EDE6D9"), in: Capsule())
+            }
+            .buttonStyle(.plain)
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
+        .padding(.bottom, 12)
+        .id(Field.amount)
     }
 
     private var dashedRowDivider: some View {
@@ -465,46 +550,6 @@ struct ExpenseDetailView: View {
     }
 
     // MARK: - Detail rows
-
-    private var amountDetailRow: some View {
-        HStack(spacing: 14) {
-            // Currency symbol is the leading square (tap to change currency) — the
-            // single currency indicator, not repeated inside the field.
-            Button { presentSheetAfterTouch { showingCurrencyPicker = true } } label: {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .fill(Color(hex: "E8F0EA"))
-                        .frame(width: 40, height: 40)
-                    Text(currencySymbol)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(Color(hex: "2F402E"))
-                }
-            }
-            .buttonStyle(.plain)
-
-            VStack(alignment: .leading, spacing: 2) {
-                rowLabel("AMOUNT")
-                TextField("0.00", text: $amountText)
-                    .keyboardType(CurrencyFormatter.shared.usesDecimals(for: currency) ? .decimalPad : .numberPad)
-                    .font(.system(size: 22, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color(hex: "1C1C1E"))
-                    .focused($focusedField, equals: .amount)
-                    .onChange(of: amountText) { _, newValue in
-                        let filtered  = newValue.filter { $0.isNumber || $0 == "." }
-                        let parts     = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
-                        let sanitized = parts.count > 1 ? parts[0] + "." + parts.dropFirst().joined() : filtered
-                        if sanitized != newValue { amountText = String(sanitized) }
-                    }
-                    .onChange(of: focusedField) { _, newValue in
-                        if newValue != .amount { formatAmountField() }
-                    }
-            }
-            Spacer(minLength: 8)
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 12)
-        .id(Field.amount)
-    }
 
     /// Previously-used merchant names for the autocomplete chips, filtered by what
     /// is typed. Filters the cached `knownMerchants` (built once on open) so each
@@ -648,6 +693,38 @@ struct ExpenseDetailView: View {
                                     .foregroundStyle(Color(hex: "8F9E94"))
                             }
                         }
+                    }
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color(hex: "C4BFB9"))
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var reportDetailRow: some View {
+        Button { presentSheetAfterTouch { showingReportPicker = true } } label: {
+            HStack(spacing: 14) {
+                tintedIconSquare("folder.fill")
+                VStack(alignment: .leading, spacing: 2) {
+                    rowLabel("REPORT")
+                    if let report = selectedReport {
+                        HStack(spacing: 6) {
+                            Text(report.emoji).font(.system(size: 15))
+                            Text(report.name.isEmpty ? "Untitled report" : report.name)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(Color(hex: "1C1C1E"))
+                                .lineLimit(1)
+                        }
+                    } else {
+                        Text("Add to report...")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color(hex: "C4BFB9"))
                     }
                 }
                 Spacer(minLength: 8)
@@ -847,27 +924,6 @@ struct ExpenseDetailView: View {
         .padding(.horizontal, 16)
     }
 
-    // MARK: - Delete
-
-    private var deleteButton: some View {
-        Button { Haptics.tap(); showingDeleteConfirmation = true } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "trash.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                Text("Delete expense")
-                    .font(.system(size: 15, weight: .semibold))
-            }
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 15)
-            .background(Color.danger)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 16)
-        .padding(.top, Spacing.md)
-    }
-
     // MARK: - Helpers
 
     /// Whether the local edits differ from the saved expense — drives the
@@ -880,6 +936,7 @@ struct ExpenseDetailView: View {
         if merchant.trimmingCharacters(in: .whitespacesAndNewlines) != (expense.merchant ?? "") { return true }
         if notes.trimmingCharacters(in: .whitespacesAndNewlines) != (expense.notes ?? "") { return true }
         if selectedTagIds != expense.resolvedTagIds { return true }
+        if selectedReportId != expense.resolvedReportIds.first { return true }
         if attendees != expense.resolvedAttendees { return true }
         // A name typed but not yet turned into a pill still counts — it's flushed
         // into the list on save.
@@ -981,6 +1038,7 @@ struct ExpenseDetailView: View {
         merchant      = expense.merchant ?? ""
         notes         = expense.notes   ?? ""
         selectedTagIds = expense.resolvedTagIds
+        selectedReportId = expense.resolvedReportIds.first
         attendees      = expense.resolvedAttendees
         source         = ExpenseSource(rawValue: expense.source) ?? .manual
         attachmentKey  = expense.attachmentKey
@@ -1144,9 +1202,10 @@ struct ExpenseDetailView: View {
         expense.amountCents   = amountCents
         expense.currency      = currency
         expense.date          = date
-        expense.merchant      = merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : merchant
+        expense.merchant      = merchant.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : merchant.trimmingCharacters(in: .whitespacesAndNewlines).capitalisedMerchant
         expense.tagIds        = selectedTagIds
         expense.tagId         = selectedTagIds.first ?? ""
+        expense.reportIds     = selectedReportId.map { [$0] } ?? []
         expense.attendees     = attendees
         expense.notes         = notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : notes
         expense.attachmentKey  = savedKey

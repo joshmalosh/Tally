@@ -18,6 +18,8 @@ struct AddExpenseView: View {
     @Environment(AppState.self) private var appState
     @Environment(AdManager.self) private var adManager
     @Query(sort: \TagModel.sortOrder) private var tags: [TagModel]
+    @Query(filter: #Predicate<ReportModel> { $0.deletedAt == nil },
+           sort: \ReportModel.createdAt, order: .reverse) private var reports: [ReportModel]
     @State private var allExpenses: [ExpenseModel] = []
 
     var initialMode: AddEntryMode = .manual
@@ -40,6 +42,10 @@ struct AddExpenseView: View {
     @State private var descriptionText = ""
     @State private var notes = ""
     @State private var selectedTagIds: [String] = []
+    /// The single report this new expense is clipped into (nil = none). Written as a
+    /// one-element `reportIds` array on save. Mirrors the edit screen's REPORT row.
+    @State private var selectedReportId: String?
+    @State private var showingReportPicker = false
     @State private var source: ExpenseSource = .manual
 
     @State private var attachedImage: UIImage?
@@ -194,6 +200,11 @@ struct AddExpenseView: View {
 
     private var selectedTags: [TagModel] {
         selectedTagIds.compactMap { id in tags.first { $0.id == id } }
+    }
+
+    private var selectedReport: ReportModel? {
+        guard let id = selectedReportId else { return nil }
+        return reports.first { $0.id == id }
     }
 
     /// "Group · Child" for a group's sub-tag, plain name otherwise.
@@ -487,6 +498,11 @@ struct AddExpenseView: View {
                     .presentationDetents([.large])
                     .presentationDragIndicator(.visible)
             }
+            .sheet(isPresented: $showingReportPicker) {
+                ReportPickerSheet(selectedReportId: $selectedReportId)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
             .sheet(isPresented: $showingCurrencyPicker) {
                 CurrencyPickerSheet(selectedCode: $currency)
                     .presentationDetents([.large])
@@ -625,22 +641,30 @@ struct AddExpenseView: View {
             // Edit-screen row format: tinted icon square + label-above-value,
             // separated by dashed dividers, on the white receipt body.
             VStack(spacing: 0) {
-                receiptAmountRow
+                // Amount is the serif hero (with inline currency). Flat docket
+                // below: Merchant, Date, Tag, Report, [Attendees], Note.
+                receiptHeroAmount
                 receiptDashedDivider
+
                 receiptMerchantRow
                 receiptDashedDivider
                 receiptDateRowMatched
                 receiptDashedDivider
-                receiptNoteRow
-                receiptDashedDivider
                 receiptTagRow
                 receiptDashedDivider
-                receiptAttendeeRow
+                receiptReportRow
+                // Attendees is a report/claim concern — hidden until a report is
+                // linked (or the expense already has attendees).
+                if selectedReportId != nil || !attendees.isEmpty {
+                    receiptDashedDivider
+                    receiptAttendeeRow
+                }
                 receiptDashedDivider
-                // Recurring stays a card (toggle + interval chips) — add-only, and
-                // sits inside the receipt so the torn edge is below it.
-                quickAddRecurringCard
-                    .padding(.top, 6)
+                receiptNoteRow
+                receiptDashedDivider
+                // Recurring is folded into the docket as a plain row with a toggle
+                // (add-only), so the whole page reads as one continuous receipt.
+                receiptRecurringRow
             }
             .padding(.top, 6)
             .padding(.bottom, 26)   // clearance above the torn edge
@@ -1261,6 +1285,8 @@ struct AddExpenseView: View {
 
     // MARK: - Quick Add: Recurring card
 
+    /// Recurring as a bordered card — used by the manual quick-add mode, whose
+    /// fields all speak the rounded-card language (not the receipt-row language).
     private var quickAddRecurringCard: some View {
         VStack(spacing: 0) {
             Button {
@@ -1330,6 +1356,56 @@ struct AddExpenseView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
         .padding(.horizontal, 16)
+        .animation(.easeInOut(duration: 0.2), value: isRecurring)
+    }
+
+    /// Recurring as an integrated docket row (icon tile + label + toggle), matching
+    /// the other receipt rows. When on, the interval chips reveal beneath it,
+    /// indented under the value — no separate bounding box.
+    private var receiptRecurringRow: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 14) {
+                receiptTintedSquare("arrow.2.squarepath")
+                VStack(alignment: .leading, spacing: 2) {
+                    receiptRowLabel("RECURRING")
+                    Text(isRecurring ? "Repeats \(recurringInterval.adverb)" : "One-off expense")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(isRecurring ? Color(hex: "1C1C1E") : Color(hex: "8F9E94"))
+                }
+                Spacer(minLength: 8)
+                Toggle("", isOn: $isRecurring.animation(.easeInOut(duration: 0.2)))
+                    .labelsHidden()
+                    .tint(Color(hex: "2F402E"))
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 10)
+
+            if isRecurring {
+                HStack(spacing: 8) {
+                    ForEach(RecurringInterval.allCases, id: \.self) { interval in
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) { recurringInterval = interval }
+                        } label: {
+                            Text(interval.rawValue)
+                                .font(.system(size: 12, weight: .semibold))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.85)
+                                .foregroundStyle(recurringInterval == interval ? .white : Color(hex: "2F402E").opacity(0.7))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 8)
+                                .frame(maxWidth: .infinity)
+                                .background(recurringInterval == interval ? Color(hex: "2F402E") : Color(hex: "F0EDE6"))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.leading, 74)
+                .padding(.trailing, 18)
+                .padding(.bottom, 12)
+                .transition(.opacity)
+            }
+        }
         .animation(.easeInOut(duration: 0.2), value: isRecurring)
     }
 
@@ -1453,34 +1529,32 @@ struct AddExpenseView: View {
         return cachedKnownMerchants.filter { $0.lowercased().contains(q) && $0.lowercased() != q }.prefix(6).map { $0 }
     }
 
-    /// Amount row — currency symbol as the tappable leading square, then the field.
-    private var receiptAmountRow: some View {
-        HStack(spacing: 14) {
-            Button { presentSheetAfterTouch { showingCurrencyPicker = true } } label: {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .fill(Color(hex: "E8F0EA"))
-                        .frame(width: 40, height: 40)
-                    Text(currencySymbol)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(Color(hex: "2F402E"))
-                }
-            }
-            .buttonStyle(.plain)
+    /// Serif hero amount on the paper (currency prefix + New York serif field),
+    /// with the merchant beneath — matches the edit screen's docket.
+    private static let heroSerifUIFont: UIFont = {
+        let base = UIFont.systemFont(ofSize: 46, weight: .regular)
+        let desc = base.fontDescriptor.withDesign(.serif) ?? base.fontDescriptor
+        return UIFont(descriptor: desc, size: 46)
+    }()
 
-            VStack(alignment: .leading, spacing: 2) {
-                receiptRowLabel("AMOUNT")
+    private var receiptHeroAmount: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 9) {
+            HStack(spacing: 1) {
+                Text(currencySymbol)
+                    .font(.dmSerifDisplay(46))
+                    .foregroundStyle(Color(hex: "2F402E"))
                 NumericFieldWithDone(
                     text: $amountText,
                     keyboardType: usesDecimalCurrency ? .decimalPad : .numberPad,
-                    font: UIFont.monospacedSystemFont(ofSize: 22, weight: .semibold),
+                    font: Self.heroSerifUIFont,
                     textAlignment: .left,
                     focusRequested: amountFocusRequested,
-                    placeholder: zeroAmountPlaceholder,
+                    placeholder: "0",
                     onBeginEditing: { DispatchQueue.main.async { focusedField = .amount } },
                     onDone: { amountFocusRequested = false; focusedField = nil }
                 )
-                .frame(height: 28)
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(height: 54)
                 .onChange(of: amountText) { _, newValue in
                     let sanitized = sanitizeAmountInput(newValue)
                     if sanitized != newValue { amountText = sanitized }
@@ -1489,10 +1563,22 @@ struct AddExpenseView: View {
                     if newValue != .amount { formatAmount() }
                 }
             }
-            Spacer(minLength: 8)
+            Button { presentSheetAfterTouch { showingCurrencyPicker = true } } label: {
+                HStack(spacing: 3) {
+                    Text(currency).font(.system(size: 12, weight: .semibold))
+                    Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold))
+                }
+                .foregroundStyle(Color(hex: "7A6F5B"))
+                .padding(.horizontal, 10).padding(.vertical, 4)
+                .background(Color(hex: "EDE6D9"), in: Capsule())
+            }
+            .buttonStyle(.plain)
+            Spacer(minLength: 0)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
+        .padding(.bottom, 12)
     }
 
     private var receiptMerchantRow: some View {
@@ -1627,6 +1713,41 @@ struct AddExpenseView: View {
         .buttonStyle(.plain)
     }
 
+    /// REPORT row — mirrors receiptTagRow, sits directly under it. Single-select
+    /// half-sheet (None / active reports / Create new). Same anatomy as the edit
+    /// screen so add and edit read identically.
+    private var receiptReportRow: some View {
+        Button { presentSheetAfterTouch { showingReportPicker = true } } label: {
+            HStack(spacing: 14) {
+                receiptTintedSquare("folder.fill")
+                VStack(alignment: .leading, spacing: 2) {
+                    receiptRowLabel("REPORT")
+                    if let report = selectedReport {
+                        HStack(spacing: 6) {
+                            Text(report.emoji).font(.system(size: 15))
+                            Text(report.name.isEmpty ? "Untitled report" : report.name)
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundStyle(Color(hex: "1C1C1E"))
+                                .lineLimit(1)
+                        }
+                    } else {
+                        Text("Add to report...")
+                            .font(.system(size: 15))
+                            .foregroundStyle(Color(hex: "C4BFB9"))
+                    }
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color(hex: "C4BFB9"))
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
     /// Just the receipt image (rounded, with the Replace/Remove controls). The
     /// tag-colour frame and torn edge are applied by the wrapper in
     /// `receiptImageAttachedFormBlock`, which extends the receipt down behind all
@@ -1676,19 +1797,15 @@ struct AddExpenseView: View {
         }
         .frame(height: 220)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        // Bottom-right: Replace/Remove. Tap the receipt itself to open full-screen.
+        // Bottom-right: quiet dark-glass Replace/Remove pills. Tap the receipt
+        // itself to open full-screen.
         .overlay(alignment: .bottomTrailing) {
             if attachedImage != nil {
-                HStack(spacing: 12) {
-                    Button { presentSheetAfterTouch { showingReplaceReceiptSources = true } } label: {
-                        Text("Replace")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.7))
-                            .underline()
+                HStack(spacing: 8) {
+                    glassControl("arrow.triangle.2.circlepath", "Replace") {
+                        presentSheetAfterTouch { showingReplaceReceiptSources = true }
                     }
-                    .buttonStyle(.plain)
-
-                    Button {
+                    glassControl("xmark", "Remove") {
                         attachedImage = nil
                         attachedFileURL = nil
                         attachmentKey = nil
@@ -1696,18 +1813,26 @@ struct AddExpenseView: View {
                         enteredViaPhotoFlow = true
                         ocrPopulatedAnyField = false
                         dateManuallyEdited = false
-                    } label: {
-                        Text("Remove")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.7))
-                            .underline()
                     }
-                    .buttonStyle(.plain)
                 }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 10)
+                .padding(10)
             }
         }
+    }
+
+    /// One dark-glass control pill over the receipt photo.
+    private func glassControl(_ icon: String, _ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 5) {
+                Image(systemName: icon).font(.system(size: 11, weight: .semibold))
+                Text(label).font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12).padding(.vertical, 7)
+            .background(.black.opacity(0.55), in: Capsule())
+            .overlay(Capsule().stroke(.white.opacity(0.16), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 
 
@@ -2508,7 +2633,7 @@ struct AddExpenseView: View {
                         currency: currency,
                         date: date,
                         description: descriptionText.isEmpty ? nil : descriptionText,
-                        merchant: merchant.isEmpty ? nil : merchant,
+                        merchant: merchant.isEmpty ? nil : merchant.capitalisedMerchant,
                         tagIds: selectedTagIds,
                         notes: notes.isEmpty ? nil : notes,
                         attendees: attendees,
@@ -2518,6 +2643,7 @@ struct AddExpenseView: View {
                         isRecurring: isRecurring,
                         wasAutoScanned: ocrPopulatedAnyField
                     )
+                    expense.reportIds = selectedReportId.map { [$0] } ?? []
                     modelContext.insert(expense)
                     do {
                         try modelContext.save()

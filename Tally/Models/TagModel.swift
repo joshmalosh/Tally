@@ -28,6 +28,11 @@ final class TagModel {
     var isSystemTag: Bool = false // System tags cannot be deleted by the user
     var sortOrder: Int = 0
     var showOnHome: Bool = false
+    /// Order within the Home pinned-tag bar, independent of `sortOrder` (which
+    /// drives the Tags management list). Non-optional-with-default keeps the
+    /// CloudKit migration additive; existing pins default to 0 and tie-break on
+    /// name until the user drags to reorder. Set when the user reorders the bar.
+    var homeSortOrder: Int = 0
     var parentId: String?
     var isGroup: Bool = false
 

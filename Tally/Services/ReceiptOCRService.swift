@@ -1151,12 +1151,40 @@ enum ReceiptOCRService {
             let n = candidate.lowercased()
             return masthead.contains { $0.text.lowercased().contains(n) }
         }
+        // A repeated line item carries a price on its own printed line, or a
+        // unit-rate line directly beneath its name ("Apple Pink Lady" bought
+        // twice, "0.652 kg NET @ $7.50/kg" underneath). A wordmark or letterhead
+        // line never does. On a short-header receipt the first items sit inside
+        // the top-40% masthead, so `inMasthead` alone let a twice-bought item beat
+        // the one-word "Woolworths" wordmark — this priced-item test is what the
+        // repeated item can't pass and the wordmark can.
+        func isPricedItem(_ candidate: String) -> Bool {
+            let needle = candidate.lowercased()
+            for nameBlock in blocks where nameBlock.text.lowercased().contains(needle) {
+                let nb = nameBlock.boundingBox
+                for other in blocks where other.boundingBox != nb {
+                    let o = other.boundingBox
+                    // Same printed line, or the line immediately below the name
+                    // (a weighed item's rate prints under its name).
+                    let sameRow = sameLine(o, nb)
+                    let lineBelow = o.midY < nb.midY
+                        && (nb.midY - o.midY) <= nb.height * 1.8
+                        && o.maxX > nb.minX && o.minX < nb.maxX
+                    guard sameRow || lineBelow else { continue }
+                    if looksLikeMoney(other.text) || matches(amountExclusionPattern, other.text) {
+                        return true
+                    }
+                }
+            }
+            return false
+        }
         let recurringPhrase = deduped
             .filter { $0.split(whereSeparator: \.isWhitespace).count >= 2
                       && appearances($0) >= 2
                       && inMasthead($0)
                       && !matches(streetCentreSuffixPattern, $0)
-                      && !isPlaceFragment($0) }
+                      && !isPlaceFragment($0)
+                      && !isPricedItem($0) }
             .max { $0.count < $1.count }
         if let anchor = recurringPhrase {
             // Return the fullest form of that name, e.g. the letterhead

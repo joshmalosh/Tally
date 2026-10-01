@@ -88,6 +88,21 @@ final class ExpenseModel {
     }
 }
 
+// MARK: - Merchant formatting
+
+extension String {
+    /// Merchant names always display capitalised, even when they came from OCR.
+    /// Each lowercase-leading word gets an uppercase first letter, while an
+    /// existing all-caps wordmark (WOOLWORTHS) is left intact. So "apple pink
+    /// lady" → "Apple Pink Lady", "meijer" → "Meijer", "WOOLWORTHS" unchanged.
+    var capitalisedMerchant: String {
+        split(separator: " ").map { word -> String in
+            if word.count > 1 && word.allSatisfy({ !$0.isLowercase }) { return String(word) }
+            return word.prefix(1).uppercased() + word.dropFirst()
+        }.joined(separator: " ")
+    }
+}
+
 // MARK: - Currency-safe aggregation
 
 /// The app has no FX, so a total across mixed currencies is meaningless. Every

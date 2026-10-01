@@ -384,6 +384,45 @@ final class ReceiptOCRServiceTests: XCTestCase {
         XCTAssertEqual(result.amount ?? -1, 19.75, accuracy: 0.001)
     }
 
+    // MARK: - Woolworths (Kellyville, Apple Pink Lady ×2) — a twice-bought item,
+    // not the wordmark. Short header, so the first items sit inside the top-40%
+    // masthead; "Apple Pink Lady" recurs and used to win the recurring-phrase
+    // boost over the one-word "Woolworths". A priced line item (rate line beneath
+    // the name) must not be a recurring-merchant anchor. Real receipt, 29/09/2026.
+
+    func testWoolworths_kellyville_recurringItem_wordmarkWins() {
+        let lines: [(text: String, box: CGRect)] = [
+            ("Woolworths O",          CGRect(x: 0.30, y: 0.955, width: 0.30, height: 0.030)),
+            ("The fresh food people", CGRect(x: 0.33, y: 0.935, width: 0.24, height: 0.013)),
+            blk("Woolworths",                       x: 0.40, y: 0.918, w: 0.18),
+            blk("1347 Kellyville  PH: 02 9677 6447", x: 0.22, y: 0.905, w: 0.50),
+            blk("88 Wrights Road",                  x: 0.38, y: 0.893, w: 0.22),
+            blk("TAX INVOICE - ABN 88 000 014 675", x: 0.24, y: 0.881, w: 0.46),
+            blk("POS 070 TRANS 8746 14:50 29/09/2026", x: 0.20, y: 0.869, w: 0.55),
+            // Items — "Apple Pink Lady" twice, each above its per-kg rate line.
+            blk("Apple Pink Lady", x: 0.10, y: 0.850, w: 0.25), blk("$", x: 0.76, y: 0.850, w: 0.03),
+            blk("0.652 kg NET @ $7.50/kg", x: 0.13, y: 0.840, w: 0.30), blk("4.89", x: 0.75, y: 0.840, w: 0.08),
+            blk("Apple Pink Lady", x: 0.10, y: 0.828, w: 0.25),
+            blk("0.152 kg NET @ $7.50/kg", x: 0.13, y: 0.818, w: 0.30), blk("1.14", x: 0.75, y: 0.818, w: 0.08),
+            blk("Broccoli", x: 0.10, y: 0.806, w: 0.16),
+            blk("0.447 kg NET @ $4.50/kg", x: 0.13, y: 0.796, w: 0.30), blk("2.01", x: 0.75, y: 0.796, w: 0.08),
+            blk("^ UT Oats Quick 1kg", x: 0.10, y: 0.784, w: 0.28), blk("5.00", x: 0.75, y: 0.784, w: 0.08),
+            blk("WW Pork & Beef Mince 500g", x: 0.10, y: 0.772, w: 0.32), blk("6.25", x: 0.75, y: 0.772, w: 0.08),
+            blk("Berry Strawberry 250g P/P", x: 0.10, y: 0.760, w: 0.32), blk("4.00", x: 0.75, y: 0.760, w: 0.08),
+            blk("Bazaar Lebanese Brd White 6pk", x: 0.10, y: 0.748, w: 0.34), blk("4.50", x: 0.75, y: 0.748, w: 0.08),
+            blk("7 SUBTOTAL", x: 0.22, y: 0.720, w: 0.16), blk("$27.79", x: 0.72, y: 0.720, w: 0.10),
+            blk("TOTAL", x: 0.22, y: 0.705, w: 0.10), blk("$27.79", x: 0.72, y: 0.705, w: 0.10),
+            // Savings must not win the amount.
+            blk("You saved $1.50", x: 0.30, y: 0.470, w: 0.36),
+            blk("Specials", x: 0.22, y: 0.450, w: 0.14), blk("$1.50", x: 0.72, y: 0.450, w: 0.10),
+            blk("Join Everyday Rewards today!", x: 0.24, y: 0.360, w: 0.48),
+        ]
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertEqual(result.merchant, "Woolworths", "wordmark, not the twice-bought item")
+        XCTAssertNotEqual(result.merchant, "Apple Pink Lady", "a priced line item is never the merchant")
+        XCTAssertEqual(result.amount ?? -1, 27.79, accuracy: 0.001)
+    }
+
     // MARK: - Orientation — the Woolworths photo Vision read sideways.
 
     // The real miss wasn't the block scoring (the header tests above already
