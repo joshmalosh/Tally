@@ -579,15 +579,31 @@ enum ReceiptOCRService {
             if text.contains("₹") { symbolVotes["INR", default: 0] += 1 }
         }
 
-        // An explicit code wins; otherwise an unambiguous symbol.
+        // An explicit ISO code always wins.
         if let best = codeVotes.max(by: { $0.value < $1.value }) { return best.key }
-        if let best = symbolVotes.max(by: { $0.value < $1.value }) { return best.key }
+
+        // A foreign symbol (€/£/¥/₹) overrides the user's default only when it's
+        // trustworthy. A LONE such symbol on a receipt that also prints "$" is
+        // almost always a misread glyph — "@" read as "€" on a menu line
+        // ("Latte € $5.00"), or a stylised logo. So it must be corroborated
+        // (appear on ≥2 numbered lines) OR stand on a receipt with no "$" to
+        // contradict it. Otherwise we fall through to the place name, then nil
+        // (the user's selected currency), per "default to the selected currency
+        // unless something clearly says otherwise". An Australian "$" receipt
+        // with one stray "€" stays AUD; a genuine euro receipt (only "€", no "$")
+        // stays EUR.
+        let dollarPresent = blocks.contains {
+            $0.text.contains("$") && $0.text.contains(where: \.isNumber)
+        }
+        if let best = symbolVotes.max(by: { $0.value < $1.value }),
+           best.value >= 2 || !dollarPresent {
+            return best.key
+        }
 
         // Last resort: the receipt names where it was issued. Shops print their
         // country or state in the letterhead far more reliably than they print
         // a currency code, and a place name is unambiguous in a way a bare "$"
-        // never is. Only reached when nothing above voted, so an explicit
-        // marker always beats it.
+        // never is.
         return currencyFromPlaceName(in: blocks)
     }
 
@@ -1266,7 +1282,30 @@ enum ReceiptOCRService {
     /// tests — AU states, US states, Canadian provinces.
     private static let regionCodes: Set<String> = Set(regionCodeAlternation.split(separator: "|").map(String.init))
 
+    /// Country/nation names that appear in a receipt's address block. A bare one
+    /// is an address line, never a merchant — "Australia 3000" becomes "Australia"
+    /// once the postcode is stripped and would otherwise win. Whole-string match
+    /// only, so a real business keeps its name ("Australia Post", "Bank of China").
+    private static let countryNames: Set<String> = [
+        "australia", "new zealand", "united states", "united states of america",
+        "usa", "u.s.a.", "america", "united kingdom", "uk", "u.k.", "canada",
+        "singapore", "indonesia", "malaysia", "thailand", "philippines", "vietnam",
+        "china", "india", "japan", "hong kong", "switzerland", "germany", "france",
+        "italy", "spain", "portugal", "netherlands", "ireland", "england",
+        "scotland", "wales", "greece"
+    ]
+
     private static func dropTrailingStoreNumber(_ text: String) -> String {
+        // "<Business> - <street/branch address>" — a " - " separates the shop name
+        // from its location, and the address carries a number ("Zuppa - 717
+        // Bourke", "Jack In The Box - #6570"). When the part after " - " has a
+        // digit, the name is the part before it. If that leading part still has a
+        // digit ("Shop 5 - 12 Main St"), it stays disqualified downstream anyway.
+        if let dash = text.range(of: " - "),
+           text[dash.upperBound...].contains(where: \.isNumber) {
+            return String(text[..<dash.lowerBound]).trimmingCharacters(in: .whitespaces)
+        }
+
         let tokens = text.split(separator: " ")
         guard tokens.count >= 2, let last = tokens.last else { return text }
         // The store number is the last token: bare digits ("WOOLWORTHS 1659") or
@@ -1344,6 +1383,9 @@ enum ReceiptOCRService {
             let raw = dropTrailingStoreNumber(block.text.trimmingCharacters(in: .whitespacesAndNewlines))
             guard raw.count >= 2 else { continue }
             if raw.contains(where: { $0.isNumber }) { continue }
+
+            // A bare country name is an address line, never a merchant.
+            if countryNames.contains(raw.lowercased()) { continue }
 
             // Never use a label-value line ("Sale Staff: Melissa") — whether the
             // label is in this block or in a sibling block on the same line.

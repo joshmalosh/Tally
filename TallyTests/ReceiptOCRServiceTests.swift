@@ -575,6 +575,37 @@ final class ReceiptOCRServiceTests: XCTestCase {
         XCTAssertNil(ReceiptOCRService.extractForTesting(lines).currencyCode)
     }
 
+    // MARK: - Zuppa (Melbourne) — a misread "@" prints "€" on a menu line, and
+    // the country address line "Australia 3000" shadows the "Zuppa - 717 Bourke"
+    // header. The lone "€" on a receipt full of "$" must not flip it to euros, and
+    // "Australia" (an address country) must not win the merchant over "Zuppa".
+    func testZuppa_strayEuroStaysLocal_andMerchantIsZuppa() {
+        let lines: [(text: String, box: CGRect)] = [
+            blk("Zuppa - 717 Bourke", x: 0.34, y: 0.874, w: 0.27),
+            blk("117 Bourke St, Melbourne VIC", x: 0.27, y: 0.856, w: 0.42),
+            blk("Australia 3000", x: 0.37, y: 0.842, w: 0.21),
+            blk("ABN: 57606607407", x: 0.36, y: 0.807, w: 0.24),
+            blk("TAX INVOICE", x: 0.35, y: 0.763, w: 0.26),
+            blk("Egg & Sausage", x: 0.22, y: 0.626, w: 0.20),
+            blk("Muffin @ $7.00", x: 0.42, y: 0.627, w: 0.22),
+            blk("1 x", x: 0.43, y: 0.612), blk("$6.00 = $6.00", x: 0.54, y: 0.610, w: 0.19),
+            blk("Piccolo @ $5.00", x: 0.22, y: 0.555, w: 0.23),
+            blk("1 x", x: 0.43, y: 0.522), blk("$5.00 = $5.00", x: 0.54, y: 0.522, w: 0.19),
+            blk("Latte € $5.00", x: 0.22, y: 0.501, w: 0.20),
+            blk("1 x", x: 0.43, y: 0.429), blk("$5.00 = $5.00", x: 0.54, y: 0.430, w: 0.19),
+            blk("Subtotal: $22.00", x: 0.50, y: 0.375, w: 0.24),
+            blk("Total: $22.00", x: 0.43, y: 0.347, w: 0.31),
+            blk("GST Included In Total:", x: 0.30, y: 0.326, w: 0.34), blk("$2.00", x: 0.64, y: 0.325),
+            blk("Paid in Credit Card: $22.00", x: 0.33, y: 0.286, w: 0.41),
+            blk("ZUPPA", x: 0.44, y: 0.017),
+        ]
+        amount(22.00, from: lines)
+        let result = ReceiptOCRService.extractForTesting(lines)
+        XCTAssertEqual(result.merchant, "Zuppa", "the header name, not the country address line")
+        XCTAssertEqual(result.currencyCode, "AUD",
+                       "a lone misread € on a $-receipt stays local via the Australia letterhead")
+    }
+
     // Backstop: promo boilerplate is never the merchant, even when it is the
     // only candidate left. Returning nothing beats returning a marketing slogan.
     func testPromoBanner_neverBecomesMerchant() {
