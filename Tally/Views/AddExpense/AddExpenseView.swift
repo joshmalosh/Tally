@@ -640,28 +640,31 @@ struct AddExpenseView: View {
 
             // Edit-screen row format: tinted icon square + label-above-value,
             // separated by dashed dividers, on the white receipt body.
-            // Grouped to keep this docket shallow too (see manualEntryFormBlock):
-            // a flat 14-child VStack nests ~13 deep via @ViewBuilder and can
-            // overflow the view-building stack on-device. Groups lay out identically.
+            // Each sub-docket is type-erased with AnyView. The whole screen is one
+            // enormous nested `some View` type; building it made the Swift runtime
+            // demangler recurse ~80 frames deep and overflow the stack on-device.
+            // AnyView truncates the type at each boundary so no single type is deep
+            // enough to overflow; a VStack(spacing:0) inside each keeps the layout
+            // byte-for-byte identical.
             VStack(spacing: 0) {
                 // Amount is the serif hero (with inline currency). Flat docket
                 // below: Merchant, Date, Tag, Report, [Attendees], Note.
-                Group {
+                AnyView(VStack(spacing: 0) {
                     receiptHeroAmount
                     receiptDashedDivider
                     receiptMerchantRow
                     receiptDashedDivider
-                }
-                Group {
+                })
+                AnyView(VStack(spacing: 0) {
                     receiptDateRowMatched
                     receiptDashedDivider
                     receiptTagRow
                     receiptDashedDivider
                     receiptReportRow
-                }
+                })
                 // Attendees is a report/claim concern — hidden until a report is
                 // linked (or the expense already has attendees).
-                Group {
+                AnyView(VStack(spacing: 0) {
                     if selectedReportId != nil || !attendees.isEmpty {
                         receiptDashedDivider
                         receiptAttendeeRow
@@ -672,7 +675,7 @@ struct AddExpenseView: View {
                     // Recurring is folded into the docket as a plain row with a toggle
                     // (add-only), so the whole page reads as one continuous receipt.
                     receiptRecurringRow
-                }
+                })
             }
             .padding(.top, 6)
             .padding(.bottom, 26)   // clearance above the torn edge
@@ -715,26 +718,28 @@ struct AddExpenseView: View {
         // Manual entry now uses the SAME docket as the receipt flow — just with no
         // photo (an "Add receipt" row sits at the top instead) and the amount field
         // focused on open. Snapping a receipt from here swaps in the photo docket.
-        // Rows are grouped so the whole docket isn't one flat 16-child VStack.
-        // @ViewBuilder chains children pairwise (buildPartialBlock), so 16 rows
-        // become a ~15-deep nested view type; the runtime walks that nesting
-        // recursively and overflowed the stack on-device (iOS 26). Each Group is
-        // a shallow, separate subtree, and a Group inside a VStack lays out
-        // identically — so this is depth reduction with no visual change.
+        // Each sub-docket is type-erased with AnyView. The whole AddExpenseView is
+        // one enormous nested `some View` type; building it made the Swift runtime
+        // demangler recurse ~80 frames deep and overflow the stack on-device
+        // (EXC_BAD_ACCESS in formScrollStack → manualEntryFormBlock, iOS 26).
+        // Grouping alone did NOT fix it — Group keeps the type just as deeply
+        // nested. AnyView truncates the type at each boundary so no single type is
+        // deep enough to overflow the demangler; a VStack(spacing:0) inside each
+        // keeps the layout byte-for-byte identical.
         VStack(spacing: 0) {
-            Group {
+            AnyView(VStack(spacing: 0) {
                 receiptHeroAmount
                 receiptDashedDivider
                 addReceiptDocketRow
                 receiptDashedDivider
-            }
-            Group {
+            })
+            AnyView(VStack(spacing: 0) {
                 receiptMerchantRow
                 receiptDashedDivider
                 receiptDateRowMatched
                 receiptDashedDivider
-            }
-            Group {
+            })
+            AnyView(VStack(spacing: 0) {
                 receiptTagRow
                 receiptDashedDivider
                 receiptReportRow
@@ -742,13 +747,13 @@ struct AddExpenseView: View {
                     receiptDashedDivider
                     receiptAttendeeRow
                 }
-            }
-            Group {
+            })
+            AnyView(VStack(spacing: 0) {
                 receiptDashedDivider
                 receiptNoteRow
                 receiptDashedDivider
                 receiptRecurringRow
-            }
+            })
         }
         .padding(.top, 8)
         .padding(.bottom, 26)
