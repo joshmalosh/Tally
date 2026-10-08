@@ -227,26 +227,41 @@ struct HomeView: View {
 
     private var homeScrollableColumn: some View {
         VStack(spacing: 0) {
-            // App bar — always visible
-            appBar
+            // While searching there's no green header to hold the controls, so a
+            // minimal app bar (settings + Go Pro) keeps them reachable. In the
+            // normal states those controls live inside the green header instead.
+            if !searchText.isEmpty {
+                appBar
+            }
 
-            // Spending card — collapses when user scrolls down, reveals on scroll up
-            if !isHeaderCollapsed && searchText.isEmpty {
-                SpendingSummaryCard(
-                    selectedPeriod: $selectedHeroPeriod,
-                    allExpenses: activeExpenses,
-                    allTags: Array(tags),
-                    homeBarTagId: homeBarTagId,
-                    onPeriodTap: {
-                        showingPeriodDetail = true
-                    },
-                    onExportTap: {
-                        appState.showingExport = true
-                    }
-                )
-                .padding(.top, 6)
-                .padding(.bottom, 4)
-                .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+            // Spending card — collapses when user scrolls down, reveals on scroll up.
+            // While collapsed a condensed green bar takes its place so the top is
+            // always anchored (and the running total never duplicates the "All" pin).
+            if searchText.isEmpty {
+                if !isHeaderCollapsed {
+                    SpendingSummaryCard(
+                        selectedPeriod: $selectedHeroPeriod,
+                        allExpenses: activeExpenses,
+                        allTags: Array(tags),
+                        homeBarTagId: homeBarTagId,
+                        onPeriodTap: {
+                            showingPeriodDetail = true
+                        },
+                        isPro: appState.isPro,
+                        isOnline: syncEngine.isOnline,
+                        isOffline: appState.isOffline,
+                        onProTap: { showingSubscription = true },
+                        onSettingsTap: { appState.showingSettings = true }
+                    )
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
+                    .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
+                } else {
+                    compactedHeader
+                        .padding(.top, 8)
+                        .padding(.bottom, 4)
+                        .transition(.opacity)
+                }
             }
 
             // Persistent header (search + pinned tags) — opaque so the collapsing
@@ -265,8 +280,11 @@ struct HomeView: View {
             // bottom blend (light parchment easing to the list's top tint) means the
             // bottom edge meets the list with no hard seam.
             .background {
+                // Matches the top of the warm paper wash so the persistent header
+                // blends into the ground with no seam (stays opaque so the
+                // collapsing hero can't ghost behind it).
                 LinearGradient(
-                    colors: [Color(hex: "F0EDE6"), Color(hex: "E9ECE2")],
+                    colors: [Color(hex: "F3F0E7"), Color(hex: "EFE7D6")],
                     startPoint: .top,
                     endPoint: .bottom
                 )
@@ -337,10 +355,11 @@ struct HomeView: View {
         ZStack(alignment: .bottom) {
             homeScrollableColumn
                 .background(
-                    ZStack {
-                        Color(hex: "F0EDE6")
-                        Self.riseGradient.opacity(0.58)   // slightly softer
-                    }
+                    // Warm paper wash — the home design-pass ground (concept 21).
+                    LinearGradient(
+                        colors: [Color(hex: "F3F0E7"), Color(hex: "E9E0CF")],
+                        startPoint: .top, endPoint: .bottom
+                    )
                     .ignoresSafeArea()
                 )
 
@@ -566,19 +585,17 @@ struct HomeView: View {
 
     private var appBar: some View {
         HStack(alignment: .top) {
+            // Wordmark removed — the gradient hero (expanded) and the condensed
+            // green bar (collapsed) anchor the top instead. The offline indicator
+            // keeps its leading slot.
             HStack(spacing: Spacing.sm) {
-                Image("TallyLogo")
-                    .renderingMode(.original)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(height: 34)
-
                 if !syncEngine.isOnline {
                     Image(systemName: "icloud.slash")
                         .font(.system(size: 13))
                         .foregroundStyle(Color.textMuted)
                 }
             }
+            .frame(height: 36)
 
             Spacer()
 
@@ -626,6 +643,86 @@ struct HomeView: View {
         .padding(.horizontal, Spacing.lg)
         .padding(.top, Spacing.sm)
         .padding(.bottom, 4)
+    }
+
+    // MARK: - Condensed header (collapsed state anchor)
+
+    /// Shown in place of the hero once it scrolls away: a slim green bar with the
+    /// scope eyebrow, the period · Go Pro · settings trio, and the breakdown inside.
+    /// Deliberately no total — that would duplicate the "All" pinned-tag amount.
+    private var compactedHeader: some View {
+        let tag = homeBarTagId.flatMap { id in tags.first { $0.id == id } }
+        let exps = periodExpensesForHero(selectedHeroPeriod)
+        let segs: [SpendBreakdownSegment] = tag.map {
+            merchantBreakdownSegments(exps, tint: $0.tagColor.primaryColor, currency: appState.activeCurrency)
+        } ?? spendBreakdownSegments(exps, tags: Array(tags), currency: appState.activeCurrency)
+
+        return VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 9) {
+                // Scope eyebrow — "TOTAL SPENT" or the tag name in its colour.
+                Text(tag.map { $0.name.uppercased() } ?? "TOTAL SPENT")
+                    .font(.system(size: 11, weight: .bold))
+                    .tracking(0.9)
+                    .foregroundStyle(tag.map { $0.tagColor.primaryColor.lightened(0.4) } ?? .white.opacity(0.6))
+                    .lineLimit(1)
+
+                Spacer(minLength: 8)
+
+                // period · Go Pro (green crown on white) · settings
+                Menu {
+                    ForEach(HeroPeriod.pickerOrder, id: \.rawValue) { period in
+                        Button(period.pickerLabel) {
+                            withAnimation(.easeInOut(duration: 0.15)) { selectedHeroPeriod = period }
+                        }
+                    }
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "calendar").font(.system(size: 12, weight: .medium))
+                        Text(selectedHeroPeriod.pickerLabel).font(.system(size: 13, weight: .medium)).lineLimit(1)
+                        Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
+                    }
+                    .fixedSize()
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12).padding(.vertical, 6)
+                    .background(Color.white.opacity(0.15)).clipShape(Capsule())
+                }
+                .fixedSize()
+
+                if !appState.isPro {
+                    Button { showingSubscription = true } label: {
+                        Image(systemName: "crown.fill")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(Color(hex: "2F402E"))
+                            .frame(width: 32, height: 32)
+                            .background(Color.white).clipShape(Circle())
+                            .shadow(color: .black.opacity(0.14), radius: 3, y: 1)
+                    }
+                    .buttonStyle(.plain)
+                }
+                Button { appState.showingSettings = true } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 15))
+                        .foregroundStyle(.white)
+                        .frame(width: 32, height: 32)
+                        .background(Color.white.opacity(0.16)).clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
+
+            SpendBreakdownBar(segments: segs)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(
+                colors: [Color(hex: "365F49"), Color(hex: "1E3A2A")],
+                startPoint: .top, endPoint: .bottom
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .padding(.horizontal, 16)
+        .contentShape(Rectangle())
+        .onTapGesture { showingPeriodDetail = true }
     }
 
     // MARK: - Search
@@ -928,14 +1025,19 @@ struct HomeView: View {
                         Rectangle()
                             .fill(Color(hex: "8E8E93").opacity(0.3))
                             .frame(height: 0.5)
-                        Text(dayTotalLabel(for: group))
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Color(hex: "8E8E93"))
-                            .monospacedDigit()
+                        // Only on multi-expense days — on a single-expense day the
+                        // amount already sits on the card, so the header total is
+                        // a duplicate.
+                        if group.items.count >= 2 {
+                            Text(dayTotalLabel(for: group))
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Color(hex: "8E8E93"))
+                                .monospacedDigit()
+                        }
                     }
                     .opacity(0.85)
                     .padding(.horizontal, 20)
-                    .listRowInsets(EdgeInsets(top: 20, leading: 0, bottom: 6, trailing: 0))
+                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 6, trailing: 0))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
 
@@ -1086,7 +1188,8 @@ struct HomeView: View {
                     currency: expense.currency,
                     primaryTagLabel: primaryTagDisplayLabel(for: expense),
                     primaryTagColor: tag?.tagColor,
-                    additionalTagCount: additionalTagCount(for: expense)
+                    additionalTagCount: additionalTagCount(for: expense),
+                    showTrailingTagBar: true
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)
             }

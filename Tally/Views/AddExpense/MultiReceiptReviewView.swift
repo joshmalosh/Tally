@@ -781,9 +781,9 @@ struct MultiReceiptReviewView: View {
                             : String(format: "%.0f", amount)
                     }
                     if let d = result.date { drafts[idx].date = d }
-                    if let name = result.merchant { drafts[idx].merchant = name }
+                    if let name = result.merchant { drafts[idx].merchant = name.capitalisedMerchant }
                     // Auto-note removed — the note field stays empty for manual entry.
-                    drafts[idx].merchantAlternates = result.merchantAlternates
+                    drafts[idx].merchantAlternates = result.merchantAlternates.map { $0.capitalisedMerchant }
                     drafts[idx].showAlternates = false
                     drafts[idx].wasAutoScanned = result.amount != nil
                     drafts[idx].currencyCode = result.currencyCode
@@ -837,7 +837,7 @@ struct MultiReceiptReviewView: View {
                         currency: draft.currencyCode ?? currencyCode,
                         date: draft.date,
                         description: nil,
-                        merchant: draft.merchant.isEmpty ? nil : draft.merchant,
+                        merchant: draft.merchant.isEmpty ? nil : draft.merchant.capitalisedMerchant,
                         tagIds: draft.selectedTagIds,
                         notes: draft.notes.isEmpty ? nil : draft.notes,
                         attachmentKey: savedKey,

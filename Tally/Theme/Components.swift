@@ -287,6 +287,9 @@ struct ExpenseCard: View {
     let primaryTagLabel: String?
     let primaryTagColor: TagColor?
     let additionalTagCount: Int
+    /// Home design-pass: a thin tag-coloured bar on the row's trailing edge.
+    /// Opt-in so Reports/other lists are unchanged.
+    var showTrailingTagBar: Bool = false
 
     /// "What" — merchant first, then notes, then description, then fallback.
     private var displayTitle: String {
@@ -403,6 +406,15 @@ struct ExpenseCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Self.rowHorizontalPadding)
         .padding(.vertical, 10)
+        .overlay(alignment: .trailing) {
+            if showTrailingTagBar, let tagColor = primaryTagColor {
+                Capsule()
+                    .fill(tagColor.primaryColor)
+                    .frame(width: 5)
+                    .padding(.vertical, 7)
+                    .padding(.trailing, 3)
+            }
+        }
     }
 }
 

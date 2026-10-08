@@ -104,16 +104,26 @@ struct HomeTagBar: View {
         let overflow = contentWidth - viewportWidth
         if overflow > 1, viewportWidth > 0 {
             let trackWidth = max(0, viewportWidth - 32)
-            let thumbWidth = max(28, trackWidth * (viewportWidth / contentWidth))
+            let baseThumb = max(28, trackWidth * (viewportWidth / contentWidth))
+            // Rubber-band: overscrolling past either end squeezes the thumb against
+            // that edge, the way the native iOS scroll indicator behaves. Bounce
+            // drives scrollOffset below 0 / above overflow, and we compress from there.
+            let overStart = max(0, -scrollOffset)
+            let overEnd = max(0, scrollOffset - overflow)
+            let thumbWidth = max(16, baseThumb - min(baseThumb - 16, (overStart + overEnd) * 0.7))
             let frac = min(1, max(0, scrollOffset / overflow))
+            let thumbX: CGFloat = overStart > 0 ? 0
+                : (overEnd > 0 ? (trackWidth - thumbWidth)
+                   : (trackWidth - baseThumb) * frac)
             ZStack(alignment: .leading) {
+                // Minimal moss hairline: mid-moss track, soft dark-moss thumb.
                 Capsule()
-                    .fill(Color.brandPrimary.opacity(0.15))
-                    .frame(width: trackWidth, height: 3)
+                    .fill(Color(hex: "4A5E50").opacity(0.2))
+                    .frame(width: trackWidth, height: 2.5)
                 Capsule()
-                    .fill(Color.brandPrimary)
-                    .frame(width: thumbWidth, height: 3)
-                    .offset(x: (trackWidth - thumbWidth) * frac)
+                    .fill(Color.brandPrimary.opacity(0.6))
+                    .frame(width: thumbWidth, height: 2.5)
+                    .offset(x: thumbX)
             }
             .frame(maxWidth: .infinity)
         }
@@ -131,6 +141,7 @@ struct HomeTagBar: View {
                     currency: currency,
                     iconBg: Color(hex: "E8F0EA"),
                     iconColor: Color(hex: "346049"),
+                    tint: Color(hex: "346049"),
                     isSelected: selectedTagId == nil
                 ) {
                     // While editing, the always-visible All card doubles as an exit,
@@ -200,6 +211,7 @@ struct HomeTagBar: View {
                 currency: currency,
                 iconBg: primary,
                 iconColor: primary,
+                tint: primary,
                 isSelected: selectedTagId == tag.id,
                 // Long-press enters edit mode (jiggle), like the iOS Home Screen.
                 onLongPress: { if !isEditing { enterEditMode() } }
@@ -430,6 +442,8 @@ private struct TagFilterCard: View {
     let currency: String
     let iconBg: Color
     let iconColor: Color
+    /// The tag's own colour — tints the card background and the label.
+    var tint: Color = Color(hex: "346049")
     let isSelected: Bool
     var isWiggling: Bool = false
     var onLongPress: (() -> Void)? = nil
@@ -440,7 +454,7 @@ private struct TagFilterCard: View {
             // label and amount flipped to white so they read on the dark fill.
             let effIconBg = isSelected ? Color.white.opacity(0.18) : iconBg
             let effIconColor = isSelected ? Color.white : iconColor
-            let effLabelColor = isSelected ? Color.white.opacity(0.75) : Color(hex: "6B7A6A")
+            let effLabelColor = isSelected ? Color.white.opacity(0.75) : tint
             let effAmountColor = isSelected ? Color.white : Color(hex: "1C1C1E")
             return VStack(spacing: 5) {
                 // Icon square
@@ -475,13 +489,14 @@ private struct TagFilterCard: View {
             }
             .padding(8)
             .frame(width: 89, height: 89)
-            .background(isSelected ? Color(hex: "2F402E") : Color.white)
+            // Unselected: a soft tint of the tag's own colour (per Josh's reference).
+            // Selected: the Tally-green fill.
+            .background(isSelected ? Color(hex: "2F402E") : tint.opacity(0.12))
             .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
-            // Unselected keeps a hairline edge; selected needs none (the fill carries it).
             .overlay(
                 RoundedRectangle(cornerRadius: 19, style: .continuous)
                     .stroke(
-                        isSelected ? Color.clear : Color(hex: "DEDAD2").opacity(0.6),
+                        isSelected ? Color.clear : tint.opacity(0.22),
                         lineWidth: isSelected ? 0 : 0.5
                     )
             )

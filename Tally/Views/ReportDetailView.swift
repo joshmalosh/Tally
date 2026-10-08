@@ -1,8 +1,59 @@
 import SwiftUI
 import SwiftData
 
-/// Preset cover emojis offered when creating or renaming a report.
-let reportEmojiOptions = ["🗂️","🌴","💼","🔨","🧾","📑","✈️","🏠","🚗","🎬","🍽️","🏥","🎁","📸","⚽️","🎓"]
+/// Cover picker for a report — mirrors how Tags handle emoji: a tinted chip that
+/// opens the native iOS emoji keyboard, kept separate from the name field.
+struct ReportCoverPicker: View {
+    @Binding var emoji: String
+    var body: some View {
+        HStack(spacing: 8) {
+            Text("Cover")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color(hex: "2F402E").opacity(0.75))
+            Text("Tap to pick an emoji")
+                .font(.system(size: 11))
+                .foregroundStyle(Color(hex: "8F9E94"))
+            Spacer(minLength: 0)
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color(hex: "E8EFE9"))
+                    .frame(width: 44, height: 44)
+                EmojiInput(emoji: $emoji)
+                    .frame(width: 44, height: 44)
+            }
+        }
+        .padding(.horizontal, 12)
+        .frame(maxWidth: .infinity, minHeight: 60)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
+    }
+}
+
+/// Name card for a report — mirrors the Tag editor's name card (caps label + serif input).
+struct ReportNameCard: View {
+    @Binding var name: String
+    var placeholder: String
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("NAME")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(Color(hex: "2F402E").opacity(0.45))
+                .tracking(1.0)
+                .padding(.horizontal, 14).padding(.top, 14).padding(.bottom, 8)
+            TextField(placeholder, text: $name)
+                .font(Font.dmSerifDisplay(22))
+                .foregroundStyle(Color(hex: "1C1C1E"))
+                .autocorrectionDisabled()
+                .tint(Color(hex: "2F402E"))
+                .padding(.horizontal, 14)
+        }
+        .padding(.bottom, 14)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 1))
+    }
+}
 
 // MARK: - Report detail (the dossier)
 
@@ -293,17 +344,8 @@ struct NewReportView: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
-                emojiPicker
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("NAME").font(.system(size: 11, weight: .semibold)).tracking(0.8).foregroundStyle(Color(hex: "8F9E94"))
-                    TextField("e.g. Bali Trip, Q2 Reimbursement", text: $name)
-                        .font(.system(size: 17))
-                        .padding(14)
-                        .background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
-                }
+                ReportCoverPicker(emoji: $emoji)
+                ReportNameCard(name: $name, placeholder: "e.g. Bali Trip, Q2 Reimbursement")
 
                 Text("Then add expenses to it from here, or clip an expense to it from the expense screen.")
                     .font(.system(size: 12)).foregroundStyle(Color(hex: "8F9E94"))
@@ -332,30 +374,10 @@ struct NewReportView: View {
         }
     }
 
-    private var emojiPicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("COVER").font(.system(size: 11, weight: .semibold)).tracking(0.8).foregroundStyle(Color(hex: "8F9E94"))
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(reportEmojiOptions, id: \.self) { e in
-                        Button { emoji = e; Haptics.tap() } label: {
-                            Text(e).font(.system(size: 22))
-                                .frame(width: 44, height: 44)
-                                .background(emoji == e ? Color(hex: "2F402E") : Color.white)
-                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: emoji == e ? 0 : 0.5))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-        }
-    }
-
     private func create() {
         let trimmed = name.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        let report = ReportModel(name: trimmed, emoji: emoji)
+        let report = ReportModel(name: trimmed, emoji: emoji.isEmpty ? "🗂️" : emoji)
         modelContext.insert(report)
         try? modelContext.save()
         Haptics.firm()
@@ -376,35 +398,13 @@ struct ReportEditSheet: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 20) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("COVER").font(.system(size: 11, weight: .semibold)).tracking(0.8).foregroundStyle(Color(hex: "8F9E94"))
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(reportEmojiOptions, id: \.self) { e in
-                                Button { emoji = e; Haptics.tap() } label: {
-                                    Text(e).font(.system(size: 22))
-                                        .frame(width: 44, height: 44)
-                                        .background(emoji == e ? Color(hex: "2F402E") : Color.white)
-                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: emoji == e ? 0 : 0.5))
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                }
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("NAME").font(.system(size: 11, weight: .semibold)).tracking(0.8).foregroundStyle(Color(hex: "8F9E94"))
-                    TextField("Report name", text: $name)
-                        .font(.system(size: 17)).padding(14).background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Color(hex: "DEDAD2"), lineWidth: 0.5))
-                }
+                ReportCoverPicker(emoji: $emoji)
+                ReportNameCard(name: $name, placeholder: "Report name")
                 Spacer()
                 Button {
                     let trimmed = name.trimmingCharacters(in: .whitespaces)
                     report.name = trimmed.isEmpty ? report.name : trimmed
-                    report.emoji = emoji
+                    report.emoji = emoji.isEmpty ? report.emoji : emoji
                     report.updatedAt = .now
                     try? modelContext.save()
                     Haptics.firm()

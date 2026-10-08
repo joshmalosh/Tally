@@ -640,31 +640,39 @@ struct AddExpenseView: View {
 
             // Edit-screen row format: tinted icon square + label-above-value,
             // separated by dashed dividers, on the white receipt body.
+            // Grouped to keep this docket shallow too (see manualEntryFormBlock):
+            // a flat 14-child VStack nests ~13 deep via @ViewBuilder and can
+            // overflow the view-building stack on-device. Groups lay out identically.
             VStack(spacing: 0) {
                 // Amount is the serif hero (with inline currency). Flat docket
                 // below: Merchant, Date, Tag, Report, [Attendees], Note.
-                receiptHeroAmount
-                receiptDashedDivider
-
-                receiptMerchantRow
-                receiptDashedDivider
-                receiptDateRowMatched
-                receiptDashedDivider
-                receiptTagRow
-                receiptDashedDivider
-                receiptReportRow
+                Group {
+                    receiptHeroAmount
+                    receiptDashedDivider
+                    receiptMerchantRow
+                    receiptDashedDivider
+                }
+                Group {
+                    receiptDateRowMatched
+                    receiptDashedDivider
+                    receiptTagRow
+                    receiptDashedDivider
+                    receiptReportRow
+                }
                 // Attendees is a report/claim concern — hidden until a report is
                 // linked (or the expense already has attendees).
-                if selectedReportId != nil || !attendees.isEmpty {
+                Group {
+                    if selectedReportId != nil || !attendees.isEmpty {
+                        receiptDashedDivider
+                        receiptAttendeeRow
+                    }
                     receiptDashedDivider
-                    receiptAttendeeRow
+                    receiptNoteRow
+                    receiptDashedDivider
+                    // Recurring is folded into the docket as a plain row with a toggle
+                    // (add-only), so the whole page reads as one continuous receipt.
+                    receiptRecurringRow
                 }
-                receiptDashedDivider
-                receiptNoteRow
-                receiptDashedDivider
-                // Recurring is folded into the docket as a plain row with a toggle
-                // (add-only), so the whole page reads as one continuous receipt.
-                receiptRecurringRow
             }
             .padding(.top, 6)
             .padding(.bottom, 26)   // clearance above the torn edge
@@ -704,35 +712,116 @@ struct AddExpenseView: View {
 
     @ViewBuilder
     private var manualEntryFormBlock: some View {
-        quickAddHeroAmountBlock
-            .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
-
-        quickAddMerchantCard
-
-        // Date and Add receipt sit directly under the merchant, above the note.
-        quickAddExtrasRow
-
-        quickAddNoteCard
-
-        quickAddTagCard
-
-        quickAddAttendeeCard
-
-        quickAddRecurringCard
-
-        // Gentle OCR upsell for free users typing manually — held back until
-        // they've logged a few expenses so first impressions stay unmonetised.
-        if !appState.isPro && appState.totalExpenseCount >= 3 {
-            proUpsellCompactBanner
+        // Manual entry now uses the SAME docket as the receipt flow — just with no
+        // photo (an "Add receipt" row sits at the top instead) and the amount field
+        // focused on open. Snapping a receipt from here swaps in the photo docket.
+        // Rows are grouped so the whole docket isn't one flat 16-child VStack.
+        // @ViewBuilder chains children pairwise (buildPartialBlock), so 16 rows
+        // become a ~15-deep nested view type; the runtime walks that nesting
+        // recursively and overflowed the stack on-device (iOS 26). Each Group is
+        // a shallow, separate subtree, and a Group inside a VStack lays out
+        // identically — so this is depth reduction with no visual change.
+        VStack(spacing: 0) {
+            Group {
+                receiptHeroAmount
+                receiptDashedDivider
+                addReceiptDocketRow
+                receiptDashedDivider
+            }
+            Group {
+                receiptMerchantRow
+                receiptDashedDivider
+                receiptDateRowMatched
+                receiptDashedDivider
+            }
+            Group {
+                receiptTagRow
+                receiptDashedDivider
+                receiptReportRow
+                if selectedReportId != nil || !attendees.isEmpty {
+                    receiptDashedDivider
+                    receiptAttendeeRow
+                }
+            }
+            Group {
+                receiptDashedDivider
+                receiptNoteRow
+                receiptDashedDivider
+                receiptRecurringRow
+            }
         }
-
-        if attachedFileURL != nil {
-            pdfAttachmentCard
+        .padding(.top, 8)
+        .padding(.bottom, 26)
+        .frame(maxWidth: .infinity)
+        .background(
+            ZStack {
+                Color.white
+                ReceiptTexture()
+            }
+        )
+        .background(receiptFrameColor)
+        .clipShape(ReceiptShape())
+        .overlay(alignment: .topLeading) {
+            if let tag = selectedTags.first {
+                receiptTagPill(tag)
+                    .padding(.leading, 22)
+                    .offset(y: -11)
+            }
         }
+        .shadow(color: .black.opacity(0.12), radius: 16, x: 0, y: 8)
+        .padding(.horizontal, 16)
+        .animation(.easeInOut(duration: 0.25), value: selectedTagIds)
+        .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
 
-        merchantReturnCard
+        // Trailing cards grouped for the same reason as the docket rows above:
+        // keep them out of the top-level builder chain so the body stays shallow.
+        Group {
+            // Free tier: banner beneath the docket.
+            if !appState.isPro {
+                BannerAdView()
+                    .frame(height: keyboardVisible ? 0 : 51)
+                    .opacity(keyboardVisible ? 0 : 1)
+                    .clipped()
+                    .animation(.easeInOut(duration: 0.2), value: keyboardVisible)
+            }
 
-        tallySuggestsCard
+            // Gentle OCR upsell for free users typing manually — held back until
+            // they've logged a few expenses so first impressions stay unmonetised.
+            if !appState.isPro && appState.totalExpenseCount >= 3 {
+                proUpsellCompactBanner
+            }
+
+            if attachedFileURL != nil {
+                pdfAttachmentCard
+            }
+
+            merchantReturnCard
+
+            tallySuggestsCard
+        }
+    }
+
+    /// Top docket row for manual entry — opens the receipt source picker. When a
+    /// photo is added the view switches to the photo docket automatically.
+    private var addReceiptDocketRow: some View {
+        Button { presentSheetAfterTouch { showingAddReceiptSources = true } } label: {
+            HStack(spacing: 14) {
+                receiptTintedSquare("paperclip")
+                VStack(alignment: .leading, spacing: 2) {
+                    receiptRowLabel("RECEIPT")
+                    Text("Snap or upload a receipt")
+                        .font(.system(size: 15))
+                        .foregroundStyle(Color(hex: "C4BFB9"))
+                }
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color(hex: "C4BFB9"))
+            }
+            .padding(.horizontal, 18).padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - Quick Add: Merchant card with filtered autocomplete chips
@@ -1543,6 +1632,9 @@ struct AddExpenseView: View {
                 Text(currencySymbol)
                     .font(.dmSerifDisplay(46))
                     .foregroundStyle(Color(hex: "2F402E"))
+                    // Keep the serif symbol's full glyph height — the tall $ stroke
+                    // was being clipped when the row collapsed to the field's height.
+                    .fixedSize()
                 NumericFieldWithDone(
                     text: $amountText,
                     keyboardType: usesDecimalCurrency ? .decimalPad : .numberPad,
@@ -1989,8 +2081,9 @@ struct AddExpenseView: View {
                 if receiptImageAttached {
                     // Done button lives in the nav bar — no bottom chrome needed
                     Color.clear.frame(height: 0)
-                } else if keyboardVisible {
-                    // System keyboard is up (merchant / note editing) — slim save bar only
+                } else {
+                    // Manual entry uses the docket (system keypad for the amount), so
+                    // the bottom is a persistent Save CTA — no custom keypad any more.
                     Button {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         saveExpense()
@@ -2008,9 +2101,6 @@ struct AddExpenseView: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
                     .padding(.bottom, 8)
-                } else {
-                    // Default manual mode: full custom keypad
-                    quickAddKeypadChrome
                 }
             }
             .animation(.easeInOut(duration: 0.2), value: keyboardVisible)
@@ -2353,11 +2443,11 @@ struct AddExpenseView: View {
         // volume, not which fields get filled — a permanently blank merchant
         // read as a broken scanner rather than a paid feature.
         if let name = result.merchant, merchant.isEmpty {
-            merchant = name
+            merchant = name.capitalisedMerchant
             applied = true
         }
         // Keep the OCR's other guesses for the "Doesn't look right?" chip.
-        merchantAlternates = result.merchantAlternates
+        merchantAlternates = result.merchantAlternates.map { $0.capitalisedMerchant }
         showMerchantAlternates = false
         // Note is deliberately left empty on scan — the auto-note only ever pulled
         // raw receipt line-item text (cryptic item codes), which isn't a useful
@@ -2608,7 +2698,7 @@ struct AddExpenseView: View {
                     existing.currency = currency
                     existing.date = date
                     existing.expenseDescription = descriptionText.isEmpty ? nil : descriptionText
-                    existing.merchant = merchant.isEmpty ? nil : merchant
+                    existing.merchant = merchant.isEmpty ? nil : merchant.capitalisedMerchant
                     existing.tagIds = selectedTagIds
                     existing.tagId = selectedTagIds.first ?? ""
                     existing.attendees = attendees

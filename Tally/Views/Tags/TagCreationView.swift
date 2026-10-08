@@ -660,7 +660,8 @@ struct TagIconPickerSheet: View {
 
 /// A text field that only offers the system emoji keyboard, so tapping it lets
 /// the user pick any native iOS emoji. Captures a single emoji and dismisses.
-private struct EmojiInput: UIViewRepresentable {
+/// Non-private so Reports reuse the same native picker as Tags.
+struct EmojiInput: UIViewRepresentable {
     @Binding var emoji: String
 
     func makeUIView(context: Context) -> UITextField {
@@ -702,7 +703,7 @@ private struct EmojiInput: UIViewRepresentable {
 }
 
 /// UITextField subclass that forces the emoji keyboard.
-private final class EmojiOnlyTextField: UITextField {
+final class EmojiOnlyTextField: UITextField {
     override var textInputContextIdentifier: String? { "" }
     override var textInputMode: UITextInputMode? {
         UITextInputMode.activeInputModes.first { $0.primaryLanguage == "emoji" }

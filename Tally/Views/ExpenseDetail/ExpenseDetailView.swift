@@ -488,6 +488,9 @@ struct ExpenseDetailView: View {
                 Text(currencySymbol)
                     .font(.dmSerifDisplay(46))
                     .foregroundStyle(Color(hex: "2F402E"))
+                    // Keep the serif symbol's full glyph height — the tall $ stroke
+                    // was being clipped when the row collapsed to the field's height.
+                    .fixedSize()
                 TextField("0", text: $amountText)
                     .keyboardType(CurrencyFormatter.shared.usesDecimals(for: currency) ? .decimalPad : .numberPad)
                     .font(.dmSerifDisplay(46))
