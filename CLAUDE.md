@@ -220,7 +220,16 @@ him: App Store text, release notes, the website, marketing.
   `origin` (that is the website repo), never `main`/`master` without an explicit
   instruction. End commit messages with `Co-Authored-By: Claude …`.
 - Josh's Mac clone names the remote `origin`, not `tally`. On his machine the
-  push is plain `git push`.
+  push is plain `git push origin dev` (here `origin` is the Tally app repo,
+  `github.com/joshmalosh/Tally`, not the website).
+- **The push needs the `joshmalosh` GitHub account.** `gh` holds two accounts
+  and the active one is usually `Shahi-J`, which has no access to the repo, so a
+  plain push fails with "Repository not found" (a 404 for a private repo you
+  can't see). Switch active just for the push and restore Shahi-J after:
+  `gh auth switch --user joshmalosh` → `git -c credential.helper= -c
+  credential.helper='!gh auth git-credential' push origin dev` → `gh auth
+  switch --user Shahi-J`. Never print the token. Pushes need the sandbox off so
+  the credential helper can reach the keychain.
 - Run the pre-push-reviewer only before pushes to `main`/`master`. Skip it for
   `dev` and feature branches.
 - **A new `.swift` file only compiles once it is registered in
