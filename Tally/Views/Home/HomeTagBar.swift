@@ -93,6 +93,11 @@ struct HomeTagBar: View {
             .reduce(0) { $0 + $1.amountCents }
     }
 
+    /// Sum across all tags in the selected period — the "All" card's figure.
+    private var periodTotalAll: Int {
+        periodExpenses.reduce(0) { $0 + $1.amountCents }
+    }
+
     /// A small green bar under the tag row that tracks scroll position, so a user
     /// with more pinned tags than fit on screen can see the row scrolls. Hidden
     /// when the row already fits.
@@ -135,15 +140,16 @@ struct HomeTagBar: View {
                 TagFilterCard(
                     icon: "square.grid.2x2",
                     label: "All",
-                    amountCents: 0,
+                    amountCents: periodTotalAll,
                     currency: currency,
                     iconBg: Color(hex: "E8F0EA"),
                     iconColor: Color(hex: "346049"),
                     tint: Color(hex: "346049"),
                     isSelected: selectedTagId == nil,
                     onDark: onDark,
-                    // "All" carries no figure — that total already is the hero above.
-                    showAmount: false
+                    // The filtered period sits under the "All" total, but only once
+                    // it's narrowed from the default month — then "All (This Year)".
+                    periodLabel: period == .month ? nil : period.pickerLabel
                 ) {
                     // While editing, the always-visible All card doubles as an exit,
                     // in case many pins push the Done card past the row's edge.
@@ -451,8 +457,10 @@ private struct TagFilterCard: View {
     /// Rendered on the dark green hero/rail: translucent cards, white text, the
     /// tag colour kept only in the emoji square. Selected flips to a white card.
     var onDark: Bool = false
-    /// "All" carries no figure (that total is the hero), so its card hides the amount.
     var showAmount: Bool = true
+    /// A small period note under the amount — only the "All" card uses it, and
+    /// only once the period is narrowed from the default ("All" then "(This Year)").
+    var periodLabel: String? = nil
     var onLongPress: (() -> Void)? = nil
     let onTap: () -> Void
 
@@ -484,12 +492,14 @@ private struct TagFilterCard: View {
                 effLabelColor = isSelected ? Color.white.opacity(0.75) : tint
                 effAmountColor = isSelected ? .white : Color(hex: "1C1C1E")
             }
-            return VStack(spacing: 5) {
+            // A period note adds a fourth line, so tighten the stack to keep the
+            // box the same height.
+            return VStack(spacing: periodLabel == nil ? 5 : 2) {
                 // Icon square
                 ZStack {
                     RoundedRectangle(cornerRadius: 11, style: .continuous)
                         .fill(squareBg)
-                        .frame(width: 36, height: 36)
+                        .frame(width: 34, height: 34)
                     if let iconEmoji {
                         Text(iconEmoji).font(.system(size: 18))
                     } else {
@@ -507,13 +517,22 @@ private struct TagFilterCard: View {
                     .minimumScaleFactor(0.85)
                     .frame(maxWidth: .infinity, alignment: .center)
 
-                // Amount — hidden for "All" (its figure is the hero total above).
                 if showAmount {
                     Text(CurrencyFormatter.shared.format(cents: amountCents, currencyCode: currency))
                         .font(.system(size: 12, weight: .bold, design: .monospaced))
                         .foregroundStyle(effAmountColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
+
+                // Filtered period, under the amount, for the "All" card only.
+                if let periodLabel {
+                    Text("(\(periodLabel))")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(effAmountColor.opacity(0.65))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
