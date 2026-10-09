@@ -72,18 +72,13 @@ enum HeroPeriod: Int, CaseIterable {
 struct SpendingSummaryCard: View {
     @Environment(AppState.self) private var appState
     @Binding var selectedPeriod: HeroPeriod
+    /// The pinned-tag filter — bound so the pins inside the card drive it directly.
+    @Binding var homeBarTagId: String?
 
     let allExpenses: [ExpenseModel]
     let allTags: [TagModel]
-    let homeBarTagId: String?
-    /// Called when the user taps the card body — opens PeriodDetailView for the selected period.
-    let onPeriodTap: () -> Void
-    /// Header controls (design pass: these live in the green header, not a strip above it).
-    var isPro: Bool = true
-    var isOnline: Bool = true
-    var isOffline: Bool = false
-    var onProTap: () -> Void = {}
-    var onSettingsTap: () -> Void = {}
+    /// Tapping the total / "TAP FOR BREAKDOWN" opens the period breakdown.
+    let onBreakdownTap: () -> Void
 
     private var currency: String { appState.activeCurrency }
 
@@ -106,12 +101,6 @@ struct SpendingSummaryCard: View {
         periodExpenses.reduce(0) { $0 + $1.amountCents }
     }
 
-    /// Ranked category slices for the breakdown bar — same period + currency the
-    /// Total and Top category above it use.
-    private var breakdownSegments: [SpendBreakdownSegment] {
-        spendBreakdownSegments(periodExpenses, tags: allTags, currency: currency)
-    }
-
     private var showsCents: Bool { CurrencyFormatter.shared.usesDecimals(for: currency) }
     private var currencySymbol: String { CurrencyFormatter.shared.symbol(for: currency) }
 
@@ -126,36 +115,35 @@ struct SpendingSummaryCard: View {
     // MARK: - Body
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            // Heading: the eyebrow shares the top row with the period · Go Pro ·
-            // settings trio; the amount gets its OWN full-width row beneath so it
-            // can never be squeezed/truncated by the controls (a large total on
-            // free, with the Go Pro crown present, overflowed when it shared a row).
+        VStack(alignment: .leading, spacing: 12) {
+            // Total block — tappable to open the full breakdown.
             VStack(alignment: .leading, spacing: 7) {
-                HStack(alignment: .center, spacing: 10) {
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
                     eyebrowView
                     Spacer(minLength: 8)
-                    trioControls
+                    periodMenu
                 }
                 amountView
+                breakdownCue
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .contentShape(Rectangle())
+            .onTapGesture { onBreakdownTap() }
 
-            // Breakdown: categories normally, merchants (in shades of the tag
-            // colour) when a pinned tag is filtering the view.
-            if !displaySegments.isEmpty {
-                SpendBreakdownBar(segments: displaySegments)
-            }
+            // The pinned tags live inside the green, as the at-a-glance breakdown
+            // of the total above. They scroll to the card's edges (own h-padding).
+            HomeTagBar(selectedTagId: $homeBarTagId, period: selectedPeriod, onDark: true)
+                .padding(.bottom, 8)
         }
-        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             LinearGradient(
                 colors: [Color(hex: "365F49"), Color(hex: "1E3A2A")],
                 startPoint: .top, endPoint: .bottom
             )
         )
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .contentShape(Rectangle())
-        .onTapGesture(perform: onPeriodTap)
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .padding(.horizontal, 16)
     }
 
@@ -185,30 +173,26 @@ struct SpendingSummaryCard: View {
             .lineLimit(1)
     }
 
-    /// The hero amount (currency symbol + grouped whole + cents).
+    /// The hero amount in the serif, big; the symbol and cents ride smaller.
     private var amountView: some View {
-        HStack(alignment: .top, spacing: 0) {
+        HStack(alignment: .firstTextBaseline, spacing: 1) {
             Text(currencySymbol)
-                .font(.system(size: 16, weight: .regular, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.85))
-                .padding(.top, 5).padding(.trailing, 1)
+                .font(.dmSerifDisplay(20))
+                .foregroundStyle(.white.opacity(0.72))
             Text(dollarPart)
-                .font(.system(size: 32, weight: .bold, design: .monospaced))
+                .font(.dmSerifDisplay(48))
                 .foregroundStyle(.white)
-                .tracking(-1)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.6)
                 .lineLimit(1)
             if showsCents {
                 Text(".\(centsPart)")
-                    .font(.system(size: 16, weight: .regular, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.85))
-                    .padding(.top, 5)
+                    .font(.dmSerifDisplay(20))
+                    .foregroundStyle(.white.opacity(0.72))
             }
         }
     }
 
-    // MARK: - Top-right trio (period · Go Pro · settings)
-
+    /// Plain tappable period — "This Month ▾" as text, no pill (minimise dropdowns).
     private var periodMenu: some View {
         Menu {
             ForEach(HeroPeriod.pickerOrder, id: \.rawValue) { period in
@@ -217,59 +201,28 @@ struct SpendingSummaryCard: View {
                 }
             }
         } label: {
-            HStack(spacing: 5) {
-                Image(systemName: "calendar").font(.system(size: 12, weight: .medium))
-                Text(selectedPeriod.pickerLabel).font(.system(size: 13, weight: .medium)).lineLimit(1)
+            HStack(spacing: 4) {
+                Text(selectedPeriod.pickerLabel)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(1)
                 Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
             }
             .fixedSize()
-            .foregroundStyle(.white)
-            .padding(.horizontal, 12).padding(.vertical, 6)
-            .background(Color.white.opacity(0.15)).clipShape(Capsule())
+            .foregroundStyle(.white.opacity(0.9))
         }
         .fixedSize()
     }
 
-    /// Period · Go Pro (green crown on white) · settings. Export moved out — it's
-    /// reached by tapping into a period.
-    @ViewBuilder
-    private var trioControls: some View {
-        HStack(spacing: 8) {
-            periodMenu
-            if isOffline {
-                Image(systemName: "wifi.slash").font(.system(size: 13)).foregroundStyle(Color(hex: "F3B0A0"))
-            }
-            if !isOnline {
-                Image(systemName: "icloud.slash").font(.system(size: 13)).foregroundStyle(.white.opacity(0.7))
-            }
-            if !isPro {
-                Button(action: onProTap) {
-                    Image(systemName: "crown.fill")
-                        .font(.system(size: 13, weight: .semibold))
-                        .foregroundStyle(Color(hex: "2F402E"))
-                        .frame(width: 32, height: 32)
-                        .background(Color.white).clipShape(Circle())
-                        .shadow(color: .black.opacity(0.14), radius: 3, y: 1)
-                }
-                .buttonStyle(.plain)
-            }
-            Button(action: onSettingsTap) {
-                Image(systemName: "gearshape")
-                    .font(.system(size: 15))
-                    .foregroundStyle(.white)
-                    .frame(width: 32, height: 32)
-                    .background(Color.white.opacity(0.16)).clipShape(Circle())
-            }
-            .buttonStyle(.plain)
+    /// The "tap to see the breakdown" cue — monospace, understated.
+    private var breakdownCue: some View {
+        HStack(spacing: 5) {
+            Text("TAP FOR BREAKDOWN")
+                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                .tracking(0.6)
+            Image(systemName: "arrow.right").font(.system(size: 10, weight: .semibold))
         }
-    }
-
-    /// Category slices normally; merchant slices (shades of the tag colour) when filtered.
-    private var displaySegments: [SpendBreakdownSegment] {
-        if let tag = filterTag {
-            return merchantBreakdownSegments(periodExpenses, tint: tag.tagColor.primaryColor, currency: currency)
-        }
-        return breakdownSegments
+        .foregroundStyle(.white.opacity(0.6))
+        .padding(.top, 2)
     }
 
 }

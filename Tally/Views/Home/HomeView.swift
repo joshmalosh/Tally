@@ -227,54 +227,37 @@ struct HomeView: View {
 
     private var homeScrollableColumn: some View {
         VStack(spacing: 0) {
-            // While searching there's no green header to hold the controls, so a
-            // minimal app bar (settings + Go Pro) keeps them reachable. In the
-            // normal states those controls live inside the green header instead.
-            if !searchText.isEmpty {
-                appBar
-            }
+            // Nameplate — the Tally wordmark on paper, with Go Pro + settings.
+            // Always visible; the controls that used to sit in the green hero
+            // moved here (concept 1).
+            nameplate
 
-            // Spending card — collapses when user scrolls down, reveals on scroll up.
-            // While collapsed a condensed green bar takes its place so the top is
-            // always anchored (and the running total never duplicates the "All" pin).
+            // Spending hero — the green module (total + period + pins inside).
+            // Collapses to a slim green pin rail on scroll. Hidden while searching.
             if searchText.isEmpty {
                 if !isHeaderCollapsed {
                     SpendingSummaryCard(
                         selectedPeriod: $selectedHeroPeriod,
+                        homeBarTagId: $homeBarTagId,
                         allExpenses: activeExpenses,
                         allTags: Array(tags),
-                        homeBarTagId: homeBarTagId,
-                        onPeriodTap: {
-                            showingPeriodDetail = true
-                        },
-                        isPro: appState.isPro,
-                        isOnline: syncEngine.isOnline,
-                        isOffline: appState.isOffline,
-                        onProTap: { showingSubscription = true },
-                        onSettingsTap: { appState.showingSettings = true }
+                        onBreakdownTap: { showingPeriodDetail = true }
                     )
-                    .padding(.top, 8)
                     .padding(.bottom, 4)
                     .transition(.opacity.combined(with: .scale(scale: 0.98, anchor: .top)))
                 } else {
                     compactedHeader
-                        .padding(.top, 8)
                         .padding(.bottom, 4)
                         .transition(.opacity)
                 }
             }
 
-            // Persistent header (search + pinned tags) — opaque so the collapsing
-            // hero card can't be seen sliding behind it during the animation.
+            // Persistent header (search + filter) — opaque so the collapsing hero
+            // can't be seen sliding behind it during the animation.
             VStack(spacing: 0) {
-                // Search bar — always visible
                 searchBar
                     .padding(.top, 6)
-                    .padding(.bottom, 2)
-
-                // Home tag bar — always visible (sticky above the list, does not collapse with header)
-                HomeTagBar(selectedTagId: $homeBarTagId)
-                    .padding(.top, 2)
+                    .padding(.bottom, 6)
             }
             // Opaque so the collapsing hero can't ghost behind it. A soft top-to-
             // bottom blend (light parchment easing to the list's top tint) means the
@@ -581,7 +564,66 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - App Bar
+    // MARK: - Nameplate
+
+    /// The Tally wordmark on paper, with the offline indicators, Go Pro and
+    /// settings. Always visible — the controls that used to live in the green
+    /// hero moved here so the green can scroll away cleanly (concept 1).
+    private var nameplate: some View {
+        HStack(alignment: .center) {
+            Image("TallyLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(height: 24)
+
+            Spacer()
+
+            HStack(spacing: 8) {
+                if !syncEngine.isOnline {
+                    Image(systemName: "icloud.slash")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.textMuted)
+                }
+                if appState.isOffline {
+                    Image(systemName: "wifi.slash")
+                        .font(.system(size: 13))
+                        .foregroundStyle(Color.danger)
+                }
+                if !appState.isPro {
+                    Button { showingSubscription = true } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "crown.fill")
+                                .font(.system(size: 11, weight: .semibold))
+                            Text("Pro")
+                                .font(.system(size: 13, weight: .bold))
+                        }
+                        .foregroundStyle(Color.brandPrimary)
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 6)
+                        .background(Color.white)
+                        .clipShape(Capsule())
+                        .overlay(Capsule().stroke(Color(hex: "DEDAD2"), lineWidth: 1))
+                        .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
+                    }
+                    .buttonStyle(.plain)
+                }
+                Button { appState.showingSettings = true } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 16))
+                        .foregroundStyle(Color(hex: "4A5E50"))
+                        .frame(width: 34, height: 34)
+                        .background(Color(hex: "E6E1D5"))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, Spacing.lg)
+        .padding(.top, Spacing.sm)
+        .padding(.bottom, 8)
+    }
+
+    // MARK: - App Bar (legacy, retained for the search state)
 
     private var appBar: some View {
         HStack(alignment: .top) {
@@ -645,84 +687,23 @@ struct HomeView: View {
         .padding(.bottom, 4)
     }
 
-    // MARK: - Condensed header (collapsed state anchor)
+    // MARK: - Collapsed anchor (the slim green pin rail, concept 1 / v2)
 
-    /// Shown in place of the hero once it scrolls away: a slim green bar with the
-    /// scope eyebrow, the period · Go Pro · settings trio, and the breakdown inside.
-    /// Deliberately no total — that would duplicate the "All" pinned-tag amount.
+    /// Shown in place of the hero once it scrolls away: a slim green rail that
+    /// keeps the pinned tags on green (so they never restyle), under the paper
+    /// nameplate. No total — that figure lives in the hero one scroll up.
     private var compactedHeader: some View {
-        let tag = homeBarTagId.flatMap { id in tags.first { $0.id == id } }
-        let exps = periodExpensesForHero(selectedHeroPeriod)
-        let segs: [SpendBreakdownSegment] = tag.map {
-            merchantBreakdownSegments(exps, tint: $0.tagColor.primaryColor, currency: appState.activeCurrency)
-        } ?? spendBreakdownSegments(exps, tags: Array(tags), currency: appState.activeCurrency)
-
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 9) {
-                // Scope eyebrow — "TOTAL SPENT" or the tag name in its colour.
-                Text(tag.map { $0.name.uppercased() } ?? "TOTAL SPENT")
-                    .font(.system(size: 11, weight: .bold))
-                    .tracking(0.9)
-                    .foregroundStyle(tag.map { $0.tagColor.primaryColor.lightened(0.4) } ?? .white.opacity(0.6))
-                    .lineLimit(1)
-
-                Spacer(minLength: 8)
-
-                // period · Go Pro (green crown on white) · settings
-                Menu {
-                    ForEach(HeroPeriod.pickerOrder, id: \.rawValue) { period in
-                        Button(period.pickerLabel) {
-                            withAnimation(.easeInOut(duration: 0.15)) { selectedHeroPeriod = period }
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 5) {
-                        Image(systemName: "calendar").font(.system(size: 12, weight: .medium))
-                        Text(selectedHeroPeriod.pickerLabel).font(.system(size: 13, weight: .medium)).lineLimit(1)
-                        Image(systemName: "chevron.down").font(.system(size: 10, weight: .semibold))
-                    }
-                    .fixedSize()
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 12).padding(.vertical, 6)
-                    .background(Color.white.opacity(0.15)).clipShape(Capsule())
-                }
-                .fixedSize()
-
-                if !appState.isPro {
-                    Button { showingSubscription = true } label: {
-                        Image(systemName: "crown.fill")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Color(hex: "2F402E"))
-                            .frame(width: 32, height: 32)
-                            .background(Color.white).clipShape(Circle())
-                            .shadow(color: .black.opacity(0.14), radius: 3, y: 1)
-                    }
-                    .buttonStyle(.plain)
-                }
-                Button { appState.showingSettings = true } label: {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 15))
-                        .foregroundStyle(.white)
-                        .frame(width: 32, height: 32)
-                        .background(Color.white.opacity(0.16)).clipShape(Circle())
-                }
-                .buttonStyle(.plain)
-            }
-
-            SpendBreakdownBar(segments: segs)
-        }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(
-                colors: [Color(hex: "365F49"), Color(hex: "1E3A2A")],
-                startPoint: .top, endPoint: .bottom
+        HomeTagBar(selectedTagId: $homeBarTagId, period: selectedHeroPeriod, onDark: true)
+            .padding(.vertical, 4)
+            .frame(maxWidth: .infinity)
+            .background(
+                LinearGradient(
+                    colors: [Color(hex: "365F49"), Color(hex: "1E3A2A")],
+                    startPoint: .top, endPoint: .bottom
+                )
             )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .padding(.horizontal, 16)
-        .contentShape(Rectangle())
-        .onTapGesture { showingPeriodDetail = true }
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .padding(.horizontal, 16)
     }
 
     // MARK: - Search

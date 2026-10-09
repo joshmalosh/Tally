@@ -35,6 +35,11 @@ struct HomeTagBar: View {
     @Query(filter: #Predicate<ExpenseModel> { $0.deletedAt == nil })
     private var activeExpenses: [ExpenseModel]
     @Binding var selectedTagId: String?
+    /// The period the pin amounts cover — same window as the hero total, so the
+    /// pins read as the breakdown of that total rather than a separate figure.
+    var period: HeroPeriod = .year
+    /// Rendered on the dark green hero/rail (translucent cards) rather than on paper.
+    var onDark: Bool = false
     @State private var showingAddSheet = false
     @State private var editingTag: TagModel?
     // Drive the green scroll-position bar under the tag row.
@@ -72,27 +77,19 @@ struct HomeTagBar: View {
         return ordered + extra
     }
 
-    /// Sum of this year's expenses for a given tag ID.
-    private func yearlyTotal(for tagId: String) -> Int {
-        let cal = Calendar.current
-        let now = Date()
-        let yearStart = cal.dateInterval(of: .year, for: now)?.start ?? now
-        return activeExpenses
-            .filter { $0.date >= yearStart && $0.date <= now }
-            .filter { $0.currency == currency }
-            .filter { $0.resolvedTagIds.contains(tagId) }
-            .reduce(0) { $0 + $1.amountCents }
+    /// Expenses inside the hero's selected period, default currency only — summing
+    /// mixed currencies without a rate is meaningless.
+    private var periodExpenses: [ExpenseModel] {
+        let range = period.dateRange(financialYearStart: appState.currentFinancialYearStart)
+        return activeExpenses.filter {
+            $0.date >= range.start && $0.date <= range.end && $0.currency == currency
+        }
     }
 
-    /// Sum of this year's expenses across all tags, in the default currency only
-    /// — summing mixed currencies without a rate produces a meaningless total.
-    private var yearlyTotalAll: Int {
-        let cal = Calendar.current
-        let now = Date()
-        let yearStart = cal.dateInterval(of: .year, for: now)?.start ?? now
-        return activeExpenses
-            .filter { $0.date >= yearStart && $0.date <= now }
-            .filter { $0.currency == currency }
+    /// Sum of the selected period's expenses for a given tag ID.
+    private func periodTotal(for tagId: String) -> Int {
+        periodExpenses
+            .filter { $0.resolvedTagIds.contains(tagId) }
             .reduce(0) { $0 + $1.amountCents }
     }
 
@@ -116,12 +113,13 @@ struct HomeTagBar: View {
                 : (overEnd > 0 ? (trackWidth - thumbWidth)
                    : (trackWidth - baseThumb) * frac)
             ZStack(alignment: .leading) {
-                // Minimal moss hairline: mid-moss track, soft dark-moss thumb.
+                // Minimal hairline: on the green hero it's white-translucent; on
+                // paper it's the moss track + soft dark-moss thumb.
                 Capsule()
-                    .fill(Color(hex: "4A5E50").opacity(0.2))
+                    .fill(onDark ? Color.white.opacity(0.2) : Color(hex: "4A5E50").opacity(0.2))
                     .frame(width: trackWidth, height: 2.5)
                 Capsule()
-                    .fill(Color.brandPrimary.opacity(0.6))
+                    .fill(onDark ? Color.white.opacity(0.55) : Color.brandPrimary.opacity(0.6))
                     .frame(width: thumbWidth, height: 2.5)
                     .offset(x: thumbX)
             }
@@ -137,12 +135,15 @@ struct HomeTagBar: View {
                 TagFilterCard(
                     icon: "square.grid.2x2",
                     label: "All",
-                    amountCents: yearlyTotalAll,
+                    amountCents: 0,
                     currency: currency,
                     iconBg: Color(hex: "E8F0EA"),
                     iconColor: Color(hex: "346049"),
                     tint: Color(hex: "346049"),
-                    isSelected: selectedTagId == nil
+                    isSelected: selectedTagId == nil,
+                    onDark: onDark,
+                    // "All" carries no figure — that total already is the hero above.
+                    showAmount: false
                 ) {
                     // While editing, the always-visible All card doubles as an exit,
                     // in case many pins push the Done card past the row's edge.
@@ -160,7 +161,7 @@ struct HomeTagBar: View {
                 if isEditing {
                     DoneEditingCard { exitEditMode() }
                 } else {
-                    MoreTagCard {
+                    MoreTagCard(onDark: onDark) {
                         UIImpactFeedbackGenerator(style: .light).impactOccurred()
                         showingAddSheet = true
                     }
@@ -207,12 +208,13 @@ struct HomeTagBar: View {
                 icon: symbol,
                 iconEmoji: tag.displayEmoji,
                 label: tag.name,
-                amountCents: yearlyTotal(for: tag.id),
+                amountCents: periodTotal(for: tag.id),
                 currency: currency,
                 iconBg: primary,
                 iconColor: primary,
                 tint: primary,
                 isSelected: selectedTagId == tag.id,
+                onDark: onDark,
                 // Long-press enters edit mode (jiggle), like the iOS Home Screen.
                 onLongPress: { if !isEditing { enterEditMode() } }
             ) {
@@ -446,21 +448,47 @@ private struct TagFilterCard: View {
     var tint: Color = Color(hex: "346049")
     let isSelected: Bool
     var isWiggling: Bool = false
+    /// Rendered on the dark green hero/rail: translucent cards, white text, the
+    /// tag colour kept only in the emoji square. Selected flips to a white card.
+    var onDark: Bool = false
+    /// "All" carries no figure (that total is the hero), so its card hides the amount.
+    var showAmount: Bool = true
     var onLongPress: (() -> Void)? = nil
     let onTap: () -> Void
 
+    /// The "All" card uses a system grid glyph; tag cards carry an emoji.
+    private var isAll: Bool { iconEmoji == nil }
+
     var body: some View {
-            // Selected: the whole pill fills with Tally green, with the icon square,
-            // label and amount flipped to white so they read on the dark fill.
-            let effIconBg = isSelected ? Color.white.opacity(0.18) : iconBg
-            let effIconColor = isSelected ? Color.white : iconColor
-            let effLabelColor = isSelected ? Color.white.opacity(0.75) : tint
-            let effAmountColor = isSelected ? Color.white : Color(hex: "1C1C1E")
+            let cardBg: Color
+            let cardBorder: Color
+            let squareBg: Color
+            let effIconColor: Color
+            let effLabelColor: Color
+            let effAmountColor: Color
+            if onDark {
+                // On the green hero: a translucent card, the tag colour kept only in
+                // the emoji square. Selected flips to a solid white card, green text.
+                cardBg = isSelected ? .white : Color.white.opacity(0.10)
+                cardBorder = isSelected ? .clear : Color.white.opacity(0.16)
+                squareBg = isSelected ? iconBg : (isAll ? Color.white.opacity(0.18) : iconBg)
+                effIconColor = isSelected ? Color(hex: "2F402E") : .white
+                effLabelColor = isSelected ? Color(hex: "2F402E").opacity(0.8) : .white.opacity(0.9)
+                effAmountColor = isSelected ? Color(hex: "1C1C1E") : .white
+            } else {
+                // On paper: soft tint of the tag colour; selected fills Tally green.
+                cardBg = isSelected ? Color(hex: "2F402E") : tint.opacity(0.12)
+                cardBorder = isSelected ? .clear : tint.opacity(0.22)
+                squareBg = isSelected ? Color.white.opacity(0.18) : iconBg
+                effIconColor = isSelected ? .white : iconColor
+                effLabelColor = isSelected ? Color.white.opacity(0.75) : tint
+                effAmountColor = isSelected ? .white : Color(hex: "1C1C1E")
+            }
             return VStack(spacing: 5) {
                 // Icon square
                 ZStack {
                     RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .fill(effIconBg)
+                        .fill(squareBg)
                         .frame(width: 36, height: 36)
                     if let iconEmoji {
                         Text(iconEmoji).font(.system(size: 18))
@@ -479,28 +507,25 @@ private struct TagFilterCard: View {
                     .minimumScaleFactor(0.85)
                     .frame(maxWidth: .infinity, alignment: .center)
 
-                // Amount
-                Text(CurrencyFormatter.shared.format(cents: amountCents, currencyCode: currency))
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundStyle(effAmountColor)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                // Amount — hidden for "All" (its figure is the hero total above).
+                if showAmount {
+                    Text(CurrencyFormatter.shared.format(cents: amountCents, currencyCode: currency))
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .foregroundStyle(effAmountColor)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
             }
             .padding(8)
             .frame(width: 89, height: 89)
-            // Unselected: a soft tint of the tag's own colour (per Josh's reference).
-            // Selected: the Tally-green fill.
-            .background(isSelected ? Color(hex: "2F402E") : tint.opacity(0.12))
+            .background(cardBg)
             .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 19, style: .continuous)
-                    .stroke(
-                        isSelected ? Color.clear : tint.opacity(0.22),
-                        lineWidth: isSelected ? 0 : 0.5
-                    )
+                    .stroke(cardBorder, lineWidth: isSelected ? 0 : (onDark ? 1 : 0.5))
             )
-            .shadow(color: .black.opacity(0.05), radius: 7, x: 0, y: 2)
+            .shadow(color: .black.opacity(onDark ? 0 : 0.05), radius: 7, x: 0, y: 2)
             .contentShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
             .animation(.easeInOut(duration: 0.15), value: isSelected)
             // Subtle iOS-style shake when held to edit.
@@ -530,26 +555,29 @@ private struct TagFilterCard: View {
 // MARK: - "More" card
 
 private struct MoreTagCard: View {
+    var onDark: Bool = false
     let onTap: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
+        let fg = onDark ? Color.white.opacity(0.8) : Color(hex: "5E7A62")
+        let iconFg = onDark ? Color.white.opacity(0.85) : Color(hex: "6E8A70")
+        return Button(action: onTap) {
             VStack(spacing: 7) {
                 Image(systemName: "pin")
                     .font(.system(size: 21, weight: .regular))
-                    .foregroundStyle(Color(hex: "6E8A70"))
+                    .foregroundStyle(iconFg)
                 Text("Pin tag")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color(hex: "5E7A62"))
+                    .foregroundStyle(fg)
                     .lineLimit(1)
             }
             .frame(width: 89, height: 89)
-            .background(Color(hex: "EAF1EA"))
+            .background(onDark ? Color.white.opacity(0.08) : Color(hex: "EAF1EA"))
             .clipShape(RoundedRectangle(cornerRadius: 19, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 19, style: .continuous)
                     .stroke(style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-                    .foregroundStyle(Color(hex: "AEC7B1"))
+                    .foregroundStyle(onDark ? Color.white.opacity(0.28) : Color(hex: "AEC7B1"))
             )
         }
         .buttonStyle(.plain)
