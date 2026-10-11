@@ -46,6 +46,9 @@ struct ContentView: View {
                 didRefreshProStatus = true
                 Task { await SubscriptionService.refreshProStatus(appState: appState) }
             }
+            // Warm the Taptic engine so the first button tap of the session fires
+            // instantly instead of cold (the cold-start lag read as a dead button).
+            Haptics.prepare()
             seedDefaultTags()
             seedSystemTags()
             adManager.configure(isPro: appState.isPro)

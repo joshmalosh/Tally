@@ -72,6 +72,7 @@ struct TallyApp: App {
                 TagModel.self,
                 ReportModel.self,
             ])
+            let start = Date()
             do {
                 let config: ModelConfiguration
                 if cloudKitEnabled {
@@ -83,7 +84,9 @@ struct TallyApp: App {
                     config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
                 }
                 let container = try ModelContainer(for: schema, configurations: [config])
-                Log.data.info("ModelContainer created (CloudKit: \(cloudKitEnabled, privacy: .public))")
+                // Boot is dominated by this call; log how long it took so a slow
+                // launch can be traced to the store open vs. the first render.
+                Log.data.info("ModelContainer created in \(String(format: "%.2f", Date().timeIntervalSince(start)), privacy: .public)s (CloudKit: \(cloudKitEnabled, privacy: .public))")
                 return container
             } catch {
                 Log.data.critical("ModelContainer creation failed: \(error.localizedDescription, privacy: .public)")

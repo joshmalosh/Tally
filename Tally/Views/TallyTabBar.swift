@@ -59,7 +59,7 @@ struct TallyTabBar: View {
 
     private func tabItem(tab: TallyTab, icon: String, filledIcon: String, label: String) -> some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.tap()
             selectedTab = tab
         } label: {
             VStack(spacing: 3) {

@@ -154,7 +154,7 @@ struct HomeTagBar: View {
                     // While editing, the always-visible All card doubles as an exit,
                     // in case many pins push the Done card past the row's edge.
                     if isEditing { exitEditMode(); return }
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    Haptics.tap()
                     withAnimation(.easeInOut(duration: 0.15)) { selectedTagId = nil }
                 }
 
@@ -168,7 +168,7 @@ struct HomeTagBar: View {
                     DoneEditingCard { exitEditMode() }
                 } else {
                     MoreTagCard(onDark: onDark) {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        Haptics.tap()
                         showingAddSheet = true
                     }
                 }
@@ -224,7 +224,7 @@ struct HomeTagBar: View {
                 // Long-press enters edit mode (jiggle), like the iOS Home Screen.
                 onLongPress: { if !isEditing { enterEditMode() } }
             ) {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                Haptics.tap()
                 withAnimation(.easeInOut(duration: 0.15)) {
                     selectedTagId = selectedTagId == tag.id ? nil : tag.id
                 }
@@ -261,7 +261,7 @@ struct HomeTagBar: View {
             .onChanged { value in
                 if draggingId == nil {
                     draggingId = id
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    Haptics.tap()
                 }
                 dragTranslation = value.translation.width
             }
@@ -285,7 +285,7 @@ struct HomeTagBar: View {
 
     private func enterEditMode() {
         orderedHomeIds = homeTags.map(\.id)
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        Haptics.firm()
         withAnimation(.easeInOut(duration: 0.2)) { isEditing = true }
     }
 
@@ -315,7 +315,7 @@ struct HomeTagBar: View {
     }
 
     private func unpin(_ tag: TagModel) {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.tap()
         tag.showOnHome = false
         try? modelContext.save()
         withAnimation(.easeInOut(duration: 0.2)) {
@@ -565,7 +565,7 @@ private struct TagFilterCard: View {
             .onTapGesture { onTap() }
             .onLongPressGesture(minimumDuration: 0.13) {
                 guard let onLongPress else { return }
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                Haptics.firm()
                 onLongPress()
             }
     }
@@ -753,6 +753,6 @@ struct AddToHomeBarSheet: View {
     // happens once when the sheet is dismissed (see .onDisappear below).
     private func toggleHome(_ tag: TagModel) {
         tag.showOnHome.toggle()
-        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+        Haptics.crisp()
     }
 }

@@ -327,7 +327,7 @@ struct TagCreationView: View {
             Spacer(minLength: 8)
             HomeToggle(isOn: showOnHome) {
                 showOnHome.toggle()
-                UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+                Haptics.crisp()
             }
         }
         .padding(.horizontal, 12)
@@ -358,7 +358,7 @@ struct TagCreationView: View {
 
     private var saveButton: some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.tap()
             save()
         } label: {
             HStack(spacing: 6) {

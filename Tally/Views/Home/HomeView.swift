@@ -416,7 +416,7 @@ struct HomeView: View {
             withAnimation(.easeInOut(duration: 0.2)) { isKeyboardVisible = false }
         }
         .onReceive(NotificationCenter.default.publisher(for: .expenseDeleted)) { _ in
-            UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+            Haptics.crisp()
             shredTick += 1
             showingShred = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.8) {
@@ -574,7 +574,7 @@ struct HomeView: View {
             Image("TallyLogo")
                 .resizable()
                 .scaledToFit()
-                .frame(height: 24)
+                .frame(height: 36)
 
             Spacer()
 
@@ -590,7 +590,10 @@ struct HomeView: View {
                         .foregroundStyle(Color.danger)
                 }
                 if !appState.isPro {
-                    Button { showingSubscription = true } label: {
+                    Button {
+                        Haptics.tap()
+                        showingSubscription = true
+                    } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "crown.fill")
                                 .font(.system(size: 11, weight: .semibold))
@@ -607,7 +610,10 @@ struct HomeView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                Button { appState.showingSettings = true } label: {
+                Button {
+                    Haptics.tap()
+                    appState.showingSettings = true
+                } label: {
                     Image(systemName: "gearshape")
                         .font(.system(size: 16))
                         .foregroundStyle(Color(hex: "4A5E50"))
@@ -1238,7 +1244,7 @@ struct HomeView: View {
         }
         try? modelContext.save()
         appState.pendingUndo = nil
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.tap()
     }
 
     private func deleteExpense(_ expense: ExpenseModel) {
@@ -1301,7 +1307,7 @@ struct HomeView: View {
                                        action: @escaping () -> Void) -> some View {
         let enabled = !selectedExpenseIds.isEmpty
         return Button {
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            Haptics.firm()
             action()
         } label: {
             Image(systemName: icon)

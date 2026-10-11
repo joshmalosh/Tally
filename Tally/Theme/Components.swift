@@ -33,6 +33,15 @@ enum Haptics {
         rigidGen.impactOccurred()
         rigidGen.prepare()
     }
+
+    /// Prime the Taptic engine so the very first tap of a session isn't cold
+    /// (cold-start lag is what made the first button feel dead). Call once when
+    /// the main UI appears.
+    static func prepare() {
+        lightGen.prepare()
+        mediumGen.prepare()
+        rigidGen.prepare()
+    }
 }
 
 // MARK: - PrimaryButton

@@ -697,7 +697,7 @@ struct GlobalExportSheet: View {
         // CSV only reads as locked once the free monthly export is spent.
         let locked = opt.format == .csv ? !appState.canExportCSV : !appState.isPro
         return Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.tap()
             selectedFormat = opt.format
             performExport(format: opt.format)
         } label: {
@@ -766,7 +766,7 @@ struct GlobalExportSheet: View {
             }
             Spacer()
             Button {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                Haptics.firm()
                 performExport(format: selectedFormat)
             } label: {
                 HStack(spacing: 6) {
@@ -1043,7 +1043,7 @@ struct SelectedExportSheet: View {
                 showingProUpsell = true
                 return
             }
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            Haptics.tap()
             action()
         } label: {
             HStack(spacing: Spacing.smd) {

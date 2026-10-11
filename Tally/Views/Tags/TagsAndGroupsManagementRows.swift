@@ -132,7 +132,7 @@ struct TagsAndGroupsManagementRows: View {
                         // Mutate only; SwiftData autosave coalesces the write (and
                         // flushes on backgrounding). No per-tap disk write + export.
                         tag.showOnHome.toggle()
-                        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
+                        Haptics.crisp()
                     }
                     Image(systemName: "chevron.right")
                         .font(.system(size: 12, weight: .semibold))

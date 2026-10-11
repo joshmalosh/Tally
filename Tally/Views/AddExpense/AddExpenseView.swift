@@ -548,7 +548,7 @@ struct AddExpenseView: View {
                 if receiptImageAttached || isEditing {
                     ToolbarItem(placement: .confirmationAction) {
                         Button {
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                            Haptics.tap()
                             saveExpense()
                         } label: {
                             Text("Done")
@@ -2090,7 +2090,7 @@ struct AddExpenseView: View {
                     // Manual entry uses the docket (system keypad for the amount), so
                     // the bottom is a persistent Save CTA — no custom keypad any more.
                     Button {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                        Haptics.tap()
                         saveExpense()
                     } label: {
                         HStack(spacing: 6) {
@@ -2162,7 +2162,7 @@ struct AddExpenseView: View {
 
             // Save button
             Button {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                Haptics.tap()
                 saveExpense()
             } label: {
                 HStack(spacing: 6) {

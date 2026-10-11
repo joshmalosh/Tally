@@ -102,7 +102,7 @@ struct PeriodBreakdownBody: View {
             selectedBarId = nil
             expandedCategoryId = nil
         }
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        Haptics.tap()
     }
 
     /// Horizontal swipe on the chart pages months; capped at the current month
